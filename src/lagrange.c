@@ -4,27 +4,23 @@
 
 #include "lagrange.h"
 
-static void lagrange_numerator(unsigned n_nodes,
-    double x,
-    const double INTERPLIB_ARRAY_ARG(nodes, static restrict n_nodes),
-    double INTERPLIB_ARRAY_ARG(out, restrict n_nodes)
-)
-{
-}
-
-
 
 INTERPLIB_INTERNAL
 interp_error_t lagrange_interpolation_init(
+    unsigned n_in,
+    const double INTERPLIB_ARRAY_ARG(pos, static n_in),
     unsigned n_nodes,
-    double v,
     const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
-    double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes)
+    double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes * n_in),
+    double INTERPLIB_ARRAY_ARG(work, restrict n_nodes)
 )
 {
-    if ASSERT(x[0] <= v && v <= x[n_nodes - 1], "Point out of bounds")
+    for (unsigned i = 0; i < n_in; ++i)
     {
-        return INTERP_ERROR_NOT_IN_DOMAIN;
+        if ASSERT(x[0] <= pos[i] && pos[i] <= x[n_nodes - 1], "Point out of bounds")
+        {
+            return INTERP_ERROR_NOT_IN_DOMAIN;
+        }
     }
 
     for (unsigned i = 1; i < n_nodes; ++i)
@@ -35,13 +31,14 @@ interp_error_t lagrange_interpolation_init(
         }
     }
 
-    weights[0] = 1.0;
+
+    work[0] = 1.0;
     // Compute the first denominator directly
     for (unsigned j = 1; j < n_nodes; ++j)
     {
         const double dif = x[0] - x[j];
-        weights[0] *= dif;
-        weights[j] = -dif;
+        work[0] *= dif;
+        work[j] = -dif;
     }
 
     //  Compute the rest as a loop now that all entries are initialized
@@ -50,28 +47,46 @@ interp_error_t lagrange_interpolation_init(
         for (unsigned j = i + 1; j < n_nodes; ++j)
         {
             const double dif = x[i] - x[j];
-            weights[i] *= +dif;
-            weights[j] *= -dif;
+            work[i] *= +dif;
+            work[j] *= -dif;
         }
     }
 
     //  Invert the denominator
     for (unsigned i = 0; i < n_nodes; ++i)
     {
-        weights[i] = 1.0 / weights[i];
+        work[i] = 1.0 / work[i];
     }
 
     //  Compute the numerator now
-    for (unsigned i = 0; i < n_nodes; ++i)
+    for (unsigned k = 0; k < n_in; ++k)
     {
-        const double dif = v - x[i];
-        for (unsigned j = 0; j < i; ++j)
+        double* const row = weights + n_nodes * k;
+        //  First loop can be used to initialize the row
         {
-            weights[j] *= +dif;
+            const double dif = pos[k] - x[0];
+            row[0] = 1.0;
+            for (unsigned j = 1; j < n_nodes; ++j)
+            {
+                row[j] = +dif;
+            }
         }
-        for (unsigned j = i + 1; j < n_nodes; ++j)
+        for (unsigned i = 1; i < n_nodes; ++i)
         {
-            weights[j] *= +dif;
+            const double dif = pos[k] - x[i];
+            for (unsigned j = 0; j < i; ++j)
+            {
+                row[j] *= +dif;
+            }
+            for (unsigned j = i + 1; j < n_nodes; ++j)
+            {
+                row[j] *= +dif;
+            }
+        }
+        //  Multiply by 1/denominator
+        for (unsigned i = 0; i < n_nodes; ++i)
+        {
+            row[i] *= work[i];
         }
     }
 

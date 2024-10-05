@@ -8,11 +8,12 @@
 
 
 /**
-* @brief Compute weights of lagrange interpolation at the nodes.
+* @brief Compute weights of lagrange interpolation at the nodes. The interpolation can be computed for any function on
+* the same mesh by taking the inner product of the weights with the function values.
 *
 * @param n_nodes Number of nodes.
+* @param v Point where the interpolation is needed.
 * @param x Array of x-values of nodes, which must be monotonically increasing.
-* @param y Array of y-values of nodes.
 * @param weights Array which receives the weights for the interpolation.
 *
 * @return `INTERP_SUCCESS` on success, `INTERP_ERROR_NOT_INCREASING` if `x[i + 1] > x[i]` does not hold for all `i`.
@@ -20,49 +21,28 @@
 INTERPLIB_INTERNAL
 interp_error_t lagrange_interpolation_init(
     unsigned n_nodes,
+    double v,
     const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
-    const double INTERPLIB_ARRAY_ARG(y, static n_nodes),
     double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes)
 );
 
 /**
-* @brief Compute the interpolation at a specific point.
-*
-* @param n_nodes Number of interpolation nodes.
-* @param nodes Interpolation nodes
-* @param weights Interpolation weights computed prior.
-* @param x Value where to evaluate the interpolation. Must be between the nodes.
-* @param p_y Pointer which receives the output of the interpolation.
-* @param work Array used by function for intermediate results. Should have space for at least `this->n_nodes` elements.
-*/
-INTERPLIB_INTERNAL
-interp_error_t lagrange_interpolation_evaluate(
-    unsigned n_nodes,
-    const double INTERPLIB_ARRAY_ARG(nodes, static n_nodes),
-    const double INTERPLIB_ARRAY_ARG(weights, static n_nodes),
-    double x,
-    double* p_y,
-    double INTERPLIB_ARRAY_ARG(work, restrict n_nodes)
-    );
-
-/**
-* @brief Evaluate first derivative of lagrange's interpolation.
+* @brief Evaluate first derivative of lagrange's interpolation.The interpolation can be computed for any function on
+* the same mesh by taking the inner product of the weights with the function values.
 *
 * @param n_nodes Number of nodes.
+* @param v Point where the interpolation is needed.
 * @param x Array of x-values of nodes, which must be monotonically increasing.
-* @param y Array of y-values of nodes.
-* @param v Where the interpolation should be evaluated at.
-* @param p_out Pointer which receives the output.
+* @param weights Array which receives the weights for the interpolation.
 *
 * @return `INTERP_SUCCESS` on success, `INTERP_ERROR_NOT_INCREASING` if `x[i + 1] > x[i]` does not hold for all `i`.
 */
 INTERPLIB_INTERNAL
 interp_error_t dlagrange_interpolation(
     unsigned n_nodes,
-    const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
-    const double INTERPLIB_ARRAY_ARG(y, static n_nodes),
     double v,
-    double* restrict p_out
+    const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
+    double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes)
 );
 
 #endif //LAGRANGE_H

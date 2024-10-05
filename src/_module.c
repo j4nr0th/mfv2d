@@ -46,45 +46,38 @@ static PyObject *interp_lagrange(PyObject *module, PyObject *args)
     }
     npy_intp n_pts = PyArray_SIZE(x);
     npy_intp n_nodes = PyArray_SIZE(xp);
-    double* working_memory = PyMem_Malloc(2 * n_nodes * sizeof(*working_memory));
-    if (working_memory == NULL)
+    double* weights = PyMem_Malloc( n_nodes * sizeof(*weights));
+    if (weights == NULL)
     {
         Py_DECREF(out);
         return PyErr_NoMemory();
     }
 
-    interp_error_t interp_res = lagrange_interpolation_init(n_nodes, PyArray_DATA(xp), PyArray_DATA(yp), working_memory);
-
-    if (interp_res != INTERP_SUCCESS)
-    {
-        printf("%s:%u\n", __FILE__, __LINE__);
-        PyMem_Free(working_memory);
-        Py_DECREF(out);
-        return PyErr_Format(
-            PyExc_RuntimeError,
-            "Error occurred during interpolation (%s): %s",
-            interp_error_str(interp_res),
-            interp_error_msg(interp_res)
-        );
-    }
-
     const double* const p_x = (double*)PyArray_DATA(x);
     double* const p_out = (double*)PyArray_DATA(out);
 
+    const double* const yvals = (double*)PyArray_DATA(yp);
+
     for (unsigned i = 0; i < n_pts; i++)
     {
-        interp_res = lagrange_interpolation_evaluate(
+        const interp_error_t interp_res = lagrange_interpolation_init(
             n_nodes,
-            PyArray_DATA(xp),
-            working_memory,
             p_x[i],
-            p_out + i,
-            working_memory + 1 * n_nodes
+            PyArray_DATA(xp),
+            weights
         );
-        ASSERT(interp_res == INTERP_SUCCESS, "Interpolation failed");
+        if (!ASSERT(interp_res == INTERP_SUCCESS, "Interpolation failed"))
+        {
+            double dp = 0.0;
+            for (unsigned j = 0; j < n_nodes; ++j)
+            {
+                dp += yvals[j] * weights[j];
+            }
+            p_out[i] = dp;
+        }
     }
 
-    PyMem_Free(working_memory);
+    PyMem_Free(weights);
     return (PyObject*)PyArray_Return(out);
 }
 
@@ -115,26 +108,41 @@ static PyObject *interp_dlagrange(PyObject *module, PyObject *args)
     }
     npy_intp n_pts = PyArray_SIZE(x);
     npy_intp n_nodes = PyArray_SIZE(xp);
-
+    double* weights = PyMem_Malloc( n_nodes * sizeof(*weights));
+    if (weights == NULL)
+    {
+        Py_DECREF(out);
+        return PyErr_NoMemory();
+    }
 
     const double* const p_x = (double*)PyArray_DATA(x);
     double* const p_out = (double*)PyArray_DATA(out);
+    const double* const yvals = (double*)PyArray_DATA(yp);
     for (unsigned i = 0; i < n_pts; i++)
     {
         const interp_error_t interp_res = dlagrange_interpolation(
             n_nodes,
-            PyArray_DATA(xp),
-            PyArray_DATA(yp),
             p_x[i],
-            p_out + i
+            PyArray_DATA(xp),
+            weights
         );
-        ASSERT(interp_res == INTERP_SUCCESS, "Interpolation failed");
+        if (!ASSERT(interp_res == INTERP_SUCCESS, "Interpolation failed"))
+        {
+            double dp = 0.0;
+            for (unsigned j = 0; j < n_nodes; ++j)
+            {
+                dp += yvals[j] * weights[j];
+            }
+            p_out[i] = dp;
+        }
     }
 
+    PyMem_Free(weights);
     return (PyObject*)PyArray_Return(out);
 }
 
 PyDoc_STRVAR(interp_lagrange_doc,"lagrange1d(x: array, xp: array, yp: array) -> array");
+PyDoc_STRVAR(interp_dlagrange_doc,"dlagrange1d(x: array, xp: array, yp: array) -> array");
 
 
 static PyObject *test_method(PyObject *self, PyObject *args)
@@ -149,7 +157,7 @@ static PyMethodDef module_methods[] =
 {
     {"test", test_method, METH_NOARGS, "Test method that only returns a string."},
     {"lagrange1d", interp_lagrange, METH_VARARGS, interp_lagrange_doc},
-    {"dlagrange1d", interp_dlagrange, METH_VARARGS, interp_lagrange_doc},
+    {"dlagrange1d", interp_dlagrange, METH_VARARGS, interp_dlagrange_doc},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

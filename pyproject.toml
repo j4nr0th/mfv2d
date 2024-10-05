@@ -1,0 +1,24 @@
+[project]
+name = "interplib"
+version = "0.0.1"
+authors = [{ name = "Jan Roth", email = "r0th.j4n@gmail.com" }]
+description = "Interpolation library designed to handle different topologies."
+requires-python = ">3.9"
+dependencies = [
+    "numpy>=2.0.0"
+]
+
+
+[build-system]
+requires = ["scikit-build-core", "numpy"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+cmake.build-type = "Release"
+cmake.source-dir = "."
+build.verbose = true
+logging.level = "INFO"
+editable.verbose = true
+editable.rebuild = false
+wheel.py-api = "cp310"
+

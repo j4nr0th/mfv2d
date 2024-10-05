@@ -19,8 +19,20 @@ def test_lagrange1d(n):
     yvals = np.array(yvals, dtype=np.float64)
 
     interpolated = _interp.lagrange1d(xvals, xvals, yvals)
-    assert np.all(np.abs(interpolated - yvals) < 1e-15 * n)
+    assert interpolated == pytest.approx(yvals)
 
+
+
+@pytest.mark.parametrize("n", np.arange(2, 6))
+def test_lagrange2d(n):
+    np.random.seed(0)
+    xvals = np.sort(np.random.random_sample(n + 1))
+    yvals = xvals ** n
+    xvals = np.array(xvals, dtype=np.float64)
+    yvals = np.array(yvals, dtype=np.float64)
+
+    interpolated = _interp.dlagrange1d(xvals, xvals, yvals)
+    assert interpolated == pytest.approx(xvals ** (n - 1) * n)
 
 
 

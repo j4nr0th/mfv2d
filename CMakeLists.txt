@@ -33,4 +33,4 @@ if (CMAKE_C_COMPILER_ID EQUAL "GNU")
 endif ()
 
 enable_testing()
-add_test(NAME test_low_level COMMAND ${Python3_EXECUTABLE} -m pytest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_test(NAME pytest COMMAND ${Python3_EXECUTABLE} -m pytest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})

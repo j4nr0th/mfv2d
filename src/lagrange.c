@@ -6,7 +6,7 @@
 
 
 INTERPLIB_INTERNAL
-interp_error_t lagrange_interpolation_init(
+interp_error_t lagrange_polynomial_values(
     unsigned n_in,
     const double INTERPLIB_ARRAY_ARG(pos, static n_in),
     unsigned n_nodes,
@@ -94,7 +94,7 @@ interp_error_t lagrange_interpolation_init(
 }
 
 INTERPLIB_INTERNAL
-interp_error_t dlagrange_interpolation(
+interp_error_t lagrange_polynomial_first_derivative(
     unsigned n_in,
     const double INTERPLIB_ARRAY_ARG(pos, static n_in),
     unsigned n_nodes,
@@ -196,6 +196,120 @@ interp_error_t dlagrange_interpolation(
 
     return INTERP_SUCCESS;
 }
+
+
+
+
+INTERPLIB_INTERNAL
+interp_error_t lagrange_polynomial_second_derivative(
+    unsigned n_in,
+    const double INTERPLIB_ARRAY_ARG(pos, static n_in),
+    unsigned n_nodes,
+    const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
+    double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes * n_in),
+    double INTERPLIB_ARRAY_ARG(work1, restrict n_nodes),
+    double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes)
+)
+{
+    for (unsigned i = 0; i < n_in; ++i)
+    {
+        if ASSERT(x[0] <= pos[i] && pos[i] <= x[n_nodes - 1], "Point not in domain")
+        {
+            return INTERP_ERROR_NOT_IN_DOMAIN;
+        }
+    }
+
+    for (unsigned i = 1; i < n_nodes; ++i)
+    {
+        if ASSERT(x[i] > x[i - 1], "Nodes not monotonically increasing.")
+        {
+            return INTERP_ERROR_NOT_INCREASING;
+        }
+    }
+
+    // compute denominators
+
+    work1[0] = 1.0;
+    // Compute the first denominator directly
+    for (unsigned j = 1; j < n_nodes; ++j)
+    {
+        const double dif = x[0] - x[j];
+        work1[0] *= dif;
+        work1[j] = -dif;
+    }
+
+    //  Compute the rest as a loop now that all entries are initialized
+    for (unsigned i = 1; i < n_nodes; ++i)
+    {
+        for (unsigned j = i + 1; j < n_nodes; ++j)
+        {
+            const double dif = x[i] - x[j];
+            work1[i] *= +dif;
+            work1[j] *= -dif;
+        }
+    }
+
+    //  Invert the denominator
+    for (unsigned i = 0; i < n_nodes; ++i)
+    {
+        work1[i] = 1.0 / work1[i];
+    }
+
+    //  Now loop per node
+    for (unsigned ipos = 0; ipos < n_in; ++ipos)
+    {
+        const double v = pos[ipos];
+        for (unsigned j = 0; j < n_nodes; ++j)
+        {
+            //  Compute the differences
+            work2[j] = v - x[j];
+            //  Initialize the row of weights about to be computed
+            weights[n_nodes * ipos + j] = 0.0;
+        }
+
+        for (unsigned i = 0; i < n_nodes; ++i)
+        {
+            for (unsigned j = 0; j < i; ++j)
+            {
+
+                for (unsigned k = 0; k < j; ++k)
+                {
+                    double dlijkdx = 1.0;
+                    //  Loop split into four parts to enforce l != {i, j, k}
+                    for (unsigned l = 0; l < k; ++l)
+                    {
+                        dlijkdx *= work2[l];
+                    }
+                    for (unsigned l = k + 1; l < j; ++l)
+                    {
+                        dlijkdx *= work2[l];
+                    }
+                    for (unsigned l = j + 1; l < i; ++l)
+                    {
+                        dlijkdx *= work2[l];
+                    }
+                    for (unsigned l = i + 1; l < n_nodes; ++l)
+                    {
+                        dlijkdx *= work2[l];
+                    }
+                    //  L_i^j and L_j^i have same numerators
+                    weights[n_nodes * ipos + k] += 2 * dlijkdx;
+                    weights[n_nodes * ipos + j] += 2 * dlijkdx;
+                    weights[n_nodes * ipos + i] += 2 * dlijkdx;
+                }
+            }
+        }
+
+        for (unsigned j = 0; j < n_nodes; ++j)
+        {
+            //  Initialize the row of weights about to be computed
+            weights[n_nodes * ipos + j] *= work1[j];
+        }
+    }
+
+    return INTERP_SUCCESS;
+}
+
 
 
 

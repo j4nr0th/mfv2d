@@ -10,8 +10,98 @@ from interplib._interp import dlagrange1d as _dlagrange1d
 from interplib._interp import d2lagrange1d as _d2lagrange1d
 
 
-def lagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], yp: npt.ArrayLike[np.floating]) -> npt.NDArray[np.float64]:
-    """Interpolate value of function given its values at a number of nodes.
+def lagrange_function_samples(
+    x: npt.ArrayLike[np.floating],
+    xp: npt.ArrayLike[np.floating]
+) -> npt.NDArray[np.float64]:
+    """Compute interpolation matrix for function based on samples.
+
+    Parameters
+    ----------
+    x : (N,) array_like
+        Points where the function should be evaluated at.
+    xp : (M,) array_like
+        Points where the function samples will be given.
+
+    Returns
+    -------
+    (N, M) ndarray
+        Matrix which, if multiplied by ``f(xp)`` will give approximations to
+        ``f(x)``, where ``f`` is a scalar function.
+    """
+    real_x: npt.NDArray[np.float64] = np.atleast_1d(ensure_array(x, np.float64))
+    real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
+
+    flat_x = np.ravel(real_x, order="C")
+
+    interp_mtx = _lagrange1d(flat_x, real_xp)
+
+    return interp_mtx
+
+
+def lagrange_derivative_samples(
+    x: npt.ArrayLike[np.floating],
+    xp: npt.ArrayLike[np.floating]
+) -> npt.NDArray[np.float64]:
+    """Compute interpolation matrix for derivatives based on samples.
+
+    Parameters
+    ----------
+    x : (N,) array_like
+        Points where the function should be evaluated at.
+    xp : (M,) array_like
+        Points where the function samples will be given.
+
+    Returns
+    -------
+    (N, M) ndarray
+        Matrix which, if multiplied by ``f(xp)`` will give approximations to
+        ``df/dx``, where ``f`` is a scalar function.
+    """
+    real_x: npt.NDArray[np.float64] = np.atleast_1d(ensure_array(x, np.float64))
+    real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
+
+    flat_x = np.ravel(real_x, order="C")
+
+    interp_mtx = _dlagrange1d(flat_x, real_xp)
+
+    return interp_mtx
+
+
+def lagrange_2derivative_samples(
+    x: npt.ArrayLike[np.floating],
+    xp: npt.ArrayLike[np.floating]
+) -> npt.NDArray[np.float64]:
+    """Compute interpolation matrix for second derivatives  based on samples.
+
+    Parameters
+    ----------
+    x : (N,) array_like
+        Points where the function should be evaluated at.
+    xp : (M,) array_like
+        Points where the function samples will be given.
+
+    Returns
+    -------
+    (N, M) ndarray
+        Matrix which, if multiplied by ``f(xp)`` will give approximations to
+        ``d^2f/dx^2``, where ``f`` is a scalar function.
+    """
+    real_x: npt.NDArray[np.float64] = np.atleast_1d(ensure_array(x, np.float64))
+    real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
+
+    flat_x = np.ravel(real_x, order="C")
+
+    interp_mtx = _d2lagrange1d(flat_x, real_xp)
+
+    return interp_mtx
+
+def interp1d_function_samples(
+    x: npt.ArrayLike[np.floating],
+    xp: npt.ArrayLike[np.floating],
+    yp: npt.ArrayLike[np.floating]
+) -> npt.NDArray[np.float64]:
+    """Interpolate value of function given its values at nodes.
 
     Parameters
     ----------
@@ -32,20 +122,24 @@ def lagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], yp
     real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
     real_yp: npt.NDArray[np.float64] = ensure_array(yp, np.float64)
 
-    if len(real_xp.shape) != 1 or len(real_yp.shape) != 1 or real_xp.shape != real_yp.shape:
+    if (
+        len(real_xp.shape) != 1
+        or len(real_yp.shape) != 1
+        or real_xp.shape != real_yp.shape
+    ):
         raise ValueError("Both xp and yp must be flat arrays of equal length")
 
-    sort_idx = np.argsort(real_xp)
-
-    flat_x = np.ravel(real_x, order="C")
-
-    interp_mtx = _lagrange1d(flat_x, real_xp[sort_idx])
+    interp_mtx = lagrange_function_samples(real_x, real_xp)
 
     return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
 
 
-def dlagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], yp: npt.ArrayLike[np.floating]) -> npt.NDArray[np.float64]:
-    """Interpolate derivative of function given its values at a number of nodes.
+def interp1d_derivative_samples(
+    x: npt.ArrayLike[np.floating],
+    xp: npt.ArrayLike[np.floating],
+    yp: npt.ArrayLike[np.floating]
+) -> npt.NDArray[np.float64]:
+    """Interpolate derivative of function given its values at nodes.
 
     Parameters
     ----------
@@ -66,20 +160,24 @@ def dlagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], y
     real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
     real_yp: npt.NDArray[np.float64] = ensure_array(yp, np.float64)
 
-    if len(real_xp.shape) != 1 or len(real_yp.shape) != 1 or real_xp.shape != real_yp.shape:
+    if (
+        len(real_xp.shape) != 1
+        or len(real_yp.shape) != 1
+        or real_xp.shape != real_yp.shape
+    ):
         raise ValueError("Both xp and yp must be flat arrays of equal length")
 
-    sort_idx = np.argsort(real_xp)
-
-    flat_x = np.ravel(real_x, order="C")
-
-    interp_mtx = _dlagrange1d(flat_x, real_xp[sort_idx])
+    interp_mtx = lagrange_derivative_samples(real_x, real_xp)
 
     return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
 
 
-def d2lagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], yp: npt.ArrayLike[np.floating]) -> npt.NDArray[np.float64]:
-    """Interpolate second derivative of function given its values at a number of nodes.
+def interp1d_2derivative_samples(
+    x: npt.ArrayLike[np.floating],
+    xp: npt.ArrayLike[np.floating],
+    yp: npt.ArrayLike[np.floating]
+) -> npt.NDArray[np.float64]:
+    """Interpolate second derivative of function given its values at nodes.
 
     Parameters
     ----------
@@ -100,14 +198,14 @@ def d2lagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], 
     real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
     real_yp: npt.NDArray[np.float64] = ensure_array(yp, np.float64)
 
-    if len(real_xp.shape) != 1 or len(real_yp.shape) != 1 or real_xp.shape != real_yp.shape:
+    if (
+        len(real_xp.shape) != 1
+        or len(real_yp.shape) != 1
+        or real_xp.shape != real_yp.shape
+    ):
         raise ValueError("Both xp and yp must be flat arrays of equal length")
 
-    sort_idx = np.argsort(real_xp)
-
-    flat_x = np.ravel(real_x, order="C")
-
-    interp_mtx = _d2lagrange1d(flat_x, real_xp[sort_idx])
+    interp_mtx = lagrange_2derivative_samples(real_x, real_xp)
 
     return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
 

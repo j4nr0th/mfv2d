@@ -15,23 +15,6 @@ interp_error_t lagrange_polynomial_values(
     double INTERPLIB_ARRAY_ARG(work, restrict n_nodes)
 )
 {
-    for (unsigned i = 0; i < n_in; ++i)
-    {
-        if ASSERT(x[0] <= pos[i] && pos[i] <= x[n_nodes - 1], "Point out of bounds")
-        {
-            return INTERP_ERROR_NOT_IN_DOMAIN;
-        }
-    }
-
-    for (unsigned i = 1; i < n_nodes; ++i)
-    {
-        if ASSERT(x[i] > x[i-1], "Nodes not monotonically increasing")
-        {
-            return INTERP_ERROR_NOT_INCREASING;
-        }
-    }
-
-
     work[0] = 1.0;
     // Compute the first denominator directly
     for (unsigned j = 1; j < n_nodes; ++j)
@@ -106,22 +89,6 @@ interp_error_t lagrange_polynomial_first_derivative(
     double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes)
 )
 {
-    for (unsigned i = 0; i < n_in; ++i)
-    {
-        if ASSERT(x[0] <= pos[i] && pos[i] <= x[n_nodes - 1], "Point not in domain")
-        {
-            return INTERP_ERROR_NOT_IN_DOMAIN;
-        }
-    }
-
-    for (unsigned i = 1; i < n_nodes; ++i)
-    {
-        if ASSERT(x[i] > x[i - 1], "Nodes not monotonically increasing.")
-        {
-            return INTERP_ERROR_NOT_INCREASING;
-        }
-    }
-
     // compute denominators
 
     work1[0] = 1.0;
@@ -211,22 +178,6 @@ interp_error_t lagrange_polynomial_second_derivative(
     double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes)
 )
 {
-    for (unsigned i = 0; i < n_in; ++i)
-    {
-        if ASSERT(x[0] <= pos[i] && pos[i] <= x[n_nodes - 1], "Point not in domain")
-        {
-            return INTERP_ERROR_NOT_IN_DOMAIN;
-        }
-    }
-
-    for (unsigned i = 1; i < n_nodes; ++i)
-    {
-        if ASSERT(x[i] > x[i - 1], "Nodes not monotonically increasing.")
-        {
-            return INTERP_ERROR_NOT_INCREASING;
-        }
-    }
-
     // compute denominators
 
     work1[0] = 1.0;

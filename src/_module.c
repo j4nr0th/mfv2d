@@ -24,30 +24,30 @@ static PyObject *interp_lagrange(PyObject *module, PyObject *args)
     (void)module;
     PyArrayObject *x;
     PyArrayObject *xp;
-    PyArrayObject *yp;
-    if (!PyArg_ParseTuple(args, "O!O!O!", &PyArray_Type, &x, &PyArray_Type, &xp, &PyArray_Type, &yp))
+    if (!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &x, &PyArray_Type, &xp))
     {
         return NULL;
     }
 
     ASSERT(PyArray_TYPE(x) == NPY_DOUBLE, "Incorrect type for array x");
     ASSERT(PyArray_TYPE(xp) == NPY_DOUBLE, "Incorrect type for array xp");
-    ASSERT(PyArray_TYPE(yp) == NPY_DOUBLE, "Incorrect type for array yp");
 
     ASSERT(PyArray_NDIM(x) == 1, "Incorrect shape for array x");
     ASSERT(PyArray_NDIM(xp) == 1, "Incorrect shape for array xp");
-    ASSERT(PyArray_NDIM(yp) == 1, "Incorrect shape for array yp");
 
 
-    PyArrayObject* out = (PyArrayObject*)PyArray_SimpleNew(PyArray_NDIM(x), PyArray_SHAPE(x), PyArray_TYPE(x));
+    npy_intp n_pts = PyArray_SIZE(x);
+    npy_intp n_nodes = PyArray_SIZE(xp);
+
+    npy_intp dims[2] = {n_pts, n_nodes};
+
+    PyArrayObject* out = (PyArrayObject*)PyArray_SimpleNew(2, dims, NPY_DOUBLE);
     if (!out)
     {
         return NULL;
     }
-    npy_intp n_pts = PyArray_SIZE(x);
-    npy_intp n_nodes = PyArray_SIZE(xp);
-    double* weights = PyMem_Malloc( n_nodes * (n_pts + 1) * sizeof(*weights));
-    if (weights == NULL)
+    double* work = PyMem_Malloc(n_nodes * sizeof(*work));
+    if (work == NULL)
     {
         Py_DECREF(out);
         return PyErr_NoMemory();
@@ -56,28 +56,17 @@ static PyObject *interp_lagrange(PyObject *module, PyObject *args)
     const double* const p_x = (double*)PyArray_DATA(x);
     double* const p_out = (double*)PyArray_DATA(out);
 
-    const double* const yvals = (double*)PyArray_DATA(yp);
     const interp_error_t interp_res = lagrange_polynomial_values(
         n_pts,
         p_x,
         n_nodes,
         PyArray_DATA(xp),
-        weights,
-        weights + n_nodes * n_pts
+        p_out,
+        work
     );
     ASSERT(interp_res == INTERP_SUCCESS, "Interpolation failed");
 
-    for (unsigned i = 0; i < n_pts; i++)
-    {
-        const double* row = weights + i * n_nodes;
-        p_out[i] = 0.0;
-        for (unsigned j = 0; j < n_nodes; ++j)
-        {
-            p_out[i] += yvals[j] * row[j];
-        }
-    }
-
-    PyMem_Free(weights);
+    PyMem_Free(work);
     return (PyObject*)PyArray_Return(out);
 }
 
@@ -86,30 +75,31 @@ static PyObject *interp_dlagrange(PyObject *module, PyObject *args)
     (void)module;
     PyArrayObject *x;
     PyArrayObject *xp;
-    PyArrayObject *yp;
-    if (!PyArg_ParseTuple(args, "O!O!O!", &PyArray_Type, &x, &PyArray_Type, &xp, &PyArray_Type, &yp))
+    if (!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &x, &PyArray_Type, &xp))
     {
         return NULL;
     }
 
     ASSERT(PyArray_TYPE(x) == NPY_DOUBLE, "Incorrect type for array x");
     ASSERT(PyArray_TYPE(xp) == NPY_DOUBLE, "Incorrect type for array xp");
-    ASSERT(PyArray_TYPE(yp) == NPY_DOUBLE, "Incorrect type for array yp");
 
     ASSERT(PyArray_NDIM(x) == 1, "Incorrect shape for array x");
     ASSERT(PyArray_NDIM(xp) == 1, "Incorrect shape for array xp");
-    ASSERT(PyArray_NDIM(yp) == 1, "Incorrect shape for array yp");
 
 
-    PyArrayObject* out = (PyArrayObject*)PyArray_SimpleNew(PyArray_NDIM(x), PyArray_SHAPE(x), PyArray_TYPE(x));
+    npy_intp n_pts = PyArray_SIZE(x);
+    npy_intp n_nodes = PyArray_SIZE(xp);
+
+    npy_intp dims[2] = {n_pts, n_nodes};
+
+
+    PyArrayObject* out = (PyArrayObject*)PyArray_SimpleNew(2, dims, NPY_DOUBLE);
     if (!out)
     {
         return NULL;
     }
-    npy_intp n_pts = PyArray_SIZE(x);
-    npy_intp n_nodes = PyArray_SIZE(xp);
-    double* weights = PyMem_Malloc( (n_pts + 2) * n_nodes * sizeof(*weights));
-    if (weights == NULL)
+    double* work = PyMem_Malloc(2 * n_nodes * sizeof(*work));
+    if (work == NULL)
     {
         Py_DECREF(out);
         return PyErr_NoMemory();
@@ -117,29 +107,19 @@ static PyObject *interp_dlagrange(PyObject *module, PyObject *args)
 
     const double* const p_x = (double*)PyArray_DATA(x);
     double* const p_out = (double*)PyArray_DATA(out);
-    const double* const yvals = (double*)PyArray_DATA(yp);
+
     const interp_error_t interp_res = lagrange_polynomial_first_derivative(
         n_pts,
         p_x,
         n_nodes,
         PyArray_DATA(xp),
-        weights,
-        weights + (n_nodes * n_pts),
-        weights + (n_nodes * (n_pts + 1))
+        p_out,
+        work,
+        work + n_nodes
     );
     ASSERT(interp_res == INTERP_SUCCESS, "Interpolation failed");
 
-    for (unsigned i = 0; i < n_pts; i++)
-    {
-        const double* row = weights + i * n_nodes;
-        p_out[i] = 0.0;
-        for (unsigned j = 0; j < n_nodes; ++j)
-        {
-            p_out[i] += yvals[j] * row[j];
-        }
-    }
-
-    PyMem_Free(weights);
+    PyMem_Free(work);
     return (PyObject*)PyArray_Return(out);
 }
 
@@ -148,30 +128,30 @@ static PyObject *interp_d2lagrange(PyObject *module, PyObject *args)
     (void)module;
     PyArrayObject *x;
     PyArrayObject *xp;
-    PyArrayObject *yp;
-    if (!PyArg_ParseTuple(args, "O!O!O!", &PyArray_Type, &x, &PyArray_Type, &xp, &PyArray_Type, &yp))
+    if (!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &x, &PyArray_Type, &xp))
     {
         return NULL;
     }
 
     ASSERT(PyArray_TYPE(x) == NPY_DOUBLE, "Incorrect type for array x");
     ASSERT(PyArray_TYPE(xp) == NPY_DOUBLE, "Incorrect type for array xp");
-    ASSERT(PyArray_TYPE(yp) == NPY_DOUBLE, "Incorrect type for array yp");
 
     ASSERT(PyArray_NDIM(x) == 1, "Incorrect shape for array x");
     ASSERT(PyArray_NDIM(xp) == 1, "Incorrect shape for array xp");
-    ASSERT(PyArray_NDIM(yp) == 1, "Incorrect shape for array yp");
 
 
-    PyArrayObject* out = (PyArrayObject*)PyArray_SimpleNew(PyArray_NDIM(x), PyArray_SHAPE(x), PyArray_TYPE(x));
+    npy_intp n_pts = PyArray_SIZE(x);
+    npy_intp n_nodes = PyArray_SIZE(xp);
+
+    npy_intp dims[2] = {n_pts, n_nodes};
+
+    PyArrayObject* out = (PyArrayObject*)PyArray_SimpleNew(2, dims, NPY_DOUBLE);
     if (!out)
     {
         return NULL;
     }
-    npy_intp n_pts = PyArray_SIZE(x);
-    npy_intp n_nodes = PyArray_SIZE(xp);
-    double* weights = PyMem_Malloc( (n_pts + 2) * n_nodes * sizeof(*weights));
-    if (weights == NULL)
+    double* work = PyMem_Malloc(2 * n_nodes * sizeof(*work));
+    if (work == NULL)
     {
         Py_DECREF(out);
         return PyErr_NoMemory();
@@ -179,35 +159,25 @@ static PyObject *interp_d2lagrange(PyObject *module, PyObject *args)
 
     const double* const p_x = (double*)PyArray_DATA(x);
     double* const p_out = (double*)PyArray_DATA(out);
-    const double* const yvals = (double*)PyArray_DATA(yp);
+
     const interp_error_t interp_res = lagrange_polynomial_second_derivative(
         n_pts,
         p_x,
         n_nodes,
         PyArray_DATA(xp),
-        weights,
-        weights + (n_nodes * n_pts),
-        weights + (n_nodes * (n_pts + 1))
+        p_out,
+        work,
+        work + n_nodes
     );
     ASSERT(interp_res == INTERP_SUCCESS, "Interpolation failed");
 
-    for (unsigned i = 0; i < n_pts; i++)
-    {
-        const double* row = weights + i * n_nodes;
-        p_out[i] = 0.0;
-        for (unsigned j = 0; j < n_nodes; ++j)
-        {
-            p_out[i] += yvals[j] * row[j];
-        }
-    }
-
-    PyMem_Free(weights);
+    PyMem_Free(work);
     return (PyObject*)PyArray_Return(out);
 }
 
-PyDoc_STRVAR(interp_lagrange_doc,"lagrange1d(x: array, xp: array, yp: array) -> array");
-PyDoc_STRVAR(interp_dlagrange_doc,"dlagrange1d(x: array, xp: array, yp: array) -> array");
-PyDoc_STRVAR(interp_d2lagrange_doc,"d2lagrange1d(x: array, xp: array, yp: array) -> array");
+PyDoc_STRVAR(interp_lagrange_doc,"lagrange1d(x: np.ndarray, xp: np.ndarray) -> np.ndarray");
+PyDoc_STRVAR(interp_dlagrange_doc,"dlagrange1d(x: np.ndarray, xp: np.ndarray) -> np.ndarray");
+PyDoc_STRVAR(interp_d2lagrange_doc,"d2lagrange1d(x: np.ndarray, xp: np.ndarray) -> np.ndarray");
 
 
 static PyObject *test_method(PyObject *self, PyObject *args)

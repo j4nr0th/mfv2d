@@ -10,7 +10,6 @@ from interplib._interp import dlagrange1d as _dlagrange1d
 from interplib._interp import d2lagrange1d as _d2lagrange1d
 
 
-
 def lagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], yp: npt.ArrayLike[np.floating]) -> npt.NDArray[np.float64]:
     """Interpolate value of function given its values at a number of nodes.
 
@@ -38,8 +37,11 @@ def lagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], yp
 
     sort_idx = np.argsort(real_xp)
 
-    return _lagrange1d(real_x, real_xp[sort_idx], real_yp[sort_idx])
+    flat_x = np.ravel(real_x, order="C")
 
+    interp_mtx = _lagrange1d(flat_x, real_xp[sort_idx])
+
+    return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
 
 
 def dlagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], yp: npt.ArrayLike[np.floating]) -> npt.NDArray[np.float64]:
@@ -69,13 +71,15 @@ def dlagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], y
 
     sort_idx = np.argsort(real_xp)
 
-    return _dlagrange1d(real_x, real_xp[sort_idx], real_yp[sort_idx])
+    flat_x = np.ravel(real_x, order="C")
 
+    interp_mtx = _dlagrange1d(flat_x, real_xp[sort_idx])
 
+    return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
 
 
 def d2lagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], yp: npt.ArrayLike[np.floating]) -> npt.NDArray[np.float64]:
-    """Interpolate derivative of function given its values at a number of nodes.
+    """Interpolate second derivative of function given its values at a number of nodes.
 
     Parameters
     ----------
@@ -101,7 +105,11 @@ def d2lagrange1d(x: npt.ArrayLike[np.floating], xp: npt.ArrayLike[np.floating], 
 
     sort_idx = np.argsort(real_xp)
 
-    return _d2lagrange1d(real_x, real_xp[sort_idx], real_yp[sort_idx])
+    flat_x = np.ravel(real_x, order="C")
+
+    interp_mtx = _d2lagrange1d(flat_x, real_xp[sort_idx])
+
+    return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
 
 
 

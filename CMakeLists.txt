@@ -16,8 +16,8 @@ execute_process(
 )
 
 
-set(INTERP_SOURCE_FILES src/_module.c src/lagrange.c src/error.c)
-set(INTERP_HEADER_FILES src/common_defines.h src/lagrange.h src/error.h)
+set(INTERP_SOURCE_FILES src/_module.c src/lagrange.c src/error.c src/rbf.c)
+set(INTERP_HEADER_FILES src/common_defines.h src/lagrange.h src/error.h src/rbf.h)
 
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} WITH_SOABI USE_SABI 3.10)
 install(TARGETS _interp DESTINATION ${SKBUILD_PROJECT_NAME})

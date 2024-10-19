@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from typing import Callable
 from dataclasses import dataclass
 from functools import partial
+from typing import Callable
 
 import numpy as np
 import numpy.typing as npt
 
-
 from interplib._common import ensure_array
-from mypyc.ir.ops import Value
 
 
 @dataclass(init=False, frozen=True)
@@ -23,7 +21,8 @@ class RadialBasisInterpolation:
     def __call__(
         self,
         pos: npt.ArrayLike
-    ) -> npt.NDArray[np.float64]: ...
+    ) -> npt.NDArray[np.float64]:
+        raise NotImplementedError()
 
 
 # RBF using 1/((k * ||r||^2) + 1)
@@ -66,10 +65,9 @@ class SIRBF(RadialBasisInterpolation):
         if vals.ndim < 2:
             vals = np.reshape(vals, (-1, 1))
 
-        if vals.shape != nds.shape:
+        if vals.shape[0] != nds.shape[0]:
             raise ValueError(
-                "Both nodes and values should have the same shape, being at "
-                "most 2d."
+                "Both nodes and values should have the number of entries."
             )
 
         if "_inverse" not in kwargs:
@@ -79,7 +77,7 @@ class SIRBF(RadialBasisInterpolation):
                 pos = ensure_array(positions, np.float64)
                 if pos.ndim < 2:
                     pos = np.reshape(pos, (-1, 1))
-            if vals.shape != pos.shape:
+            if vals.shape[0] != pos.shape[0]:
                 raise ValueError(
                     "Both positions and values should have the same shape, "
                     "being at most 2d."
@@ -108,7 +106,7 @@ class SIRBF(RadialBasisInterpolation):
             x = np.reshape(x, (-1, 1))
         rbvs = self.basis(x)
 
-        return np.sum(rbvs * self._coeffs[..., None], axis=0).reshape(xv.shape)
+        return np.sum(rbvs * self._coeffs[..., None], axis=0)
 
 
     def reinterpolate(self, new_vals: npt.ArrayLike) -> SIRBF:

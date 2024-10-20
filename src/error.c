@@ -8,8 +8,9 @@
 
 static const struct {const char* str, *msg;} error_messages[INTERP_ERROR_COUNT] = {
     ERROR_ENUM_ENTRY(INTERP_SUCCESS, "Success"),
-    ERROR_ENUM_ENTRY(INTERP_ERROR_NOT_IN_DOMAIN, "Argument was not inside the domain"),
-    ERROR_ENUM_ENTRY(INTERP_ERROR_NOT_INCREASING, "Input was not monotonically increasing"),
+    ERROR_ENUM_ENTRY(INTERP_ERROR_NOT_IN_DOMAIN, "Argument was not inside the domain."),
+    ERROR_ENUM_ENTRY(INTERP_ERROR_NOT_INCREASING, "Input was not monotonically increasing."),
+    ERROR_ENUM_ENTRY(INTERP_ERROR_FAILED_ALLOCATION, "Could not allocate desired amount of memory."),
 };
 
 

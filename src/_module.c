@@ -15,6 +15,7 @@
 
 //  Internal headers
 #include "lagrange.h"
+#include "cubic_splines.h"
 
 
 #define PRINT_EXPRESSION(expr, fmt) printf(#expr ": "  fmt "\n", (expr))
@@ -178,7 +179,6 @@ static PyObject *interp_d2lagrange(PyObject *module, PyObject *args)
 PyDoc_STRVAR(interp_lagrange_doc,"lagrange1d(x: np.ndarray, xp: np.ndarray) -> np.ndarray");
 PyDoc_STRVAR(interp_dlagrange_doc,"dlagrange1d(x: np.ndarray, xp: np.ndarray) -> np.ndarray");
 PyDoc_STRVAR(interp_d2lagrange_doc,"d2lagrange1d(x: np.ndarray, xp: np.ndarray) -> np.ndarray");
-
 
 static PyObject *test_method(PyObject *self, PyObject *args)
 {

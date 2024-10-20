@@ -58,6 +58,9 @@ dmypy.json
 # PyCharm
 .idea/
 
+# VsCode
+.vscode/
+
 # Custom
 sandbox/
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
 
 if (NOT DEFINED SKBUILD_PROJECT_NAME)
-    set(SKBUILD_PROJECT_NAME "INTERPLIB")
+    set(SKBUILD_PROJECT_NAME "InterpLib")
 endif ()
 
 project(${SKBUILD_PROJECT_NAME} LANGUAGES C)

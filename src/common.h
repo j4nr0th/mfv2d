@@ -5,21 +5,30 @@
 #ifndef COMMON_H
 #define COMMON_H
 #include "common_defines.h"
-#include "jmtx/matrix_base.h"
 
+typedef struct
+{
+    void* (*alloc)(void* state, size_t size);
+    void* (*realloc)(void* state, void* ptr, size_t new_size);
+    void (*free)(void* state, void* ptr);
+    void* state;
+} allocator_callbacks;
 
 INTERPLIB_INTERNAL
-extern jmtx_allocator_callbacks SYSTEM_ALLOCATOR;
+extern allocator_callbacks SYSTEM_ALLOCATOR;
 
 INTERPLIB_INTERNAL
-extern jmtx_allocator_callbacks PYTHON_ALLOCATOR;
+extern allocator_callbacks PYTHON_ALLOCATOR;
 
-static inline void* allocate(const jmtx_allocator_callbacks* allocator, const size_t sz)
+INTERPLIB_INTERNAL
+extern allocator_callbacks OBJECT_ALLOCATOR;
+
+static inline void* allocate(const allocator_callbacks* allocator, const size_t sz)
 {
     return allocator->alloc(allocator->state, sz);
 }
 
-static inline void deallocate(const jmtx_allocator_callbacks* allocator, void* ptr)
+static inline void deallocate(const allocator_callbacks* allocator, void* ptr)
 {
     return allocator->free(allocator->state, ptr);
 }

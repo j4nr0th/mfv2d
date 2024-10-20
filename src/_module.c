@@ -176,9 +176,71 @@ static PyObject *interp_d2lagrange(PyObject *module, PyObject *args)
     return (PyObject*)PyArray_Return(out);
 }
 
+static PyObject *interp_hermite_coefficients(PyObject* module, PyObject *args)
+{
+    (void)module;
+    PyArrayObject *x;
+    PyObject* bc1;
+    PyObject* bc2;
+    if (!PyArg_ParseTuple(args, "O!O!O!", &PyArray_Type, &x, &PyTuple_Type, &bc1, &PyTuple_Type, &bc2))
+    {
+        return NULL;
+    }
+    ASSERT(PyArray_TYPE(x) == NPY_DOUBLE, "Incorrect type for array x");
+    ASSERT(PyArray_NDIM(x) == 1, "Incorrect shape for array x");
+
+    cubic_spline_bc bc_left, bc_right;
+    if (!PyArg_ParseTuple(bc1, "ddd", &bc_left.k1, &bc_left.k2, &bc_left.v))
+    {
+        return NULL;
+    }
+    if (!PyArg_ParseTuple(bc2, "ddd", &bc_right.k1, &bc_right.k2, &bc_right.v))
+    {
+        return NULL;
+    }
+
+    npy_intp n_pts = PyArray_SIZE(x);
+
+
+    PyArrayObject* out = (PyArrayObject*)PyArray_SimpleNew(1, &n_pts, NPY_DOUBLE);
+    if (!out)
+    {
+        return NULL;
+    }
+    double* work = PyMem_Malloc(n_pts * sizeof(*work));
+    if (work == NULL)
+    {
+        Py_DECREF(out);
+        return PyErr_NoMemory();
+    }
+
+    const double* const p_x = (double*)PyArray_DATA(x);
+    double* const p_out = (double*)PyArray_DATA(out);
+
+    const interp_error_t interp_res = interp_cubic_spline_init(
+        n_pts,
+        p_x,
+        p_out,
+        work,
+        bc_left,
+        bc_right
+    );
+    PyMem_Free(work);
+    if ASSERT(interp_res == INTERP_SUCCESS, "Interpolation failed")
+    {
+        Py_DECREF(out);
+        return PyErr_Format(PyExc_RuntimeError, "Could not compute Hermite coefficients, error code %s (%s)",
+            interp_error_str(interp_res), interp_error_msg(interp_res));
+    }
+
+    return (PyObject*)PyArray_Return(out);
+}
+
 PyDoc_STRVAR(interp_lagrange_doc,"lagrange1d(x: np.ndarray, xp: np.ndarray) -> np.ndarray");
 PyDoc_STRVAR(interp_dlagrange_doc,"dlagrange1d(x: np.ndarray, xp: np.ndarray) -> np.ndarray");
 PyDoc_STRVAR(interp_d2lagrange_doc,"d2lagrange1d(x: np.ndarray, xp: np.ndarray) -> np.ndarray");
+PyDoc_STRVAR(interp_hermite_doc,
+    "hermite(x: np.ndarray, bc1: tuple[float, float, float], bc2: tuple[float, float, float]) -> np.ndarray");
 
 static PyObject *test_method(PyObject *self, PyObject *args)
 {
@@ -194,6 +256,7 @@ static PyMethodDef module_methods[] =
     {"lagrange1d", interp_lagrange, METH_VARARGS, interp_lagrange_doc},
     {"dlagrange1d", interp_dlagrange, METH_VARARGS, interp_dlagrange_doc},
     {"d2lagrange1d", interp_d2lagrange, METH_VARARGS, interp_d2lagrange_doc},
+    {"hermite", interp_hermite_coefficients, METH_VARARGS, interp_hermite_doc},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

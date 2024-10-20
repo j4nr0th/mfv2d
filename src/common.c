@@ -33,7 +33,7 @@ static void free_system(void* state, void* ptr)
 
 
 INTERPLIB_INTERNAL
-jmtx_allocator_callbacks SYSTEM_ALLOCATOR =
+allocator_callbacks SYSTEM_ALLOCATOR =
     {
     .alloc = allocate_system,
     .free = free_system,
@@ -60,7 +60,7 @@ static void free_python(void* state, void* ptr)
 }
 
 INTERPLIB_INTERNAL
-jmtx_allocator_callbacks PYTHON_ALLOCATOR =
+allocator_callbacks PYTHON_ALLOCATOR =
     {
     .alloc = allocate_python,
     .free = free_python,

@@ -48,9 +48,6 @@ def test_spline_cubic(n: int):
     i = np.arange(n)
     a, b, c, d = np.random.random_sample((4,))
     y = a * i ** 3 + b * i ** 2 + c * i + d
-    spline = HermiteSpline(y, SplineBC(0, 1, 2 * b), SplineBC(0, 1, 2 * b + 6 * a * i[-1]))
-    print(spline.derivatives)
-    print(6 * a * i + 2 * b)
-    assert spline.derivatives == pytest.approx(6 * a * i + 2 * b)
+    spline = HermiteSpline(y, SplineBC(0, 1, 2 * b + 6 * a * i[0]), SplineBC(0, 1, 2 * b + 6 * a * i[-1]))
+    assert spline.derivatives == pytest.approx(3 * a * i ** 2 + 2 * b * i + c)
 
-test_spline_cubic(10)

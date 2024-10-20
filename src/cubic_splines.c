@@ -21,7 +21,7 @@ interp_error_t interp_cubic_spline_init(
 {
     //  TODO: handle special case where the BCs cause some pain with the first/last two rows.
 
-    double first_row[2] = {bc_left.k1 + 4.0 * bc_left.k2, 2.0 * bc_left.k2};
+    double first_row[2] = {-bc_left.k1 + 4.0 * bc_left.k2, 2.0 * bc_left.k2};
     if ASSERT(fabs(first_row[0]) > MATH_TOL, "Left BC was bad.")
     {
         return INTERP_ERROR_BAD_SYSTEM;
@@ -32,7 +32,7 @@ interp_error_t interp_cubic_spline_init(
         return INTERP_ERROR_BAD_SYSTEM;
     }
     work[0] = first_row[1] / first_row[0];
-    k[0] = (6.0 * (x[1] - x[0]) * bc_left.k2 + bc_left.v) / first_row[0];
+    k[0] = (6.0 * (x[1] - x[0]) * bc_left.k2 - bc_left.v) / first_row[0];
     for (unsigned i = 1; i < n - 1; ++i)
     {
         const double newb = 1.0 / (8.0 - 2.0 * work[i-1]);

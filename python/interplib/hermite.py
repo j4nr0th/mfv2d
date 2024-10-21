@@ -37,6 +37,16 @@ class SplineBC:
 @dataclass(frozen=True, eq=False, init=False)
 class HermiteSpline:
     """Spline with second order continuity at the nodes.
+
+    Spline is defined per segment as a combination of its four basis:
+
+    :math:`H_0(t) = 2 t^3 - 3 t^2 + 1`
+
+    :math:`H_1(t) = -2 t^3 + 3 t^2`
+
+    :math:`H_2(t) = t^3 - 2 t^2 + t`
+    
+    :math:`H_3(t) = t^3 - t^2`
     
     Parameters
     ----------
@@ -58,7 +68,10 @@ class HermiteSpline:
             bc_left: SplineBC | None = None, 
             bc_right: SplineBC | None = None,
             copy_nodes: bool = True,
+            **kwargs,
         ) -> None:
+        if "skipinit" in kwargs["skipinit"]:
+            return
         nds: npt.NDArray[np.float64]
         if not copy_nodes and not isinstance(x, np.ndarray):
             if isinstance(x, np.ndarray):
@@ -121,6 +134,38 @@ class HermiteSpline:
         y = (h1 * self.nodes[inte] + h2 * self.nodes[inte + 1] +
              h3 * self.derivatives[inte] + h4 * self.derivatives[inte + 1])
         return y
+    
+    def subsection(
+            self,
+            ibegin: int,
+            iend: int,
+            include_endpoint: bool = False
+        ) -> HermiteSpline:
+        """Returns a spline, which is a subsection of the current.
+        
+        Parameters
+        ----------
+        ibegin : int
+            Index of the first point to include.
+        iend : int
+            Index of the last point.
+        include_endpoint : bool, default: False
+            Should the last point be included in the spline.
+
+        Returns
+        -------
+        HermiteSpline
+            Subset of the spline between the chosen points.
+        """
+        spline = HermiteSpline([], skipinit=None)
+
+        if include_endpoint:
+            iend += 1
+        object.__setattr__(spline, "nodes", self.nodes[ibegin:iend])
+        object.__setattr__(spline, "derivatives", self.derivatives[ibegin:iend])
+        return spline
+
+
 
 
         

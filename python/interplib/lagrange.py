@@ -1,18 +1,17 @@
-from __future__ import annotations, absolute_import
+from __future__ import absolute_import, annotations
 
 import numpy as np
 from numpy import typing as npt
 
 from interplib._common import ensure_array
-
-from interplib._interp import lagrange1d as _lagrange1d
-from interplib._interp import dlagrange1d as _dlagrange1d
 from interplib._interp import d2lagrange1d as _d2lagrange1d
+from interplib._interp import dlagrange1d as _dlagrange1d
+from interplib._interp import lagrange1d as _lagrange1d
 
 
 def lagrange_function_samples(
-    x: npt.ArrayLike[np.floating],
-    xp: npt.ArrayLike[np.floating]
+    x: npt.ArrayLike,
+    xp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Compute interpolation matrix for function based on samples.
 
@@ -40,8 +39,8 @@ def lagrange_function_samples(
 
 
 def lagrange_derivative_samples(
-    x: npt.ArrayLike[np.floating],
-    xp: npt.ArrayLike[np.floating]
+    x: npt.ArrayLike,
+    xp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Compute interpolation matrix for derivatives based on samples.
 
@@ -69,8 +68,8 @@ def lagrange_derivative_samples(
 
 
 def lagrange_2derivative_samples(
-    x: npt.ArrayLike[np.floating],
-    xp: npt.ArrayLike[np.floating]
+    x: npt.ArrayLike,
+    xp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Compute interpolation matrix for second derivatives  based on samples.
 
@@ -97,9 +96,9 @@ def lagrange_2derivative_samples(
     return interp_mtx
 
 def interp1d_function_samples(
-    x: npt.ArrayLike[np.floating],
-    xp: npt.ArrayLike[np.floating],
-    yp: npt.ArrayLike[np.floating]
+    x: npt.ArrayLike,
+    xp: npt.ArrayLike,
+    yp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Interpolate value of function given its values at nodes.
 
@@ -135,9 +134,9 @@ def interp1d_function_samples(
 
 
 def interp1d_derivative_samples(
-    x: npt.ArrayLike[np.floating],
-    xp: npt.ArrayLike[np.floating],
-    yp: npt.ArrayLike[np.floating]
+    x: npt.ArrayLike,
+    xp: npt.ArrayLike,
+    yp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Interpolate derivative of function given its values at nodes.
 
@@ -173,9 +172,9 @@ def interp1d_derivative_samples(
 
 
 def interp1d_2derivative_samples(
-    x: npt.ArrayLike[np.floating],
-    xp: npt.ArrayLike[np.floating],
-    yp: npt.ArrayLike[np.floating]
+    x: npt.ArrayLike,
+    xp: npt.ArrayLike,
+    yp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Interpolate second derivative of function given its values at nodes.
 

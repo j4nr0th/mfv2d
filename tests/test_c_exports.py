@@ -1,8 +1,6 @@
 """Test very basic functionality."""
-import pytest
-
 import numpy as np
-
+import pytest
 from interplib import _interp
 
 

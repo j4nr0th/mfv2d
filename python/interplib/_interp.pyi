@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import numpy.typing as npt
 
@@ -23,3 +25,30 @@ def hermite(
     bc1: tuple[float, float, float],
     bc2: tuple[float, float, float],
 ) -> npt.NDArray[np.float64]:...
+
+
+class Basis1D:
+
+    def __call__(self, x: npt.ArrayLike, /) -> npt.NDArray[np.float64]:...
+
+    def derivative(self) -> Basis1D:...
+
+    def antiderivative(self) -> Basis1D:...
+
+
+class Polynomial1D(Basis1D):
+
+    def __init__(self, coefficients: npt.ArrayLike, /) -> None:...
+
+    @property
+    def coefficients(self) -> npt.NDArray[np.float64]:...
+
+    def __add__(self, other: Polynomial1D|float) -> Polynomial1D:...
+
+    def __neg__(self) -> Polynomial1D:...
+
+    def __mul__(self, other: Polynomial1D|float) -> Polynomial1D:...
+
+    def derivative(self) -> Polynomial1D:...
+
+    def antiderivative(self) -> Polynomial1D:...

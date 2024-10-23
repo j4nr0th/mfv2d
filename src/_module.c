@@ -1,9 +1,9 @@
 //
 // Created by jan on 29.9.2024.
 //
-
-//  Common definitions
+#define PY_ARRAY_UNIQUE_SYMBOL _interp
 #include "common_defines.h"
+//  Common definitions
 
 
 
@@ -14,8 +14,10 @@
 #include <numpy/ndarrayobject.h>
 
 //  Internal headers
+#include "basis1d.h"
 #include "lagrange.h"
 #include "cubic_splines.h"
+#include "poly_basis.h"
 
 
 #define PRINT_EXPRESSION(expr, fmt) printf(#expr ": "  fmt "\n", (expr))
@@ -276,14 +278,51 @@ static PyModuleDef module =
 
 PyMODINIT_FUNC PyInit__interp(void)
 {
+    PyObject *basis1d_type = NULL, *poly_basis_type = NULL;
     import_array();
     if (PyArray_ImportNumPyAPI() < 0)
     {
-        return NULL;
+        goto failed;
+    }
+    basis1d_type = PyType_FromSpec(&basis1d_type_spec);
+    if (!basis1d_type)
+    {
+        goto failed;
+    }
+    poly_basis_type_spec.slots[0].pfunc = basis1d_type;
+    poly_basis_type = PyType_FromSpec(&poly_basis_type_spec);
+    if (!poly_basis_type)
+    {
+        goto failed;
     }
 
-    PyObject* mod = PyModule_Create(&module);
 
+    PyObject* mod = PyModule_Create(&module);
+    if (!mod)
+    {
+        goto failed;
+    }
+
+    int res = PyModule_AddObjectRef(mod, "Basis1D", basis1d_type);
+    Py_DECREF(basis1d_type);
+    if (res)
+    {
+        goto failed;
+    }
+    res = PyModule_AddObjectRef(mod, "Polynomial1D", poly_basis_type);
+    Py_DECREF(poly_basis_type);
+    if (res)
+    {
+        goto failed;
+    }
+
+    INTERPLIB_PYTHON_API = (interplib_python_api){.basis1d_type = basis1d_type, .poly1d_type = poly_basis_type};
     return mod;
+
+failed:
+    Py_XDECREF(mod);
+    Py_XDECREF(poly_basis_type);
+    Py_XDECREF(basis1d_type);
+    return NULL;
 }
 

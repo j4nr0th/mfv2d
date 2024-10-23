@@ -68,4 +68,19 @@
 #endif
 
 
+//  Python ssize define
+#ifndef PY_SSIZE_T_CLEAN
+#   define PY_SSIZE_T_CLEAN
+#endif
+
+#ifndef NPY_NO_DEPRECATED_API
+#   define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#endif
+
+//  Prevent numpy from being re-imported
+#ifndef PY_ARRAY_UNIQUE_SYMBOL
+#   define NO_IMPORT_ARRAY
+#   define PY_ARRAY_UNIQUE_SYMBOL _interp
+#endif
+
 #endif //COMMON_DEFINES_H

@@ -5,6 +5,9 @@
 #include "common.h"
 #include <Python.h>
 
+INTERPLIB_INTERNAL
+interplib_python_api INTERPLIB_PYTHON_API;
+
 //  Magic numbers meant for checking with allocators that don't need to store state.
 enum
 {

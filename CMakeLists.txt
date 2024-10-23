@@ -16,8 +16,26 @@ execute_process(
 )
 
 
-set(INTERP_SOURCE_FILES src/_module.c src/lagrange.c src/error.c src/rbf.c src/cubic_splines.c src/common.c)
-set(INTERP_HEADER_FILES src/common_defines.h src/lagrange.h src/error.h src/rbf.h src/cubic_splines.h src/common.h)
+set(INTERP_SOURCE_FILES
+        src/_module.c
+        src/lagrange.c
+        src/error.c
+        src/rbf.c
+        src/cubic_splines.c
+        src/common.c
+        src/basis1d.c
+        src/poly_basis.c
+)
+set(INTERP_HEADER_FILES
+        src/common_defines.h
+        src/lagrange.h
+        src/error.h
+        src/rbf.h
+        src/cubic_splines.h
+        src/common.h
+        src/basis1d.h
+        src/poly_basis.h
+)
 
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} WITH_SOABI USE_SABI 3.10)
 install(TARGETS _interp DESTINATION ${SKBUILD_PROJECT_NAME})

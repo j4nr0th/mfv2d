@@ -6,8 +6,25 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from interplib._interp import Polynomial1D
 from interplib._interp import hermite as _hermite
 
+_H0 = Polynomial1D([1, 0, -3, 2])
+"""
+math:`H_0(t) = 2 t^3 - 3 t^2 + 1`
+"""
+_H1 = Polynomial1D([0, 0, 3, -2])
+"""
+    :math:`H_1(t) = -2 t^3 + 3 t^2`
+"""
+_H2 = Polynomial1D([0, 1, -2, 1])
+"""
+    :math:`H_2(t) = t^3 - 2 t^2 + t`
+"""
+_H3 = Polynomial1D([0, 0, -1, 1])
+""" 
+    :math:`H_3(t) = t^3 - t^2`
+"""
 
 @dataclass
 class SplineBC:
@@ -32,7 +49,7 @@ class SplineBC:
     def as_tuple(self) -> tuple[float, float, float]:
         """Return the object as a tuple of the three values."""
         return (float(self.k1), float(self.k2), float(self.v))
-    
+
 
 @dataclass(frozen=True, eq=False, init=False)
 class HermiteSpline:
@@ -70,7 +87,7 @@ class HermiteSpline:
             copy_nodes: bool = True,
             **kwargs,
         ) -> None:
-        if "skipinit" in kwargs["skipinit"]:
+        if "skipinit" in kwargs:
             return
         nds: npt.NDArray[np.float64]
         if not copy_nodes and not isinstance(x, np.ndarray):

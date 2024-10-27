@@ -24,7 +24,8 @@ set(INTERP_SOURCE_FILES
         src/cubic_splines.c
         src/common.c
         src/basis1d.c
-        src/poly_basis.c
+        src/polynomial1d.c
+        src/spline1d.c
 )
 set(INTERP_HEADER_FILES
         src/common_defines.h
@@ -34,7 +35,8 @@ set(INTERP_HEADER_FILES
         src/cubic_splines.h
         src/common.h
         src/basis1d.h
-        src/poly_basis.h
+        src/polynomial1d.h
+        src/spline1d.h
 )
 
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} WITH_SOABI USE_SABI 3.10)

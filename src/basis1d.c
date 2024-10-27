@@ -8,17 +8,20 @@
 
 static PyObject *basis_call(PyObject *self, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwargs))
 {
-    return PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
+    PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
+    return NULL;
 }
 
 static PyObject *basis_derivative(PyObject *self, PyObject* Py_UNUSED(args))
 {
-    return PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
+    PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
+    return NULL;
 }
 
 static PyObject *basis_antiderivative(PyObject *self, PyObject* Py_UNUSED(args))
 {
-    return PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
+    PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
+    return NULL;
 }
 
 static PyMethodDef poly_basis_methods[] =

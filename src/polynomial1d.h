@@ -2,8 +2,8 @@
 // Created by jan on 21.10.2024.
 //
 
-#ifndef BASIS_FUNCTIONS_H
-#define BASIS_FUNCTIONS_H
+#ifndef POLYNOMIAL1D_H
+#define POLYNOMIAL1D_H
 #include "common_defines.h"
 #include <Python.h>
 
@@ -17,4 +17,4 @@ typedef struct
 INTERPLIB_INTERNAL
 extern PyType_Spec poly_basis_type_spec;
 
-#endif //BASIS_FUNCTIONS_H
+#endif //POLYNOMIAL1D_H

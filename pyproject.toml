@@ -3,7 +3,7 @@ name = "interplib"
 version = "0.0.1"
 authors = [{ name = "Jan Roth", email = "r0th.j4n@gmail.com" }]
 description = "Interpolation library designed to handle different topologies."
-requires-python = ">3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=2.0.0"
 ]
@@ -22,3 +22,80 @@ editable.verbose = true
 editable.rebuild = false
 wheel.py-api = "cp310"
 
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "scikit-build-core",
+    "mypy",
+    "npt-promote",
+    "pytest",
+    "pytest-cov",
+    "interrogate",
+    "nox",
+    "pre-commit",
+    "codespell",
+    "trame",
+    "trame-vtk",
+    "trame-vuetify",
+]
+docs = [
+    "sphinx",
+    "pydata-sphinx-theme",
+    "sphinx-favicon",
+    "sphinx-design",
+    "sphinx-gallery",
+    "pyvista[jupyter,trame]",
+    "pypandoc",
+    "pytest-sphinx",
+    "sphinx-autobuild",
+    "sphinx-copybutton",
+    "sphinx-toolbox",
+    "sphinxcontrib-websupport",
+    "sphinxcontrib-asciinema",
+]
+
+
+[tool.mypy]
+mypy_path = "src"
+plugins = ["npt_promote", "numpy.typing.mypy_plugin"]
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_unused_ignores = true
+strict_equality = true
+
+[tool.codespell]
+skip = "test_*.py,sandbox/*"
+count = true
+
+[tool.ruff]
+exclude = [".venv", ".nox", ".pytest_cache", ".vscode", "docs"]
+line-length = 90
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+
+[tool.ruff.lint]
+select = ["E", "W", "D", "I", "F", "ARG", "A", "FA", "ICN", "TID"]
+ignore = ["ARG002"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.pytest]
+exclude_also = ["if TYPE_CHECKING:", "@(abc\\.)?abstractmethod"]
+
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules -ra --cov=interplib"
+testpaths = ["tests", "src"]
+console_output_style = "count"
+
+[tool.interrogate]
+ignore-init-method = true

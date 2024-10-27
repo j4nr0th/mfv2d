@@ -38,6 +38,7 @@ typedef struct
 {
   PyObject* basis1d_type;
   PyObject* poly1d_type;
+  PyObject* spline1d_type;
 } interplib_python_api;
 
 INTERPLIB_INTERNAL

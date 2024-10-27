@@ -15,9 +15,10 @@
 
 //  Internal headers
 #include "basis1d.h"
+#include "spline1d.h"
 #include "lagrange.h"
 #include "cubic_splines.h"
-#include "poly_basis.h"
+#include "polynomial1d.h"
 
 
 #define PRINT_EXPRESSION(expr, fmt) printf(#expr ": "  fmt "\n", (expr))
@@ -231,8 +232,9 @@ static PyObject *interp_hermite_coefficients(PyObject* module, PyObject *args)
     if ASSERT(interp_res == INTERP_SUCCESS, "Interpolation failed")
     {
         Py_DECREF(out);
-        return PyErr_Format(PyExc_RuntimeError, "Could not compute Hermite coefficients, error code %s (%s)",
+        PyErr_Format(PyExc_RuntimeError, "Could not compute Hermite coefficients, error code %s (%s)",
             interp_error_str(interp_res), interp_error_msg(interp_res));
+        return NULL;
     }
 
     return (PyObject*)PyArray_Return(out);
@@ -278,7 +280,7 @@ static PyModuleDef module =
 
 PyMODINIT_FUNC PyInit__interp(void)
 {
-    PyObject *basis1d_type = NULL, *poly_basis_type = NULL;
+    PyObject *basis1d_type = NULL, *poly_basis_type = NULL, *spline1d_type = NULL;
     import_array();
     if (PyArray_ImportNumPyAPI() < 0)
     {
@@ -292,6 +294,12 @@ PyMODINIT_FUNC PyInit__interp(void)
     poly_basis_type_spec.slots[0].pfunc = basis1d_type;
     poly_basis_type = PyType_FromSpec(&poly_basis_type_spec);
     if (!poly_basis_type)
+    {
+        goto failed;
+    }
+    spline1d_type_spec.slots[0].pfunc = basis1d_type;
+    spline1d_type = PyType_FromSpec(&spline1d_type_spec);
+    if (!spline1d_type)
     {
         goto failed;
     }
@@ -315,14 +323,25 @@ PyMODINIT_FUNC PyInit__interp(void)
     {
         goto failed;
     }
+    res = PyModule_AddObjectRef(mod, "Spline1D", spline1d_type);
+    Py_DECREF(spline1d_type);
+    if (res)
+    {
+        goto failed;
+    }
 
-    INTERPLIB_PYTHON_API = (interplib_python_api){.basis1d_type = basis1d_type, .poly1d_type = poly_basis_type};
+    INTERPLIB_PYTHON_API = (interplib_python_api){
+        .basis1d_type = basis1d_type,
+        .poly1d_type = poly_basis_type,
+        .spline1d_type = spline1d_type,
+    };
     return mod;
 
 failed:
-    Py_XDECREF(mod);
+    Py_XDECREF(spline1d_type);
     Py_XDECREF(poly_basis_type);
     Py_XDECREF(basis1d_type);
+    Py_XDECREF(mod);
     return NULL;
 }
 

@@ -2,7 +2,7 @@
 // Created by jan on 21.10.2024.
 //
 
-#include "poly_basis.h"
+#include "polynomial1d.h"
 
 #include <numpy/arrayobject.h>
 
@@ -266,7 +266,8 @@ static PyObject *poly_basis_add(PyObject* self, PyObject* o)
     }
     if (!PyObject_TypeCheck(o, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type))
     {
-        return PyErr_Format(PyExc_TypeError, "Polynomial1D can only be multiplied by Polynomial1D or float.");
+        PyErr_Format(PyExc_TypeError, "Polynomial1D can only be multiplied by Polynomial1D or float.");
+        return NULL;
     }
     const polynomial_basis_t* other = (polynomial_basis_t*)o;
 
@@ -320,7 +321,8 @@ static PyObject *poly_basis_mul(PyObject* self, PyObject* o)
     }
     if (!PyObject_TypeCheck(o, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type))
     {
-        return PyErr_Format(PyExc_TypeError, "Polynomial1D can only be multiplied by Polynomial1D or float.");
+        PyErr_Format(PyExc_TypeError, "Polynomial1D can only be multiplied by Polynomial1D or float.");
+        return NULL;
     }
     const polynomial_basis_t* other = (polynomial_basis_t*)o;
     polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type, (this->n - 1) + (other->n - 1) + 1);

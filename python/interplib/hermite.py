@@ -1,4 +1,4 @@
-"""Interpolation functions related to Hermite cubic splines"""
+"""Interpolation functions related to Hermite cubic splines."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -22,7 +22,7 @@ _H2 = Polynomial1D([0, 1, -2, 1])
     :math:`H_2(t) = t^3 - 2 t^2 + t`
 """
 _H3 = Polynomial1D([0, 0, -1, 1])
-""" 
+"""
     :math:`H_3(t) = t^3 - t^2`
 """
 
@@ -42,6 +42,7 @@ class SplineBC:
     v : float
         Weighted sum of the first and second derivatives.
     """
+
     k1: float
     k2: float
     v: float
@@ -76,13 +77,14 @@ class HermiteSpline:
         Boundary condition at the last node of the spline. If ``None``,
         a natural boundary condition will be used (no second derivative).
     """
+
     nodes: npt.NDArray[np.float64]
     derivatives: npt.NDArray[np.float64]
 
     def __init__(
             self,
-            x: npt.ArrayLike, 
-            bc_left: SplineBC | None = None, 
+            x: npt.ArrayLike,
+            bc_left: SplineBC | None = None,
             bc_right: SplineBC | None = None,
             copy_nodes: bool = True,
             **kwargs,
@@ -151,7 +153,7 @@ class HermiteSpline:
         y = (h1 * self.nodes[inte] + h2 * self.nodes[inte + 1] +
              h3 * self.derivatives[inte] + h4 * self.derivatives[inte + 1])
         return y
-    
+
     def subsection(
             self,
             ibegin: int,
@@ -185,7 +187,7 @@ class HermiteSpline:
 
 
 
-        
+
 
 
 

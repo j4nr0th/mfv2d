@@ -47,8 +47,9 @@ cover/
 # Sphinx documentation
 docs/_build/
 
-# Environment
-venv
+# Python Environments
+venv/
+.venv/
 
 # mypy
 .mypy_cache/

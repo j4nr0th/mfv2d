@@ -194,7 +194,7 @@ static PyObject *poly_basis_str(PyObject* self)
 
     for (unsigned i = this->n; i > 2; --i)
     {
-        written += snprintf(buffer + written, char_cnt - written, "%g * x^%u + ", this->k[i], i - 1);
+        written += snprintf(buffer + written, char_cnt - written, "%g * x^%u + ", this->k[i - 1], i - 1);
     }
     if (this->n >= 2)
     {
@@ -235,7 +235,7 @@ static PyObject *poly_basis_repr(PyObject* self)
     {
         written += snprintf(buffer + written, char_cnt - written, "%g, ", this->k[i]);
     }
-    written += snprintf(buffer + written, char_cnt - written, " ])");
+    written += snprintf(buffer + written, char_cnt - written, "])");
     (void)written;
     buffer[char_cnt - 1] = 0;
 

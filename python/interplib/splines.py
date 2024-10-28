@@ -101,6 +101,7 @@ def _element_interpolating_basis(n: int) -> tuple[Polynomial1D]:
 
 def _construct_interpolation_matrix(
     n: int,
+    basis: Iterable[Polynomial1D],
     avg: npt.ArrayLike,
     bc_left: Iterable[SplineBoundaryCondition],
     bc_right: Iterable[SplineBoundaryCondition],
@@ -111,8 +112,14 @@ def _construct_interpolation_matrix(
     ----------
     n : int
         Order of polynomial basis used. Number of terms will be one more.
+    basis : Iterable of Polynomial1D
+        Basis functions used for the spline.
     avg : (M,) array_like
         Averages on the elements which are to be interpolated.
+    bc_left : Iterable of SplineBoundaryCondition
+        Boundary conditions of the left side of the spline (must be of order ``n``).
+    bc_right : Iterable of SplineBoundaryCondition
+        Boundary conditions of the right side of the spline (must be of order ``n``).
 
     Returns
     -------
@@ -122,12 +129,12 @@ def _construct_interpolation_matrix(
         Right side of the equation, which can be solved to find the coefficients.
     """
     assert n & 1 == 0
-    polynomials = _element_interpolating_basis(n)
     values: list[npt.NDArray[np.float64]] = []
+    polynomials = tuple(basis)
     for i in range(n):
         basis_values = np.array(tuple(poly([0, 1]) for poly in polynomials), np.float64)
         values.append(basis_values)
-        polynomials = tuple(poly.derivative() for poly in polynomials)
+        polynomials = tuple(poly.derivative for poly in polynomials)
     v = np.stack(values, axis=0)
     averages = np.array(avg, np.float64)
     assert len(averages.shape) == 1
@@ -192,6 +199,49 @@ def _construct_interpolation_matrix(
     return m, k
 
 
+def element_interpolating_spline(
+    n: int,
+    avgs: npt.ArrayLike,
+    bcs_left: Iterable[SplineBoundaryCondition],
+    bcs_right: Iterable[SplineBoundaryCondition],
+) -> Spline1D:
+    """Create interpolating spline, which has specified averages.
+
+    Parameters
+    ----------
+    n : int
+        Order of the spline. Must be even, otherwise a ``ValueError`` will be raised.
+    avgs : (N,) array_like
+        Averages of elements to hit.
+    bcs_left : Iterable of SplineBoundaryCondition
+        Boundary conditions of the left side of the spline (must be of order ``n``).
+    bcs_right : Iterable of SplineBoundaryCondition
+        Boundary conditions of the right side of the spline (must be of order ``n``).
+
+    Returns
+    -------
+    Spline1D
+        Interpolating spline which maps from computational space :math:`[0, N-1]` to
+        values.
+    """
+    if (n & 1) != 0:
+        raise ValueError(f"Spline order must be even (instead it was {n}).")
+    averages = np.array(avgs, np.float64)
+    if len(averages.shape) != 1:
+        raise ValueError(
+            f"Averages should be a 1D array, instead they have the shape {averages.shape}"
+        )
+    basis = _element_interpolating_basis(n)
+    m, k = _construct_interpolation_matrix(n, basis, averages, bcs_left, bcs_right)
+    r = np.linalg.solve(m, k)
+    poly: list[Polynomial1D] = []
+    for i, a in enumerate(averages[:]):
+        p = basis[0] * float(a) + sum(basis[j + 1] * r[n // 2 * i + j] for j in range(n))
+        poly.append(p)
+    spl = Spline1D(np.arange(len(poly) + 1), tuple(p.coefficients for p in poly))
+    return spl
+
+
 if __name__ == "__main__":
     import matplotlib as mpl
     from matplotlib import pyplot as plt
@@ -207,39 +257,29 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
     averages = [3.0, 2.0, 3.0, 10.2, 3.0]
-    m, k = _construct_interpolation_matrix(
-        n,
-        averages,
-        [
-            SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], 0.0),
-            SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0], 0.0),
-            SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0], 0.0),
-            SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], 0.0),
-        ],
-        [
-            SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], 0.0),
-            SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0], 0.0),
-            SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0], 0.0),
-            SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], 0.0),
-        ],
-    )
+    bcs_left = [
+        SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], 0.0),
+        SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0], 0.0),
+        SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0], 0.0),
+        SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], 0.0),
+    ]
+
+    bcs_right = [
+        SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], 0.0),
+        SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0], 0.0),
+        SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0], 0.0),
+        SplineBoundaryCondition([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], 0.0),
+    ]
+
+    m, k = _construct_interpolation_matrix(n, basis, averages, bcs_left, bcs_right)
     plt.spy(m)
     plt.show()
     r = np.linalg.solve(m, k)
-    print(r)
     # exit()
 
     poly: list[Polynomial1D] = []
     for i, a in enumerate(averages[:]):
         p = basis[0] * a + sum(basis[j + 1] * r[n // 2 * i + j] for j in range(n))
-        # for j in range(n // 2):
-        #     p += basis[2 * j + 1] * r[n // 2 * i + j]
-        #     p += basis[2 * j + 2] * r[n // 2 * (i + 1) + j]
-        print(p.derivative().derivative()(0.0), p.derivative().derivative()(1.0))
-        # print(
-        #     p.derivative().derivative().derivative()(0.0),
-        #     p.derivative().derivative().derivative()(1.0),
-        # )
         poly.append(p)
 
     for ip, p in enumerate(poly):
@@ -249,8 +289,9 @@ if __name__ == "__main__":
     plt.grid()
     plt.show()
 
-    spl = Spline1D(np.arange(len(poly) + 1), tuple(p.coefficients for p in poly))
-    tplt = np.linspace(0, len(poly), NPLT * len(poly))
+    # spl = Spline1D(np.arange(len(poly) + 1), tuple(p.coefficients for p in poly))
+    spl = element_interpolating_spline(n, averages, bcs_left, bcs_right)
+    tplt = np.linspace(-1, len(poly) + 1, NPLT * len(poly))
     plt.plot(tplt, spl(tplt), label="spline")
     plt.scatter(np.arange(len(averages)) + 0.5, averages, label="averages")
     plt.legend()

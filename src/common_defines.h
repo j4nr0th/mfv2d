@@ -20,6 +20,8 @@
 
 #   define INTERPLIB_ARRAY_ARG(arr, sz) arr[sz]
 
+#   define INTERPLIB_EXPECT_CONDITION(x) (__builtin_expect(x, 1))
+
 #endif
 
 
@@ -53,6 +55,9 @@
 
 
 
+#ifndef INTERPLIB_EXPECT_CONDITION(x)
+#   define INTERPLIB_EXPECT_CONDITION(x) (x)
+#endif
 
 
 #ifndef INTERPLIB_INTERNAL

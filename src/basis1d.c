@@ -12,22 +12,27 @@ static PyObject *basis_call(PyObject *self, PyObject *Py_UNUSED(args), PyObject 
     return NULL;
 }
 
-static PyObject *basis_derivative(PyObject *self, PyObject* Py_UNUSED(args))
+static PyObject *basis_derivative(PyObject *self, void* Py_UNUSED(args))
 {
     PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
     return NULL;
 }
 
-static PyObject *basis_antiderivative(PyObject *self, PyObject* Py_UNUSED(args))
+static PyObject *basis_antiderivative(PyObject *self, void* Py_UNUSED(args))
 {
     PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
     return NULL;
 }
+
+static PyGetSetDef basis1d_get_set_def[] =
+    {
+        {.name = "derivative",  .get = basis_derivative, .set = NULL, .doc = "Return the derivative of the basis.", .closure = NULL},
+        {.name = "antiderivative",  .get = basis_antiderivative, .set = NULL, .doc = "Return the derivative of the basis.", .closure = NULL},
+        {NULL, NULL, NULL, NULL, NULL}, // sentinel
+    };
 
 static PyMethodDef poly_basis_methods[] =
     {
-        {"derivative", basis_derivative, METH_NOARGS},
-        {"antiderivative", basis_antiderivative, METH_NOARGS},
         {NULL, NULL, 0, NULL}, // sentinel
     };
 
@@ -37,6 +42,7 @@ static PyType_Slot basis1d_slots[] =
     {
     {.slot = Py_tp_call, .pfunc = basis_call},
     {.slot = Py_tp_methods, .pfunc = poly_basis_methods},
+    {.slot = Py_tp_getset, .pfunc = basis1d_get_set_def},
     {.slot = 0, .pfunc = NULL}, // sentinel
     };
 

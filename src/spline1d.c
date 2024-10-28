@@ -11,7 +11,8 @@
 static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
     PyObject *nodes, *coefficients;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", (char*[3]){"", "", NULL}, &nodes, &coefficients))
+    int extrapolate = 0;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", (char*[4]){"", "", "extrapolate", NULL}, &nodes, &coefficients, &extrapolate))
     {
         return NULL;
     }
@@ -118,14 +119,11 @@ static PyObject *spline1d_call(PyObject *self, PyObject *args, PyObject *kwargs)
         }
         // left_node is now greater or equal to v
         unsigned right_node = left_node + 1;
-        // TODO: test it's not out of bounds
-        if ASSERT(right_node < n_nodes, "Right node was found wrong.")
-        {
-            Py_DECREF(input);
-            Py_DECREF(array);
 
-            PyErr_Format(PyExc_RuntimeError, "Bad code (left was %u, right was %u, n_nodes was %u) for %u", left_node, right_node, n_nodes, i);
-            return NULL;
+        if (!INTERPLIB_EXPECT_CONDITION(right_node < n_nodes))
+        {
+            left_node = n_nodes - 2;
+            right_node = n_nodes - 1;
         }
 
         const double t = (v - nodes[left_node]) / (nodes[right_node] - nodes[left_node]);
@@ -144,7 +142,7 @@ static PyObject *spline1d_call(PyObject *self, PyObject *args, PyObject *kwargs)
     return array;
 }
 
-static PyObject *basis_derivative(PyObject *self, PyObject* Py_UNUSED(args))
+static PyObject *basis_derivative(PyObject *self, void* Py_UNUSED(closure))
 {
     const spline1d_t* this = (spline1d_t*)self;
 
@@ -190,7 +188,7 @@ static PyObject *basis_derivative(PyObject *self, PyObject* Py_UNUSED(args))
     return (PyObject*)out;
 }
 
-static PyObject *basis_antiderivative(PyObject *self, PyObject* Py_UNUSED(args))
+static PyObject *basis_antiderivative(PyObject *self, void* Py_UNUSED(closure))
 {
     const spline1d_t* this = (spline1d_t*)self;
 
@@ -286,14 +284,14 @@ static PyObject *spline1d_get_nodes(PyObject* self, void* Py_UNUSED(closure))
 static PyGetSetDef spline1d_getset[] =
     {
         {.name = "coefficients", .get = spline1d_get_coefficients, .set = spline1d_set_coefficients, .doc = "Coefficients of the polynomials", .closure = NULL},
-        {.name = "nodes", .get = spline1d_get_nodes, .set = NULL, .doc = "Nones of the spline", .closure = NULL},
+        {.name = "nodes", .get = spline1d_get_nodes, .set = NULL, .doc = "Nodes of the spline", .closure = NULL},
+        {.name = "derivative", .get = basis_derivative, .set = NULL, .doc = "Return derivative of the spline.", .closure = NULL},
+        {.name = "antiderivative", .get = basis_antiderivative, .set = NULL, .doc = "Return antiderivative of the spline.", .closure = NULL},
         {NULL, NULL, NULL, NULL, NULL} // sentinel
     };
 
 static PyMethodDef spline1d_methods[] =
     {
-        {"derivative", basis_derivative, METH_NOARGS},
-        {"antiderivative", basis_antiderivative, METH_NOARGS},
         {NULL, NULL, 0, NULL}, // sentinel
     };
 

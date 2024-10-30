@@ -36,9 +36,10 @@ static inline void deallocate(const allocator_callbacks* allocator, void* ptr)
 
 typedef struct
 {
-  PyObject* basis1d_type;
-  PyObject* poly1d_type;
-  PyObject* spline1d_type;
+    PyObject* basis1d_type;
+    PyObject* poly1d_type;
+    PyObject* spline1d_type;
+    PyObject* spline1di_type;
 } interplib_python_api;
 
 INTERPLIB_INTERNAL

@@ -4,9 +4,7 @@ version = "0.0.1"
 authors = [{ name = "Jan Roth", email = "r0th.j4n@gmail.com" }]
 description = "Interpolation library designed to handle different topologies."
 requires-python = ">=3.10"
-dependencies = [
-    "numpy>=2.0.0"
-]
+dependencies = ["numpy>=2.0.0"]
 
 
 [build-system]

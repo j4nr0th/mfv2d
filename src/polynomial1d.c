@@ -78,7 +78,7 @@ static PyObject *basis_call(PyObject *self, PyObject *args, PyObject *kwargs)
     return array;
 }
 
-static PyObject *basis_derivative(PyObject *self, void* Py_UNUSED(closure))
+static PyObject *spline1d_derivative(PyObject *self, void* Py_UNUSED(closure))
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
 
@@ -108,7 +108,7 @@ static PyObject *basis_derivative(PyObject *self, void* Py_UNUSED(closure))
     return (PyObject*)out;
 }
 
-static PyObject *basis_antiderivative(PyObject *self, void* Py_UNUSED(closure))
+static PyObject *spline1d_antiderivative(PyObject *self, void* Py_UNUSED(closure))
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
 
@@ -365,8 +365,8 @@ static PyObject *poly_basis_neg(PyObject* self)
 static PyGetSetDef poly_basis_getset[] =
     {
         {.name = "coefficients", .get = poly_basis_get_coefficients, .set = poly_basis_set_coefficients, .doc = "Coefficients of the polynomial.", .closure = NULL},
-        {.name = "derivative", .get = basis_derivative, .set = NULL, .doc = "Return the derivative of the polynomial.", .closure = NULL},
-        {.name = "antiderivative", .get = basis_antiderivative, .set = NULL, .doc = "Return the antiderivative of the polynomial.", .closure = NULL},
+        {.name = "derivative", .get = spline1d_derivative, .set = NULL, .doc = "Return the derivative of the polynomial.", .closure = NULL},
+        {.name = "antiderivative", .get = spline1d_antiderivative, .set = NULL, .doc = "Return the antiderivative of the polynomial.", .closure = NULL},
         {NULL, NULL, NULL, NULL, NULL} // sentinel
     };
 

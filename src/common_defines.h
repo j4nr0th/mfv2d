@@ -5,7 +5,6 @@
 #ifndef COMMON_DEFINES_H
 #define COMMON_DEFINES_H
 
-#include <stdio.h>
 
 
 #define PY_SSIZE_T_CLEAN

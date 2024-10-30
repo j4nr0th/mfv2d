@@ -12,13 +12,13 @@ static PyObject *basis_call(PyObject *self, PyObject *Py_UNUSED(args), PyObject 
     return NULL;
 }
 
-static PyObject *basis_derivative(PyObject *self, void* Py_UNUSED(args))
+static PyObject *spline1d_derivative(PyObject *self, void* Py_UNUSED(args))
 {
     PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
     return NULL;
 }
 
-static PyObject *basis_antiderivative(PyObject *self, void* Py_UNUSED(args))
+static PyObject *spline1d_antiderivative(PyObject *self, void* Py_UNUSED(args))
 {
     PyErr_Format(PyExc_NotImplementedError, "Base type does not implement this method");
     return NULL;
@@ -26,8 +26,8 @@ static PyObject *basis_antiderivative(PyObject *self, void* Py_UNUSED(args))
 
 static PyGetSetDef basis1d_get_set_def[] =
     {
-        {.name = "derivative",  .get = basis_derivative, .set = NULL, .doc = "Return the derivative of the basis.", .closure = NULL},
-        {.name = "antiderivative",  .get = basis_antiderivative, .set = NULL, .doc = "Return the derivative of the basis.", .closure = NULL},
+        {.name = "derivative",  .get = spline1d_derivative, .set = NULL, .doc = "Return the derivative of the basis.", .closure = NULL},
+        {.name = "antiderivative",  .get = spline1d_antiderivative, .set = NULL, .doc = "Return the derivative of the basis.", .closure = NULL},
         {NULL, NULL, NULL, NULL, NULL}, // sentinel
     };
 

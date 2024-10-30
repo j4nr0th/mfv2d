@@ -11,8 +11,7 @@
 static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
     PyObject *nodes, *coefficients;
-    int extrapolate = 0;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", (char*[4]){"", "", "extrapolate", NULL}, &nodes, &coefficients, &extrapolate))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", (char*[3]){"", "", NULL}, &nodes, &coefficients))
     {
         return NULL;
     }
@@ -142,7 +141,7 @@ static PyObject *spline1d_call(PyObject *self, PyObject *args, PyObject *kwargs)
     return array;
 }
 
-static PyObject *basis_derivative(PyObject *self, void* Py_UNUSED(closure))
+static PyObject *spline1d_derivative(PyObject *self, void* Py_UNUSED(closure))
 {
     const spline1d_t* this = (spline1d_t*)self;
 
@@ -173,7 +172,7 @@ static PyObject *basis_derivative(PyObject *self, void* Py_UNUSED(closure))
         return NULL;
     }
     out->n_nodes = this->n_nodes;
-    for (unsigned i = 1; i < this->n_nodes; ++i)
+    for (unsigned i = 0; i < this->n_nodes; ++i)
     {
         out->data[i] = this->data[i];
     }
@@ -188,7 +187,7 @@ static PyObject *basis_derivative(PyObject *self, void* Py_UNUSED(closure))
     return (PyObject*)out;
 }
 
-static PyObject *basis_antiderivative(PyObject *self, void* Py_UNUSED(closure))
+static PyObject *spline1d_antiderivative(PyObject *self, void* Py_UNUSED(closure))
 {
     const spline1d_t* this = (spline1d_t*)self;
 
@@ -200,7 +199,7 @@ static PyObject *basis_antiderivative(PyObject *self, void* Py_UNUSED(closure))
         return NULL;
     }
     out->n_nodes = this->n_nodes;
-    for (unsigned i = 1; i < this->n_nodes; ++i)
+    for (unsigned i = 0; i < this->n_nodes; ++i)
     {
         out->data[i] = this->data[i];
     }
@@ -209,7 +208,7 @@ static PyObject *basis_antiderivative(PyObject *self, void* Py_UNUSED(closure))
     {
         out->data[this->n_nodes + out->n_coefficients * i] = 0.0;
 
-        for (unsigned j = 1; j < this->n_coefficients; ++j)
+        for (unsigned j = 0; j < this->n_coefficients; ++j)
         {
             out->data[this->n_nodes + out->n_coefficients * i + j + 1] = this->data[this->n_nodes + this->n_coefficients * i + j] / (double)(j + 1);
         }
@@ -285,8 +284,8 @@ static PyGetSetDef spline1d_getset[] =
     {
         {.name = "coefficients", .get = spline1d_get_coefficients, .set = spline1d_set_coefficients, .doc = "Coefficients of the polynomials", .closure = NULL},
         {.name = "nodes", .get = spline1d_get_nodes, .set = NULL, .doc = "Nodes of the spline", .closure = NULL},
-        {.name = "derivative", .get = basis_derivative, .set = NULL, .doc = "Return derivative of the spline.", .closure = NULL},
-        {.name = "antiderivative", .get = basis_antiderivative, .set = NULL, .doc = "Return antiderivative of the spline.", .closure = NULL},
+        {.name = "derivative", .get = spline1d_derivative, .set = NULL, .doc = "Return derivative of the spline.", .closure = NULL},
+        {.name = "antiderivative", .get = spline1d_antiderivative, .set = NULL, .doc = "Return antiderivative of the spline.", .closure = NULL},
         {NULL, NULL, NULL, NULL, NULL} // sentinel
     };
 
@@ -295,14 +294,29 @@ static PyMethodDef spline1d_methods[] =
         {NULL, NULL, 0, NULL}, // sentinel
     };
 
+PyDoc_STRVAR(
+    spline1d_docstring,
+    "Spline1D(nodes: Sequence, coefficients: Sequence[Sequence], /)\n"
+    "\n"
+    "Piecewise polynomial function, defined between nodes.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "nodes : (N + 1,) Sequence\n"
+    "    Sequence of ``N + 1`` values, which mark where a different set of\n"
+    "    coefficients is to be used.\n"
+    "coefficients : (N, M) Sequence\n"
+    "    Sequence of ``M`` coefficients for each of the ``N`` elements.\n"
+    );
 
 static PyType_Slot spline1d_slots[] =
     {
-    {.slot = Py_tp_base, .pfunc = NULL},
+    {.slot = Py_tp_base, .pfunc = NULL}, // set at runtime
     {.slot = Py_tp_new, .pfunc = spline1d_new},
     {.slot = Py_tp_call, .pfunc = spline1d_call},
     {.slot = Py_tp_methods, .pfunc = spline1d_methods},
     {.slot = Py_tp_getset, .pfunc = spline1d_getset},
+    {.slot = Py_tp_doc, .pfunc = spline1d_docstring},
     {.slot = 0, .pfunc = NULL}, // sentinel
     };
 
@@ -313,4 +327,266 @@ PyType_Spec spline1d_type_spec =
         .itemsize = sizeof(double),
         .flags = Py_TPFLAGS_BASETYPE|Py_TPFLAGS_DEFAULT|Py_TPFLAGS_IMMUTABLETYPE,
         .slots = spline1d_slots,
+    };
+
+static PyObject *spline1di_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+{
+    PyObject *coefficients;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char*[2]){"", NULL}, &coefficients))
+    {
+        return NULL;
+    }
+
+    PyObject* coeff_array = PyArray_FromAny(coefficients, PyArray_DescrFromType(NPY_DOUBLE), 2, 2, NPY_ARRAY_C_CONTIGUOUS, NULL);
+    if (!coeff_array)
+    {
+        return NULL;
+    }
+
+    const npy_intp* restrict coeff_dims = PyArray_DIMS((PyArrayObject*)coeff_array);
+    const unsigned n_nodes = coeff_dims[0] + 1;
+
+    allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
+    spline1d_t* const this = (spline1d_t*)alloc(type, (Py_ssize_clean_t)(PyArray_SIZE((PyArrayObject*)coeff_array)));
+    if (!this)
+    {
+        goto end;
+    }
+
+    this->n_nodes = n_nodes;
+    this->n_coefficients = coeff_dims[1];
+    const double* coeffs = PyArray_DATA((PyArrayObject*)coeff_array);
+    for (unsigned i = 0; i < coeff_dims[0] * coeff_dims[1]; ++i)
+    {
+        this->data[i] = coeffs[i];
+    }
+
+end:
+    Py_DECREF(coeff_array);
+    return (PyObject*)this;
+}
+
+static PyObject *spline1di_call(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    const spline1d_t* this = (spline1d_t*)self;
+    PyObject* input;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char*[2]){"", NULL}, &input))
+    {
+        return NULL;
+    }
+    PyObject* array = PyArray_FromAny(input, PyArray_DescrFromType(NPY_DOUBLE), 0, 0, NPY_ARRAY_C_CONTIGUOUS|NPY_ARRAY_ENSURECOPY, NULL);
+    if (!array)
+    {
+        return NULL;
+    }
+
+    const npy_intp m = PyArray_SIZE((PyArrayObject*)array);
+    const unsigned n_elm = this->n_nodes - 1;
+    const double* restrict coefficients = this->data;
+    double* restrict const pv = PyArray_DATA((PyArrayObject*)array);
+
+    //  Could make this OpenMP?
+    for (npy_intp i = 0; i < m; ++i)
+    {
+        const double v = pv[i];
+        double integral;
+        double t = modf(v, &integral);
+        int idx = (int)integral;
+        //  Adjust if too small
+        if (idx < 0)
+        {
+            t += integral;
+            idx = 0;
+        }
+        else if (idx >= n_elm)
+        {
+            idx = (int)(n_elm - 1);
+            t += integral - (double)idx;
+        }
+
+        const double* restrict coeffs = coefficients + this->n_coefficients * idx;
+
+        double vv = 1.0;
+        double sum = coeffs[0];
+        for (unsigned j = 1; j < this->n_coefficients; ++j)
+        {
+            vv *= t;
+            sum += coeffs[j] * vv;
+        }
+        pv[i] = sum;
+    }
+
+    return array;
+}
+
+static PyObject *spline1di_derivative(PyObject *self, void* Py_UNUSED(closure))
+{
+    const spline1d_t* this = (spline1d_t*)self;
+
+    spline1d_t* out;
+
+    if (this->n_coefficients <= 1)
+    {
+        out = PyObject_NewVar(spline1d_t, (PyTypeObject*)INTERPLIB_PYTHON_API.spline1di_type, this->n_nodes - 1);
+        if (!out)
+        {
+            return NULL;
+        }
+        out->n_nodes = this->n_nodes;
+        out->n_coefficients = 1;
+        for (unsigned i = 0; i < this->n_nodes - 1; ++i)
+        {
+            out->data[i] = 0.0;
+        }
+        return (PyObject*)out;
+    }
+    out = PyObject_NewVar(spline1d_t, (PyTypeObject*)INTERPLIB_PYTHON_API.spline1di_type, (this->n_nodes - 1) * (this->n_coefficients - 1));
+    if (!out)
+    {
+        return NULL;
+    }
+    out->n_nodes = this->n_nodes;
+    out->n_coefficients = this->n_coefficients - 1;
+    for (unsigned i = 0; i < this->n_nodes - 1; ++i)
+    {
+        for (unsigned j = 1; j < this->n_coefficients; ++j)
+        {
+            out->data[out->n_coefficients * i + j - 1] = this->data[this->n_coefficients * i + j] * (double)j;
+        }
+    }
+    return (PyObject*)out;
+}
+
+static PyObject *spline1di_antiderivative(PyObject *self, void* Py_UNUSED(closure))
+{
+    const spline1d_t* this = (spline1d_t*)self;
+
+    spline1d_t* out;
+
+    out = PyObject_NewVar(spline1d_t, (PyTypeObject*)INTERPLIB_PYTHON_API.spline1d_type, (this->n_nodes - 1) * (this->n_coefficients + 1));
+    if (!out)
+    {
+        return NULL;
+    }
+    out->n_nodes = this->n_nodes;
+    out->n_coefficients = this->n_coefficients + 1;
+    for (unsigned i = 0; i < this->n_nodes - 1; ++i)
+    {
+        out->data[out->n_coefficients * i] = 0.0;
+
+        for (unsigned j = 0; j < this->n_coefficients; ++j)
+        {
+            out->data[out->n_coefficients * i + j + 1] = this->data[this->n_coefficients * i + j] / (double)(j + 1);
+        }
+    }
+    return (PyObject*)out;
+}
+
+static PyObject *spline1di_get_coefficients(PyObject* self, void* Py_UNUSED(closure))
+{
+    const spline1d_t* this = (spline1d_t*)self;
+    npy_intp ndims[2] = {this->n_nodes - 1, this->n_coefficients};
+    PyObject* array = PyArray_SimpleNewFromData(2, ndims, NPY_DOUBLE, (void*)(this->data));
+    if (!array)
+    {
+        return NULL;
+    }
+    if (PyArray_SetBaseObject((PyArrayObject*)array, self))
+    {
+        Py_DECREF(array);
+        return NULL;
+    }
+    Py_INCREF(self);
+    return array;
+}
+
+static int spline1di_set_coefficients(PyObject* self, PyObject* v, void* Py_UNUSED(closure))
+{
+    spline1d_t* this = (spline1d_t*)self;
+    PyObject* array = PyArray_FromAny(v, PyArray_DescrFromType(NPY_DOUBLE), 2, 2, NPY_ARRAY_C_CONTIGUOUS, NULL);
+    if (!array)
+    {
+        return -1;
+    }
+
+    const npy_intp* ndims = PyArray_DIMS((PyArrayObject*)array);
+    if (ndims[0] != this->n_nodes - 1 || ndims[1] != this->n_coefficients)
+    {
+        Py_DECREF(array);
+        (void)PyErr_Format(PyExc_ValueError, "Spline has %u groups of %u coefficients, but %u groups of %u were given instead.", ndims[0], ndims[1]);
+        return -1;
+    }
+
+    const double* k = PyArray_DATA((PyArrayObject*)array);
+    for (unsigned i = 0; i < (this->n_nodes - 1) * this->n_coefficients; ++i)
+    {
+        this->data[i] = k[i];
+    }
+
+    Py_DECREF(array);
+    return 0;
+}
+
+static PyObject *spline1di_get_nodes(PyObject* self, void* Py_UNUSED(closure))
+{
+    const spline1d_t* this = (spline1d_t*)self;
+    const npy_intp n = this->n_nodes;
+    PyObject* array = PyArray_SimpleNew(1, &n, NPY_DOUBLE);
+    if (!array)
+    {
+        return NULL;
+    }
+    double* restrict const p = PyArray_DATA((PyArrayObject*)array);
+    for (unsigned i = 0; i < this->n_nodes; ++i)
+    {
+        p[i] = (double)i;
+    }
+    return array;
+}
+
+
+static PyGetSetDef spline1di_getset[] =
+    {
+    {.name = "coefficients", .get = spline1di_get_coefficients, .set = spline1di_set_coefficients, .doc = "Coefficients of the polynomials", .closure = NULL},
+    {.name = "nodes", .get = spline1di_get_nodes, .set = NULL, .doc = "Nodes of the spline", .closure = NULL},
+    {.name = "derivative", .get = spline1di_derivative, .set = NULL, .doc = "Return derivative of the spline.", .closure = NULL},
+    {.name = "antiderivative", .get = spline1di_antiderivative, .set = NULL, .doc = "Return antiderivative of the spline.", .closure = NULL},
+    {NULL, NULL, NULL, NULL, NULL} // sentinel
+    };
+
+static PyMethodDef spline1di_methods[] =
+    {
+    {NULL, NULL, 0, NULL}, // sentinel
+};
+
+PyDoc_STRVAR(
+    spline1di_docstring,
+    "Spline1Di(coefficients: Sequence[Sequence], /)\n"
+    "\n"
+    "Piecewise polynomial function, defined between integer nodes.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "coefficients : (N, M) Sequence\n"
+    "    Sequence of ``M`` coefficients for each of the ``N`` elements.\n"
+    );
+
+static PyType_Slot spline1di_slots[] =
+    {
+    {.slot = Py_tp_base, .pfunc = NULL}, // set at runtime
+    {.slot = Py_tp_new, .pfunc = spline1di_new},
+    {.slot = Py_tp_call, .pfunc = spline1di_call},
+    {.slot = Py_tp_methods, .pfunc = spline1di_methods},
+    {.slot = Py_tp_getset, .pfunc = spline1di_getset},
+    {.slot = Py_tp_doc, .pfunc = spline1di_docstring},
+    {.slot = 0, .pfunc = NULL}, // sentinel
+    };
+
+PyType_Spec spline1di_type_spec =
+    {
+    .name = "_interp.Spline1Di",
+    .basicsize = sizeof(spline1d_t),
+    .itemsize = sizeof(double),
+    .flags = Py_TPFLAGS_BASETYPE|Py_TPFLAGS_DEFAULT|Py_TPFLAGS_IMMUTABLETYPE,
+    .slots = spline1di_slots,
     };

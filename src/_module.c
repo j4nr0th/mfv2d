@@ -280,7 +280,7 @@ static PyModuleDef module =
 
 PyMODINIT_FUNC PyInit__interp(void)
 {
-    PyObject *basis1d_type = NULL, *poly_basis_type = NULL, *spline1d_type = NULL;
+    PyObject *basis1d_type = NULL, *poly_basis_type = NULL, *spline1d_type = NULL, *spline1di_type = NULL;
     import_array();
     if (PyArray_ImportNumPyAPI() < 0)
     {
@@ -300,6 +300,12 @@ PyMODINIT_FUNC PyInit__interp(void)
     spline1d_type_spec.slots[0].pfunc = basis1d_type;
     spline1d_type = PyType_FromSpec(&spline1d_type_spec);
     if (!spline1d_type)
+    {
+        goto failed;
+    }
+    spline1di_type_spec.slots[0].pfunc = spline1d_type;
+    spline1di_type = PyType_FromSpec(&spline1di_type_spec);
+    if (!spline1di_type)
     {
         goto failed;
     }
@@ -329,11 +335,18 @@ PyMODINIT_FUNC PyInit__interp(void)
     {
         goto failed;
     }
+    res = PyModule_AddObjectRef(mod, "Spline1Di", spline1di_type);
+    Py_DECREF(spline1di_type);
+    if (res)
+    {
+        goto failed;
+    }
 
     INTERPLIB_PYTHON_API = (interplib_python_api){
         .basis1d_type = basis1d_type,
         .poly1d_type = poly_basis_type,
         .spline1d_type = spline1d_type,
+        .spline1di_type = spline1di_type,
     };
     return mod;
 

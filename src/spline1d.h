@@ -21,6 +21,6 @@ extern PyType_Spec spline1d_type_spec;
 
 //  Piecewise polynomial with breakpoints for its coefficients being integers (so no nodes are stored)
 INTERPLIB_INTERNAL
-extern PyType_Spec integer_spline1d_type_spec;
+extern PyType_Spec spline1di_type_spec;
 
 #endif //SPLINE1D_H

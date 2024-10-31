@@ -167,6 +167,7 @@ def _element_interpolating_basis(n: int) -> tuple[Polynomial1D, ...]:
 
     # re-order rows of m
     def _permute_gen(n: int) -> Generator[int, None, None]:
+        """Correctly order the rows."""
         yield 0
         for i in range(n // 2):
             yield 2 * i + 1
@@ -367,6 +368,7 @@ def _nodal_interpolating_basis(n: int) -> tuple[Polynomial1D, ...]:
 
     # re-order rows of m
     def _permute_gen(n: int) -> Generator[int, None, None]:
+        """Correctly order the rows."""
         yield 0  # Left nodal
         yield 1  # Right nodal
         for i in range(1, (n + 1) // 2):

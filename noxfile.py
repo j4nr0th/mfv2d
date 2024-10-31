@@ -9,3 +9,10 @@ def run_tests(session: nox.Session):
     session.install(".")
     session.install("pytest", "pytest-cov")
     session.run("pytest", "tests")
+
+
+@nox.session
+def interrogate(session: nox.Session):
+    """Check for docstrings."""
+    session.install("interrogate")
+    session.run("interrogate")

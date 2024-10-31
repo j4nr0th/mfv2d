@@ -18,9 +18,9 @@ typedef enum
 } interp_error_t;
 
 INTERPLIB_INTERNAL
-const char* interp_error_str(interp_error_t error);
+const char *interp_error_str(interp_error_t error);
 
 INTERPLIB_INTERNAL
-const char* interp_error_msg(interp_error_t error);
+const char *interp_error_msg(interp_error_t error);
 
-#endif //ERROR_H
+#endif // ERROR_H

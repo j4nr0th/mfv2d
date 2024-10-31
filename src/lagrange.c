@@ -4,16 +4,11 @@
 
 #include "lagrange.h"
 
-
 INTERPLIB_INTERNAL
-interp_error_t lagrange_polynomial_values(
-    unsigned n_in,
-    const double INTERPLIB_ARRAY_ARG(pos, static n_in),
-    unsigned n_nodes,
-    const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
-    double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes * n_in),
-    double INTERPLIB_ARRAY_ARG(work, restrict n_nodes)
-)
+interp_error_t lagrange_polynomial_values(unsigned n_in, const double INTERPLIB_ARRAY_ARG(pos, static n_in),
+                                          unsigned n_nodes, const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
+                                          double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes *n_in),
+                                          double INTERPLIB_ARRAY_ARG(work, restrict n_nodes))
 {
     work[0] = 1.0;
     // Compute the first denominator directly
@@ -44,7 +39,7 @@ interp_error_t lagrange_polynomial_values(
     //  Compute the numerator now
     for (unsigned k = 0; k < n_in; ++k)
     {
-        double* const row = weights + n_nodes * k;
+        double *const row = weights + n_nodes * k;
         //  First loop can be used to initialize the row
         {
             const double dif = pos[k] - x[0];
@@ -77,17 +72,14 @@ interp_error_t lagrange_polynomial_values(
 }
 
 INTERPLIB_INTERNAL
-interp_error_t lagrange_polynomial_first_derivative(
-    unsigned n_in,
-    const double INTERPLIB_ARRAY_ARG(pos, static n_in),
-    unsigned n_nodes,
-    const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
-    double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes * n_in),
-    /* cache for denominators (once per fn) */
-    double INTERPLIB_ARRAY_ARG(work1, restrict n_nodes),
-    /* cache for differences (once per node) */
-    double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes)
-)
+interp_error_t lagrange_polynomial_first_derivative(unsigned n_in, const double INTERPLIB_ARRAY_ARG(pos, static n_in),
+                                                    unsigned n_nodes,
+                                                    const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
+                                                    double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes *n_in),
+                                                    /* cache for denominators (once per fn) */
+                                                    double INTERPLIB_ARRAY_ARG(work1, restrict n_nodes),
+                                                    /* cache for differences (once per node) */
+                                                    double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes))
 {
     // compute denominators
 
@@ -135,7 +127,8 @@ interp_error_t lagrange_polynomial_first_derivative(
             for (unsigned j = 0; j < i; ++j)
             {
                 double dlijdx = 1.0;
-                //  Loop split into three parts to enforce k != {i, j}
+                //  Loop split into three parts to enforce k != {i,
+                //  j}
                 for (unsigned k = 0; k < j; ++k)
                 {
                     dlijdx *= work2[k];
@@ -164,19 +157,13 @@ interp_error_t lagrange_polynomial_first_derivative(
     return INTERP_SUCCESS;
 }
 
-
-
-
 INTERPLIB_INTERNAL
-interp_error_t lagrange_polynomial_second_derivative(
-    unsigned n_in,
-    const double INTERPLIB_ARRAY_ARG(pos, static n_in),
-    unsigned n_nodes,
-    const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
-    double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes * n_in),
-    double INTERPLIB_ARRAY_ARG(work1, restrict n_nodes),
-    double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes)
-)
+interp_error_t lagrange_polynomial_second_derivative(unsigned n_in, const double INTERPLIB_ARRAY_ARG(pos, static n_in),
+                                                     unsigned n_nodes,
+                                                     const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
+                                                     double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes *n_in),
+                                                     double INTERPLIB_ARRAY_ARG(work1, restrict n_nodes),
+                                                     double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes))
 {
     // compute denominators
 
@@ -222,11 +209,11 @@ interp_error_t lagrange_polynomial_second_derivative(
         {
             for (unsigned j = 0; j < i; ++j)
             {
-
                 for (unsigned k = 0; k < j; ++k)
                 {
                     double dlijkdx = 1.0;
-                    //  Loop split into four parts to enforce l != {i, j, k}
+                    //  Loop split into four parts to enforce l
+                    //  != {i, j, k}
                     for (unsigned l = 0; l < k; ++l)
                     {
                         dlijkdx *= work2[l];
@@ -260,7 +247,3 @@ interp_error_t lagrange_polynomial_second_derivative(
 
     return INTERP_SUCCESS;
 }
-
-
-
-

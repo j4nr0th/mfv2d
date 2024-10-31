@@ -11,6 +11,7 @@
 typedef struct
 {
     PyObject_HEAD unsigned n;
+    vectorcallfunc call_poly;
     double k[];
 } polynomial_basis_t;
 

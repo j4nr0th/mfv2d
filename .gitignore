@@ -26,6 +26,8 @@ share/python-wheels/
 *.egg
 MANIFEST
 cmake-*/
+build/
+.ruff_cache/
 
 
 # Unit test / coverage reports

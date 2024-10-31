@@ -10,9 +10,11 @@
 
 typedef struct
 {
-    PyObject_HEAD unsigned n_nodes;
+    PyObject_HEAD vectorcallfunc call_spline;
+    unsigned n_nodes;
     unsigned n_coefficients;
-    double data[]; // size: (n_nodes - 1) * n_coefficients
+    double data[]; // size: (n_nodes - 1) * n_coefficients for spline1di, extra
+                   // n_nodes entries for spline1d
 } spline1d_t;
 
 //  Piecewise polynomial with breakpoints for its coefficients

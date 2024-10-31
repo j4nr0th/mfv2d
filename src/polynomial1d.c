@@ -8,49 +8,21 @@
 
 #include "basis1d.h"
 #include "common.h"
+#include <stddef.h>
 
-static PyObject *polynomial1d_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+static PyObject *polynomial1d_vectorcall(PyObject *self, PyObject *const *args, size_t nargsf,
+                                         PyObject *Py_UNUSED(kwnames))
 {
-    PyObject *input;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char *[2]){"", NULL}, &input))
+    if (PyVectorcall_NARGS(nargsf) != 1)
     {
+        PyErr_Format(PyExc_ValueError,
+                     "Polynomial1D can be called with only one argument, instead "
+                     "%u were given",
+                     (unsigned)nargsf);
         return NULL;
     }
-
-    PyObject *array = PyArray_FromAny(input, PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_C_CONTIGUOUS, NULL);
-    if (!array)
-    {
-        return NULL;
-    }
-
-    const unsigned n = PyArray_Size(array);
-    allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
-    polynomial_basis_t *this = (polynomial_basis_t *)alloc(type, (Py_ssize_t)(n ? n : 0));
-    if (!this)
-    {
-        goto end;
-    }
-
-    this->n = n;
-    const double *k = PyArray_DATA((PyArrayObject *)array);
-    for (unsigned i = 0; i < n; ++i)
-    {
-        this->k[i] = k[i];
-    }
-
-end:
-    Py_DECREF(array);
-    return (PyObject *)this;
-}
-
-static PyObject *polynomial1d_call(PyObject *self, PyObject *args, PyObject *kwargs)
-{
     const polynomial_basis_t *this = (polynomial_basis_t *)self;
-    PyObject *input;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char *[2]){"", NULL}, &input))
-    {
-        return NULL;
-    }
+    PyObject *input = *args;
     PyObject *array = PyArray_FromAny(input, PyArray_DescrFromType(NPY_DOUBLE), 0, 0,
                                       NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ENSURECOPY, NULL);
     if (!array)
@@ -80,6 +52,41 @@ static PyObject *polynomial1d_call(PyObject *self, PyObject *args, PyObject *kwa
     return array;
 }
 
+static PyObject *polynomial1d_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+{
+    PyObject *input;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char *[2]){"", NULL}, &input))
+    {
+        return NULL;
+    }
+
+    PyObject *array = PyArray_FromAny(input, PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_C_CONTIGUOUS, NULL);
+    if (!array)
+    {
+        return NULL;
+    }
+
+    const unsigned n = PyArray_Size(array);
+    allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
+    polynomial_basis_t *this = (polynomial_basis_t *)alloc(type, (Py_ssize_t)(n ? n : 0));
+    if (!this)
+    {
+        goto end;
+    }
+
+    this->n = n;
+    this->call_poly = polynomial1d_vectorcall;
+    const double *k = PyArray_DATA((PyArrayObject *)array);
+    for (unsigned i = 0; i < n; ++i)
+    {
+        this->k[i] = k[i];
+    }
+
+end:
+    Py_DECREF(array);
+    return (PyObject *)this;
+}
+
 static PyObject *polynomial1d_derivative(PyObject *self, void *Py_UNUSED(closure))
 {
     const polynomial_basis_t *this = (polynomial_basis_t *)self;
@@ -94,6 +101,7 @@ static PyObject *polynomial1d_derivative(PyObject *self, void *Py_UNUSED(closure
             return NULL;
         }
         out->n = 1;
+        out->call_poly = polynomial1d_vectorcall;
         out->k[0] = 0.0;
         return (PyObject *)out;
     }
@@ -103,6 +111,7 @@ static PyObject *polynomial1d_derivative(PyObject *self, void *Py_UNUSED(closure
         return NULL;
     }
     out->n = this->n - 1;
+    out->call_poly = polynomial1d_vectorcall;
     for (unsigned i = 1; i < this->n; ++i)
     {
         out->k[i - 1] = this->k[i] * (double)i;
@@ -120,6 +129,7 @@ static PyObject *polynomial1d_antiderivative(PyObject *self, void *Py_UNUSED(clo
         return NULL;
     }
     out->n = this->n + 1;
+    out->call_poly = polynomial1d_vectorcall;
     out->k[0] = 0.0;
     for (unsigned i = 0; i < this->n; ++i)
     {
@@ -259,6 +269,7 @@ static PyObject *polynomial1d_add(PyObject *self, PyObject *o)
             return NULL;
         }
         out->n = this->n;
+        out->call_poly = polynomial1d_vectorcall;
         for (unsigned i = 0; i < this->n; ++i)
         {
             out->k[i] = this->k[i];
@@ -295,6 +306,7 @@ static PyObject *polynomial1d_add(PyObject *self, PyObject *o)
         return NULL;
     }
     out->n = longer->n;
+    out->call_poly = polynomial1d_vectorcall;
     unsigned i;
     for (i = 0; i < shorter->n; ++i)
     {
@@ -319,6 +331,7 @@ static PyObject *polynomial1d_mul(PyObject *self, PyObject *o)
             return NULL;
         }
         out->n = this->n;
+        out->call_poly = polynomial1d_vectorcall;
         for (unsigned i = 0; i < this->n; ++i)
         {
             out->k[i] = this->k[i] * k;
@@ -343,6 +356,7 @@ static PyObject *polynomial1d_mul(PyObject *self, PyObject *o)
         return NULL;
     }
     out->n = this->n + other->n - 1;
+    out->call_poly = polynomial1d_vectorcall;
     for (unsigned i = 0; i < out->n; ++i)
     {
         out->k[i] = 0.0;
@@ -367,6 +381,7 @@ static PyObject *polynomial1d_neg(PyObject *self)
         return NULL;
     }
     out->n = this->n;
+    out->call_poly = polynomial1d_vectorcall;
     for (unsigned i = 0; i < out->n; ++i)
     {
         out->k[i] = -this->k[i];
@@ -404,9 +419,10 @@ PyTypeObject polynomial1d_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Polynomial1D",
     .tp_basicsize = sizeof(polynomial_basis_t),
     .tp_itemsize = sizeof(double),
-    // .tp_vectorcall_offset = ,
+    .tp_vectorcall_offset = offsetof(polynomial_basis_t, call_poly),
     // .tp_repr = ,
-    .tp_call = polynomial1d_call,
+    .tp_call = PyVectorcall_Call, // polynomial1d_call,
+    // .tp_vectorcall = polynomial1d_vectorcall,
     .tp_str = polynomial1d_str,
     .tp_repr = polynomial1d_repr,
     // .tp_doc = ,
@@ -414,5 +430,5 @@ PyTypeObject polynomial1d_type_object = {
     .tp_base = &basis1d_type_object,
     .tp_new = polynomial1d_new,
     .tp_as_number = &polynomial1d_number_methods,
-    // .tp_vectorcall = ,
+    .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HAVE_VECTORCALL,
 };

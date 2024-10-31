@@ -5,89 +5,20 @@
 #include "spline1d.h"
 
 #include <numpy/arrayobject.h>
+#include <stddef.h>
 
 #include "basis1d.h"
 #include "common.h"
 
-static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+static PyObject *spline1d_vectorcall(PyObject *self, PyObject *const *args, size_t nargs, PyObject *Py_UNUSED(kwargs))
 {
-    PyObject *nodes, *coefficients;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", (char *[3]){"", "", NULL}, &nodes, &coefficients))
+    if (PyVectorcall_NARGS(nargs) != 1)
     {
+        PyErr_Format(PyExc_ValueError, "Spline1D can only be called with a single argument.");
         return NULL;
     }
-
-    PyObject *node_array =
-        PyArray_FromAny(nodes, PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_C_CONTIGUOUS, NULL);
-    if (!node_array)
-    {
-        return NULL;
-    }
-    const unsigned n_nodes = PyArray_Size(node_array);
-    if (n_nodes < 2)
-    {
-        Py_DECREF(node_array);
-        PyErr_Format(PyExc_ValueError,
-                     "There must be at least two nodes to define a spline, but "
-                     "%u were given.",
-                     n_nodes);
-        return NULL;
-    }
-    PyObject *coeff_array =
-        PyArray_FromAny(coefficients, PyArray_DescrFromType(NPY_DOUBLE), 2, 2, NPY_ARRAY_C_CONTIGUOUS, NULL);
-    if (!coeff_array)
-    {
-        Py_DECREF(node_array);
-        return NULL;
-    }
-
-    const npy_intp *restrict coeff_dims = PyArray_DIMS((PyArrayObject *)coeff_array);
-    if (coeff_dims[0] + 1 != n_nodes)
-    {
-        PyErr_Format(PyExc_ValueError,
-                     "The number of nodes must be one more than the larges "
-                     "dimension of coefficient array,"
-                     " instead got %u nodes and %u coefficient groups.",
-                     n_nodes, coeff_dims[0]);
-        goto end;
-    }
-
-    allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
-    spline1d_t *const this = (spline1d_t *)alloc(
-        type,
-        (Py_ssize_clean_t)((PyArray_SIZE((PyArrayObject *)node_array) + PyArray_SIZE((PyArrayObject *)coeff_array))));
-    if (!this)
-    {
-        goto end;
-    }
-
-    this->n_nodes = n_nodes;
-    this->n_coefficients = coeff_dims[1];
-    const double *k = PyArray_DATA((PyArrayObject *)node_array);
-    for (unsigned i = 0; i < n_nodes; ++i)
-    {
-        this->data[i] = k[i];
-    }
-    const double *coeffs = PyArray_DATA((PyArrayObject *)coeff_array);
-    for (unsigned i = 0; i < coeff_dims[0] * coeff_dims[1]; ++i)
-    {
-        this->data[n_nodes + i] = coeffs[i];
-    }
-
-end:
-    Py_DECREF(coeff_array);
-    Py_DECREF(node_array);
-    return (PyObject *)this;
-}
-
-static PyObject *spline1d_call(PyObject *self, PyObject *args, PyObject *kwargs)
-{
     const spline1d_t *this = (spline1d_t *)self;
-    PyObject *input;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char *[2]){"", NULL}, &input))
-    {
-        return NULL;
-    }
+    PyObject *input = *args;
     PyObject *array = PyArray_FromAny(input, PyArray_DescrFromType(NPY_DOUBLE), 0, 0,
                                       NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ENSURECOPY, NULL);
     if (!array)
@@ -152,6 +83,78 @@ static PyObject *spline1d_call(PyObject *self, PyObject *args, PyObject *kwargs)
     return array;
 }
 
+static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+{
+    PyObject *nodes, *coefficients;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", (char *[3]){"", "", NULL}, &nodes, &coefficients))
+    {
+        return NULL;
+    }
+
+    PyObject *node_array =
+        PyArray_FromAny(nodes, PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_C_CONTIGUOUS, NULL);
+    if (!node_array)
+    {
+        return NULL;
+    }
+    const unsigned n_nodes = PyArray_Size(node_array);
+    if (n_nodes < 2)
+    {
+        Py_DECREF(node_array);
+        PyErr_Format(PyExc_ValueError,
+                     "There must be at least two nodes to define a spline, but "
+                     "%u were given.",
+                     n_nodes);
+        return NULL;
+    }
+    PyObject *coeff_array =
+        PyArray_FromAny(coefficients, PyArray_DescrFromType(NPY_DOUBLE), 2, 2, NPY_ARRAY_C_CONTIGUOUS, NULL);
+    if (!coeff_array)
+    {
+        Py_DECREF(node_array);
+        return NULL;
+    }
+
+    const npy_intp *restrict coeff_dims = PyArray_DIMS((PyArrayObject *)coeff_array);
+    if (coeff_dims[0] + 1 != n_nodes)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "The number of nodes must be one more than the larges "
+                     "dimension of coefficient array,"
+                     " instead got %u nodes and %u coefficient groups.",
+                     n_nodes, coeff_dims[0]);
+        goto end;
+    }
+
+    allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
+    spline1d_t *const this = (spline1d_t *)alloc(
+        type,
+        (Py_ssize_clean_t)((PyArray_SIZE((PyArrayObject *)node_array) + PyArray_SIZE((PyArrayObject *)coeff_array))));
+    if (!this)
+    {
+        goto end;
+    }
+
+    this->call_spline = spline1d_vectorcall;
+    this->n_nodes = n_nodes;
+    this->n_coefficients = coeff_dims[1];
+    const double *k = PyArray_DATA((PyArrayObject *)node_array);
+    for (unsigned i = 0; i < n_nodes; ++i)
+    {
+        this->data[i] = k[i];
+    }
+    const double *coeffs = PyArray_DATA((PyArrayObject *)coeff_array);
+    for (unsigned i = 0; i < coeff_dims[0] * coeff_dims[1]; ++i)
+    {
+        this->data[n_nodes + i] = coeffs[i];
+    }
+
+end:
+    Py_DECREF(coeff_array);
+    Py_DECREF(node_array);
+    return (PyObject *)this;
+}
+
 static PyObject *spline1d_derivative(PyObject *self, void *Py_UNUSED(closure))
 {
     const spline1d_t *this = (spline1d_t *)self;
@@ -165,6 +168,7 @@ static PyObject *spline1d_derivative(PyObject *self, void *Py_UNUSED(closure))
         {
             return NULL;
         }
+        out->call_spline = spline1d_vectorcall;
         out->n_nodes = this->n_nodes;
         out->n_coefficients = 1;
         for (unsigned i = 0; i < this->n_nodes; ++i)
@@ -185,6 +189,7 @@ static PyObject *spline1d_derivative(PyObject *self, void *Py_UNUSED(closure))
         return NULL;
     }
     out->n_nodes = this->n_nodes;
+    out->call_spline = spline1d_vectorcall;
     for (unsigned i = 0; i < this->n_nodes; ++i)
     {
         out->data[i] = this->data[i];
@@ -214,6 +219,7 @@ static PyObject *spline1d_antiderivative(PyObject *self, void *Py_UNUSED(closure
         return NULL;
     }
     out->n_nodes = this->n_nodes;
+    out->call_spline = spline1d_vectorcall;
     for (unsigned i = 0; i < this->n_nodes; ++i)
     {
         out->data[i] = this->data[i];
@@ -335,64 +341,27 @@ PyTypeObject spline1d_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Spline1D",
     .tp_basicsize = sizeof(spline1d_t),
     .tp_itemsize = sizeof(double),
-    // .tp_vectorcall_offset = ,
+    .tp_vectorcall_offset = offsetof(spline1d_t, call_spline),
     // .tp_repr = ,
     // .tp_str = ,
-    .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HAVE_VECTORCALL,
     .tp_doc = spline1d_docstring,
     .tp_getset = spline1d_getset,
     .tp_base = &basis1d_type_object,
     .tp_new = spline1d_new,
     // .tp_vectorcall = ,
-    .tp_call = spline1d_call,
+    .tp_call = PyVectorcall_Call,
 };
 
-static PyObject *spline1di_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+static PyObject *spline1di_vectorcall(PyObject *self, PyObject *const *args, size_t nargs, PyObject *Py_UNUSED(kwargs))
 {
-    PyObject *coefficients;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char *[2]){"", NULL}, &coefficients))
+    if (PyVectorcall_NARGS(nargs) != 1)
     {
+        PyErr_Format(PyExc_ValueError, "Spline1Di can only be called using a single argument.");
         return NULL;
     }
-
-    PyObject *coeff_array =
-        PyArray_FromAny(coefficients, PyArray_DescrFromType(NPY_DOUBLE), 2, 2, NPY_ARRAY_C_CONTIGUOUS, NULL);
-    if (!coeff_array)
-    {
-        return NULL;
-    }
-
-    const npy_intp *restrict coeff_dims = PyArray_DIMS((PyArrayObject *)coeff_array);
-    const unsigned n_nodes = coeff_dims[0] + 1;
-
-    allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
-    spline1d_t *const this = (spline1d_t *)alloc(type, (Py_ssize_clean_t)(PyArray_SIZE((PyArrayObject *)coeff_array)));
-    if (!this)
-    {
-        goto end;
-    }
-
-    this->n_nodes = n_nodes;
-    this->n_coefficients = coeff_dims[1];
-    const double *coeffs = PyArray_DATA((PyArrayObject *)coeff_array);
-    for (unsigned i = 0; i < coeff_dims[0] * coeff_dims[1]; ++i)
-    {
-        this->data[i] = coeffs[i];
-    }
-
-end:
-    Py_DECREF(coeff_array);
-    return (PyObject *)this;
-}
-
-static PyObject *spline1di_call(PyObject *self, PyObject *args, PyObject *kwargs)
-{
     const spline1d_t *this = (spline1d_t *)self;
-    PyObject *input;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char *[2]){"", NULL}, &input))
-    {
-        return NULL;
-    }
+    PyObject *input = *args;
     PyObject *array = PyArray_FromAny(input, PyArray_DescrFromType(NPY_DOUBLE), 0, 0,
                                       NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ENSURECOPY, NULL);
     if (!array)
@@ -439,6 +408,45 @@ static PyObject *spline1di_call(PyObject *self, PyObject *args, PyObject *kwargs
     return array;
 }
 
+static PyObject *spline1di_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+{
+    PyObject *coefficients;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char *[2]){"", NULL}, &coefficients))
+    {
+        return NULL;
+    }
+
+    PyObject *coeff_array =
+        PyArray_FromAny(coefficients, PyArray_DescrFromType(NPY_DOUBLE), 2, 2, NPY_ARRAY_C_CONTIGUOUS, NULL);
+    if (!coeff_array)
+    {
+        return NULL;
+    }
+
+    const npy_intp *restrict coeff_dims = PyArray_DIMS((PyArrayObject *)coeff_array);
+    const unsigned n_nodes = coeff_dims[0] + 1;
+
+    allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
+    spline1d_t *const this = (spline1d_t *)alloc(type, (Py_ssize_clean_t)(PyArray_SIZE((PyArrayObject *)coeff_array)));
+    if (!this)
+    {
+        goto end;
+    }
+
+    this->call_spline = spline1di_vectorcall;
+    this->n_nodes = n_nodes;
+    this->n_coefficients = coeff_dims[1];
+    const double *coeffs = PyArray_DATA((PyArrayObject *)coeff_array);
+    for (unsigned i = 0; i < coeff_dims[0] * coeff_dims[1]; ++i)
+    {
+        this->data[i] = coeffs[i];
+    }
+
+end:
+    Py_DECREF(coeff_array);
+    return (PyObject *)this;
+}
+
 static PyObject *spline1di_derivative(PyObject *self, void *Py_UNUSED(closure))
 {
     const spline1d_t *this = (spline1d_t *)self;
@@ -452,6 +460,7 @@ static PyObject *spline1di_derivative(PyObject *self, void *Py_UNUSED(closure))
         {
             return NULL;
         }
+        out->call_spline = spline1di_vectorcall;
         out->n_nodes = this->n_nodes;
         out->n_coefficients = 1;
         for (unsigned i = 0; i < this->n_nodes - 1; ++i)
@@ -466,6 +475,7 @@ static PyObject *spline1di_derivative(PyObject *self, void *Py_UNUSED(closure))
         return NULL;
     }
     out->n_nodes = this->n_nodes;
+    out->call_spline = spline1di_vectorcall;
     out->n_coefficients = this->n_coefficients - 1;
     for (unsigned i = 0; i < this->n_nodes - 1; ++i)
     {
@@ -488,6 +498,7 @@ static PyObject *spline1di_antiderivative(PyObject *self, void *Py_UNUSED(closur
     {
         return NULL;
     }
+    out->call_spline = spline1di_vectorcall;
     out->n_nodes = this->n_nodes;
     out->n_coefficients = this->n_coefficients + 1;
     for (unsigned i = 0; i < this->n_nodes - 1; ++i)
@@ -601,14 +612,14 @@ PyTypeObject spline1di_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Spline1Di",
     .tp_basicsize = sizeof(spline1d_t),
     .tp_itemsize = sizeof(double),
-    // .tp_vectorcall_offset = ,
+    .tp_vectorcall_offset = offsetof(spline1d_t, call_spline),
     // .tp_repr = ,
     // .tp_str = ,
-    .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HAVE_VECTORCALL,
     .tp_doc = spline1di_docstring,
     .tp_getset = spline1di_getset,
     .tp_base = &spline1d_type_object,
     .tp_new = spline1di_new,
     // .tp_vectorcall = ,
-    .tp_call = spline1di_call,
+    .tp_call = PyVectorcall_Call,
 };

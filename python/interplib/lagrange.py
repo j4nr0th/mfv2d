@@ -1,3 +1,10 @@
+"""Functions related to Lagrange nodal interpolation.
+
+Lagrange interpolation is a quick and dirty technique for global
+interpolation. It works just fine, but beware of common issues
+it can have, such as Runge phenomenon.
+"""
+
 from __future__ import absolute_import, annotations
 
 import numpy as np
@@ -10,8 +17,7 @@ from interplib._interp import lagrange1d as _lagrange1d
 
 
 def lagrange_function_samples(
-    x: npt.ArrayLike,
-    xp: npt.ArrayLike
+    x: npt.ArrayLike, xp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Compute interpolation matrix for function based on samples.
 
@@ -39,8 +45,7 @@ def lagrange_function_samples(
 
 
 def lagrange_derivative_samples(
-    x: npt.ArrayLike,
-    xp: npt.ArrayLike
+    x: npt.ArrayLike, xp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Compute interpolation matrix for derivatives based on samples.
 
@@ -68,8 +73,7 @@ def lagrange_derivative_samples(
 
 
 def lagrange_2derivative_samples(
-    x: npt.ArrayLike,
-    xp: npt.ArrayLike
+    x: npt.ArrayLike, xp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Compute interpolation matrix for second derivatives  based on samples.
 
@@ -95,10 +99,9 @@ def lagrange_2derivative_samples(
 
     return interp_mtx
 
+
 def interp1d_function_samples(
-    x: npt.ArrayLike,
-    xp: npt.ArrayLike,
-    yp: npt.ArrayLike
+    x: npt.ArrayLike, xp: npt.ArrayLike, yp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Interpolate value of function given its values at nodes.
 
@@ -134,9 +137,7 @@ def interp1d_function_samples(
 
 
 def interp1d_derivative_samples(
-    x: npt.ArrayLike,
-    xp: npt.ArrayLike,
-    yp: npt.ArrayLike
+    x: npt.ArrayLike, xp: npt.ArrayLike, yp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Interpolate derivative of function given its values at nodes.
 
@@ -172,9 +173,7 @@ def interp1d_derivative_samples(
 
 
 def interp1d_2derivative_samples(
-    x: npt.ArrayLike,
-    xp: npt.ArrayLike,
-    yp: npt.ArrayLike
+    x: npt.ArrayLike, xp: npt.ArrayLike, yp: npt.ArrayLike
 ) -> npt.NDArray[np.float64]:
     """Interpolate second derivative of function given its values at nodes.
 
@@ -207,9 +206,3 @@ def interp1d_2derivative_samples(
     interp_mtx = lagrange_2derivative_samples(real_x, real_xp)
 
     return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
-
-
-
-
-
-

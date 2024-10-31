@@ -19,7 +19,6 @@ from interplib.lagrange import (
     lagrange_derivative_samples as lagrange_derivative_samples,
 )
 from interplib.lagrange import lagrange_function_samples as lagrange_function_samples
-from interplib.rbf import SIRBF as SIRBF
 from interplib.splines import SplineBC as SplineBC
 from interplib.splines import (
     element_interpolating_splinei as element_interpolating_splinei,

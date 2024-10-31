@@ -11,6 +11,7 @@ from interplib._interp import Polynomial1D, Spline1Di
 __all__ = [
     "SplineBC",
     "element_interpolating_splinei",
+    "nodal_interpolating_splinei",
 ]
 
 
@@ -139,7 +140,7 @@ def _element_polynomial_coefficients(n: int) -> npt.NDArray[np.float64]:
     a[0, :] = 1 / (k + 1)
 
     f = 1.0
-    k = np.ones(n + 1)
+    k = np.ones(n + 1, int)
     for r in range(n // 2):
         a[2 * r + 1, r] = f
         a[2 * r + 2, :] = k
@@ -182,7 +183,7 @@ def _element_interpolation_system(
     avg: npt.ArrayLike,
     bc_left: Iterable[SplineBC],
     bc_right: Iterable[SplineBC],
-) -> npt.NDArray[np.float64]:
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Create interpolation matrix for natural element.
 
     Parameters
@@ -247,7 +248,7 @@ def _element_interpolation_system(
         for j in range(n_node, n):
             m[p, ileft] -= v[j, 1:, 1]
             m[p, iright] += v[j, 1:, 0]
-            k[p] = v[j, 0, 1] * avg[i] - v[j, 0, 0] * avg[i + 1]
+            k[p] = v[j, 0, 1] * averages[i] - v[j, 0, 0] * averages[i + 1]
             p += 1
 
     n_bc_right = 0
@@ -382,7 +383,7 @@ def _nodal_interpolation_system(
     nds: npt.ArrayLike,
     bc_left: Iterable[SplineBC],
     bc_right: Iterable[SplineBC],
-) -> npt.NDArray[np.float64]:
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Create interpolation matrix for natural nodal spline.
 
     Parameters

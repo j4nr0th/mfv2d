@@ -39,7 +39,7 @@ set(INTERP_HEADER_FILES
         src/spline1d.h
 )
 
-Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} WITH_SOABI USE_SABI 3.10)
+Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
 install(TARGETS _interp DESTINATION ${SKBUILD_PROJECT_NAME})
 
 

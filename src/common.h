@@ -5,7 +5,6 @@
 #ifndef COMMON_H
 #define COMMON_H
 #include "common_defines.h"
-#include <Python.h>
 
 typedef struct
 {
@@ -34,15 +33,7 @@ static inline void deallocate(const allocator_callbacks* allocator, void* ptr)
     return allocator->free(allocator->state, ptr);
 }
 
-typedef struct
-{
-    PyObject* basis1d_type;
-    PyObject* poly1d_type;
-    PyObject* spline1d_type;
-    PyObject* spline1di_type;
-} interplib_python_api;
-
 INTERPLIB_INTERNAL
-extern interplib_python_api INTERPLIB_PYTHON_API;
+extern int base_traverse_heap_typed(PyObject *self, visitproc visit, void *arg);
 
 #endif //COMMON_H

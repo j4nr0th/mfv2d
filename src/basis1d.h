@@ -12,5 +12,5 @@ typedef struct basis1d basis1d;
 
 
 INTERPLIB_INTERNAL
-extern PyType_Spec basis1d_type_spec;
+extern PyTypeObject basis1d_type_object;
 #endif //BASIS1D_H

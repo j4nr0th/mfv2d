@@ -7,6 +7,7 @@
 #include <numpy/arrayobject.h>
 
 #include "common.h"
+#include "basis1d.h"
 
 static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
@@ -149,7 +150,7 @@ static PyObject *spline1d_derivative(PyObject *self, void* Py_UNUSED(closure))
 
     if (this->n_coefficients <= 1)
     {
-        out = PyObject_NewVar(spline1d_t, (PyTypeObject*)INTERPLIB_PYTHON_API.spline1d_type, this->n_nodes + 1 * (this->n_nodes - 1));
+        out = PyObject_NewVar(spline1d_t, &spline1d_type_object, this->n_nodes + 1 * (this->n_nodes - 1));
         if (!out)
         {
             return NULL;
@@ -164,9 +165,10 @@ static PyObject *spline1d_derivative(PyObject *self, void* Py_UNUSED(closure))
         {
             out->data[this->n_nodes + i] = 0.0;
         }
+
         return (PyObject*)out;
     }
-    out = PyObject_NewVar(spline1d_t, (PyTypeObject*)INTERPLIB_PYTHON_API.spline1d_type, this->n_nodes + (this->n_nodes - 1) * (this->n_coefficients - 1));
+    out = PyObject_NewVar(spline1d_t, &spline1d_type_object, this->n_nodes + (this->n_nodes - 1) * (this->n_coefficients - 1));
     if (!out)
     {
         return NULL;
@@ -193,7 +195,7 @@ static PyObject *spline1d_antiderivative(PyObject *self, void* Py_UNUSED(closure
 
     spline1d_t* out;
 
-    out = PyObject_NewVar(spline1d_t, (PyTypeObject*)INTERPLIB_PYTHON_API.spline1d_type, this->n_nodes + (this->n_nodes - 1) * (this->n_coefficients + 1));
+    out = PyObject_NewVar(spline1d_t, &spline1d_type_object, this->n_nodes + (this->n_nodes - 1) * (this->n_coefficients + 1));
     if (!out)
     {
         return NULL;
@@ -289,11 +291,6 @@ static PyGetSetDef spline1d_getset[] =
         {NULL, NULL, NULL, NULL, NULL} // sentinel
     };
 
-static PyMethodDef spline1d_methods[] =
-    {
-        {NULL, NULL, 0, NULL}, // sentinel
-    };
-
 PyDoc_STRVAR(
     spline1d_docstring,
     "Spline1D(nodes: Sequence, coefficients: Sequence[Sequence], /)\n"
@@ -309,24 +306,24 @@ PyDoc_STRVAR(
     "    Sequence of ``M`` coefficients for each of the ``N`` elements.\n"
     );
 
-static PyType_Slot spline1d_slots[] =
-    {
-    {.slot = Py_tp_base, .pfunc = NULL}, // set at runtime
-    {.slot = Py_tp_new, .pfunc = spline1d_new},
-    {.slot = Py_tp_call, .pfunc = spline1d_call},
-    {.slot = Py_tp_methods, .pfunc = spline1d_methods},
-    {.slot = Py_tp_getset, .pfunc = spline1d_getset},
-    {.slot = Py_tp_doc, .pfunc = spline1d_docstring},
-    {.slot = 0, .pfunc = NULL}, // sentinel
-    };
 
-PyType_Spec spline1d_type_spec =
+INTERPLIB_INTERNAL
+PyTypeObject spline1d_type_object =
     {
-        .name = "_interp.Spline1D",
-        .basicsize = sizeof(spline1d_t),
-        .itemsize = sizeof(double),
-        .flags = Py_TPFLAGS_BASETYPE|Py_TPFLAGS_DEFAULT|Py_TPFLAGS_IMMUTABLETYPE,
-        .slots = spline1d_slots,
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "_interp.Spline1D",
+    .tp_basicsize = sizeof(spline1d_t),
+    .tp_itemsize = sizeof(double),
+    // .tp_vectorcall_offset = ,
+    // .tp_repr = ,
+    // .tp_str = ,
+    .tp_flags = Py_TPFLAGS_BASETYPE|Py_TPFLAGS_DEFAULT|Py_TPFLAGS_IMMUTABLETYPE,
+    .tp_doc = spline1d_docstring,
+    .tp_getset = spline1d_getset,
+    .tp_base = &basis1d_type_object,
+    .tp_new = spline1d_new,
+    // .tp_vectorcall = ,
+    .tp_call = spline1d_call,
     };
 
 static PyObject *spline1di_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
@@ -427,7 +424,7 @@ static PyObject *spline1di_derivative(PyObject *self, void* Py_UNUSED(closure))
 
     if (this->n_coefficients <= 1)
     {
-        out = PyObject_NewVar(spline1d_t, (PyTypeObject*)INTERPLIB_PYTHON_API.spline1di_type, this->n_nodes - 1);
+        out = PyObject_NewVar(spline1d_t, &spline1di_type_object, this->n_nodes - 1);
         if (!out)
         {
             return NULL;
@@ -440,7 +437,7 @@ static PyObject *spline1di_derivative(PyObject *self, void* Py_UNUSED(closure))
         }
         return (PyObject*)out;
     }
-    out = PyObject_NewVar(spline1d_t, (PyTypeObject*)INTERPLIB_PYTHON_API.spline1di_type, (this->n_nodes - 1) * (this->n_coefficients - 1));
+    out = PyObject_NewVar(spline1d_t, &spline1di_type_object, (this->n_nodes - 1) * (this->n_coefficients - 1));
     if (!out)
     {
         return NULL;
@@ -463,7 +460,7 @@ static PyObject *spline1di_antiderivative(PyObject *self, void* Py_UNUSED(closur
 
     spline1d_t* out;
 
-    out = PyObject_NewVar(spline1d_t, (PyTypeObject*)INTERPLIB_PYTHON_API.spline1d_type, (this->n_nodes - 1) * (this->n_coefficients + 1));
+    out = PyObject_NewVar(spline1d_t, &spline1d_type_object, (this->n_nodes - 1) * (this->n_coefficients + 1));
     if (!out)
     {
         return NULL;
@@ -554,11 +551,6 @@ static PyGetSetDef spline1di_getset[] =
     {NULL, NULL, NULL, NULL, NULL} // sentinel
     };
 
-static PyMethodDef spline1di_methods[] =
-    {
-    {NULL, NULL, 0, NULL}, // sentinel
-};
-
 PyDoc_STRVAR(
     spline1di_docstring,
     "Spline1Di(coefficients: Sequence[Sequence], /)\n"
@@ -571,22 +563,21 @@ PyDoc_STRVAR(
     "    Sequence of ``M`` coefficients for each of the ``N`` elements.\n"
     );
 
-static PyType_Slot spline1di_slots[] =
+INTERPLIB_INTERNAL
+PyTypeObject spline1di_type_object =
     {
-    {.slot = Py_tp_base, .pfunc = NULL}, // set at runtime
-    {.slot = Py_tp_new, .pfunc = spline1di_new},
-    {.slot = Py_tp_call, .pfunc = spline1di_call},
-    {.slot = Py_tp_methods, .pfunc = spline1di_methods},
-    {.slot = Py_tp_getset, .pfunc = spline1di_getset},
-    {.slot = Py_tp_doc, .pfunc = spline1di_docstring},
-    {.slot = 0, .pfunc = NULL}, // sentinel
-    };
-
-PyType_Spec spline1di_type_spec =
-    {
-    .name = "_interp.Spline1Di",
-    .basicsize = sizeof(spline1d_t),
-    .itemsize = sizeof(double),
-    .flags = Py_TPFLAGS_BASETYPE|Py_TPFLAGS_DEFAULT|Py_TPFLAGS_IMMUTABLETYPE,
-    .slots = spline1di_slots,
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "_interp.Spline1Di",
+    .tp_basicsize = sizeof(spline1d_t),
+    .tp_itemsize = sizeof(double),
+    // .tp_vectorcall_offset = ,
+    // .tp_repr = ,
+    // .tp_str = ,
+    .tp_flags = Py_TPFLAGS_BASETYPE|Py_TPFLAGS_DEFAULT|Py_TPFLAGS_IMMUTABLETYPE,
+    .tp_doc = spline1di_docstring,
+    .tp_getset = spline1di_getset,
+    .tp_base = &spline1d_type_object,
+    .tp_new = spline1di_new,
+    // .tp_vectorcall = ,
+    .tp_call = spline1di_call,
     };

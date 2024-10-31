@@ -7,8 +7,9 @@
 #include <numpy/arrayobject.h>
 
 #include "common.h"
+#include "basis1d.h"
 
-static PyObject *poly_basis_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+static PyObject *polynomial1d_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
     PyObject* input;
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char*[2]){"", NULL}, &input))
@@ -78,7 +79,7 @@ static PyObject *basis_call(PyObject *self, PyObject *args, PyObject *kwargs)
     return array;
 }
 
-static PyObject *spline1d_derivative(PyObject *self, void* Py_UNUSED(closure))
+static PyObject *polynomial1d_derivative(PyObject *self, void* Py_UNUSED(closure))
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
 
@@ -86,7 +87,7 @@ static PyObject *spline1d_derivative(PyObject *self, void* Py_UNUSED(closure))
 
     if (this->n <= 1)
     {
-        out = PyObject_NewVar(polynomial_basis_t, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type, 1);
+        out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, 1);
         if (!out)
         {
             return NULL;
@@ -95,7 +96,7 @@ static PyObject *spline1d_derivative(PyObject *self, void* Py_UNUSED(closure))
         out->k[0] = 0.0;
         return (PyObject*)out;
     }
-    out = PyObject_NewVar(polynomial_basis_t, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type, this->n - 1);
+    out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n - 1);
     if (!out)
     {
         return NULL;
@@ -108,11 +109,11 @@ static PyObject *spline1d_derivative(PyObject *self, void* Py_UNUSED(closure))
     return (PyObject*)out;
 }
 
-static PyObject *spline1d_antiderivative(PyObject *self, void* Py_UNUSED(closure))
+static PyObject *polynomial1d_antiderivative(PyObject *self, void* Py_UNUSED(closure))
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
 
-    polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type, this->n + 1);
+    polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n + 1);
     if (!out)
     {
         return NULL;
@@ -126,7 +127,7 @@ static PyObject *spline1d_antiderivative(PyObject *self, void* Py_UNUSED(closure
     return (PyObject*)out;
 }
 
-static PyObject *poly_basis_get_coefficients(PyObject* self, void* Py_UNUSED(closure))
+static PyObject *polynomial1d_get_coefficients(PyObject* self, void* Py_UNUSED(closure))
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
     npy_intp n = this->n;
@@ -144,7 +145,7 @@ static PyObject *poly_basis_get_coefficients(PyObject* self, void* Py_UNUSED(clo
     return array;
 }
 
-static int poly_basis_set_coefficients(PyObject* self, PyObject* v, void* Py_UNUSED(closure))
+static int polynomial1d_set_coefficients(PyObject* self, PyObject* v, void* Py_UNUSED(closure))
 {
     polynomial_basis_t* this = (polynomial_basis_t*)self;
     PyObject* array = PyArray_FromAny(v, PyArray_DescrFromType(NPY_DOUBLE), 0, 1, NPY_ARRAY_C_CONTIGUOUS, NULL);
@@ -170,7 +171,7 @@ static int poly_basis_set_coefficients(PyObject* self, PyObject* v, void* Py_UNU
     return 0;
 }
 
-static PyObject *poly_basis_str(PyObject* self)
+static PyObject *polynomial1d_str(PyObject* self)
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
     unsigned char_cnt = 1;
@@ -212,7 +213,7 @@ static PyObject *poly_basis_str(PyObject* self)
     return out;
 }
 
-static PyObject *poly_basis_repr(PyObject* self)
+static PyObject *polynomial1d_repr(PyObject* self)
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
     unsigned char_cnt = 10;
@@ -245,13 +246,13 @@ static PyObject *poly_basis_repr(PyObject* self)
     return out;
 }
 
-static PyObject *poly_basis_add(PyObject* self, PyObject* o)
+static PyObject *polynomial1d_add(PyObject* self, PyObject* o)
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
     if (PyFloat_Check(o))
     {
         double k = PyFloat_AsDouble(o);
-        polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type, this->n);
+        polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n);
         if (!out)
         {
             return NULL;
@@ -264,7 +265,7 @@ static PyObject *poly_basis_add(PyObject* self, PyObject* o)
         out->k[0] += k;
         return (PyObject*)out;
     }
-    if (!PyObject_TypeCheck(o, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type))
+    if (!PyObject_TypeCheck(o, &polynomial1d_type_object))
     {
         PyErr_Format(PyExc_TypeError, "Polynomial1D can only be multiplied by Polynomial1D or float.");
         return NULL;
@@ -283,7 +284,7 @@ static PyObject *poly_basis_add(PyObject* self, PyObject* o)
         longer = other;
     }
 
-    polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type, longer->n);
+    polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, longer->n);
     if (!out)
     {
         return NULL;
@@ -301,13 +302,13 @@ static PyObject *poly_basis_add(PyObject* self, PyObject* o)
     return (PyObject*)out;
 }
 
-static PyObject *poly_basis_mul(PyObject* self, PyObject* o)
+static PyObject *polynomial1d_mul(PyObject* self, PyObject* o)
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
     if (PyFloat_Check(o))
     {
         double k = PyFloat_AsDouble(o);
-        polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type, this->n);
+        polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n);
         if (!out)
         {
             return NULL;
@@ -319,13 +320,13 @@ static PyObject *poly_basis_mul(PyObject* self, PyObject* o)
         }
         return (PyObject*)out;
     }
-    if (!PyObject_TypeCheck(o, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type))
+    if (!PyObject_TypeCheck(o, &polynomial1d_type_object))
     {
         PyErr_Format(PyExc_TypeError, "Polynomial1D can only be multiplied by Polynomial1D or float.");
         return NULL;
     }
     const polynomial_basis_t* other = (polynomial_basis_t*)o;
-    polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type, (this->n - 1) + (other->n - 1) + 1);
+    polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, (this->n - 1) + (other->n - 1) + 1);
     if (!out)
     {
         return NULL;
@@ -345,11 +346,11 @@ static PyObject *poly_basis_mul(PyObject* self, PyObject* o)
     return (PyObject*)out;
 }
 
-static PyObject *poly_basis_neg(PyObject* self)
+static PyObject *polynomial1d_neg(PyObject* self)
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
 
-    polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, (PyTypeObject*)INTERPLIB_PYTHON_API.poly1d_type, this->n);
+    polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n);
     if (!out)
     {
         return NULL;
@@ -362,40 +363,38 @@ static PyObject *poly_basis_neg(PyObject* self)
     return (PyObject*)out;
 }
 
-static PyGetSetDef poly_basis_getset[] =
+static PyGetSetDef polynomial1d_getset[] =
     {
-        {.name = "coefficients", .get = poly_basis_get_coefficients, .set = poly_basis_set_coefficients, .doc = "Coefficients of the polynomial.", .closure = NULL},
-        {.name = "derivative", .get = spline1d_derivative, .set = NULL, .doc = "Return the derivative of the polynomial.", .closure = NULL},
-        {.name = "antiderivative", .get = spline1d_antiderivative, .set = NULL, .doc = "Return the antiderivative of the polynomial.", .closure = NULL},
+        {.name = "coefficients", .get = polynomial1d_get_coefficients, .set = polynomial1d_set_coefficients, .doc = "Coefficients of the polynomial.", .closure = NULL},
+        {.name = "derivative", .get = polynomial1d_derivative, .set = NULL, .doc = "Return the derivative of the polynomial.", .closure = NULL},
+        {.name = "antiderivative", .get = polynomial1d_antiderivative, .set = NULL, .doc = "Return the antiderivative of the polynomial.", .closure = NULL},
         {NULL, NULL, NULL, NULL, NULL} // sentinel
     };
 
-static PyMethodDef poly_basis_methods[] =
+
+
+static PyNumberMethods polynomial1d_number_methods =
     {
-        {NULL, NULL, 0, NULL}, // sentinel
+    .nb_add = polynomial1d_add,
+    .nb_multiply = polynomial1d_mul,
+    .nb_negative = polynomial1d_neg,
     };
 
-
-static PyType_Slot poly_basis_slots[] =
+INTERPLIB_INTERNAL
+PyTypeObject polynomial1d_type_object =
     {
-    {.slot = Py_tp_base, .pfunc = NULL},
-    {.slot = Py_tp_new, .pfunc = poly_basis_new},
-    {.slot = Py_tp_call, .pfunc = basis_call},
-    {.slot = Py_tp_methods, .pfunc = poly_basis_methods},
-    {.slot = Py_tp_getset, .pfunc = poly_basis_getset},
-    {.slot = Py_tp_str, .pfunc = poly_basis_str},
-    {.slot = Py_tp_repr, .pfunc = poly_basis_repr},
-    {.slot = Py_nb_add, .pfunc = poly_basis_add},
-    {.slot = Py_nb_multiply, .pfunc = poly_basis_mul},
-    {.slot = Py_nb_negative, .pfunc = poly_basis_neg},
-    {.slot = 0, .pfunc = NULL}, // sentinel
-    };
-
-PyType_Spec poly_basis_type_spec =
-    {
-        .name = "_interp.Polynomial1D",
-        .basicsize = sizeof(polynomial_basis_t),
-        .itemsize = sizeof(double),
-        .flags = Py_TPFLAGS_BASETYPE|Py_TPFLAGS_DEFAULT|Py_TPFLAGS_IMMUTABLETYPE,
-        .slots = poly_basis_slots,
+        .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+        .tp_name = "_interp.Polynomial1D",
+        .tp_basicsize = sizeof(polynomial_basis_t),
+        .tp_itemsize = sizeof(double),
+        // .tp_vectorcall_offset = ,
+        // .tp_repr = ,
+        .tp_call = basis_call,
+        .tp_str = polynomial1d_str,
+        // .tp_doc = ,
+        .tp_getset = polynomial1d_getset,
+        .tp_base = &basis1d_type_object,
+        .tp_new = polynomial1d_new,
+        .tp_as_number = &polynomial1d_number_methods,
+        // .tp_vectorcall = ,
     };

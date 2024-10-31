@@ -15,6 +15,6 @@ typedef struct
 } polynomial_basis_t;
 
 INTERPLIB_INTERNAL
-extern PyType_Spec poly_basis_type_spec;
+extern PyTypeObject polynomial1d_type_object;
 
 #endif //POLYNOMIAL1D_H

@@ -54,7 +54,7 @@
 
 
 
-#ifndef INTERPLIB_EXPECT_CONDITION(x)
+#ifndef INTERPLIB_EXPECT_CONDITION
 #   define INTERPLIB_EXPECT_CONDITION(x) (x)
 #endif
 
@@ -86,5 +86,8 @@
 #   define NO_IMPORT_ARRAY
 #   define PY_ARRAY_UNIQUE_SYMBOL _interp
 #endif
+
+#include <Python.h>
+#include <stdio.h>
 
 #endif //COMMON_DEFINES_H

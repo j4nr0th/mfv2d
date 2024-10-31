@@ -2,55 +2,56 @@
 
 import numpy as np
 import pytest
-from interplib.hermite import HermiteSpline, SplineBC
+from interplib import SplineBC, nodal_interpolating_splinei
 
 
-def test_bcs():
-    """Check SplineBCs give right tuple."""
-    np.random.seed(0)
-    x = np.random.random_sample((3,))
-    assert np.all(SplineBC(*x).as_tuple() == x)
-
-
-@pytest.mark.parametrize("n", (2, 4, 10, 100))
-def test_spline_at_nodes(n: int):
-    """Check HermiteSpline returns same values at all nodes."""
+@pytest.mark.parametrize("n,order", ((2, 1), (4, 3), (10, 5), (100, 7)))
+def test_spline_at_nodes(n: int, order: int):
+    """Check nodal Spline1D returns same values at all nodes."""
     np.random.seed(0)
     x = np.random.random_sample((n,))
-    spline = HermiteSpline(x)
+    spline = nodal_interpolating_splinei(order, x)
     assert pytest.approx(x) == spline(np.arange(n))
 
 
 @pytest.mark.parametrize("n", (2, 4, 10, 100))
 def test_spline_linear(n: int):
-    """Check HermiteSpline is exact for linear funcitons."""
+    """Check linear nodal Spline1D is exact for linear funcitons."""
     np.random.seed(0)
     i = np.arange(n)
     a, b = np.random.random_sample((2,))
     y = a * i + b
-    spline = HermiteSpline(y)
-    assert spline.derivatives == pytest.approx(a)
+    spline = nodal_interpolating_splinei(1, y)
+    assert spline.derivative(i) == pytest.approx(a)
 
 
 @pytest.mark.parametrize("n", (2, 4, 10, 100))
 def test_spline_quadratic(n: int):
-    """Check HermiteSpline is exact for quadratic funcitons."""
+    """Check cubic nodal Spline1D is exact for quadratic funcitons."""
     np.random.seed(0)
     i = np.arange(n)
     a, b, c = np.random.random_sample((3,))
     y = a * i**2 + b * i + c
-    spline = HermiteSpline(y, SplineBC(1, 0, b), SplineBC(1, 0, 2 * a * i[-1] + b))
-    assert spline.derivatives == pytest.approx(2 * a * i + b)
+    spline = nodal_interpolating_splinei(
+        3,
+        y,
+        [SplineBC([0, 1, 0], 2 * a * i[0] + b)],
+        [SplineBC([0, 1, 0], 2 * a * i[-1] + b)],
+    )
+    assert spline.derivative(i) == pytest.approx(2 * a * i + b)
 
 
 @pytest.mark.parametrize("n", (2, 4, 10, 100))
 def test_spline_cubic(n: int):
-    """Check HermiteSpline is exact for cubic funcitons."""
+    """Check cubic nodal Spline1D is exact for cubic funcitons."""
     np.random.seed(0)
     i = np.arange(n)
     a, b, c, d = np.random.random_sample((4,))
     y = a * i**3 + b * i**2 + c * i + d
-    spline = HermiteSpline(
-        y, SplineBC(0, 1, 2 * b + 6 * a * i[0]), SplineBC(0, 1, 2 * b + 6 * a * i[-1])
+    spline = nodal_interpolating_splinei(
+        3,
+        y,
+        [SplineBC([0, 1, 0], 3 * a * i[0] ** 2 + 2 * b * i[0] + c)],
+        [SplineBC([0, 1, 0], 3 * a * i[-1] ** 2 + 2 * b * i[-1] + c)],
     )
-    assert spline.derivatives == pytest.approx(3 * a * i**2 + 2 * b * i + c)
+    assert spline.derivative(i) == pytest.approx(3 * a * i**2 + 2 * b * i + c)

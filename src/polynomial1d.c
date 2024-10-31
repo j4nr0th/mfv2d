@@ -43,7 +43,7 @@ end:
     return (PyObject*)this;
 }
 
-static PyObject *basis_call(PyObject *self, PyObject *args, PyObject *kwargs)
+static PyObject *polynomial1d_call(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
     PyObject* input;
@@ -249,9 +249,9 @@ static PyObject *polynomial1d_repr(PyObject* self)
 static PyObject *polynomial1d_add(PyObject* self, PyObject* o)
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
-    if (PyFloat_Check(o))
+    double k = PyFloat_AsDouble(o);
+    if (!PyErr_Occurred())
     {
-        double k = PyFloat_AsDouble(o);
         polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n);
         if (!out)
         {
@@ -265,9 +265,13 @@ static PyObject *polynomial1d_add(PyObject* self, PyObject* o)
         out->k[0] += k;
         return (PyObject*)out;
     }
+    // conversion to double failed, so clear exception and check for polynomial instead
+    // PyErr_SetHandledException(NULL);
+    PyErr_Clear();
     if (!PyObject_TypeCheck(o, &polynomial1d_type_object))
     {
-        PyErr_Format(PyExc_TypeError, "Polynomial1D can only be multiplied by Polynomial1D or float.");
+        // Couldn't get a float, nor is it a polynomial.
+        PyErr_Format(PyExc_TypeError, "Polynomial1D can only be added to Polynomial1D or float.");
         return NULL;
     }
     const polynomial_basis_t* other = (polynomial_basis_t*)o;
@@ -305,9 +309,9 @@ static PyObject *polynomial1d_add(PyObject* self, PyObject* o)
 static PyObject *polynomial1d_mul(PyObject* self, PyObject* o)
 {
     const polynomial_basis_t* this = (polynomial_basis_t*)self;
-    if (PyFloat_Check(o))
+    double k = PyFloat_AsDouble(o);
+    if (!PyErr_Occurred())
     {
-        double k = PyFloat_AsDouble(o);
         polynomial_basis_t* out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n);
         if (!out)
         {
@@ -320,8 +324,12 @@ static PyObject *polynomial1d_mul(PyObject* self, PyObject* o)
         }
         return (PyObject*)out;
     }
+    // conversion to double failed, so clear exception and check for polynomial instead
+    // PyErr_SetHandledException(NULL);
+    PyErr_Clear();
     if (!PyObject_TypeCheck(o, &polynomial1d_type_object))
     {
+        // Couldn't get a float, nor is it a polynomial.
         PyErr_Format(PyExc_TypeError, "Polynomial1D can only be multiplied by Polynomial1D or float.");
         return NULL;
     }
@@ -389,8 +397,9 @@ PyTypeObject polynomial1d_type_object =
         .tp_itemsize = sizeof(double),
         // .tp_vectorcall_offset = ,
         // .tp_repr = ,
-        .tp_call = basis_call,
+        .tp_call = polynomial1d_call,
         .tp_str = polynomial1d_str,
+        .tp_repr = polynomial1d_repr,
         // .tp_doc = ,
         .tp_getset = polynomial1d_getset,
         .tp_base = &basis1d_type_object,

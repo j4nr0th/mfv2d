@@ -1,4 +1,4 @@
-"""Package dedicated to interpolation using data defined on different topological objects."""
+"""Package dedicated to interpolation using data defined on different topologies."""
 
 from interplib._interp import Basis1D as Basis1D
 from interplib._interp import Polynomial1D as Polynomial1D

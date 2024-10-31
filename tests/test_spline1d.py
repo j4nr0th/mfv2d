@@ -6,7 +6,7 @@ from interplib._interp import Spline1D
 
 
 def test_properties():
-    """Check properties reutrn same as they're given."""
+    """Check properties return same as they're given."""
     test_nodes = np.array([0, 0.5, 0.7, 0.9, 1.0], np.float64)
     test_coefficients = np.array(
         [

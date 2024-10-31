@@ -19,7 +19,7 @@ cmake.source-dir = "."
 logging.level = "INFO"
 editable.verbose = true
 editable.rebuild = false
-wheel.py-api = "cp310"
+# wheel.py-api = "cp310"
 
 
 [project.optional-dependencies]
@@ -37,6 +37,7 @@ dev = [
     "trame",
     "trame-vtk",
     "trame-vuetify",
+    "tomli",
 ]
 docs = [
     "sphinx",
@@ -64,7 +65,7 @@ warn_unused_ignores = true
 strict_equality = true
 
 [tool.codespell]
-skip = "test_*.py,sandbox/*"
+skip = "sandbox/*"
 count = true
 
 [tool.ruff]

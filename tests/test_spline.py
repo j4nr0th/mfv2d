@@ -16,7 +16,7 @@ def test_spline_at_nodes(n: int, order: int):
 
 @pytest.mark.parametrize("n", (2, 4, 10, 100))
 def test_spline_linear(n: int):
-    """Check linear nodal Spline1D is exact for linear funcitons."""
+    """Check linear nodal Spline1D is exact for linear functions."""
     np.random.seed(0)
     i = np.arange(n)
     a, b = np.random.random_sample((2,))
@@ -27,7 +27,7 @@ def test_spline_linear(n: int):
 
 @pytest.mark.parametrize("n", (2, 4, 10, 100))
 def test_spline_quadratic(n: int):
-    """Check cubic nodal Spline1D is exact for quadratic funcitons."""
+    """Check cubic nodal Spline1D is exact for quadratic functions."""
     np.random.seed(0)
     i = np.arange(n)
     a, b, c = np.random.random_sample((3,))
@@ -43,7 +43,7 @@ def test_spline_quadratic(n: int):
 
 @pytest.mark.parametrize("n", (2, 4, 10, 100))
 def test_spline_cubic(n: int):
-    """Check cubic nodal Spline1D is exact for cubic funcitons."""
+    """Check cubic nodal Spline1D is exact for cubic functions."""
     np.random.seed(0)
     i = np.arange(n)
     a, b, c, d = np.random.random_sample((4,))

@@ -9,7 +9,7 @@ find_package(Python COMPONENTS Interpreter Development.Module Development.SABIMo
 
 
 execute_process(
-        COMMAND "${Python3_EXECUTABLE}"
+        COMMAND "${Python_EXECUTABLE}"
         -c "import numpy; print(numpy.get_include())"
         OUTPUT_VARIABLE NumPy_INCLUDE_DIRS
         OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -43,7 +43,9 @@ install(TARGETS _interp DESTINATION ${SKBUILD_PROJECT_NAME})
 #if (CMAKE_BUILD_TYPE EQUAL Debug)
 target_compile_definitions(_interp PRIVATE INTERPLIB_ASSERTS)
 #endif()
-message("Got numpy at ${NumPy_INCLUDE_DIRS}")
+if ("${NumPy_INCLUDE_DIRS}" STREQUAL "")
+        message( FATAL_ERROR "NumPy_INCLUDE_DIRS was empty.")
+endif ()
 target_include_directories(_interp PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
 
 if (CMAKE_C_COMPILER_ID EQUAL "GNU")
@@ -51,4 +53,4 @@ if (CMAKE_C_COMPILER_ID EQUAL "GNU")
 endif ()
 
 enable_testing()
-add_test(NAME pytest COMMAND ${Python3_EXECUTABLE} -m pytest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_test(NAME pytest COMMAND ${Python_EXECUTABLE} -m pytest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})

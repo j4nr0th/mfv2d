@@ -33,7 +33,7 @@ class SplineBC:
         Value of the weighted sum for the boundary condition.
     """
 
-    coefficiens: npt.NDArray[np.float64]
+    coefficients: npt.NDArray[np.float64]
     value: float
 
     def __init__(self, coeffs: npt.ArrayLike, value: float) -> None:
@@ -43,7 +43,7 @@ class SplineBC:
         v = float(value)
         if np.all(k == 0.0):
             raise ValueError("All coefficients were zero.")
-        object.__setattr__(self, "coefficiens", k)
+        object.__setattr__(self, "coefficients", k)
         object.__setattr__(self, "value", v)
 
 
@@ -77,19 +77,19 @@ def _ensure_boundary_conditions(
 
     if bc_left is not None:
         for ib, bc in enumerate(bc_left):
-            if bc.coefficiens.shape[0] != expected_order:
+            if bc.coefficients.shape[0] != expected_order:
                 raise ValueError(
                     f"Boundary condition {ib} on left boundary has the wrong degree (got"
-                    f" {bc.coefficiens.shape[0]} when expecting {expected_order})."
+                    f" {bc.coefficients.shape[0]} when expecting {expected_order})."
                 )
             bcs_left.append(bc)
 
     if bc_right is not None:
         for ib, bc in enumerate(bc_right):
-            if bc.coefficiens.shape[0] != expected_order:
+            if bc.coefficients.shape[0] != expected_order:
                 raise ValueError(
                     f"Boundary condition {ib} on right boundary has the wrong degree (got"
-                    f" {bc.coefficiens.shape[0]} when expecting {expected_order})."
+                    f" {bc.coefficients.shape[0]} when expecting {expected_order})."
                 )
             bcs_right.append(bc)
 
@@ -229,15 +229,15 @@ def _element_interpolation_system(
     n_bc_left = 0
     for bc in bc_left:
         inode = np.arange(n)
-        if bc.coefficiens.shape != (n,):
+        if bc.coefficients.shape != (n,):
             raise ValueError(
                 f"Left boundary condition at index {n_bc_left} did not have enough"
-                f"coefficients (got {bc.coefficiens.shape} when expecting"
+                f"coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
         for j in range(n):
-            m[p, inode] += bc.coefficiens[j] * v[j, 1:, 0]
-            k[p] -= bc.coefficiens[j] * v[j, 0, 0] * averages[0]
+            m[p, inode] += bc.coefficients[j] * v[j, 1:, 0]
+            k[p] -= bc.coefficients[j] * v[j, 0, 0] * averages[0]
         k[p] += bc.value
         n_bc_left += 1
         p += 1
@@ -254,15 +254,15 @@ def _element_interpolation_system(
     n_bc_right = 0
     for bc in bc_right:
         inode = np.arange(n) + (nelem - 1) * n_node
-        if bc.coefficiens.shape != (n,):
+        if bc.coefficients.shape != (n,):
             raise ValueError(
                 f"Right boundary condition at index {n_bc_right} did not have enough"
-                f"coefficients (got {bc.coefficiens.shape} when expecting"
+                f"coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
         for j in range(n):
-            m[p, inode] += bc.coefficiens[j] * v[j, 1:, 1]
-            k[p] -= bc.coefficiens[j] * v[j, 0, 1] * averages[-1]
+            m[p, inode] += bc.coefficients[j] * v[j, 1:, 1]
+            k[p] -= bc.coefficients[j] * v[j, 0, 1] * averages[-1]
         k[p] += bc.value
         n_bc_right += 1
         p += 1
@@ -429,15 +429,15 @@ def _nodal_interpolation_system(
     n_bc_left = 0
     for bc in bc_left:
         inode = np.arange(n - 1)
-        if bc.coefficiens.shape != (n,):
+        if bc.coefficients.shape != (n,):
             raise ValueError(
                 f"Left boundary condition at index {n_bc_left} did not have enough"
-                f" coefficients (got {bc.coefficiens.shape} when expecting"
+                f" coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
         for j in range(1, n):
-            m[p, inode] += bc.coefficiens[j] * v[j, 2:, 0]
-            k[p] -= bc.coefficiens[j] * (v[j, 0, 0] * nodes[0] + v[j, 1, 0] * nodes[1])
+            m[p, inode] += bc.coefficients[j] * v[j, 2:, 0]
+            k[p] -= bc.coefficients[j] * (v[j, 0, 0] * nodes[0] + v[j, 1, 0] * nodes[1])
         k[p] += bc.value
         n_bc_left += 1
         p += 1
@@ -459,15 +459,15 @@ def _nodal_interpolation_system(
     n_bc_right = 0
     for bc in bc_right:
         inode = np.arange(n - 1) + (nelem - 1) * n_node
-        if bc.coefficiens.shape != (n,):
+        if bc.coefficients.shape != (n,):
             raise ValueError(
                 f"Right boundary condition at index {n_bc_right} did not have enough"
-                f"coefficients (got {bc.coefficiens.shape} when expecting"
+                f"coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
         for j in range(1, n):
-            m[p, inode] += bc.coefficiens[j] * v[j, 2:, 1]
-            k[p] -= bc.coefficiens[j] * (v[j, 0, 1] * nodes[-2] + v[j, 1, 1] * nodes[-1])
+            m[p, inode] += bc.coefficients[j] * v[j, 2:, 1]
+            k[p] -= bc.coefficients[j] * (v[j, 0, 1] * nodes[-2] + v[j, 1, 1] * nodes[-1])
         k[p] += bc.value
         n_bc_right += 1
         p += 1

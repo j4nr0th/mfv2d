@@ -501,13 +501,16 @@ static PyObject *spline1di_antiderivative(PyObject *self, void *Py_UNUSED(closur
     out->call_spline = spline1di_vectorcall;
     out->n_nodes = this->n_nodes;
     out->n_coefficients = this->n_coefficients + 1;
+    double prev_anti_derivative = 0.0;
     for (unsigned i = 0; i < this->n_nodes - 1; ++i)
     {
-        out->data[out->n_coefficients * i] = 0.0;
+        out->data[out->n_coefficients * i] = prev_anti_derivative;
 
         for (unsigned j = 0; j < this->n_coefficients; ++j)
         {
-            out->data[out->n_coefficients * i + j + 1] = this->data[this->n_coefficients * i + j] / (double)(j + 1);
+            const double coef = this->data[this->n_coefficients * i + j] / (double)(j + 1);
+            out->data[out->n_coefficients * i + j + 1] = coef;
+            prev_anti_derivative += coef;
         }
     }
     return (PyObject *)out;

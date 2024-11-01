@@ -47,6 +47,25 @@ def test_spline_quadratic(n: int):
     assert spline.derivative(i) == pytest.approx(2 * a * i + b)
 
 
+@pytest.mark.parametrize("n,ntest", ((2, 10), (4, 20), (10, 100), (100, 1000)))
+def test_spline_quadratic_antiderivative(n: int, ntest: int):
+    """Check cubic nodal Spline1Di antiderivative is exact for quadratic functions."""
+    np.random.seed(0)
+    i = np.arange(n)
+    a, b, c = np.random.random_sample((3,))
+    y = a * i**2 + b * i + c
+    spline = nodal_interpolating_splinei(
+        3,
+        y,
+        [SplineBC([0, 1, 0], 2 * a * i[0] + b)],
+        [SplineBC([0, 1, 0], 2 * a * i[-1] + b)],
+    )
+    itest = np.linspace(i[0], i[-1], ntest)
+    assert spline.antiderivative(itest) == pytest.approx(
+        a / 3 * itest**3 + b / 2 * itest**2 + c * itest
+    )
+
+
 @pytest.mark.parametrize("n, ntest", ((2, 10), (4, 20), (10, 1000)))
 def test_spline_element(n: int, ntest: int):
     """Check quartic element Spline1Di is exact for cubic functions."""

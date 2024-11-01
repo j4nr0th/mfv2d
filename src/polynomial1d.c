@@ -389,6 +389,54 @@ static PyObject *polynomial1d_neg(PyObject *self)
     return (PyObject *)out;
 }
 
+static PyObject *polynomial1d_as_pyfloat(PyObject *self)
+{
+    const polynomial_basis_t *this = (polynomial_basis_t *)self;
+    if (this->n > 1)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Polynomials with anything more than a single (constant) term can not be converted to floats.");
+        return NULL;
+    }
+    return PyFloat_FromDouble(this->k[0]);
+}
+
+static Py_ssize_t polynomial1d_length(PyObject *self)
+{
+    const polynomial_basis_t *this = (polynomial_basis_t *)self;
+    return (Py_ssize_t)this->n;
+}
+
+static PyObject *polynomial1d_get_coefficient(PyObject *self, Py_ssize_t idx)
+{
+    const polynomial_basis_t *this = (polynomial_basis_t *)self;
+    if ((unsigned)idx >= this->n)
+    {
+        PyErr_Format(PyExc_IndexError, "Index %u is out of bounds for a polynomial with %u terms.", (unsigned)idx,
+                     this->n);
+        return NULL;
+    }
+    return PyArray_Scalar((void *)(this->k + idx), PyArray_DescrFromType(NPY_DOUBLE), NULL);
+}
+
+static int polynomial1d_set_coefficient(PyObject *self, Py_ssize_t idx, PyObject *arg)
+{
+    polynomial_basis_t *this = (polynomial_basis_t *)self;
+    if ((unsigned)idx >= this->n)
+    {
+        PyErr_Format(PyExc_IndexError, "Index %u is out of bounds for a polynomial with %u terms.", (unsigned)idx,
+                     this->n);
+        return -1;
+    }
+    const double v = PyFloat_AsDouble(arg);
+    if (PyErr_Occurred())
+    {
+        return -1;
+    }
+    this->k[idx] = v;
+    return 0;
+}
+
 static PyGetSetDef polynomial1d_getset[] = {
     {.name = "coefficients",
      .get = polynomial1d_get_coefficients,
@@ -412,6 +460,13 @@ static PyNumberMethods polynomial1d_number_methods = {
     .nb_add = polynomial1d_add,
     .nb_multiply = polynomial1d_mul,
     .nb_negative = polynomial1d_neg,
+    .nb_float = polynomial1d_as_pyfloat,
+};
+
+static PySequenceMethods polynomial1d_sequence_methods = {
+    .sq_length = polynomial1d_length,
+    .sq_item = polynomial1d_get_coefficient,
+    .sq_ass_item = polynomial1d_set_coefficient,
 };
 
 INTERPLIB_INTERNAL
@@ -430,5 +485,6 @@ PyTypeObject polynomial1d_type_object = {
     .tp_base = &basis1d_type_object,
     .tp_new = polynomial1d_new,
     .tp_as_number = &polynomial1d_number_methods,
+    .tp_as_sequence = &polynomial1d_sequence_methods,
     .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HAVE_VECTORCALL,
 };

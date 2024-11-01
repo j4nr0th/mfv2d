@@ -122,3 +122,12 @@ def test_multiplication():
     test_space = np.linspace(-1, +1, 11)
     assert prod1(test_space) == pytest.approx(poly1(test_space) * poly2(test_space))
     assert prod2(test_space) == pytest.approx(poly1(test_space) * poly2(test_space))
+
+
+def test_setting_coefficients():
+    """Manually set coefficients one by one."""
+    poly1 = Polynomial1D([0, 1, 41, 20, 100])
+    poly2 = Polynomial1D([-1, 2, -3.2, 10.0, 11])
+    for i in range(len(poly2)):
+        poly1[i] = poly2[i]
+    assert np.all(poly1.coefficients == poly2.coefficients)

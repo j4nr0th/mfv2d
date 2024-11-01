@@ -5,30 +5,65 @@
 #include "lagrange.h"
 
 INTERPLIB_INTERNAL
+void lagrange_polynomial_denominators(unsigned n, const double INTERPLIB_ARRAY_ARG(nodes, restrict static n),
+                                      double INTERPLIB_ARRAY_ARG(denominators, restrict n))
+{
+    denominators[0] = 1.0;
+    // Compute the first denominator directly
+    for (unsigned j = 1; j < n; ++j)
+    {
+        const double dif = nodes[0] - nodes[j];
+        denominators[0] *= dif;
+        denominators[j] = -dif;
+    }
+
+    //  Compute the rest as a loop now that all entries are initialized
+    for (unsigned i = 1; i < n; ++i)
+    {
+        for (unsigned j = i + 1; j < n; ++j)
+        {
+            const double dif = nodes[i] - nodes[j];
+            denominators[i] *= +dif;
+            denominators[j] *= -dif;
+        }
+    }
+}
+
+INTERPLIB_INTERNAL
+void lagrange_polynomial_coefficients(unsigned n, unsigned j,
+                                      const double INTERPLIB_ARRAY_ARG(nodes, restrict static n),
+                                      double INTERPLIB_ARRAY_ARG(coefficients, restrict n))
+{
+    coefficients[0] = 1.0;
+    for (unsigned i = 0; i < j; ++i)
+    {
+        const double coeff = -nodes[i];
+        coefficients[i + 1] = 0.0;
+        for (unsigned k = i + 1; k > 0; --k)
+        {
+            coefficients[k] = coefficients[k - 1] + coeff * coefficients[k];
+        }
+        coefficients[0] *= coeff;
+    }
+    for (unsigned i = j + 1; i < n; ++i)
+    {
+        const double coeff = -nodes[i];
+        coefficients[i] = 0.0;
+        for (unsigned k = i; k > 0; --k)
+        {
+            coefficients[k] = coefficients[k - 1] + coeff * coefficients[k];
+        }
+        coefficients[0] *= coeff;
+    }
+}
+
+INTERPLIB_INTERNAL
 interp_error_t lagrange_polynomial_values(unsigned n_in, const double INTERPLIB_ARRAY_ARG(pos, static n_in),
                                           unsigned n_nodes, const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
                                           double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes *n_in),
                                           double INTERPLIB_ARRAY_ARG(work, restrict n_nodes))
 {
-    work[0] = 1.0;
-    // Compute the first denominator directly
-    for (unsigned j = 1; j < n_nodes; ++j)
-    {
-        const double dif = x[0] - x[j];
-        work[0] *= dif;
-        work[j] = -dif;
-    }
-
-    //  Compute the rest as a loop now that all entries are initialized
-    for (unsigned i = 1; i < n_nodes; ++i)
-    {
-        for (unsigned j = i + 1; j < n_nodes; ++j)
-        {
-            const double dif = x[i] - x[j];
-            work[i] *= +dif;
-            work[j] *= -dif;
-        }
-    }
+    lagrange_polynomial_denominators(n_in, x, work);
 
     //  Invert the denominator
     for (unsigned i = 0; i < n_nodes; ++i)
@@ -82,26 +117,7 @@ interp_error_t lagrange_polynomial_first_derivative(unsigned n_in, const double 
                                                     double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes))
 {
     // compute denominators
-
-    work1[0] = 1.0;
-    // Compute the first denominator directly
-    for (unsigned j = 1; j < n_nodes; ++j)
-    {
-        const double dif = x[0] - x[j];
-        work1[0] *= dif;
-        work1[j] = -dif;
-    }
-
-    //  Compute the rest as a loop now that all entries are initialized
-    for (unsigned i = 1; i < n_nodes; ++i)
-    {
-        for (unsigned j = i + 1; j < n_nodes; ++j)
-        {
-            const double dif = x[i] - x[j];
-            work1[i] *= +dif;
-            work1[j] *= -dif;
-        }
-    }
+    lagrange_polynomial_denominators(n_in, x, work1);
 
     //  Invert the denominator
     for (unsigned i = 0; i < n_nodes; ++i)
@@ -166,26 +182,7 @@ interp_error_t lagrange_polynomial_second_derivative(unsigned n_in, const double
                                                      double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes))
 {
     // compute denominators
-
-    work1[0] = 1.0;
-    // Compute the first denominator directly
-    for (unsigned j = 1; j < n_nodes; ++j)
-    {
-        const double dif = x[0] - x[j];
-        work1[0] *= dif;
-        work1[j] = -dif;
-    }
-
-    //  Compute the rest as a loop now that all entries are initialized
-    for (unsigned i = 1; i < n_nodes; ++i)
-    {
-        for (unsigned j = i + 1; j < n_nodes; ++j)
-        {
-            const double dif = x[i] - x[j];
-            work1[i] *= +dif;
-            work1[j] *= -dif;
-        }
-    }
+    lagrange_polynomial_denominators(n_in, x, work1);
 
     //  Invert the denominator
     for (unsigned i = 0; i < n_nodes; ++i)

@@ -8,6 +8,7 @@
 
 #include "basis1d.h"
 #include "common.h"
+#include "lagrange.h"
 #include <stddef.h>
 
 static PyObject *polynomial1d_vectorcall(PyObject *self, PyObject *const *args, size_t nargsf,
@@ -437,18 +438,19 @@ static int polynomial1d_set_coefficient(PyObject *self, Py_ssize_t idx, PyObject
     return 0;
 }
 
-PyDoc_STRVAR(lagrange_basis_docstring, "Return Lagrange nodal polynomial basis on the given set of nodes.\n"
-                                       "\n"
-                                       "Parameters\n"
-                                       "----------\n"
-                                       "nodes : (N,) array_like\n"
-                                       "    Nodes used for Lagrange polynomials.\n"
-                                       "\n"
-                                       "Returns\n"
-                                       "-------\n"
-                                       "tuple of ``N`` :class:`Polynomial1D`\n"
-                                       "    Lagrange basis polynomials, which are one at the node of their index\n"
-                                       " and zero at all other.\n");
+PyDoc_STRVAR(lagrange_nodal_basis_docstring,
+             "Return Lagrange nodal polynomial basis on the given set of nodes.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "nodes : (N,) array_like\n"
+             "    Nodes used for Lagrange polynomials.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "tuple of ``N`` :class:`Polynomial1D`\n"
+             "    Lagrange basis polynomials, which are one at the node of their index\n"
+             " and zero at all other.\n");
 static PyObject *lagrange_nodal_basis(PyObject *cls, PyObject *arg)
 {
     PyArrayObject *const nodes =
@@ -457,7 +459,110 @@ static PyObject *lagrange_nodal_basis(PyObject *cls, PyObject *arg)
     {
         return NULL;
     }
-    ASSERT(PyType_CheckExact(cls), "Not a type\n");
+    PyTupleObject *out = NULL;
+    double *restrict denominators = NULL;
+    const unsigned n = (unsigned)PyArray_SIZE(nodes);
+    const double *restrict x = PyArray_DATA(nodes);
+    int failed = 0;
+
+    if (n == 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Zero nodes were provided.");
+        failed = 1;
+        goto end;
+    }
+
+    denominators = PyMem_Malloc(sizeof(*denominators) * n);
+    // Pre-compute denominators
+    lagrange_polynomial_denominators(n, x, denominators);
+
+    //  Invert the denominator
+    for (unsigned i = 0; i < n; ++i)
+    {
+        denominators[i] = 1.0 / denominators[i];
+    }
+
+    out = (PyTupleObject *)PyTuple_New(n);
+    if (!out)
+    {
+        failed = 1;
+        goto end;
+    }
+
+    for (unsigned j = 0; j < n; ++j)
+    {
+        polynomial_basis_t *this = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, n);
+        if (!this)
+        {
+            failed = 1;
+            goto end;
+        }
+        this->n = n;
+        this->call_poly = polynomial1d_vectorcall;
+        lagrange_polynomial_coefficients(n, j, x, this->k);
+        for (unsigned i = 0; i < n; ++i)
+        {
+            this->k[i] *= denominators[j];
+        }
+        PyTuple_SET_ITEM((PyObject *)out, j, (PyObject *)this);
+    }
+
+end:
+
+    if (failed && out)
+    {
+        for (unsigned i = 0; i < PyTuple_GET_SIZE(out); ++i)
+        {
+            polynomial_basis_t *this = (polynomial_basis_t *)PyTuple_GET_ITEM(out, i);
+            Py_XDECREF(this);
+            PyTuple_SET_ITEM(out, i, NULL);
+        }
+        Py_DECREF(out);
+        out = NULL;
+    }
+    PyMem_Free(denominators);
+    Py_DECREF(nodes);
+    return (PyObject *)out;
+}
+
+PyDoc_STRVAR(lagrange_nodal_fit_docstring,
+             "Use Lagrange nodal polynomial basis to fit a function.\n"
+             "\n"
+             "Equivalent to calling ``sum(b * y for (b, y) in\n"
+             " zip(Polynomial1D.lagrange_nodal_basis(x), f(x))``\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "nodes : (N,) array_like\n"
+             "    Nodes used for Lagrange polynomials.\n"
+             "values : (N,) array_like\n"
+             "    Values of the function at the nodes.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "Polynomial1D\n"
+             "    Polynomial of order ``N`` which matches function exactly at the nodes.\n");
+static PyObject *lagrange_nodal_fit(PyObject *cls, PyObject *const *args, Py_ssize_t nargs)
+{
+    if (nargs != 2)
+    {
+        PyErr_Format(PyExc_TypeError, "Function always takes exactly two parameters, but was called with %z", nargs);
+        return NULL;
+    }
+    PyArrayObject *nodes = NULL, *values = NULL;
+    nodes = (PyArrayObject *)PyArray_FromAny(args[0], PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_C_CONTIGUOUS,
+                                             NULL);
+    if (!nodes)
+    {
+        return NULL;
+    }
+    values = (PyArrayObject *)PyArray_FromAny(args[1], PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_C_CONTIGUOUS,
+                                              NULL);
+    if (!values)
+    {
+        Py_DECREF(nodes);
+        return NULL;
+    }
     PyTupleObject *out = NULL;
     double *restrict denominators = NULL;
     const unsigned n = (unsigned)PyArray_SIZE(nodes);
@@ -559,6 +664,7 @@ end:
     }
     PyMem_Free(denominators);
     Py_DECREF(nodes);
+    Py_DECREF(values);
     return (PyObject *)out;
 }
 
@@ -598,7 +704,7 @@ static PyMethodDef polynomial1d_methods[] = {
     {.ml_name = "lagrange_nodal_basis",
      .ml_meth = lagrange_nodal_basis,
      .ml_flags = METH_O | METH_CLASS,
-     .ml_doc = lagrange_basis_docstring},
+     .ml_doc = lagrange_nodal_basis_docstring},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

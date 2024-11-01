@@ -7,6 +7,29 @@
 #include "error.h"
 
 /**
+ * @brief Compute common denominators of Lagrange polynomials.
+ *
+ * @param n Number of nodes.
+ * @param nodes Array with nodes where the Lagrange polynomial is zero.
+ * @param denominators Array which receives the denominators.
+ */
+INTERPLIB_INTERNAL
+void lagrange_polynomial_denominators(unsigned n, const double INTERPLIB_ARRAY_ARG(nodes, restrict static n),
+                                      double INTERPLIB_ARRAY_ARG(denominators, restrict n));
+/**
+ * @brief Compute values of Lagrange polynomial coefficients without dividing by the common denominator.
+ *
+ * @param n Number of nodes.
+ * @param j Index of the Lagrange polynomial. At that node its value will be non-zero.
+ * @param nodes Array with nodes where the Lagrange polynomial is zero.
+ * @param coefficients Array which receives the coefficients. The term's index corresponds to it's power of x.
+ */
+INTERPLIB_INTERNAL
+void lagrange_polynomial_coefficients(unsigned n, unsigned j,
+                                      const double INTERPLIB_ARRAY_ARG(nodes, restrict static n),
+                                      double INTERPLIB_ARRAY_ARG(coefficients, restrict n));
+
+/**
  * @brief Compute values of Lagrange polynomials with given nodes at specified
  * locations. The interpolation can be computed for any function on the same
  * mesh by taking the inner product of the weight matrix with the function

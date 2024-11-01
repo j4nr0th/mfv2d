@@ -43,7 +43,7 @@ class Polynomial1D(Basis1D):
     @classmethod
     def lagrange_nodal_basis(cls, nodes: npt.ArrayLike) -> tuple[Polynomial1D, ...]: ...
     @classmethod
-    def fit_lagrange(
+    def lagrange_nodal_fit(
         cls, nodes: npt.ArrayLike, values: npt.ArrayLike
     ) -> Polynomial1D: ...
 

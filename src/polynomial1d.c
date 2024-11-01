@@ -473,6 +473,11 @@ static PyObject *lagrange_nodal_basis(PyObject *cls, PyObject *arg)
     }
 
     denominators = PyMem_Malloc(sizeof(*denominators) * n);
+    if (!denominators)
+    {
+        failed = 1;
+        goto end;
+    }
     // Pre-compute denominators
     lagrange_polynomial_denominators(n, x, denominators);
 
@@ -563,109 +568,90 @@ static PyObject *lagrange_nodal_fit(PyObject *cls, PyObject *const *args, Py_ssi
         Py_DECREF(nodes);
         return NULL;
     }
-    PyTupleObject *out = NULL;
     double *restrict denominators = NULL;
+    double *restrict current_basis = NULL;
     const unsigned n = (unsigned)PyArray_SIZE(nodes);
     const double *restrict x = PyArray_DATA(nodes);
+    const double *restrict y = PyArray_DATA(values);
     int failed = 0;
+    polynomial_basis_t *this = NULL;
 
+    if (n != (unsigned)PyArray_SIZE(values))
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Nodes and values arrays must have the same length, instead %u nodes were given and %u values.", n,
+                     (unsigned)PyArray_SIZE(values));
+        failed = 1;
+        goto end;
+    }
     if (n == 0)
     {
         PyErr_Format(PyExc_ValueError, "Zero nodes were provided.");
         failed = 1;
         goto end;
     }
+    this = PyObject_NewVar(polynomial_basis_t, (PyTypeObject *)cls, n);
+    if (!this)
+    {
+        failed = 1;
+        goto end;
+    }
+    this->n = n;
+    this->call_poly = polynomial1d_vectorcall;
 
     denominators = PyMem_Malloc(sizeof(*denominators) * n);
+    if (!denominators)
+    {
+        failed = 1;
+        goto end;
+    }
     // Pre-compute denominators
-    denominators[0] = 1.0;
-    // Compute the first denominator directly
-    for (unsigned j = 1; j < n; ++j)
-    {
-        const double dif = x[0] - x[j];
-        denominators[0] *= dif;
-        denominators[j] = -dif;
-    }
+    lagrange_polynomial_denominators(n, x, denominators);
 
-    //  Compute the rest as a loop now that all entries are initialized
-    for (unsigned i = 1; i < n; ++i)
-    {
-        for (unsigned j = i + 1; j < n; ++j)
-        {
-            const double dif = x[i] - x[j];
-            denominators[i] *= +dif;
-            denominators[j] *= -dif;
-        }
-    }
-
-    //  Invert the denominator
+    //  Invert the denominator and multiply with values
     for (unsigned i = 0; i < n; ++i)
     {
-        denominators[i] = 1.0 / denominators[i];
+        denominators[i] = y[i] / denominators[i];
     }
-
-    out = (PyTupleObject *)PyTuple_New(n);
-    if (!out)
+    current_basis = PyMem_Malloc(sizeof(*current_basis) * n);
+    if (!current_basis)
     {
         failed = 1;
         goto end;
     }
 
-    for (unsigned j = 0; j < n; ++j)
+    //  First polynomial can be done in-place
+    //  get coefficients
+    lagrange_polynomial_coefficients(n, 0, x, this->k);
+    //  multiply by value over the denominator
+    for (unsigned i = 0; i < n; ++i)
     {
-        polynomial_basis_t *this = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, n);
-        if (!this)
-        {
-            failed = 1;
-            goto end;
-        }
-        this->n = n;
-        this->call_poly = polynomial1d_vectorcall;
-        this->k[0] = 1.0;
-        for (unsigned i = 0; i < j; ++i)
-        {
-            const double coeff = -x[i];
-            this->k[i + 1] = 0.0;
-            for (unsigned k = i + 1; k > 0; --k)
-            {
-                this->k[k] = this->k[k - 1] + coeff * this->k[k];
-            }
-            this->k[0] *= coeff;
-        }
-        for (unsigned i = j + 1; i < n; ++i)
-        {
-            const double coeff = -x[i];
-            this->k[i] = 0.0;
-            for (unsigned k = i; k > 0; --k)
-            {
-                this->k[k] = this->k[k - 1] + coeff * this->k[k];
-            }
-            this->k[0] *= coeff;
-        }
+        this->k[i] *= denominators[0];
+    }
+
+    //  Other polynomials are done in steps
+    for (unsigned j = 1; j < n; ++j)
+    {
+        //  Compute base value
+        lagrange_polynomial_coefficients(n, j, x, current_basis);
+        //  Add to final one
         for (unsigned i = 0; i < n; ++i)
         {
-            this->k[i] *= denominators[j];
+            this->k[i] += denominators[j] * current_basis[i];
         }
-        PyTuple_SET_ITEM((PyObject *)out, j, (PyObject *)this);
     }
 
 end:
-
-    if (failed && out)
+    if (failed && this)
     {
-        for (unsigned i = 0; i < PyTuple_GET_SIZE(out); ++i)
-        {
-            polynomial_basis_t *this = (polynomial_basis_t *)PyTuple_GET_ITEM(out, i);
-            Py_XDECREF(this);
-            PyTuple_SET_ITEM(out, i, NULL);
-        }
-        Py_DECREF(out);
-        out = NULL;
+        Py_DECREF(this);
+        this = NULL;
     }
+    PyMem_Free(current_basis);
     PyMem_Free(denominators);
     Py_DECREF(nodes);
     Py_DECREF(values);
-    return (PyObject *)out;
+    return (PyObject *)this;
 }
 
 static PyGetSetDef polynomial1d_getset[] = {
@@ -705,6 +691,10 @@ static PyMethodDef polynomial1d_methods[] = {
      .ml_meth = lagrange_nodal_basis,
      .ml_flags = METH_O | METH_CLASS,
      .ml_doc = lagrange_nodal_basis_docstring},
+    {.ml_name = "lagrange_nodal_fit",
+     .ml_meth = (PyCFunction)lagrange_nodal_fit,
+     .ml_flags = METH_FASTCALL | METH_CLASS,
+     .ml_doc = lagrange_nodal_fit_docstring},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

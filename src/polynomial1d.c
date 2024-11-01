@@ -437,7 +437,7 @@ static int polynomial1d_set_coefficient(PyObject *self, Py_ssize_t idx, PyObject
     return 0;
 }
 
-PyDoc_STRVAR(lagrange_basis_docstring, "Return Lagrange polynomial basis on the given set of nodes.\n"
+PyDoc_STRVAR(lagrange_basis_docstring, "Return Lagrange nodal polynomial basis on the given set of nodes.\n"
                                        "\n"
                                        "Parameters\n"
                                        "----------\n"
@@ -449,7 +449,7 @@ PyDoc_STRVAR(lagrange_basis_docstring, "Return Lagrange polynomial basis on the 
                                        "tuple of ``N`` :class:`Polynomial1D`\n"
                                        "    Lagrange basis polynomials, which are one at the node of their index\n"
                                        " and zero at all other.\n");
-static PyObject *lagrange_basis(PyObject *cls, PyObject *arg)
+static PyObject *lagrange_nodal_basis(PyObject *cls, PyObject *arg)
 {
     PyArrayObject *const nodes =
         (PyArrayObject *)PyArray_FromAny(arg, PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_C_CONTIGUOUS, NULL);
@@ -595,8 +595,8 @@ static PySequenceMethods polynomial1d_sequence_methods = {
 };
 
 static PyMethodDef polynomial1d_methods[] = {
-    {.ml_name = "lagrange_basis",
-     .ml_meth = lagrange_basis,
+    {.ml_name = "lagrange_nodal_basis",
+     .ml_meth = lagrange_nodal_basis,
      .ml_flags = METH_O | METH_CLASS,
      .ml_doc = lagrange_basis_docstring},
     {NULL, NULL, 0, NULL}, // sentinel

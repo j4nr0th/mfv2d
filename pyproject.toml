@@ -13,7 +13,7 @@ build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
 cmake.verbose = true
-cmake.build-type = "Release"
+cmake.build-type = "Debug" # "Release"
 cmake.source-dir = "."
 # build.verbose = true
 logging.level = "INFO"

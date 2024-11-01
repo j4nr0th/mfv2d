@@ -437,6 +437,131 @@ static int polynomial1d_set_coefficient(PyObject *self, Py_ssize_t idx, PyObject
     return 0;
 }
 
+PyDoc_STRVAR(lagrange_basis_docstring, "Return Lagrange polynomial basis on the given set of nodes.\n"
+                                       "\n"
+                                       "Parameters\n"
+                                       "----------\n"
+                                       "nodes : (N,) array_like\n"
+                                       "    Nodes used for Lagrange polynomials.\n"
+                                       "\n"
+                                       "Returns\n"
+                                       "-------\n"
+                                       "tuple of ``N`` :class:`Polynomial1D`\n"
+                                       "    Lagrange basis polynomials, which are one at the node of their index\n"
+                                       " and zero at all other.\n");
+static PyObject *lagrange_basis(PyObject *cls, PyObject *arg)
+{
+    PyArrayObject *const nodes =
+        (PyArrayObject *)PyArray_FromAny(arg, PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_C_CONTIGUOUS, NULL);
+    if (!nodes)
+    {
+        return NULL;
+    }
+    ASSERT(PyType_CheckExact(cls), "Not a type\n");
+    PyTupleObject *out = NULL;
+    double *restrict denominators = NULL;
+    const unsigned n = (unsigned)PyArray_SIZE(nodes);
+    const double *restrict x = PyArray_DATA(nodes);
+    int failed = 0;
+
+    if (n == 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Zero nodes were provided.");
+        failed = 1;
+        goto end;
+    }
+
+    denominators = PyMem_Malloc(sizeof(*denominators) * n);
+    // Pre-compute denominators
+    denominators[0] = 1.0;
+    // Compute the first denominator directly
+    for (unsigned j = 1; j < n; ++j)
+    {
+        const double dif = x[0] - x[j];
+        denominators[0] *= dif;
+        denominators[j] = -dif;
+    }
+
+    //  Compute the rest as a loop now that all entries are initialized
+    for (unsigned i = 1; i < n; ++i)
+    {
+        for (unsigned j = i + 1; j < n; ++j)
+        {
+            const double dif = x[i] - x[j];
+            denominators[i] *= +dif;
+            denominators[j] *= -dif;
+        }
+    }
+
+    //  Invert the denominator
+    for (unsigned i = 0; i < n; ++i)
+    {
+        denominators[i] = 1.0 / denominators[i];
+    }
+
+    out = (PyTupleObject *)PyTuple_New(n);
+    if (!out)
+    {
+        failed = 1;
+        goto end;
+    }
+
+    for (unsigned j = 0; j < n; ++j)
+    {
+        polynomial_basis_t *this = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, n);
+        if (!this)
+        {
+            failed = 1;
+            goto end;
+        }
+        this->n = n;
+        this->call_poly = polynomial1d_vectorcall;
+        this->k[0] = 1.0;
+        for (unsigned i = 0; i < j; ++i)
+        {
+            const double coeff = -x[i];
+            this->k[i + 1] = 0.0;
+            for (unsigned k = i + 1; k > 0; --k)
+            {
+                this->k[k] = this->k[k - 1] + coeff * this->k[k];
+            }
+            this->k[0] *= coeff;
+        }
+        for (unsigned i = j + 1; i < n; ++i)
+        {
+            const double coeff = -x[i];
+            this->k[i] = 0.0;
+            for (unsigned k = i; k > 0; --k)
+            {
+                this->k[k] = this->k[k - 1] + coeff * this->k[k];
+            }
+            this->k[0] *= coeff;
+        }
+        for (unsigned i = 0; i < n; ++i)
+        {
+            this->k[i] *= denominators[j];
+        }
+        PyTuple_SET_ITEM((PyObject *)out, j, (PyObject *)this);
+    }
+
+end:
+
+    if (failed && out)
+    {
+        for (unsigned i = 0; i < PyTuple_GET_SIZE(out); ++i)
+        {
+            polynomial_basis_t *this = (polynomial_basis_t *)PyTuple_GET_ITEM(out, i);
+            Py_XDECREF(this);
+            PyTuple_SET_ITEM(out, i, NULL);
+        }
+        Py_DECREF(out);
+        out = NULL;
+    }
+    PyMem_Free(denominators);
+    Py_DECREF(nodes);
+    return (PyObject *)out;
+}
+
 static PyGetSetDef polynomial1d_getset[] = {
     {.name = "coefficients",
      .get = polynomial1d_get_coefficients,
@@ -469,6 +594,22 @@ static PySequenceMethods polynomial1d_sequence_methods = {
     .sq_ass_item = polynomial1d_set_coefficient,
 };
 
+static PyMethodDef polynomial1d_methods[] = {
+    {.ml_name = "lagrange_basis",
+     .ml_meth = lagrange_basis,
+     .ml_flags = METH_O | METH_CLASS,
+     .ml_doc = lagrange_basis_docstring},
+    {NULL, NULL, 0, NULL}, // sentinel
+};
+
+PyDoc_STRVAR(polynomial1d_docstring, "Function with increasing integer power basis.\n"
+                                     "\n"
+                                     "Parameters\n"
+                                     "----------\n"
+                                     "coefficients : (N,) array_like\n"
+                                     "    Coefficients of the polynomial, starting at the constant term, up to the\n"
+                                     "    term with the highest power.\n");
+
 INTERPLIB_INTERNAL
 PyTypeObject polynomial1d_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Polynomial1D",
@@ -480,7 +621,8 @@ PyTypeObject polynomial1d_type_object = {
     // .tp_vectorcall = polynomial1d_vectorcall,
     .tp_str = polynomial1d_str,
     .tp_repr = polynomial1d_repr,
-    // .tp_doc = ,
+    .tp_doc = polynomial1d_docstring,
+    .tp_methods = polynomial1d_methods,
     .tp_getset = polynomial1d_getset,
     .tp_base = &basis1d_type_object,
     .tp_new = polynomial1d_new,

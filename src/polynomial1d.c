@@ -654,6 +654,63 @@ end:
     return (PyObject *)this;
 }
 
+PyDoc_STRVAR(polynomial1d_offset_by_docstring,
+             "Compute polynomial offset by specified amount.\n"
+             "\n"
+             "The offset polynomial :math:`p^\\prime(t)` is such that:\n"
+             "\n"
+             ".. math:\n"
+             "\n"
+             "   p^\\prime(t) = p(t + t_0),\n"
+             "\n"
+             "where :math:`p(t)` is the original polynomial and :math:`t_0` is the offset.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "t : float\n"
+             "   Amount by which to offset the polynomial by.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "Polynomial1D\n"
+             "   Polynomial which has been offset by the specified amount.\n");
+static PyObject *polynomial1d_offset_by(PyObject *self, PyObject *arg)
+{
+    const double t0 = PyFloat_AsDouble(arg);
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
+    const polynomial_basis_t *this = (polynomial_basis_t *)self;
+    polynomial_basis_t *out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n);
+    if (!out)
+    {
+        return NULL;
+    }
+    out->n = this->n;
+    out->call_poly = polynomial1d_vectorcall;
+
+    //  Expand out the terms
+    for (unsigned n = 0; n < this->n; ++n)
+    {
+        double t = 1.0;
+        const double a = this->k[n];
+        //  Assign the newly added term
+        out->k[n] = a;
+        // Add to previously already computed ones
+        unsigned binomial_coefficient = 1;
+        for (unsigned k = 0; k < n; ++k)
+        {
+            const unsigned kp = n - k - 1;
+            binomial_coefficient = binomial_coefficient * (n - k) / (k + 1);
+            out->k[kp] += a * (double)binomial_coefficient * t;
+            t *= t0;
+        }
+    }
+
+    return (PyObject *)out;
+}
+
 static PyGetSetDef polynomial1d_getset[] = {
     {.name = "coefficients",
      .get = polynomial1d_get_coefficients,
@@ -695,6 +752,10 @@ static PyMethodDef polynomial1d_methods[] = {
      .ml_meth = (PyCFunction)lagrange_nodal_fit,
      .ml_flags = METH_FASTCALL | METH_CLASS,
      .ml_doc = lagrange_nodal_fit_docstring},
+    {.ml_name = "offset_by",
+     .ml_meth = (PyCFunction)polynomial1d_offset_by,
+     .ml_flags = METH_O,
+     .ml_doc = polynomial1d_offset_by_docstring},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

@@ -131,3 +131,14 @@ def test_setting_coefficients():
     for i in range(len(poly2)):
         poly1[i] = poly2[i]
     assert np.all(poly1.coefficients == poly2.coefficients)
+
+
+@pytest.mark.parametrize("order,ntest", ((1, 10), (3, 10), (10, 300)))
+def test_polynomial_offset(order: int, ntest: int) -> None:
+    """Check an offset polynomial acts as its original with offset."""
+    np.random.seed(10928)
+    poly = Polynomial1D(np.random.random_sample(order))
+    offset = 1.0  # np.random.sample(1)[0]
+    op = poly.offset_by(offset)
+    xtest = np.linspace(-1, 1, ntest)
+    assert pytest.approx(op(xtest)) == poly(xtest + offset)

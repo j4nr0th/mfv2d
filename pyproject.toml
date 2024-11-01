@@ -102,3 +102,4 @@ ignore-init-method = true
 fail-under = 100
 exclude = ["sandbox", "docs", "build", ".*/", "cmake-*/"]
 style = "sphinx"
+verbose = 1

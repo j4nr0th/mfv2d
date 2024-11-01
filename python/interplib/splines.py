@@ -72,7 +72,7 @@ def _ensure_boundary_conditions(
     bcs_left: list[SplineBC] = []
     bcs_right: list[SplineBC] = []
 
-    expected_order = n if (n & 1) else n - 1
+    expected_order = n  # if (n & 1) else n - 1
     expected_count = n - 1 if (n & 1) else n
 
     if bc_left is not None:
@@ -214,7 +214,7 @@ def _element_interpolation_system(
         basis_values = np.array(tuple(poly([0, 1]) for poly in polynomials), np.float64)
         values.append(basis_values)
         polynomials = tuple(poly.derivative for poly in polynomials)
-    v = np.stack(values, axis=0)
+    v = np.array(values)  # , axis=0)
     averages = np.array(avg, np.float64)
     assert len(averages.shape) == 1
     nelem = int(averages.shape[0])

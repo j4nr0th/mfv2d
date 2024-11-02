@@ -601,7 +601,8 @@ def _nodal_interpolation_system2(
             m[p, inode] += (
                 bc.coefficients[j]
                 * v[j, 2:, 0]
-                * np.repeat(dx[0] ** (np.arange(n_node) + 1), 2)
+                * (dx[0] ** np.tile(np.arange(n // 2) + 1, 2))
+                / dx[0] ** j
             )
             k[p] -= bc.coefficients[j] * (v[j, 0, 0] * values[0] + v[j, 1, 0] * values[1])
         k[p] += bc.value
@@ -612,11 +613,17 @@ def _nodal_interpolation_system2(
         ileft = n_node * i + np.arange(n - 1)
         iright = n_node * (i + 1) + np.arange(n - 1)
         for j in range(n_node + 1, n):
-            m[p, ileft] -= v[j, 2:, 1]
-            m[p, iright] += v[j, 2:, 0]
-            k[p] = (v[j, 0, 1] * values[i] + v[j, 1, 1] * values[i + 1]) - (
-                v[j, 0, 0] * values[i + 1] + v[j, 1, 0] * values[i + 2]
+            m[p, ileft] -= (
+                v[j, 2:, 1] * (dx[i] ** np.tile(np.arange(n // 2) + 1, 2)) / dx[i] ** j
             )
+            m[p, iright] += (
+                v[j, 2:, 0]
+                * (dx[i + 1] ** np.tile(np.arange(n // 2) + 1, 2))
+                / dx[i + 1] ** j
+            )
+            k[p] = (v[j, 0, 1] * values[i] + v[j, 1, 1] * values[i + 1]) / dx[i] ** j - (
+                v[j, 0, 0] * values[i + 1] + v[j, 1, 0] * values[i + 2]
+            ) / dx[i + 1] ** j
             p += 1
 
     n_bc_right = 0
@@ -630,8 +637,10 @@ def _nodal_interpolation_system2(
             )
         for j in range(1, n):
             m[p, inode] += (
-                bc.coefficients[j] * v[j, 2:, 1]
-                # * np.repeat(dx[-1] ** (np.arange(n_node) + 1), 2)
+                bc.coefficients[j]
+                * v[j, 2:, 1]
+                * (dx[-1] ** np.tile(np.arange(n // 2) + 1, 2))
+                / dx[-1] ** j
             )
             k[p] -= bc.coefficients[j] * (
                 v[j, 0, 1] * values[-2] + v[j, 1, 1] * values[-1]
@@ -701,52 +710,16 @@ def nodal_interpolating_spline(
     poly: list[Polynomial1D] = []
     dx = nodes[1:] - nodes[:-1]
     for i in range(nodes.shape[0] - 1):
-        p = (
-            basis[0] * float(values[i])
-            + basis[1] * float(values[i + 1])
-            + sum(basis[j + 2] * r[(n - 1) // 2 * i + j] for j in range(n - 1))
+        d = np.tile(dx[i] ** (np.arange(n // 2) + 1), 2)
+        # Make into local basis
+        local = tuple(
+            Polynomial1D(p.coefficients / dx[i] ** np.arange(len(p))) for p in basis
         )
-        for j, k in enumerate(p):
-            p[j] = k / dx[i] ** j
-
+        p = (
+            local[0] * float(values[i])
+            + local[1] * float(values[i + 1])
+            + sum(local[j + 2] * (r[(n - 1) // 2 * i + j] * d[j]) for j in range(n - 1))
+        )
         poly.append(p)
     spl = Spline1D(nodes, tuple(p.coefficients for p in poly))
     return spl
-
-
-if __name__ == "__main__":
-    from matplotlib import pyplot as plt
-
-    N = 3
-    NSAMPLE = 10
-    NPLT = 1001
-    NODES = (1 - np.cos(np.linspace(0, np.pi, NSAMPLE))) / 1.9
-
-    def test_fn(x):
-        return 3 * x**2 - 2 * x**3 + 3 + np.cos(np.pi * x)
-
-    def test_dfn(x):
-        return 6 * x - 6 * x**2 - np.pi * np.sin(np.pi * x)
-
-    samples = test_fn(NODES)
-    spl = nodal_interpolating_spline(
-        N,
-        samples,
-        NODES,
-        # [SplineBC([0, 1, 0], test_dfn(NODES[0]))],
-        # [SplineBC([0, 1, 0], test_dfn(NODES[-1]))],
-    )
-
-    xplt = np.linspace(np.min(NODES), np.max(NODES), NPLT)
-    plt.plot(xplt, spl(xplt), label="spline")
-    plt.plot(xplt, test_fn(xplt), label="original", linestyle="dashed")
-    plt.scatter(NODES, samples, label="samples")
-    plt.legend()
-    plt.grid()
-    plt.show()
-    plt.plot(xplt, spl.derivative(xplt), label="spline")
-    plt.plot(xplt, test_dfn(xplt), label="original", linestyle="dashed")
-    plt.scatter(NODES, test_dfn(NODES), label="nodes")
-    plt.legend()
-    plt.grid()
-    plt.show()

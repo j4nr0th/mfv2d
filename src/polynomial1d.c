@@ -776,6 +776,7 @@ PyTypeObject polynomial1d_type_object = {
     // .tp_repr = ,
     .tp_call = PyVectorcall_Call, // polynomial1d_call,
     // .tp_vectorcall = polynomial1d_vectorcall,
+    .tp_iter = PySeqIter_New,
     .tp_str = polynomial1d_str,
     .tp_repr = polynomial1d_repr,
     .tp_doc = polynomial1d_docstring,

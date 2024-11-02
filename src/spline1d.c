@@ -58,16 +58,16 @@ static PyObject *spline1d_vectorcall(PyObject *self, PyObject *const *args, size
                 span = pivot - left_node;
             }
         }
-        // left_node is now greater or equal to v
+        // left_node is now less than or equal to v
         unsigned right_node = left_node + 1;
 
         if (!INTERPLIB_EXPECT_CONDITION(right_node < n_nodes))
         {
             left_node = n_nodes - 2;
-            right_node = n_nodes - 1;
+            // right_node = n_nodes - 1;
         }
 
-        const double t = (v - nodes[left_node]) / (nodes[right_node] - nodes[left_node]);
+        const double t = v - nodes[left_node];
         const double *restrict coeffs = coefficients + this->n_coefficients * left_node;
 
         double vv = 1.0;

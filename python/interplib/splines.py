@@ -6,7 +6,7 @@ from typing import Generator, Iterable
 import numpy as np
 import numpy.typing as npt
 
-from interplib._interp import Polynomial1D, Spline1Di
+from interplib._interp import Polynomial1D, Spline1D, Spline1Di
 
 __all__ = [
     "SplineBC",
@@ -532,3 +532,221 @@ def nodal_interpolating_splinei(
         poly.append(p)
     spl = Spline1Di(tuple(p.coefficients for p in poly))
     return spl
+
+
+def _nodal_interpolation_system2(
+    n: int,
+    basis: Iterable[Polynomial1D],
+    vals: npt.ArrayLike,
+    nds: npt.ArrayLike,
+    bc_left: Iterable[SplineBC],
+    bc_right: Iterable[SplineBC],
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Create interpolation matrix for natural nodal spline.
+
+    Parameters
+    ----------
+    n : int
+        Order of polynomial basis used. Number of terms will be one more.
+    basis : Iterable of Polynomial1D
+        Basis functions used for the spline.
+    vals : (M,) array_like
+        Values of function at the nodes.
+    nds : (M,) array_like
+        Nodes where the function is defined.
+    bc_left : Iterable of SplineBoundaryCondition
+        Boundary conditions of the left side of the spline (must be of order ``n``).
+    bc_right : Iterable of SplineBoundaryCondition
+        Boundary conditions of the right side of the spline (must be of order ``n``).
+
+    Returns
+    -------
+    (M * (n - 1)/2, (M + 1) * (n - 1)/2) array
+        System matrix which gives coefficients required to construct the spine.
+    (M * (n - 1)/2,) array
+        Right side of the equation, which can be solved to find the coefficients.
+    """
+    assert n & 1 == 1
+    basis_values: list[npt.NDArray[np.float64]] = []
+    polynomials = tuple(basis)
+    for i in range(n):
+        values = np.array(tuple(poly([0, 1]) for poly in polynomials), np.float64)
+        basis_values.append(values)
+        polynomials = tuple(poly.derivative for poly in polynomials)
+    v = np.stack(basis_values, axis=0)
+    del basis_values
+    values = np.array(vals, np.float64)
+    x = np.array(nds, np.float64)
+    assert len(x.shape) == 1
+    nelem = int(x.shape[0]) - 1
+    # Contents of v:
+    # axis 0: derivative
+    # axis 1: basis
+    # axis 2: node (left, right)
+    dx = x[1:] - x[:-1]
+    n_node = (n - 1) // 2
+    k = np.zeros(((nelem + 1) * n_node))
+    m = np.zeros(((nelem + 1) * n_node, (nelem + 1) * n_node))
+    p = 0
+    n_bc_left = 0
+    for bc in bc_left:
+        inode = np.arange(n - 1)
+        if bc.coefficients.shape != (n,):
+            raise ValueError(
+                f"Left boundary condition at index {n_bc_left} did not have enough"
+                f" coefficients (got {bc.coefficients.shape} when expecting"
+                f" {(n,)})."
+            )
+        for j in range(1, n):
+            m[p, inode] += (
+                bc.coefficients[j]
+                * v[j, 2:, 0]
+                * np.repeat(dx[0] ** (np.arange(n_node) + 1), 2)
+            )
+            k[p] -= bc.coefficients[j] * (v[j, 0, 0] * values[0] + v[j, 1, 0] * values[1])
+        k[p] += bc.value
+        n_bc_left += 1
+        p += 1
+
+    for i in range(0, nelem - 1):
+        ileft = n_node * i + np.arange(n - 1)
+        iright = n_node * (i + 1) + np.arange(n - 1)
+        for j in range(n_node + 1, n):
+            m[p, ileft] -= v[j, 2:, 1]
+            m[p, iright] += v[j, 2:, 0]
+            k[p] = (v[j, 0, 1] * values[i] + v[j, 1, 1] * values[i + 1]) - (
+                v[j, 0, 0] * values[i + 1] + v[j, 1, 0] * values[i + 2]
+            )
+            p += 1
+
+    n_bc_right = 0
+    for bc in bc_right:
+        inode = np.arange(n - 1) + (nelem - 1) * n_node
+        if bc.coefficients.shape != (n,):
+            raise ValueError(
+                f"Right boundary condition at index {n_bc_right} did not have enough"
+                f"coefficients (got {bc.coefficients.shape} when expecting"
+                f" {(n,)})."
+            )
+        for j in range(1, n):
+            m[p, inode] += (
+                bc.coefficients[j] * v[j, 2:, 1]
+                # * np.repeat(dx[-1] ** (np.arange(n_node) + 1), 2)
+            )
+            k[p] -= bc.coefficients[j] * (
+                v[j, 0, 1] * values[-2] + v[j, 1, 1] * values[-1]
+            )
+        k[p] += bc.value
+        n_bc_right += 1
+        p += 1
+
+    if p != (nelem + 1) * n_node:
+        raise ValueError(
+            f"There was not enough boundary conditions specified ({n} were needed, but"
+            f" {n_bc_left} were given on the left and {n_bc_right} were given on the"
+            " right)."
+        )
+
+    return m, k
+
+
+def nodal_interpolating_spline(
+    n: int,
+    vals: npt.ArrayLike,
+    nds: npt.ArrayLike,
+    bcs_left: Iterable[SplineBC] | None = None,
+    bcs_right: Iterable[SplineBC] | None = None,
+) -> Spline1D:
+    """Create interpolating spline, which has specified nodal values.
+
+    Parameters
+    ----------
+    n : int
+        Order of the spline. Must be odd, otherwise a ``ValueError`` will be raised.
+    vals : (N,) array_like
+        Values of function at the nodes.
+    nds : (N,) array_like
+        Nodes where the function is defined.
+    bcs_left : Iterable of SplineBC, optional
+        Boundary conditions of the left side of the spline (must be of order ``n``).
+        If it is not provided, the natural boundary conditions are used.
+    bcs_right : Iterable of SplineBC, optional
+        Boundary conditions of the right side of the spline (must be of order ``n``).
+        If it is not provided, the natural boundary conditions are used.
+
+    Returns
+    -------
+    Spline1D
+        Interpolating spline which maps from computational space :math:`[0, N-1]` to
+        values.
+    """
+    bcs_left, bcs_right = _ensure_boundary_conditions(n, bcs_left, bcs_right)
+    if (n & 1) != 1:
+        raise ValueError(f"Spline order must be odd (instead it was {n}).")
+    nodes = np.array(nds, np.float64)
+    if len(nodes.shape) != 1:
+        raise ValueError(
+            f"Nodes should be a 1D array, instead they have the shape {nodes.shape}"
+        )
+    values = np.array(vals, np.float64)
+    if values.shape != nodes.shape:
+        raise ValueError(
+            f"Values don't have the same shape as the nodes (nodes are {nodes.shape}, but"
+            f"values are {values.shape})."
+        )
+    # TODO: check vals if it's ok
+    basis = _nodal_interpolating_basis(n)
+    m, k = _nodal_interpolation_system2(n, basis, vals, nodes, bcs_left, bcs_right)
+    r = np.linalg.solve(m, k)
+    poly: list[Polynomial1D] = []
+    dx = nodes[1:] - nodes[:-1]
+    for i in range(nodes.shape[0] - 1):
+        p = (
+            basis[0] * float(values[i])
+            + basis[1] * float(values[i + 1])
+            + sum(basis[j + 2] * r[(n - 1) // 2 * i + j] for j in range(n - 1))
+        )
+        for j, k in enumerate(p):
+            p[j] = k / dx[i] ** j
+
+        poly.append(p)
+    spl = Spline1D(nodes, tuple(p.coefficients for p in poly))
+    return spl
+
+
+if __name__ == "__main__":
+    from matplotlib import pyplot as plt
+
+    N = 3
+    NSAMPLE = 10
+    NPLT = 1001
+    NODES = (1 - np.cos(np.linspace(0, np.pi, NSAMPLE))) / 1.9
+
+    def test_fn(x):
+        return 3 * x**2 - 2 * x**3 + 3 + np.cos(np.pi * x)
+
+    def test_dfn(x):
+        return 6 * x - 6 * x**2 - np.pi * np.sin(np.pi * x)
+
+    samples = test_fn(NODES)
+    spl = nodal_interpolating_spline(
+        N,
+        samples,
+        NODES,
+        # [SplineBC([0, 1, 0], test_dfn(NODES[0]))],
+        # [SplineBC([0, 1, 0], test_dfn(NODES[-1]))],
+    )
+
+    xplt = np.linspace(np.min(NODES), np.max(NODES), NPLT)
+    plt.plot(xplt, spl(xplt), label="spline")
+    plt.plot(xplt, test_fn(xplt), label="original", linestyle="dashed")
+    plt.scatter(NODES, samples, label="samples")
+    plt.legend()
+    plt.grid()
+    plt.show()
+    plt.plot(xplt, spl.derivative(xplt), label="spline")
+    plt.plot(xplt, test_dfn(xplt), label="original", linestyle="dashed")
+    plt.scatter(NODES, test_dfn(NODES), label="nodes")
+    plt.legend()
+    plt.grid()
+    plt.show()

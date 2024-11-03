@@ -328,6 +328,26 @@ static PyObject *polynomial1d_add(PyObject *o1, PyObject *o2)
     return (PyObject *)out;
 }
 
+INTERPLIB_INTERNAL
+void multiply_polynomials(unsigned n1, const double INTERPLIB_ARRAY_ARG(k1, restrict static n1), unsigned n2,
+                          const double INTERPLIB_ARRAY_ARG(k2, static n2),
+                          double INTERPLIB_ARRAY_ARG(out, ((n1 - 1) + (n2 - 1) + 1)))
+{
+    //  must manually set the highest term to zero, since it will be a special case
+    for (unsigned i = n1; i > 0; --i)
+    {
+        out[(i - 1) + (n2 - 1)] = k1[(i - 1)] * k2[(n2 - 1)];
+    }
+    for (unsigned j = n2 - 1; j > 0; --j)
+    {
+        for (unsigned i = n1; i > 1; --i)
+        {
+            out[(i - 1) + (j - 1)] += k1[(i - 1)] * k2[(j - 1)];
+        }
+        out[(j - 1)] = k1[0] * k2[(j - 1)];
+    }
+}
+
 static PyObject *polynomial1d_mul(PyObject *o1, PyObject *o2)
 {
     //  Check which is the polynomial
@@ -375,17 +395,7 @@ static PyObject *polynomial1d_mul(PyObject *o1, PyObject *o2)
     }
     out->n = this->n + other->n - 1;
     out->call_poly = polynomial1d_vectorcall;
-    for (unsigned i = 0; i < out->n; ++i)
-    {
-        out->k[i] = 0.0;
-    }
-    for (unsigned i = 0; i < this->n; ++i)
-    {
-        for (unsigned j = 0; j < other->n; ++j)
-        {
-            out->k[i + j] += this->k[i] * other->k[j];
-        }
-    }
+    multiply_polynomials(this->n, this->k, other->n, other->k, out->k);
     return (PyObject *)out;
 }
 
@@ -467,14 +477,15 @@ static PyObject *polynomial1d_pow(PyObject *self, PyObject *o, PyObject *modulo)
     out->k[0] = 1.0;
     for (unsigned power = 0; power < p; ++power)
     {
-        for (unsigned j = out->n; j > 0; --j)
-        {
-            for (unsigned i = this->n; i > 1; --i)
-            {
-                out->k[(i - 1) + (j - 1)] += this->k[(i - 1)] * out->k[(j - 1)];
-            }
-            out->k[(j - 1)] = this->k[0] * out->k[(j - 1)];
-        }
+        // for (unsigned j = out->n; j > 0; --j)
+        // {
+        //     for (unsigned i = this->n; i > 1; --i)
+        //     {
+        //         out->k[(i - 1) + (j - 1)] += this->k[(i - 1)] * out->k[(j - 1)];
+        //     }
+        //     out->k[(j - 1)] = this->k[0] * out->k[(j - 1)];
+        // }
+        multiply_polynomials(this->n, this->k, out->n, out->k, out->k);
         out->n += this->n - 1;
     }
     return (PyObject *)out;

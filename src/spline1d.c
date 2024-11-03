@@ -126,9 +126,8 @@ static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwar
         goto end;
     }
 
-    allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
-    this = (spline1d_t *)alloc(type, (Py_ssize_clean_t)((PyArray_SIZE((PyArrayObject *)node_array) +
-                                                         PyArray_SIZE((PyArrayObject *)coeff_array))));
+    this = (spline1d_t *)type->tp_alloc(type, (Py_ssize_clean_t)((PyArray_SIZE((PyArrayObject *)node_array) +
+                                                                  PyArray_SIZE((PyArrayObject *)coeff_array))));
     if (!this)
     {
         goto end;
@@ -138,8 +137,19 @@ static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwar
     this->n_nodes = n_nodes;
     this->n_coefficients = coeff_dims[1];
     const double *k = PyArray_DATA((PyArrayObject *)node_array);
-    for (unsigned i = 0; i < n_nodes; ++i)
+    this->data[0] = k[0];
+    for (unsigned i = 1; i < n_nodes; ++i)
     {
+        if (k[i] <= k[i - 1])
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "All nodes defining the spline must be monotonically increasing, but"
+                         " nodes %u and %u are not.",
+                         i - 1, i);
+            Py_DECREF(this);
+            this = NULL;
+            goto end;
+        }
         this->data[i] = k[i];
     }
     const double *coeffs = PyArray_DATA((PyArrayObject *)coeff_array);

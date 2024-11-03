@@ -153,3 +153,19 @@ def test_spline_averages(n: int, order: int):
     for i in range(n):
         q, _ = quad(spline, nodes[i], nodes[i + 1])
         assert (q == pytest.approx(x[i])) or (q == pytest.approx(x[i]))
+
+
+def test_wrong_nodes():
+    """Check that passing non-increasing nodes results in an error."""
+    try:
+        n = 10
+        m = 3
+        nodes = np.linspace(0, 1, n)
+        nodes[3] = 10.0
+        coeffs = np.zeros((n, m))
+        spl = Spline1D(nodes, coeffs)
+        del spl
+        assert False, "Should not reach this"
+    except ValueError as e:
+        del e
+        assert True

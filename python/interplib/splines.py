@@ -324,6 +324,197 @@ def element_interpolating_splinei(
     return spl
 
 
+def _element_interpolation_system2(
+    n: int,
+    basis: Iterable[Polynomial1D],
+    avg: npt.NDArray[np.float64],
+    nds: npt.NDArray[np.float64],
+    bc_left: list[SplineBC],
+    bc_right: list[SplineBC],
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Create interpolation matrix for natural element.
+
+    Parameters
+    ----------
+    n : int
+        Order of polynomial basis used. Number of terms will be one more.
+    basis : Iterable of Polynomial1D
+        Basis functions used for the spline.
+    avg : (M,) array of float64
+        Averages on the elements which are to be interpolated.
+    nds : (M,) array of float64
+        Nodes of the elements.
+    bc_left : list of SplineBoundaryCondition
+        Boundary conditions of the left side of the spline (must be of order ``n``).
+    bc_right : list of SplineBoundaryCondition
+        Boundary conditions of the right side of the spline (must be of order ``n``).
+
+    Returns
+    -------
+    ((M + 1) * n//2, (M + 1) * n//2) array
+        System matrix which gives coefficients required to construct the spine.
+    ((M + 1) * n//2,) array
+        Right side of the equation, which can be solved to find the coefficients.
+    """
+    assert n & 1 == 0
+    values: list[npt.NDArray[np.float64]] = []
+    polynomials = tuple(basis)
+    for i in range(n):
+        basis_values = np.array(tuple(poly([0, 1]) for poly in polynomials), np.float64)
+        values.append(basis_values)
+        polynomials = tuple(poly.derivative for poly in polynomials)
+    v = np.array(values)  # , axis=0)
+    averages = np.array(avg, np.float64)
+    assert len(averages.shape) == 1
+    nelem = int(averages.shape[0])
+    # Contents of v:
+    # axis 0: derivative
+    # axis 1: basis
+    # axis 2: node (left, right)
+
+    dx = nds[1:] - nds[:-1]
+
+    n_node = n // 2
+    k = np.zeros(((nelem + 1) * n_node))
+    m = np.zeros(((nelem + 1) * n_node, (nelem + 1) * n_node))
+    p = 0
+    n_bc_left = 0
+    for bc in bc_left:
+        inode = np.arange(n)
+        if bc.coefficients.shape != (n,):
+            raise ValueError(
+                f"Left boundary condition at index {n_bc_left} did not have enough"
+                f"coefficients (got {bc.coefficients.shape} when expecting"
+                f" {(n,)})."
+            )
+        for j in range(n):
+            m[p, inode] += (
+                bc.coefficients[j]
+                * v[j, 1:, 0]
+                * (dx[0] ** np.tile(np.arange(n // 2), 2))
+                / dx[0] ** j
+            )
+            k[p] -= bc.coefficients[j] * v[j, 0, 0] * averages[0] / dx[0] ** j
+        k[p] += bc.value
+        n_bc_left += 1
+        p += 1
+
+    for i in range(0, nelem - 1):
+        ileft = n_node * i + np.arange(n)
+        iright = n_node * (i + 1) + np.arange(n)
+        for j in range(n_node, n):
+            m[p, ileft] -= (
+                v[j, 1:, 1] * (dx[i] ** np.tile(np.arange(n // 2), 2)) / dx[i] ** j
+            )
+            m[p, iright] += (
+                v[j, 1:, 0]
+                * (dx[i + 1] ** np.tile(np.arange(n // 2), 2))
+                / dx[i + 1] ** j
+            )
+            k[p] = (v[j, 0, 1] * averages[i]) / dx[i] ** (j) - (
+                v[j, 0, 0] * averages[i + 1]
+            ) / dx[i + 1] ** (j)
+            p += 1
+
+    n_bc_right = 0
+    for bc in bc_right:
+        inode = np.arange(n) + (nelem - 1) * n_node
+        if bc.coefficients.shape != (n,):
+            raise ValueError(
+                f"Right boundary condition at index {n_bc_right} did not have enough"
+                f"coefficients (got {bc.coefficients.shape} when expecting"
+                f" {(n,)})."
+            )
+        for j in range(n):
+            m[p, inode] += (
+                bc.coefficients[j]
+                * v[j, 1:, 1]
+                * (dx[-1] ** np.tile(np.arange(n // 2), 2))
+                / dx[-1] ** j
+            )
+            k[p] -= bc.coefficients[j] * v[j, 0, 1] * averages[-1] / dx[-1] ** j
+        k[p] += bc.value
+        n_bc_right += 1
+        p += 1
+
+    if p != (nelem + 1) * n_node:
+        raise ValueError(
+            f"There was not enough boundary conditions specified ({n} were needed, but"
+            f" {n_bc_left} were given on the left and {n_bc_right} were given on the"
+            " right)."
+        )
+
+    return m, k
+
+
+def element_interpolating_spline(
+    n: int,
+    avgs: npt.ArrayLike,
+    nds: npt.ArrayLike,
+    bcs_left: Iterable[SplineBC] | None = None,
+    bcs_right: Iterable[SplineBC] | None = None,
+) -> Spline1D:
+    """Create interpolating spline, which has specified averages.
+
+    Parameters
+    ----------
+    n : int
+        Order of the spline. Must be even, otherwise a ``ValueError`` will be raised.
+    integrals : (N,) array_like
+        Integrals over each element. By definition equal to element length times the
+        average.
+    nds : (N + 1,) array_like
+        Nodes of the elements.
+    bcs_left : Iterable of SplineBC, optional
+        Boundary conditions of the left side of the spline (must be of order ``n``).
+        If it is not provided, the natural boundary conditions are used.
+    bcs_right : Iterable of SplineBC, optional
+        Boundary conditions of the right side of the spline (must be of order ``n``).
+        If it is not provided, the natural boundary conditions are used.
+
+    Returns
+    -------
+    Spline1D
+        Interpolating spline which maps from computational space :math:`[0, N-1]` to
+        values.
+    """
+    bcs_left, bcs_right = _ensure_boundary_conditions(n, bcs_left, bcs_right)
+    if (n & 1) != 0:
+        raise ValueError(f"Spline order must be even (instead it was {n}).")
+    averages = np.array(avgs, np.float64)
+    if len(averages.shape) != 1:
+        raise ValueError(
+            f"Averages should be a 1D array, instead they have the shape {averages.shape}"
+        )
+    nodes = np.array(nds, np.float64)
+    if len(nodes.shape) != 1 or nodes.shape[0] != averages.shape[0] + 1:
+        raise ValueError(
+            f"Nodes should be a 1D array with one element more than averages,"
+            f" instead averages have the shape {averages.shape} and the nodes"
+            f" have the shape {nodes.shape}."
+        )
+    dx = nodes[1:] - nodes[:-1]
+    averages /= dx
+    basis = _element_interpolating_basis(n)
+    m, k = _element_interpolation_system2(n, basis, averages, nodes, bcs_left, bcs_right)
+    r = np.linalg.solve(m, k)
+    poly: list[Polynomial1D] = []
+    for i, a in enumerate(averages[:]):
+        d = np.tile(dx[i] ** (np.arange(n // 2)), 2)
+        # Make into local basis
+        local = tuple(
+            Polynomial1D(p.coefficients / dx[i] ** np.arange(len(p))) for p in basis
+        )
+        p = (
+            local[0] * float(a)
+            # add this
+            + sum(local[j + 1] * (r[n // 2 * i + j] * d[j]) for j in range(n))
+        )
+        poly.append(p)
+    spl = Spline1D(nodes, tuple(p.coefficients for p in poly))
+    return spl
+
+
 def _nodal_polynomial_coefficients(n: int) -> npt.NDArray[np.float64]:
     """Return coefficients for nodal polynomials.
 
@@ -703,7 +894,6 @@ def nodal_interpolating_spline(
             f"Values don't have the same shape as the nodes (nodes are {nodes.shape}, but"
             f"values are {values.shape})."
         )
-    # TODO: check vals if it's ok
     basis = _nodal_interpolating_basis(n)
     m, k = _nodal_interpolation_system2(n, basis, vals, nodes, bcs_left, bcs_right)
     r = np.linalg.solve(m, k)

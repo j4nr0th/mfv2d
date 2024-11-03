@@ -21,6 +21,7 @@ def test_funciton_interpolation(order: int, test_samples: int) -> None:
     values = p(nodes)
     test_nodes = np.linspace(nodes[0], nodes[-1], test_samples)
     test_results = interp1d_function_samples(test_nodes, nodes, values)
+    print(p(test_nodes))
     assert pytest.approx(test_results) == p(test_nodes)
 
 

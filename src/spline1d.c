@@ -114,7 +114,7 @@ static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwar
         Py_DECREF(node_array);
         return NULL;
     }
-
+    spline1d_t *this = NULL;
     const npy_intp *restrict coeff_dims = PyArray_DIMS((PyArrayObject *)coeff_array);
     if (coeff_dims[0] + 1 != n_nodes)
     {
@@ -127,9 +127,8 @@ static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwar
     }
 
     allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
-    spline1d_t *const this = (spline1d_t *)alloc(
-        type,
-        (Py_ssize_clean_t)((PyArray_SIZE((PyArrayObject *)node_array) + PyArray_SIZE((PyArrayObject *)coeff_array))));
+    this = (spline1d_t *)alloc(type, (Py_ssize_clean_t)((PyArray_SIZE((PyArrayObject *)node_array) +
+                                                         PyArray_SIZE((PyArrayObject *)coeff_array))));
     if (!this)
     {
         goto end;
@@ -225,14 +224,18 @@ static PyObject *spline1d_antiderivative(PyObject *self, void *Py_UNUSED(closure
         out->data[i] = this->data[i];
     }
     out->n_coefficients = this->n_coefficients + 1;
+    double antiderivative = 0.0;
     for (unsigned i = 0; i < this->n_nodes - 1; ++i)
     {
-        out->data[this->n_nodes + out->n_coefficients * i] = 0.0;
-
+        out->data[this->n_nodes + out->n_coefficients * i] = antiderivative;
+        const double dx = this->data[i + 1] - this->data[i];
+        double d = dx;
         for (unsigned j = 0; j < this->n_coefficients; ++j)
         {
-            out->data[this->n_nodes + out->n_coefficients * i + j + 1] =
-                this->data[this->n_nodes + this->n_coefficients * i + j] / (double)(j + 1);
+            const double k = this->data[this->n_nodes + this->n_coefficients * i + j] / (double)(j + 1);
+            out->data[this->n_nodes + out->n_coefficients * i + j + 1] = k;
+            antiderivative += k * d;
+            d *= dx;
         }
     }
     return (PyObject *)out;

@@ -395,7 +395,7 @@ static PyObject *polynomial1d_as_pyfloat(PyObject *self)
     const polynomial_basis_t *this = (polynomial_basis_t *)self;
     if (this->n > 1)
     {
-        PyErr_Format(PyExc_ValueError,
+        PyErr_Format(PyExc_TypeError,
                      "Polynomials with anything more than a single (constant) term can not be converted to floats.");
         return NULL;
     }
@@ -693,7 +693,7 @@ static PyObject *polynomial1d_offset_by(PyObject *self, PyObject *arg)
     //  Expand out the terms
     for (unsigned n = 0; n < this->n; ++n)
     {
-        double t = 1.0;
+        double t = t0;
         const double a = this->k[n];
         //  Assign the newly added term
         out->k[n] = a;

@@ -63,7 +63,7 @@ interp_error_t lagrange_polynomial_values(unsigned n_in, const double INTERPLIB_
                                           double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes *n_in),
                                           double INTERPLIB_ARRAY_ARG(work, restrict n_nodes))
 {
-    lagrange_polynomial_denominators(n_in, x, work);
+    lagrange_polynomial_denominators(n_nodes, x, work);
 
     //  Invert the denominator
     for (unsigned i = 0; i < n_nodes; ++i)
@@ -117,7 +117,7 @@ interp_error_t lagrange_polynomial_first_derivative(unsigned n_in, const double 
                                                     double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes))
 {
     // compute denominators
-    lagrange_polynomial_denominators(n_in, x, work1);
+    lagrange_polynomial_denominators(n_nodes, x, work1);
 
     //  Invert the denominator
     for (unsigned i = 0; i < n_nodes; ++i)
@@ -182,7 +182,7 @@ interp_error_t lagrange_polynomial_second_derivative(unsigned n_in, const double
                                                      double INTERPLIB_ARRAY_ARG(work2, restrict n_nodes))
 {
     // compute denominators
-    lagrange_polynomial_denominators(n_in, x, work1);
+    lagrange_polynomial_denominators(n_nodes, x, work1);
 
     //  Invert the denominator
     for (unsigned i = 0; i < n_nodes; ++i)

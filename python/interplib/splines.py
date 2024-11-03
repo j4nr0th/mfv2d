@@ -5,6 +5,8 @@ from typing import Generator, Iterable
 
 import numpy as np
 import numpy.typing as npt
+import scipy.sparse as sp
+import scipy.sparse.linalg as sla
 
 from interplib._interp import Polynomial1D, Spline1D, Spline1Di
 
@@ -12,6 +14,8 @@ __all__ = [
     "SplineBC",
     "element_interpolating_splinei",
     "nodal_interpolating_splinei",
+    "element_interpolating_spline",
+    "nodal_interpolating_spline",
 ]
 
 
@@ -184,7 +188,7 @@ def _element_interpolation_system(
     avg: npt.ArrayLike,
     bc_left: Iterable[SplineBC],
     bc_right: Iterable[SplineBC],
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+) -> tuple[sp.csr_array, npt.NDArray[np.float64]]:
     """Create interpolation matrix for natural element.
 
     Parameters
@@ -202,7 +206,7 @@ def _element_interpolation_system(
 
     Returns
     -------
-    ((M + 1) * n//2, (M + 1) * n//2) array
+    ((M + 1) * n//2, (M + 1) * n//2) csr_array
         System matrix which gives coefficients required to construct the spine.
     ((M + 1) * n//2,) array
         Right side of the equation, which can be solved to find the coefficients.
@@ -225,7 +229,7 @@ def _element_interpolation_system(
 
     n_node = n // 2
     k = np.zeros(((nelem + 1) * n_node))
-    m = np.zeros(((nelem + 1) * n_node, (nelem + 1) * n_node))
+    m = sp.lil_array(((nelem + 1) * n_node, (nelem + 1) * n_node))
     p = 0
     n_bc_left = 0
     for bc in bc_left:
@@ -236,19 +240,24 @@ def _element_interpolation_system(
                 f"coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
+        coeffs = np.zeros(n)
+
         for j in range(n):
-            m[p, inode] += bc.coefficients[j] * v[j, 1:, 0]
+            coeffs += bc.coefficients[j] * v[j, 1:, 0]
             k[p] -= bc.coefficients[j] * v[j, 0, 0] * averages[0]
+        m[p, inode] = coeffs
         k[p] += bc.value
         n_bc_left += 1
         p += 1
 
     for i in range(0, nelem - 1):
-        ileft = n_node * i + np.arange(n)
-        iright = n_node * (i + 1) + np.arange(n)
+        ileft = np.arange(n)
+        iright = n_node + np.arange(n)
         for j in range(n_node, n):
-            m[p, ileft] -= v[j, 1:, 1]
-            m[p, iright] += v[j, 1:, 0]
+            coeffs = np.zeros(3 * n_node)
+            coeffs[ileft] -= v[j, 1:, 1]
+            coeffs[iright] += v[j, 1:, 0]
+            m[p, n_node * i + np.arange(coeffs.shape[0])] = coeffs
             k[p] = v[j, 0, 1] * averages[i] - v[j, 0, 0] * averages[i + 1]
             p += 1
 
@@ -261,9 +270,12 @@ def _element_interpolation_system(
                 f"coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
+        coeffs = np.zeros(n)
+
         for j in range(n):
-            m[p, inode] += bc.coefficients[j] * v[j, 1:, 1]
+            coeffs += bc.coefficients[j] * v[j, 1:, 1]
             k[p] -= bc.coefficients[j] * v[j, 0, 1] * averages[-1]
+        m[p, inode] = coeffs
         k[p] += bc.value
         n_bc_right += 1
         p += 1
@@ -275,7 +287,7 @@ def _element_interpolation_system(
             " right)."
         )
 
-    return m, k
+    return m.tocsr(), k
 
 
 def element_interpolating_splinei(
@@ -315,7 +327,7 @@ def element_interpolating_splinei(
         )
     basis = _element_interpolating_basis(n)
     m, k = _element_interpolation_system(n, basis, averages, bcs_left, bcs_right)
-    r = np.linalg.solve(m, k)
+    r = sla.spsolve(m, k)
     poly: list[Polynomial1D] = []
     for i, a in enumerate(averages[:]):
         p = basis[0] * float(a) + sum(basis[j + 1] * r[n // 2 * i + j] for j in range(n))
@@ -331,7 +343,7 @@ def _element_interpolation_system2(
     nds: npt.NDArray[np.float64],
     bc_left: list[SplineBC],
     bc_right: list[SplineBC],
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+) -> tuple[sp.csr_array, npt.NDArray[np.float64]]:
     """Create interpolation matrix for natural element.
 
     Parameters
@@ -351,7 +363,7 @@ def _element_interpolation_system2(
 
     Returns
     -------
-    ((M + 1) * n//2, (M + 1) * n//2) array
+    ((M + 1) * n//2, (M + 1) * n//2) csr_array
         System matrix which gives coefficients required to construct the spine.
     ((M + 1) * n//2,) array
         Right side of the equation, which can be solved to find the coefficients.
@@ -376,7 +388,7 @@ def _element_interpolation_system2(
 
     n_node = n // 2
     k = np.zeros(((nelem + 1) * n_node))
-    m = np.zeros(((nelem + 1) * n_node, (nelem + 1) * n_node))
+    m = sp.lil_array(((nelem + 1) * n_node, (nelem + 1) * n_node))
     p = 0
     n_bc_left = 0
     for bc in bc_left:
@@ -387,30 +399,35 @@ def _element_interpolation_system2(
                 f"coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
+        coeffs = np.zeros(n)
+
         for j in range(n):
-            m[p, inode] += (
+            coeffs += (
                 bc.coefficients[j]
                 * v[j, 1:, 0]
                 * (dx[0] ** np.tile(np.arange(n // 2), 2))
                 / dx[0] ** j
             )
             k[p] -= bc.coefficients[j] * v[j, 0, 0] * averages[0] / dx[0] ** j
+        m[p, inode] = coeffs
         k[p] += bc.value
         n_bc_left += 1
         p += 1
 
     for i in range(0, nelem - 1):
-        ileft = n_node * i + np.arange(n)
-        iright = n_node * (i + 1) + np.arange(n)
+        ileft = np.arange(n)
+        iright = n_node + np.arange(n)
         for j in range(n_node, n):
-            m[p, ileft] -= (
+            coeffs = np.zeros(3 * n_node)
+            coeffs[ileft] -= (
                 v[j, 1:, 1] * (dx[i] ** np.tile(np.arange(n // 2), 2)) / dx[i] ** j
             )
-            m[p, iright] += (
+            coeffs[iright] += (
                 v[j, 1:, 0]
                 * (dx[i + 1] ** np.tile(np.arange(n // 2), 2))
                 / dx[i + 1] ** j
             )
+            m[p, n_node * i + np.arange(coeffs.shape[0])] = coeffs
             k[p] = (v[j, 0, 1] * averages[i]) / dx[i] ** (j) - (
                 v[j, 0, 0] * averages[i + 1]
             ) / dx[i + 1] ** (j)
@@ -425,14 +442,17 @@ def _element_interpolation_system2(
                 f"coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
+        coeffs = np.zeros(n)
+
         for j in range(n):
-            m[p, inode] += (
+            coeffs += (
                 bc.coefficients[j]
                 * v[j, 1:, 1]
                 * (dx[-1] ** np.tile(np.arange(n // 2), 2))
                 / dx[-1] ** j
             )
             k[p] -= bc.coefficients[j] * v[j, 0, 1] * averages[-1] / dx[-1] ** j
+        m[p, inode] = coeffs
         k[p] += bc.value
         n_bc_right += 1
         p += 1
@@ -444,7 +464,7 @@ def _element_interpolation_system2(
             " right)."
         )
 
-    return m, k
+    return m.tocsr(), k
 
 
 def element_interpolating_spline(
@@ -497,7 +517,7 @@ def element_interpolating_spline(
     averages /= dx
     basis = _element_interpolating_basis(n)
     m, k = _element_interpolation_system2(n, basis, averages, nodes, bcs_left, bcs_right)
-    r = np.linalg.solve(m, k)
+    r = sla.spsolve(m, k)
     poly: list[Polynomial1D] = []
     for i, a in enumerate(averages[:]):
         d = np.tile(dx[i] ** (np.arange(n // 2)), 2)
@@ -576,7 +596,7 @@ def _nodal_interpolation_system(
     nds: npt.ArrayLike,
     bc_left: Iterable[SplineBC],
     bc_right: Iterable[SplineBC],
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+) -> tuple[sp.csr_array, npt.NDArray[np.float64]]:
     """Create interpolation matrix for natural nodal spline.
 
     Parameters
@@ -594,7 +614,7 @@ def _nodal_interpolation_system(
 
     Returns
     -------
-    (M * (n - 1)/2, (M + 1) * (n - 1)/2) array
+    (M * (n - 1)/2, (M + 1) * (n - 1)/2) csr_array
         System matrix which gives coefficients required to construct the spine.
     (M * (n - 1)/2,) array
         Right side of the equation, which can be solved to find the coefficients.
@@ -617,7 +637,7 @@ def _nodal_interpolation_system(
 
     n_node = (n - 1) // 2
     k = np.zeros(((nelem + 1) * n_node))
-    m = np.zeros(((nelem + 1) * n_node, (nelem + 1) * n_node))
+    m = sp.lil_array(((nelem + 1) * n_node, (nelem + 1) * n_node))
     p = 0
     n_bc_left = 0
     for bc in bc_left:
@@ -628,19 +648,24 @@ def _nodal_interpolation_system(
                 f" coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
+        coeffs = np.zeros(n - 1)
+
         for j in range(1, n):
-            m[p, inode] += bc.coefficients[j] * v[j, 2:, 0]
+            coeffs += bc.coefficients[j] * v[j, 2:, 0]
             k[p] -= bc.coefficients[j] * (v[j, 0, 0] * nodes[0] + v[j, 1, 0] * nodes[1])
+        m[p, inode] = coeffs
         k[p] += bc.value
         n_bc_left += 1
         p += 1
 
     for i in range(0, nelem - 1):
-        ileft = n_node * i + np.arange(n - 1)
-        iright = n_node * (i + 1) + np.arange(n - 1)
+        ileft = np.arange(n - 1)
+        iright = n_node + np.arange(n - 1)
         for j in range(n_node + 1, n):
-            m[p, ileft] -= v[j, 2:, 1]
-            m[p, iright] += v[j, 2:, 0]
+            coeffs = np.zeros(3 * n_node)
+            coeffs[ileft] -= v[j, 2:, 1]
+            coeffs[iright] += v[j, 2:, 0]
+            m[p, n_node * i + np.arange(coeffs.shape[0])] = coeffs
             k[p] = (
                 v[j, 0, 1] * nodes[i]
                 + v[j, 1, 1] * nodes[i + 1]
@@ -658,9 +683,12 @@ def _nodal_interpolation_system(
                 f"coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
+        coeffs = np.zeros(n - 1)
+
         for j in range(1, n):
-            m[p, inode] += bc.coefficients[j] * v[j, 2:, 1]
+            coeffs += bc.coefficients[j] * v[j, 2:, 1]
             k[p] -= bc.coefficients[j] * (v[j, 0, 1] * nodes[-2] + v[j, 1, 1] * nodes[-1])
+        m[p, inode] = coeffs
         k[p] += bc.value
         n_bc_right += 1
         p += 1
@@ -672,7 +700,7 @@ def _nodal_interpolation_system(
             " right)."
         )
 
-    return m, k
+    return m.tocsr(), k
 
 
 def nodal_interpolating_splinei(
@@ -712,7 +740,7 @@ def nodal_interpolating_splinei(
         )
     basis = _nodal_interpolating_basis(n)
     m, k = _nodal_interpolation_system(n, basis, nodes, bcs_left, bcs_right)
-    r = np.linalg.solve(m, k)
+    r = sla.spsolve(m, k)
     poly: list[Polynomial1D] = []
     for i in range(nodes.shape[0] - 1):
         p = (
@@ -732,7 +760,7 @@ def _nodal_interpolation_system2(
     nds: npt.ArrayLike,
     bc_left: Iterable[SplineBC],
     bc_right: Iterable[SplineBC],
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+) -> tuple[sp.csr_array, npt.NDArray[np.float64]]:
     """Create interpolation matrix for natural nodal spline.
 
     Parameters
@@ -752,7 +780,7 @@ def _nodal_interpolation_system2(
 
     Returns
     -------
-    (M * (n - 1)/2, (M + 1) * (n - 1)/2) array
+    (M * (n - 1)/2, (M + 1) * (n - 1)/2) csr_array
         System matrix which gives coefficients required to construct the spine.
     (M * (n - 1)/2,) array
         Right side of the equation, which can be solved to find the coefficients.
@@ -777,7 +805,7 @@ def _nodal_interpolation_system2(
     dx = x[1:] - x[:-1]
     n_node = (n - 1) // 2
     k = np.zeros(((nelem + 1) * n_node))
-    m = np.zeros(((nelem + 1) * n_node, (nelem + 1) * n_node))
+    m = sp.lil_matrix(((nelem + 1) * n_node, (nelem + 1) * n_node))
     p = 0
     n_bc_left = 0
     for bc in bc_left:
@@ -788,30 +816,36 @@ def _nodal_interpolation_system2(
                 f" coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
+
+        coeffs = np.zeros(n - 1)
+
         for j in range(1, n):
-            m[p, inode] += (
+            coeffs += (
                 bc.coefficients[j]
                 * v[j, 2:, 0]
                 * (dx[0] ** np.tile(np.arange(n // 2) + 1, 2))
                 / dx[0] ** j
             )
             k[p] -= bc.coefficients[j] * (v[j, 0, 0] * values[0] + v[j, 1, 0] * values[1])
+        m[p, inode] = coeffs
         k[p] += bc.value
         n_bc_left += 1
         p += 1
 
     for i in range(0, nelem - 1):
-        ileft = n_node * i + np.arange(n - 1)
-        iright = n_node * (i + 1) + np.arange(n - 1)
+        ileft = np.arange(n - 1)
+        iright = n_node + np.arange(n - 1)
         for j in range(n_node + 1, n):
-            m[p, ileft] -= (
+            coeffs = np.zeros(3 * n_node)
+            coeffs[ileft] -= (
                 v[j, 2:, 1] * (dx[i] ** np.tile(np.arange(n // 2) + 1, 2)) / dx[i] ** j
             )
-            m[p, iright] += (
+            coeffs[iright] += (
                 v[j, 2:, 0]
                 * (dx[i + 1] ** np.tile(np.arange(n // 2) + 1, 2))
                 / dx[i + 1] ** j
             )
+            m[p, n_node * i + np.arange(coeffs.shape[0])] = coeffs
             k[p] = (v[j, 0, 1] * values[i] + v[j, 1, 1] * values[i + 1]) / dx[i] ** j - (
                 v[j, 0, 0] * values[i + 1] + v[j, 1, 0] * values[i + 2]
             ) / dx[i + 1] ** j
@@ -826,8 +860,10 @@ def _nodal_interpolation_system2(
                 f"coefficients (got {bc.coefficients.shape} when expecting"
                 f" {(n,)})."
             )
+        coeffs = np.zeros(n - 1)
+
         for j in range(1, n):
-            m[p, inode] += (
+            coeffs += (
                 bc.coefficients[j]
                 * v[j, 2:, 1]
                 * (dx[-1] ** np.tile(np.arange(n // 2) + 1, 2))
@@ -836,6 +872,7 @@ def _nodal_interpolation_system2(
             k[p] -= bc.coefficients[j] * (
                 v[j, 0, 1] * values[-2] + v[j, 1, 1] * values[-1]
             )
+        m[p, inode] = coeffs
         k[p] += bc.value
         n_bc_right += 1
         p += 1
@@ -847,7 +884,7 @@ def _nodal_interpolation_system2(
             " right)."
         )
 
-    return m, k
+    return m.tocsr(), k
 
 
 def nodal_interpolating_spline(
@@ -896,7 +933,7 @@ def nodal_interpolating_spline(
         )
     basis = _nodal_interpolating_basis(n)
     m, k = _nodal_interpolation_system2(n, basis, vals, nodes, bcs_left, bcs_right)
-    r = np.linalg.solve(m, k)
+    r = sla.spsolve(m, k)
     poly: list[Polynomial1D] = []
     dx = nodes[1:] - nodes[:-1]
     for i in range(nodes.shape[0] - 1):

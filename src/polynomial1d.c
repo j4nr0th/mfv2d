@@ -258,10 +258,18 @@ static PyObject *polynomial1d_repr(PyObject *self)
     return out;
 }
 
-static PyObject *polynomial1d_add(PyObject *self, PyObject *o)
+static PyObject *polynomial1d_add(PyObject *o1, PyObject *o2)
 {
-    const polynomial_basis_t *this = (polynomial_basis_t *)self;
-    double k = PyFloat_AsDouble(o);
+    //  Check which is the polynomial
+    if (!PyObject_TypeCheck(o1, &polynomial1d_type_object))
+    {
+        //  Make o1 always be the polynomial
+        PyObject *tmp = o2;
+        o2 = o1;
+        o1 = tmp;
+    }
+    const polynomial_basis_t *this = (polynomial_basis_t *)o1;
+    double k = PyFloat_AsDouble(o2);
     if (!PyErr_Occurred())
     {
         polynomial_basis_t *out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n);
@@ -281,13 +289,13 @@ static PyObject *polynomial1d_add(PyObject *self, PyObject *o)
     // conversion to double failed, so clear exception and check for polynomial
     // instead PyErr_SetHandledException(NULL);
     PyErr_Clear();
-    if (!PyObject_TypeCheck(o, &polynomial1d_type_object))
+    if (!PyObject_TypeCheck(o2, &polynomial1d_type_object))
     {
         // Couldn't get a float, nor is it a polynomial.
         PyErr_Format(PyExc_TypeError, "Polynomial1D can only be added to Polynomial1D or float.");
         return NULL;
     }
-    const polynomial_basis_t *other = (polynomial_basis_t *)o;
+    const polynomial_basis_t *other = (polynomial_basis_t *)o2;
 
     const polynomial_basis_t *longer, *shorter;
     if (this->n > other->n)
@@ -320,10 +328,19 @@ static PyObject *polynomial1d_add(PyObject *self, PyObject *o)
     return (PyObject *)out;
 }
 
-static PyObject *polynomial1d_mul(PyObject *self, PyObject *o)
+static PyObject *polynomial1d_mul(PyObject *o1, PyObject *o2)
 {
-    const polynomial_basis_t *this = (polynomial_basis_t *)self;
-    double k = PyFloat_AsDouble(o);
+    //  Check which is the polynomial
+    if (!PyObject_TypeCheck(o1, &polynomial1d_type_object))
+    {
+        //  Make o1 always be the polynomial
+        PyObject *tmp = o2;
+        o2 = o1;
+        o1 = tmp;
+    }
+
+    const polynomial_basis_t *this = (polynomial_basis_t *)o1;
+    double k = PyFloat_AsDouble(o2);
     if (!PyErr_Occurred())
     {
         polynomial_basis_t *out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n);
@@ -342,14 +359,14 @@ static PyObject *polynomial1d_mul(PyObject *self, PyObject *o)
     // conversion to double failed, so clear exception and check for polynomial
     // instead PyErr_SetHandledException(NULL);
     PyErr_Clear();
-    if (!PyObject_TypeCheck(o, &polynomial1d_type_object))
+    if (!PyObject_TypeCheck(o2, &polynomial1d_type_object))
     {
         // Couldn't get a float, nor is it a polynomial.
         PyErr_Format(PyExc_TypeError, "Polynomial1D can only be multiplied by "
                                       "Polynomial1D or float.");
         return NULL;
     }
-    const polynomial_basis_t *other = (polynomial_basis_t *)o;
+    const polynomial_basis_t *other = (polynomial_basis_t *)o2;
     polynomial_basis_t *out =
         PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, (this->n - 1) + (other->n - 1) + 1);
     if (!out)
@@ -390,6 +407,24 @@ static PyObject *polynomial1d_neg(PyObject *self)
     return (PyObject *)out;
 }
 
+static PyObject *polynomial1d_copy(PyObject *self)
+{
+    const polynomial_basis_t *this = (polynomial_basis_t *)self;
+
+    polynomial_basis_t *out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, this->n);
+    if (!out)
+    {
+        return NULL;
+    }
+    out->n = this->n;
+    out->call_poly = polynomial1d_vectorcall;
+    for (unsigned i = 0; i < out->n; ++i)
+    {
+        out->k[i] = this->k[i];
+    }
+    return (PyObject *)out;
+}
+
 static PyObject *polynomial1d_as_pyfloat(PyObject *self)
 {
     const polynomial_basis_t *this = (polynomial_basis_t *)self;
@@ -400,6 +435,49 @@ static PyObject *polynomial1d_as_pyfloat(PyObject *self)
         return NULL;
     }
     return PyFloat_FromDouble(this->k[0]);
+}
+
+static PyObject *polynomial1d_pow(PyObject *self, PyObject *o, PyObject *modulo)
+{
+    if (!Py_IsNone(modulo))
+    {
+        PyErr_Format(PyExc_TypeError, "Polynomial1D can't be given a modulo");
+        return NULL;
+    }
+    const polynomial_basis_t *this = (polynomial_basis_t *)self;
+    unsigned long long p = PyLong_AsUnsignedLongLong(o);
+    if (PyErr_Occurred())
+    {
+        // Couldn't get an int
+        PyErr_Format(PyExc_TypeError, "Polynomial1D can only be raised to a power of an integer. ");
+        return NULL;
+    }
+
+    polynomial_basis_t *out = PyObject_NewVar(polynomial_basis_t, &polynomial1d_type_object, p * (this->n - 1) + 1);
+    if (!out)
+    {
+        return NULL;
+    }
+    out->call_poly = polynomial1d_vectorcall;
+    out->n = 1;
+    for (unsigned i = 1; i < p * (this->n - 1) + 1; ++i)
+    {
+        out->k[i] = 0.0;
+    }
+    out->k[0] = 1.0;
+    for (unsigned power = 0; power < p; ++power)
+    {
+        for (unsigned j = out->n; j > 0; --j)
+        {
+            for (unsigned i = this->n; i > 1; --i)
+            {
+                out->k[(i - 1) + (j - 1)] += this->k[(i - 1)] * out->k[(j - 1)];
+            }
+            out->k[(j - 1)] = this->k[0] * out->k[(j - 1)];
+        }
+        out->n += this->n - 1;
+    }
+    return (PyObject *)out;
 }
 
 static Py_ssize_t polynomial1d_length(PyObject *self)
@@ -735,6 +813,8 @@ static PyNumberMethods polynomial1d_number_methods = {
     .nb_multiply = polynomial1d_mul,
     .nb_negative = polynomial1d_neg,
     .nb_float = polynomial1d_as_pyfloat,
+    .nb_positive = polynomial1d_copy,
+    .nb_power = polynomial1d_pow,
 };
 
 static PySequenceMethods polynomial1d_sequence_methods = {

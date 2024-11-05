@@ -321,18 +321,26 @@ static PyGetSetDef spline1d_getset[] = {
     {.name = "coefficients",
      .get = spline1d_get_coefficients,
      .set = spline1d_set_coefficients,
-     .doc = "Coefficients of the polynomials",
+     .doc = "coefficients(self) -> (M,N) array\n"
+            "Coefficients of the polynomials\n",
      .closure = NULL},
-    {.name = "nodes", .get = spline1d_get_nodes, .set = NULL, .doc = "Nodes of the spline", .closure = NULL},
+    {.name = "nodes",
+     .get = spline1d_get_nodes,
+     .set = NULL,
+     .doc = "nodes(self) -> (M,) array\n"
+            "Nodes of the spline\n",
+     .closure = NULL},
     {.name = "derivative",
      .get = spline1d_derivative,
      .set = NULL,
-     .doc = "Return derivative of the spline.",
+     .doc = "derivative(self) -> Spline1D\n"
+            "Return derivative of the spline.\n",
      .closure = NULL},
     {.name = "antiderivative",
      .get = spline1d_antiderivative,
      .set = NULL,
-     .doc = "Return antiderivative of the spline.",
+     .doc = "antiderivative(self) -> Spline1D\n"
+            "Return antiderivative of the spline.\n",
      .closure = NULL},
     {NULL, NULL, NULL, NULL, NULL} // sentinel
 };

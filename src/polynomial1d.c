@@ -528,6 +528,7 @@ static int polynomial1d_set_coefficient(PyObject *self, Py_ssize_t idx, PyObject
 }
 
 PyDoc_STRVAR(lagrange_nodal_basis_docstring,
+             "lagrange_nodal_basis(self, nodes) -> tuple[Polynomial1D, ...]\n"
              "Return Lagrange nodal polynomial basis on the given set of nodes.\n"
              "\n"
              "Parameters\n"
@@ -620,6 +621,7 @@ end:
 }
 
 PyDoc_STRVAR(lagrange_nodal_fit_docstring,
+             "lagrange_nodal_fit(self, nodes: npt.ArrayLike, values: npt.ArrayLike) -> Polynomial1D\n"
              "Use Lagrange nodal polynomial basis to fit a function.\n"
              "\n"
              "Equivalent to calling ``sum(b * y for (b, y) in\n"
@@ -744,6 +746,7 @@ end:
 }
 
 PyDoc_STRVAR(polynomial1d_offset_by_docstring,
+             "offset_by(self, x: float | np.floating) -> Polynomial1D\n"
              "Compute polynomial offset by specified amount.\n"
              "\n"
              "The offset polynomial :math:`p^\\prime(t)` is such that:\n"
@@ -804,17 +807,20 @@ static PyGetSetDef polynomial1d_getset[] = {
     {.name = "coefficients",
      .get = polynomial1d_get_coefficients,
      .set = polynomial1d_set_coefficients,
-     .doc = "Coefficients of the polynomial.",
+     .doc = "coefficients(self) -> npt.NDArray[np.float64]\n"
+            "Coefficients of the polynomial.\n",
      .closure = NULL},
     {.name = "derivative",
      .get = polynomial1d_derivative,
      .set = NULL,
-     .doc = "Return the derivative of the polynomial.",
+     .doc = "derivative(self) -> npt.NDArray[np.float64]\n"
+            "Return the derivative of the polynomial.\n",
      .closure = NULL},
     {.name = "antiderivative",
      .get = polynomial1d_antiderivative,
      .set = NULL,
-     .doc = "Return the antiderivative of the polynomial.",
+     .doc = "antiderivative(self) -> npt.NDArray[np.float64]\n"
+            "Return the antiderivative of the polynomial.\n",
      .closure = NULL},
     {NULL, NULL, NULL, NULL, NULL} // sentinel
 };
@@ -850,7 +856,8 @@ static PyMethodDef polynomial1d_methods[] = {
     {NULL, NULL, 0, NULL}, // sentinel
 };
 
-PyDoc_STRVAR(polynomial1d_docstring, "Function with increasing integer power basis.\n"
+PyDoc_STRVAR(polynomial1d_docstring, "Polynomial1D(coefficients: npt.ArrayLike)\n"
+                                     "Function with increasing integer power basis.\n"
                                      "\n"
                                      "Parameters\n"
                                      "----------\n"

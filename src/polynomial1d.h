@@ -13,7 +13,7 @@ typedef struct
     PyObject_HEAD unsigned n;
     vectorcallfunc call_poly;
     double k[];
-} polynomial_basis_t;
+} polynomial1d_t;
 
 INTERPLIB_INTERNAL
 extern PyTypeObject polynomial1d_type_object;

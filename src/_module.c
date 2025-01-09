@@ -13,6 +13,7 @@
 
 //  Internal headers
 #include "basis1d.h"
+#include "bernstein.h"
 #include "cubic_splines.h"
 #include "lagrange.h"
 #include "polynomial1d.h"
@@ -224,6 +225,7 @@ static PyMethodDef module_methods[] = {
     {"dlagrange1d", interp_dlagrange, METH_VARARGS, interp_dlagrange_doc},
     {"d2lagrange1d", interp_d2lagrange, METH_VARARGS, interp_d2lagrange_doc},
     {"hermite", interp_hermite_coefficients, METH_VARARGS, interp_hermite_doc},
+    {"bernstein1d", (PyCFunction)bernstein_interpolation_matrix, METH_FASTCALL, bernstein_interpolation_matrix_doc},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

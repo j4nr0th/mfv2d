@@ -25,6 +25,7 @@ set(INTERP_SOURCE_FILES
         src/basis1d.c
         src/polynomial1d.c
         src/spline1d.c
+        src/bernstein.c
 )
 set(INTERP_HEADER_FILES
         src/common_defines.h
@@ -35,6 +36,7 @@ set(INTERP_HEADER_FILES
         src/basis1d.h
         src/polynomial1d.h
         src/spline1d.h
+        src/bernstein.h
 )
 
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!

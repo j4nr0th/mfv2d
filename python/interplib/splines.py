@@ -123,7 +123,7 @@ def _ensure_boundary_conditions(
     return (bcs_left, bcs_right)
 
 
-def _element_polynomial_coefficients(n: int) -> npt.NDArray[np.float64]:
+def _element_polynomial_coefficients(n: int) -> npt.NDArray[np.floating]:
     """Return coefficients for element polynomials.
 
     Parameters
@@ -263,7 +263,7 @@ def _element_interpolation_system(
 
     n_bc_right = 0
     for bc in bc_right:
-        inode = np.arange(n) + (nelem - 1) * n_node
+        ind = np.arange(n) + (nelem - 1) * n_node
         if bc.coefficients.shape != (n,):
             raise ValueError(
                 f"Right boundary condition at index {n_bc_right} did not have enough"
@@ -275,7 +275,7 @@ def _element_interpolation_system(
         for j in range(n):
             coeffs += bc.coefficients[j] * v[j, 1:, 1]
             k[p] -= bc.coefficients[j] * v[j, 0, 1] * averages[-1]
-        m[p, inode] = coeffs
+        m[p, ind] = coeffs
         k[p] += bc.value
         n_bc_right += 1
         p += 1
@@ -435,7 +435,7 @@ def _element_interpolation_system2(
 
     n_bc_right = 0
     for bc in bc_right:
-        inode = np.arange(n) + (nelem - 1) * n_node
+        ind = np.arange(n) + (nelem - 1) * n_node
         if bc.coefficients.shape != (n,):
             raise ValueError(
                 f"Right boundary condition at index {n_bc_right} did not have enough"
@@ -452,7 +452,7 @@ def _element_interpolation_system2(
                 / dx[-1] ** j
             )
             k[p] -= bc.coefficients[j] * v[j, 0, 1] * averages[-1] / dx[-1] ** j
-        m[p, inode] = coeffs
+        m[p, ind] = coeffs
         k[p] += bc.value
         n_bc_right += 1
         p += 1
@@ -523,7 +523,7 @@ def element_interpolating_spline(
         d = np.tile(dx[i] ** (np.arange(n // 2)), 2)
         # Make into local basis
         local = tuple(
-            Polynomial1D(p.coefficients / dx[i] ** np.arange(len(p))) for p in basis
+            Polynomial1D(p.coefficients / dx[i] ** np.arange(p.order + 1)) for p in basis
         )
         p = (
             local[0] * float(a)
@@ -535,7 +535,7 @@ def element_interpolating_spline(
     return spl
 
 
-def _nodal_polynomial_coefficients(n: int) -> npt.NDArray[np.float64]:
+def _nodal_polynomial_coefficients(n: int) -> npt.NDArray[np.floating]:
     """Return coefficients for nodal polynomials.
 
     Parameters
@@ -676,7 +676,7 @@ def _nodal_interpolation_system(
 
     n_bc_right = 0
     for bc in bc_right:
-        inode = np.arange(n - 1) + (nelem - 1) * n_node
+        ind = np.arange(n - 1) + (nelem - 1) * n_node
         if bc.coefficients.shape != (n,):
             raise ValueError(
                 f"Right boundary condition at index {n_bc_right} did not have enough"
@@ -688,7 +688,7 @@ def _nodal_interpolation_system(
         for j in range(1, n):
             coeffs += bc.coefficients[j] * v[j, 2:, 1]
             k[p] -= bc.coefficients[j] * (v[j, 0, 1] * nodes[-2] + v[j, 1, 1] * nodes[-1])
-        m[p, inode] = coeffs
+        m[p, ind] = coeffs
         k[p] += bc.value
         n_bc_right += 1
         p += 1
@@ -853,7 +853,7 @@ def _nodal_interpolation_system2(
 
     n_bc_right = 0
     for bc in bc_right:
-        inode = np.arange(n - 1) + (nelem - 1) * n_node
+        ind = np.arange(n - 1) + (nelem - 1) * n_node
         if bc.coefficients.shape != (n,):
             raise ValueError(
                 f"Right boundary condition at index {n_bc_right} did not have enough"
@@ -872,7 +872,7 @@ def _nodal_interpolation_system2(
             k[p] -= bc.coefficients[j] * (
                 v[j, 0, 1] * values[-2] + v[j, 1, 1] * values[-1]
             )
-        m[p, inode] = coeffs
+        m[p, ind] = coeffs
         k[p] += bc.value
         n_bc_right += 1
         p += 1
@@ -940,7 +940,7 @@ def nodal_interpolating_spline(
         d = np.tile(dx[i] ** (np.arange(n // 2) + 1), 2)
         # Make into local basis
         local = tuple(
-            Polynomial1D(p.coefficients / dx[i] ** np.arange(len(p))) for p in basis
+            Polynomial1D(p.coefficients / dx[i] ** np.arange(p.order + 1)) for p in basis
         )
         p = (
             local[0] * float(values[i])

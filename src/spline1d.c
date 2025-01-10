@@ -359,7 +359,7 @@ PyDoc_STRVAR(spline1d_docstring, "Spline1D(nodes: Sequence, coefficients: Sequen
 
 INTERPLIB_INTERNAL
 PyTypeObject spline1d_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Spline1D",
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._interp.Spline1D",
     .tp_basicsize = sizeof(spline1d_t),
     .tp_itemsize = sizeof(double),
     .tp_vectorcall_offset = offsetof(spline1d_t, call_spline),
@@ -633,7 +633,7 @@ PyDoc_STRVAR(spline1di_docstring, "Spline1Di(coefficients: Sequence[Sequence], /
 
 INTERPLIB_INTERNAL
 PyTypeObject spline1di_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Spline1Di",
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._interp.Spline1Di",
     .tp_basicsize = sizeof(spline1d_t),
     .tp_itemsize = sizeof(double),
     .tp_vectorcall_offset = offsetof(spline1d_t, call_spline),

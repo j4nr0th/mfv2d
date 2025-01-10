@@ -491,23 +491,23 @@ static PyObject *polynomial1d_pow(PyObject *self, PyObject *o, PyObject *modulo)
     return (PyObject *)out;
 }
 
-static Py_ssize_t polynomial1d_length(PyObject *self)
-{
-    const polynomial1d_t *this = (polynomial1d_t *)self;
-    return (Py_ssize_t)this->n;
-}
+// static Py_ssize_t polynomial1d_length(PyObject *self)
+// {
+//     const polynomial1d_t *this = (polynomial1d_t *)self;
+//     return (Py_ssize_t)this->n;
+// }
 
-static PyObject *polynomial1d_get_coefficient(PyObject *self, Py_ssize_t idx)
-{
-    const polynomial1d_t *this = (polynomial1d_t *)self;
-    if ((unsigned)idx >= this->n)
-    {
-        PyErr_Format(PyExc_IndexError, "Index %u is out of bounds for a polynomial with %u terms.", (unsigned)idx,
-                     this->n);
-        return NULL;
-    }
-    return PyArray_Scalar((void *)(this->k + idx), PyArray_DescrFromType(NPY_DOUBLE), NULL);
-}
+// static PyObject *polynomial1d_get_coefficient(PyObject *self, Py_ssize_t idx)
+// {
+//     const polynomial1d_t *this = (polynomial1d_t *)self;
+//     if ((unsigned)idx >= this->n)
+//     {
+//         PyErr_Format(PyExc_IndexError, "Index %u is out of bounds for a polynomial with %u terms.", (unsigned)idx,
+//                      this->n);
+//         return NULL;
+//     }
+//     return PyArray_Scalar((void *)(this->k + idx), PyArray_DescrFromType(NPY_DOUBLE), NULL);
+// }
 
 static int polynomial1d_set_coefficient(PyObject *self, Py_ssize_t idx, PyObject *arg)
 {
@@ -803,6 +803,12 @@ static PyObject *polynomial1d_offset_by(PyObject *self, PyObject *arg)
     return (PyObject *)out;
 }
 
+static PyObject *polynomial1d_get_order(PyObject *self, void *Py_UNUSED(closure))
+{
+    const polynomial1d_t *this = (polynomial1d_t *)self;
+    return PyLong_FromLong(this->n > 0 ? (long)this->n - 1 : 0);
+}
+
 static PyGetSetDef polynomial1d_getset[] = {
     {.name = "coefficients",
      .get = polynomial1d_get_coefficients,
@@ -822,6 +828,11 @@ static PyGetSetDef polynomial1d_getset[] = {
      .doc = "antiderivative(self) -> npt.NDArray[np.float64]\n"
             "Return the antiderivative of the polynomial.\n",
      .closure = NULL},
+    {.name = "order",
+     .get = polynomial1d_get_order,
+     .set = NULL,
+     .doc = "order(self) -> int\n"
+            "Order of the polynomial.\n"},
     {NULL, NULL, NULL, NULL, NULL} // sentinel
 };
 
@@ -835,8 +846,8 @@ static PyNumberMethods polynomial1d_number_methods = {
 };
 
 static PySequenceMethods polynomial1d_sequence_methods = {
-    .sq_length = polynomial1d_length,
-    .sq_item = polynomial1d_get_coefficient,
+    // .sq_length = polynomial1d_length,
+    // .sq_item = polynomial1d_get_coefficient,
     .sq_ass_item = polynomial1d_set_coefficient,
 };
 
@@ -867,14 +878,13 @@ PyDoc_STRVAR(polynomial1d_docstring, "Polynomial1D(coefficients: npt.ArrayLike)\
 
 INTERPLIB_INTERNAL
 PyTypeObject polynomial1d_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Polynomial1D",
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._interp.Polynomial1D",
     .tp_basicsize = sizeof(polynomial1d_t),
     .tp_itemsize = sizeof(double),
     .tp_vectorcall_offset = offsetof(polynomial1d_t, call_poly),
     // .tp_repr = ,
     .tp_call = PyVectorcall_Call, // polynomial1d_call,
     // .tp_vectorcall = polynomial1d_vectorcall,
-    .tp_iter = PySeqIter_New,
     .tp_str = polynomial1d_str,
     .tp_repr = polynomial1d_repr,
     .tp_doc = polynomial1d_docstring,

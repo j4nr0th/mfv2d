@@ -46,7 +46,7 @@ PyDoc_STRVAR(basis1d_docstr, "Basis1D\n"
 
 INTERPLIB_INTERNAL
 PyTypeObject basis1d_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Basis1D",
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._interp.Basis1D",
     .tp_basicsize = sizeof(PyObject),
     .tp_itemsize = 0,
     .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DEFAULT,

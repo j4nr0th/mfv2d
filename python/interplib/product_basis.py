@@ -16,12 +16,12 @@ from interplib._interp import Basis1D
 class BasisProduct2D:
     r"""A basis function, which is a product of two 1D basis.
 
-    Given basis functions :math:`\phi(x)` and :math:`\psi(x)`, the product basis
-    function is written as:
+    Given basis functions :math:`\phi(x)` and :math:`\psi(x)` with a constant weight
+    :math:`w`, the product basis function is written as:
 
     .. math::
 
-        \Phi(\xi, \eta) = \phi(\xi) \cdot \psi(\eta)
+        \Phi(\xi, \eta) = w \cdot \phi(\xi) \cdot \psi(\eta)
 
     Parameters
     ----------
@@ -68,25 +68,31 @@ class BasisProduct2D:
 
     @classmethod
     def outer_product_basis(
-        cls, basis: Iterable[Basis1D], /
+        cls, basis1: Iterable[Basis1D], basis2: Iterable[Basis1D] | None = None, /
     ) -> tuple[tuple[Self, ...], ...]:
         r"""Create outer product basis.
 
-        Given a set of 1D basis :math:`\Phi = \left\{\phi_0,\phi_1,\dots,\phi_n\right\}`,
-        the set of 2D basis :math:`\psi \in \Psi` is created for:
+        Given a set of 1D basis :math:`\Phi = \left\{\phi_0,\phi_1,\dots,\phi_n\right\}`
+        and a set of 1D basis :math:`\Psi = \left\{\psi_0,\psi_1,\dots,\psi_m\right\}`
+        the set of 2D basis :math:`p_{i,j} \in P` is created for:
 
         .. math::
 
-            \psi_{i, j}(\xi, \eta) = \phi_i(\xi) \cdot \phi_j(\eta),\quad i, j \in [0, n]
+            p_{i, j}(\xi, \eta) = \phi_i(\xi) \cdot \psi_j(\eta),\quad i \in [0, n], j
+            \in [0, m]
 
         Parameters
         ----------
-        basis : Iterable of Basis1D
+        basis1 : Iterable of N Basis1D
             Iterable of the 1D basis functions.
+        basis2 : Iterable of M Basis1D, optional
+            Iterable of 1D basis functions. If not provided, then the values in ``basis1``
+            are used instead.
 
         Returns
         -------
-        (N, N) tuple of BasisProduct2D
+        (N, M) tuple of BasisProduct2D
         """
-        basis_tuple = tuple(basis)
-        return tuple(tuple(cls(b1, b2) for b2 in basis_tuple) for b1 in basis_tuple)
+        basis1_tuple = tuple(basis1)
+        basis2_tuple = tuple(basis2) if basis2 is not None else basis1_tuple
+        return tuple(tuple(cls(b1, b2) for b2 in basis2_tuple) for b1 in basis1_tuple)

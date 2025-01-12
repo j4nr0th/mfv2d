@@ -30,12 +30,12 @@ static PyGetSetDef basis1d_get_set_def[] = {
     {.name = "derivative",
      .get = basis1d_derivative,
      .set = NULL,
-     .doc = "Return the derivative of the basis.",
+     .doc = "Basis1D : Return the derivative of the basis.",
      .closure = NULL},
     {.name = "antiderivative",
      .get = basis1d_antiderivative,
      .set = NULL,
-     .doc = "Return the derivative of the basis.",
+     .doc = "Basis1D : Return the derivative of the basis.",
      .closure = NULL},
     {NULL, NULL, NULL, NULL, NULL}, // sentinel
 };

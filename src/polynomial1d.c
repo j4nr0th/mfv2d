@@ -624,8 +624,9 @@ PyDoc_STRVAR(lagrange_nodal_fit_docstring,
              "lagrange_nodal_fit(self, nodes: npt.ArrayLike, values: npt.ArrayLike) -> Polynomial1D\n"
              "Use Lagrange nodal polynomial basis to fit a function.\n"
              "\n"
-             "Equivalent to calling ``sum(b * y for (b, y) in\n"
-             " zip(Polynomial1D.lagrange_nodal_basis(x), f(x))``\n"
+             "Equivalent to calling::\n"
+             "\n"
+             "    sum(b * y for (b, y) in zip(Polynomial1D.lagrange_nodal_basis(nodes), values)\n"
              "\n"
              "Parameters\n"
              "----------\n"
@@ -751,7 +752,7 @@ PyDoc_STRVAR(polynomial1d_offset_by_docstring,
              "\n"
              "The offset polynomial :math:`p^\\prime(t)` is such that:\n"
              "\n"
-             ".. math:\n"
+             ".. math::\n"
              "\n"
              "   p^\\prime(t) = p(t + t_0),\n"
              "\n"
@@ -813,26 +814,19 @@ static PyGetSetDef polynomial1d_getset[] = {
     {.name = "coefficients",
      .get = polynomial1d_get_coefficients,
      .set = polynomial1d_set_coefficients,
-     .doc = "coefficients(self) -> npt.NDArray[np.float64]\n"
-            "Coefficients of the polynomial.\n",
+     .doc = "npt.NDArray[np.float64] : Coefficients of the polynomial.\n",
      .closure = NULL},
     {.name = "derivative",
      .get = polynomial1d_derivative,
      .set = NULL,
-     .doc = "derivative(self) -> npt.NDArray[np.float64]\n"
-            "Return the derivative of the polynomial.\n",
+     .doc = "npt.NDArray[np.float64] : Return the derivative of the polynomial.\n",
      .closure = NULL},
     {.name = "antiderivative",
      .get = polynomial1d_antiderivative,
      .set = NULL,
-     .doc = "antiderivative(self) -> npt.NDArray[np.float64]\n"
-            "Return the antiderivative of the polynomial.\n",
+     .doc = "npt.NDArray[np.float64] : Return the antiderivative of the polynomial.\n",
      .closure = NULL},
-    {.name = "order",
-     .get = polynomial1d_get_order,
-     .set = NULL,
-     .doc = "order(self) -> int\n"
-            "Order of the polynomial.\n"},
+    {.name = "order", .get = polynomial1d_get_order, .set = NULL, .doc = "int : Order of the polynomial.\n"},
     {NULL, NULL, NULL, NULL, NULL} // sentinel
 };
 

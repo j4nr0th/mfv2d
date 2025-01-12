@@ -3,25 +3,19 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. .. currentmodule:: interplib
+.. currentmodule:: interplib
 
-.. autosummary::
-   :toctree: api_autosummary/
-   :template: module.rst
-   :recursive:
 
-   interplib
-
-interplib documentation
+InterpLib documentation
 =======================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
-
+The purpose of interplib is to allow for interpolation using various basis functions
+in both 1D and higher dimensions. The quantities which are to be interpolated can
+be associated with different topological forms and be interpolated using basis functions.
 
 .. toctree::
-   :caption: Contents:
    :maxdepth: 2
 
-   api_autosummary/interplib
+   source/basis1d
+   source/splines1d
+   source/product_basis

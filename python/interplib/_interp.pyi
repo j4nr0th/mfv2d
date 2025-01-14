@@ -18,7 +18,24 @@ def hermite(
     bc1: tuple[float, float, float],
     bc2: tuple[float, float, float],
 ) -> npt.NDArray[np.float64]: ...
-def bernstein1d(n: int, x: npt.ArrayLike) -> npt.NDArray[np.float64]: ...
+def bernstein1d(n: int, x: npt.ArrayLike) -> npt.NDArray[np.float64]:
+    """Compute Bernstein polynomials of given order at given locations.
+
+    Parameters
+    ----------
+    n : int
+       Order of polynomials used.
+    x : (M,) array_like
+       Flat array of locations where the values should be interpolated.
+
+    Returns
+    -------
+    (M, n) arr
+       Matrix containing values of Bernstein polynomial :math:`B^M_j(x_i)` as the
+       element ``array[i, j]``.
+    """
+    ...
+
 def bernstein_coefficients(x: npt.ArrayLike, /) -> npt.NDArray[np.double]:
     """Compute Bernstein polynomial coefficients from a power series polynomial.
 

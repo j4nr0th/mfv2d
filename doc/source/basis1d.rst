@@ -5,7 +5,7 @@
 .. toctree::
     :hidden:
 
-
+    bernstein1d
     polynomial1d
 
 1D Basis Functions
@@ -24,4 +24,5 @@ must be provided by such functions.
 
 The types of 1D basis functions currently provided are:
 
-- :ref:`polynomials <interplib.polynomial1d>`
+- :ref:`power series polynomials <interplib.polynomial1d>`
+- :ref:`bernstein polynomials <interplib.bernstein1d>`

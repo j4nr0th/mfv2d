@@ -37,8 +37,8 @@ static inline void internal_bernstein_interpolation_vector(double t, unsigned n,
     //  Bernstein polynomials follow the following recursion:
     //
     //  B^{N+1}_k(t) = t B^{N}_{k-1}(t) + (1-t) B^{N}_k(t)
-    const double a = t;
-    const double b = 1.0 - t;
+    const double a = 1.0 - t;
+    const double b = t;
     //  this is to stor the value about to be overridden
     out[0] = 1.0;
 
@@ -72,7 +72,7 @@ const char bernstein_interpolation_matrix_doc[] =
     "   Flat array of locations where the values should be interpolated.\n"
     "\n"
     "Returns\n"
-    "--------\n"
+    "-------\n"
     "(M, n) array"
     "   Matrix containing values of Bernstein polynomial :math:`B^M_j(x_i)` as the\n"
     "   element ``array[i, j]``.\n";

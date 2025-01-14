@@ -7,6 +7,9 @@ from interplib._interp import Spline1D as Spline1D
 from interplib._interp import Spline1Di as Spline1Di
 from interplib._interp import test as test
 
+# Bernstein polynomials
+from interplib.bernstein import Bernstein1D as Bernstein1D
+
 # C wrapper functions
 from interplib.lagrange import (
     interp1d_2derivative_samples as interp1d_2derivative_samples,

@@ -230,7 +230,7 @@ static PyMethodDef module_methods[] = {
 };
 
 static PyModuleDef module = {.m_base = PyModuleDef_HEAD_INIT,
-                             .m_name = "_interp",
+                             .m_name = "interplib._interp",
                              .m_doc = "Internal C-extension implementing interpolation functions",
                              .m_size = -1,
                              .m_methods = module_methods,

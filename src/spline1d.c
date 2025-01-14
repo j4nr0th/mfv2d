@@ -321,45 +321,41 @@ static PyGetSetDef spline1d_getset[] = {
     {.name = "coefficients",
      .get = spline1d_get_coefficients,
      .set = spline1d_set_coefficients,
-     .doc = "coefficients(self) -> (M,N) array\n"
-            "Coefficients of the polynomials\n",
+     .doc = "(M,N) array : Coefficients of the polynomials\n",
      .closure = NULL},
     {.name = "nodes",
      .get = spline1d_get_nodes,
      .set = NULL,
-     .doc = "nodes(self) -> (M,) array\n"
-            "Nodes of the spline\n",
+     .doc = "(M,) array : Nodes of the spline\n",
      .closure = NULL},
     {.name = "derivative",
      .get = spline1d_derivative,
      .set = NULL,
-     .doc = "derivative(self) -> Spline1D\n"
-            "Return derivative of the spline.\n",
+     .doc = "Spline1D : Return derivative of the spline.\n",
      .closure = NULL},
     {.name = "antiderivative",
      .get = spline1d_antiderivative,
      .set = NULL,
-     .doc = "antiderivative(self) -> Spline1D\n"
-            "Return antiderivative of the spline.\n",
+     .doc = "Spline1D : Return antiderivative of the spline.\n",
      .closure = NULL},
     {NULL, NULL, NULL, NULL, NULL} // sentinel
 };
 
-PyDoc_STRVAR(spline1d_docstring, "Spline1D(nodes: Sequence, coefficients: Sequence[Sequence], /)\n"
+PyDoc_STRVAR(spline1d_docstring, "Spline1D(nodes: array_like, coefficients: array_like, /)\n"
                                  "\n"
                                  "Piecewise polynomial function, defined between nodes.\n"
                                  "\n"
                                  "Parameters\n"
                                  "----------\n"
-                                 "nodes : (N + 1,) Sequence\n"
-                                 "    Sequence of ``N + 1`` values, which mark where a different set of\n"
+                                 "nodes : (N + 1,) array_like\n"
+                                 "    Sequence of :math:`N + 1` values, which mark where a different set of\n"
                                  "    coefficients is to be used.\n"
-                                 "coefficients : (N, M) Sequence\n"
-                                 "    Sequence of ``M`` coefficients for each of the ``N`` elements.\n");
+                                 "coefficients : (N, M) array_like\n"
+                                 "    Sequence of :math:`M` coefficients for each of the :math:`N` elements.\n");
 
 INTERPLIB_INTERNAL
 PyTypeObject spline1d_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Spline1D",
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._interp.Spline1D",
     .tp_basicsize = sizeof(spline1d_t),
     .tp_itemsize = sizeof(double),
     .tp_vectorcall_offset = offsetof(spline1d_t, call_spline),
@@ -606,34 +602,38 @@ static PyGetSetDef spline1di_getset[] = {
     {.name = "coefficients",
      .get = spline1di_get_coefficients,
      .set = spline1di_set_coefficients,
-     .doc = "Coefficients of the polynomials",
+     .doc = "(M,N) array : Coefficients of the polynomials\n",
      .closure = NULL},
-    {.name = "nodes", .get = spline1di_get_nodes, .set = NULL, .doc = "Nodes of the spline", .closure = NULL},
+    {.name = "nodes",
+     .get = spline1di_get_nodes,
+     .set = NULL,
+     .doc = "(M,) array : Nodes of the spline\n",
+     .closure = NULL},
     {.name = "derivative",
      .get = spline1di_derivative,
      .set = NULL,
-     .doc = "Return derivative of the spline.",
+     .doc = "Spline1Di : Return derivative of the spline.\n",
      .closure = NULL},
     {.name = "antiderivative",
      .get = spline1di_antiderivative,
      .set = NULL,
-     .doc = "Return antiderivative of the spline.",
+     .doc = "Spline1Di : Return antiderivative of the spline.\n",
      .closure = NULL},
     {NULL, NULL, NULL, NULL, NULL} // sentinel
 };
 
-PyDoc_STRVAR(spline1di_docstring, "Spline1Di(coefficients: Sequence[Sequence], /)\n"
+PyDoc_STRVAR(spline1di_docstring, "Spline1Di(coefficients: array_like, /)\n"
                                   "\n"
                                   "Piecewise polynomial function, defined between integer nodes.\n"
                                   "\n"
                                   "Parameters\n"
                                   "----------\n"
-                                  "coefficients : (N, M) Sequence\n"
-                                  "    Sequence of ``M`` coefficients for each of the ``N`` elements.\n");
+                                  "coefficients : (N, M) array_like\n"
+                                  "    Sequence of :math:`M` coefficients for each of the :math:`N` elements.\n");
 
 INTERPLIB_INTERNAL
 PyTypeObject spline1di_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "_interp.Spline1Di",
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._interp.Spline1Di",
     .tp_basicsize = sizeof(spline1d_t),
     .tp_itemsize = sizeof(double),
     .tp_vectorcall_offset = offsetof(spline1d_t, call_spline),

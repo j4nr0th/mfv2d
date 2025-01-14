@@ -1,5 +1,7 @@
 """Spline auxiliary functions and classes."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Generator, Iterable
 
@@ -523,7 +525,7 @@ def element_interpolating_spline(
         d = np.tile(dx[i] ** (np.arange(n // 2)), 2)
         # Make into local basis
         local = tuple(
-            Polynomial1D(p.coefficients / dx[i] ** np.arange(len(p))) for p in basis
+            Polynomial1D(p.coefficients / dx[i] ** np.arange(p.order + 1)) for p in basis
         )
         p = (
             local[0] * float(a)
@@ -940,7 +942,7 @@ def nodal_interpolating_spline(
         d = np.tile(dx[i] ** (np.arange(n // 2) + 1), 2)
         # Make into local basis
         local = tuple(
-            Polynomial1D(p.coefficients / dx[i] ** np.arange(len(p))) for p in basis
+            Polynomial1D(p.coefficients / dx[i] ** np.arange(p.order + 1)) for p in basis
         )
         p = (
             local[0] * float(values[i])

@@ -128,8 +128,9 @@ def test_setting_coefficients():
     """Manually set coefficients one by one."""
     poly1 = Polynomial1D([0, 1, 41, 20, 100])
     poly2 = Polynomial1D([-1, 2, -3.2, 10.0, 11])
-    for i in range(len(poly2)):
-        poly1[i] = poly2[i]
+    coeffs = poly2.coefficients
+    for i in range(len(coeffs)):
+        poly1[i] = coeffs[i]
     assert np.all(poly1.coefficients == poly2.coefficients)
 
 

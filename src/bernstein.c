@@ -7,6 +7,30 @@
 #include "polynomial1d.h"
 #include <numpy/arrayobject.h>
 
+INTERPLIB_INTERNAL
+void bernstein_from_power_series(unsigned n, double INTERPLIB_ARRAY_ARG(coeffs, static n))
+{
+    unsigned base_coefficient = 1;
+    for (unsigned k = 0; k < n; ++k)
+    {
+        const double beta = coeffs[k];
+
+        // Update the remaining entries
+        const unsigned diff = n - k - 1;
+        int local = (int)(diff);
+        for (int i = 1; i < diff + 1; ++i)
+        {
+            coeffs[k + i] += beta * (double)local;
+            // Incorporate the (-1)^i into the binomial coefficient
+            local = (local * ((int)i - (int)diff)) / (int)(i + 1);
+        }
+
+        coeffs[k] = beta / (double)base_coefficient;
+        // Update the binomial coefficient of the polynomial
+        base_coefficient = (base_coefficient * (diff)) / (k + 1);
+    }
+}
+
 static inline void internal_bernstein_interpolation_vector(double t, unsigned n,
                                                            double INTERPLIB_ARRAY_ARG(out, restrict n + 1))
 {
@@ -95,52 +119,29 @@ PyObject *bernstein_interpolation_matrix(PyObject *Py_UNUSED(self), PyObject *co
 }
 
 INTERPLIB_INTERNAL
-const char bernstein_convert_polynomial_doc[] = "bernstein1d_convert(poly: Polynomial1D) -> npt.NDArray[np.float64]\n"
-                                                "Compute Bernstein coefficients from power basis polynomial.\n"
-                                                "\n"
-                                                "Parameters\n"
-                                                "----------\n"
-                                                "poly : Polynomial1D\n"
-                                                "   Polynomial which to convert.\n"
-                                                "\n"
-                                                "Returns\n"
-                                                "--------\n"
-                                                "array"
-                                                "   Array of coefficients of Bernstein polynomial coefficients.\n";
-PyObject *bernstein_convert_polynomial(PyObject *Py_UNUSED(self), PyObject *arg)
+const char bernstein_coefficients_doc[] = "bernstein_coefficients(x: array_like, /) -> array\n"
+                                          "\n"
+                                          "Compute Bernstein polynomial coefficients from a power series polynomial.\n"
+                                          "Parameters\n"
+                                          "----------\n"
+                                          "x : array_like\n"
+                                          "   Coefficients of the polynomial from 0-th to the highest order.\n"
+                                          "\n"
+                                          "Returns\n"
+                                          "-------\n"
+                                          "array\n"
+                                          "   Array of coefficients of Bernstein polynomial series.\n";
+
+INTERPLIB_INTERNAL
+PyObject *bernstein_coefficients(PyObject *Py_UNUSED(self), PyObject *arg)
 {
-
-    if (!Py_IS_TYPE(arg, &polynomial1d_type_object))
-    {
-        PyErr_Format(PyExc_TypeError, "Only a Polynomial1D object can converted.");
+    PyArrayObject *const input_coeffs =
+        (PyArrayObject *)PyArray_FromAny(arg, PyArray_DescrFromType(NPY_DOUBLE), 1, 1,
+                                         NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED | NPY_ARRAY_ENSURECOPY, NULL);
+    if (!input_coeffs)
         return NULL;
-    }
-    const polynomial1d_t *poly = (polynomial1d_t *)arg;
-    const npy_intp n = poly->n;
-    PyArrayObject *out = (PyArrayObject *)PyArray_SimpleNew(1, &n, NPY_DOUBLE);
-    if (!out)
-    {
-        return NULL;
-    }
 
-    double *restrict k = PyArray_DATA(out);
-    // pre-compute factorials
-    k[poly->n - 1] = 1.0;
-    unsigned v = 1;
-    for (unsigned i = 1; i < poly->n; ++i)
-    {
-        v *= i;
-        k[poly->n - i - 1] = (double)v;
-    }
+    bernstein_from_power_series(PyArray_DIM(input_coeffs, 0), PyArray_DATA(input_coeffs));
 
-    for (unsigned i = 0; i < poly->n; ++i)
-    {
-        const double factorial = k[i];
-        for (unsigned j = 0; j < i; ++j)
-        {
-            // TODO
-        }
-    }
-
-    return (PyObject *)out;
+    return (PyObject *)input_coeffs;
 }

@@ -19,6 +19,20 @@ def hermite(
     bc2: tuple[float, float, float],
 ) -> npt.NDArray[np.float64]: ...
 def bernstein1d(n: int, x: npt.ArrayLike) -> npt.NDArray[np.float64]: ...
+def bernstein_coefficients(x: npt.ArrayLike, /) -> npt.NDArray[np.double]:
+    """Compute Bernstein polynomial coefficients from a power series polynomial.
+
+    Parameters
+    ----------
+    x : array_like
+       Coefficients of the polynomial from 0-th to the highest order.
+
+    Returns
+    -------
+    array
+       Array of coefficients of Bernstein polynomial series.
+    """
+    ...
 
 class Basis1D:
     def __call__(self, x: npt.ArrayLike, /) -> npt.NDArray[np.float64]: ...

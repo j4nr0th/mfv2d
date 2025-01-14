@@ -226,6 +226,7 @@ static PyMethodDef module_methods[] = {
     {"d2lagrange1d", interp_d2lagrange, METH_VARARGS, interp_d2lagrange_doc},
     {"hermite", interp_hermite_coefficients, METH_VARARGS, interp_hermite_doc},
     {"bernstein1d", (PyCFunction)bernstein_interpolation_matrix, METH_FASTCALL, bernstein_interpolation_matrix_doc},
+    {"bernstein_coefficients", (PyCFunction)bernstein_coefficients, METH_O, bernstein_coefficients_doc},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

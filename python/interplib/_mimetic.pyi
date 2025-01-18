@@ -1,7 +1,8 @@
 """Stub for the C implemented types and functions related to mimetics."""
 
-from typing import Self
+from typing import Self, final
 
+@final
 class GeoID:
     """Type used to identify a geometrical object with an index and orientation.
 
@@ -13,7 +14,7 @@ class GeoID:
         The object's orientation should be reversed.
     """
 
-    def __new__(cls, index: int, reverse=False) -> Self: ...
+    def __new__(cls, index: int, reverse: object = False) -> Self: ...
     @property
     def index(self) -> int:
         """Index of the object referenced by id."""
@@ -23,9 +24,13 @@ class GeoID:
         """Is the orientation of the object reversed."""
         ...
 
-    def __bool__(self) -> bool:
-        """Check if the ID is valid."""
+    def __bool__(self) -> bool: ...
+    def __eq__(self, value) -> bool: ...
+    def __str__(self) -> str: ...
+    def __repr__(self) -> str: ...
+    def __neg__(self) -> GeoID: ...
 
+@final
 class Line:
     """Geometrical object, which connects two points.
 
@@ -47,6 +52,11 @@ class Line:
         """ID of the point where the line ends."""
         ...
 
+    def __eq__(self, value) -> bool: ...
+    def __str__(self) -> str: ...
+    def __repr__(self) -> str: ...
+
+@final
 class Surface:
     """Geometrical object, which is bound by four lines.
 
@@ -81,6 +91,9 @@ class Surface:
     def left(self) -> GeoID:
         """Left boundary of the surface."""
         ...
+    def __eq__(self, value) -> bool: ...
+    def __str__(self) -> str: ...
+    def __repr__(self) -> str: ...
 
 # class Volume:
 #     """A geometrical object, which is bound by six surfaces.
@@ -114,6 +127,7 @@ class Manifold:
         """Dimension of the manifold."""
         ...
 
+@final
 class Manifold1D(Manifold):
     """One dimensional manifold."""
 
@@ -127,7 +141,7 @@ class Manifold1D(Manifold):
         """Number of points in the manifold."""
         ...
 
-    def get_line(self, index: GeoID, /) -> Line:
+    def get_line(self, index: GeoID | int, /) -> Line:
         """Get the line of the specified ID."""
         ...
 

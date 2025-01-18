@@ -80,10 +80,15 @@ geo_id_object_t *geo_id_object_from_value(const geo_id_t id)
 
 static PyObject *geoid_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
-    unsigned long value;
+    int value;
     int orientation = 0;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "I|p", (char *[3]){"index", "reverse", NULL}, &value, &orientation))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|p", (char *[3]){"index", "reverse", NULL}, &value, &orientation))
     {
+        return NULL;
+    }
+    if (value < 0)
+    {
+        PyErr_SetString(PyExc_ValueError, "Can not use a negative index for a GeoID.");
         return NULL;
     }
 
@@ -117,19 +122,21 @@ static PyObject *geoid_rich_compare(PyObject *self, PyObject *other, const int o
     return PyBool_FromLong(val);
 }
 
-static PyObject *geoid_bool(PyObject *self, PyObject *Py_UNUSED(args))
+static int geoid_bool(PyObject *self)
 {
     const geo_id_object_t *const this = (geo_id_object_t *)self;
-    if (this->id.index == GEO_ID_INVALID)
-    {
-        Py_RETURN_FALSE;
-    }
-    Py_RETURN_TRUE;
+    return this->id.index != GEO_ID_INVALID;
 }
 
-static PyMethodDef geoid_methods[] = {
-    {.ml_name = "__bool__", .ml_meth = geoid_bool, .ml_flags = METH_NOARGS, .ml_doc = "Check if the ID is valid."},
-    {},
+static PyObject *geoid_negative(PyObject *self)
+{
+    const geo_id_object_t *const this = (geo_id_object_t *)self;
+    return (PyObject *)geo_id_object_from_value((geo_id_t){.index = this->id.index, .reverse = !this->id.reverse});
+}
+
+static PyNumberMethods geo_id_number_methods = {
+    .nb_bool = geoid_bool,
+    .nb_negative = geoid_negative,
 };
 
 PyDoc_STRVAR(geoid_type_docstring, "GeoID(index: int, reverse=False)\n"
@@ -153,7 +160,7 @@ PyTypeObject geo_id_type_object = {
     .tp_new = geoid_new,
     .tp_richcompare = geoid_rich_compare,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .tp_methods = geoid_methods,
+    .tp_as_number = &geo_id_number_methods,
 };
 
 INTERPLIB_INTERNAL

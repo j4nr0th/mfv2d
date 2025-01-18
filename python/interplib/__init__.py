@@ -39,6 +39,7 @@ from interplib.lagrange import lagrange_function_samples as lagrange_function_sa
 
 # Mimetic stuff
 from interplib.mimetic import Element1D as Element1D
+from interplib.mimetic import Mesh1D as Mesh1D
 
 # Product Basis
 from interplib.product_basis import BasisProduct2D as BasisProduct2D

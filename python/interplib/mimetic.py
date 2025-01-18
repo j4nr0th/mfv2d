@@ -1,5 +1,7 @@
 """Prototypes of Mimetic operations."""
 
+from __future__ import annotations
+
 from collections.abc import Sequence
 from itertools import accumulate
 
@@ -19,23 +21,17 @@ class Mesh1D:
 
     def __init__(
         self,
-        manifold: Manifold1D,
         positions: npt.ArrayLike,
         element_order: int | Sequence[int] | npt.NDArray[np.integer],
     ) -> None:
-        self.manifold = manifold
         self.positions = np.array(positions, np.float64)
-        n_elem = manifold.n_lines
         if self.positions.ndim != 1:
             raise ValueError(
                 "The dimension of the positions array was not 1 but "
                 f"{self.positions.ndim}."
             )
-        if self.positions.size != self.manifold.n_points:
-            raise ValueError(
-                f"The positions array specifies {self.positions.size} entries, but the"
-                f" manifold has {n_elem} points."
-            )
+        self.manifold = Manifold1D.line_mesh(self.positions.size - 1)
+        n_elem = self.manifold.n_lines
         order = np.array(element_order, np.uint8)
         if order.ndim == 0:
             self.element_orders = np.full(n_elem, order)
@@ -47,6 +43,16 @@ class Mesh1D:
                 f" length as the number of elements (expected ({n_elem},) but got "
                 f"{order.shape} instead)."
             )
+
+    def get_element(self, index: int) -> Element1D:
+        """Return the element at specified index."""
+        assert index >= 0
+        line = self.manifold.get_line(index + 1)
+        return Element1D(
+            self.element_orders[index],
+            self.positions[line.begin.index],
+            self.positions[line.end.index],
+        )
 
 
 class Element1D:

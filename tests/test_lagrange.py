@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._interp import Polynomial1D
+from interplib import Polynomial1D
 from interplib.lagrange import (
     interp1d_2derivative_samples,
     interp1d_derivative_samples,

@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._interp import Polynomial1D, Spline1D
+from interplib import Polynomial1D, Spline1D
 from interplib.splines import (
     SplineBC,
     element_interpolating_spline,

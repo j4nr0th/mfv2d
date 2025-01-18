@@ -1,8 +1,7 @@
 """Test that the 1D mesh and manifold works as would be expected."""
 
 import numpy as np
-from interplib import Mesh1D
-from interplib._mimetic import GeoID, Manifold, Manifold1D
+from interplib.mimetic import GeoID, Manifold, Manifold1D, Mesh1D
 
 
 def test_manifold1d():

@@ -11,7 +11,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.integrate import quad
 
-from interplib.mimetic import Element1D
+from interplib.mimetic.mimetic1d import Element1D
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,6 @@
 """Test basic mimetic geometry elements."""
 
-from interplib._mimetic import GeoID, Line, Surface
+from interplib.mimetic import GeoID, Line, Surface
 
 
 def test_geo_id():

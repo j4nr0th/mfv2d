@@ -8,5 +8,5 @@ from interplib.kforms.kform import KFormInnerProduct as KFormInnerProduct
 from interplib.kforms.kform import KFormPrimal as KFormPrimal
 from interplib.kforms.kform import KFormProjection as KFormProjection
 from interplib.kforms.kform import KFormSum as KFormSum
-from interplib.kforms.kform import KFromSystem as KFromSystem
+from interplib.kforms.kform import KFormSystem as KFormSystem
 from interplib.kforms.kform import element_system as element_system

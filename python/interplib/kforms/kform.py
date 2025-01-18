@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import accumulate
 from typing import Any
@@ -16,7 +16,17 @@ from interplib.mimetic.mimetic1d import Element1D
 
 @dataclass(frozen=True)
 class KForm:
-    """Generic K form."""
+    """Generic differential K form.
+
+    It is described by and order and identifier, that is used to print it.
+
+    Parameters
+    ----------
+    order : int
+        Order of the differential form.
+    label : str
+        Label which is used to print form as a string.
+    """
 
     order: int
     label: str
@@ -42,7 +52,15 @@ class KForm:
 
 @dataclass(frozen=True)
 class KFormPrimal(KForm):
-    """K form on the primal basis."""
+    """Differential K form represented with the primal basis.
+
+    Parameters
+    ----------
+    order : int
+        Order of the differential form.
+    label : str
+        Label which is used to print form as a string.
+    """
 
     @property
     def is_primal(self) -> bool:
@@ -55,7 +73,15 @@ class KFormPrimal(KForm):
 
 @dataclass(frozen=True)
 class KFormDual(KForm):
-    """K form on the dual basis."""
+    """Differential K form represented with the dual basis.
+
+    Parameters
+    ----------
+    order : int
+        Order of the differential form.
+    label : str
+        Label which is used to print form as a string.
+    """
 
     @property
     def is_primal(self) -> bool:
@@ -72,7 +98,31 @@ class KFormDual(KForm):
 
 @dataclass(init=False, frozen=True)
 class KFormDerivative(KForm):
-    """Exterior derivative of the primal form."""
+    r"""Exterior derivative of a form.
+
+    An exterior derivative maps a differential k-form into a (k + 1) form:
+
+    .. math::
+
+        \mathrm{d}: p^{(k)} \in \Lambda^{(k)}(\mathcal{M}) \leftarrow q^{(k + 1)} \in
+        \Lambda^{(k + 1)}(\mathcal{M})
+
+    This operation is expressed in terms of a so called incidence matrix
+    :math:`\mathbb{E}^{(k, k + 1)}`, which maps degrees of freedom from basis of k-forms
+    to those of (k + 1)-forms
+
+    Note that applying the operator :math:`\mathrm{d}` twice will always result in a
+    form which is zero everywhere:
+
+    .. math::
+
+        \mathrm{d}\left( \mathrm{d} p^{(k)} \right) = 0
+
+    Parameters
+    ----------
+    form : KForm
+        The form of which the derivative is to be taken.
+    """
 
     form: KForm
 
@@ -99,7 +149,17 @@ class KFormDerivative(KForm):
 
 @dataclass(init=False, frozen=True)
 class KFormInnerProduct(KForm):
-    """Inner product of a primal and dual form."""
+    r"""Inner product of a primal and dual form.
+
+    An inner product must be taken with a primal and dual forms of the same k-order.
+    The discrete version of an inner product of two k-forms is expressed as a
+    discrete inner product on the mass matrix:
+
+    .. math::
+
+        \left< p^{(k)}, q^{(k)} \right> = \int\limts_{\mathcal{K}} p^{(k)} q^{(k)} =
+        \vec{p}^T \mathbb{M}^k \vec{q}
+    """
 
     weight: KForm
     function: KForm
@@ -149,7 +209,15 @@ class KFormInnerProduct(KForm):
 
 @dataclass(init=False, frozen=True)
 class KFormSum(KForm):
-    """Sum of two KForms."""
+    """Sum of two differential forms of the same order.
+
+    Parameters
+    ----------
+    first : KForm
+        First form to add.
+    second : KForm
+        Second form to add.
+    """
 
     first: KForm
     second: KForm
@@ -172,13 +240,140 @@ class KFormSum(KForm):
 
 @dataclass(frozen=True)
 class KFormProjection:
-    """Weigh a form with a dual form and implicilty project it."""
+    r"""Weigh a form with a dual form and implicilty project it.
+
+    This is used to form the right side of the systems of equations. It represents
+    the projection of a given  function :math:`f: \mathbb{R}^n -> \mathbb{R}` onto
+    a set of primal basis to create a k-form, which is then used to compute the inner
+    product with the specified dual form.
+
+    Parameters
+    ----------
+    dual : KFormDual
+        Dual form used as a weight.
+    func : tuple[str, Callable], optional
+        The function to use, specified by a name and the callable to use. If it not
+        specified or given as ``None``, then :math:`f = 0`.
+    """
 
     dual: KFormDual
     func: tuple[str, Callable] | None = None
 
 
+def _extract_forms(form: KForm) -> tuple[set[KFormPrimal], set[KFormDual]]:
+    """Extract all primal and dual forms, which make up the current form.
+
+    Parameters
+    ----------
+    form : KForm
+        Form which is to be extracted.
+
+    Returns
+    -------
+    set of KFormPrimal
+        All unique primal forms occurring within the form.
+    set of KFormDual
+        All unique dual forms occurring within the form.
+    """
+    if isinstance(form, KFormPrimal):
+        return ({form}, set())
+    if isinstance(form, KFormDual):
+        return (set(), {form})
+    if isinstance(form, KFormDerivative):
+        return _extract_forms(form.form)
+    if isinstance(form, KFormSum):
+        f1 = _extract_forms(form.first)
+        f2 = _extract_forms(form.second)
+        return (f1[0] | f2[0], f1[1] | f2[1])
+    if isinstance(form, KFormInnerProduct):
+        f1 = _extract_forms(form.function)
+        f2 = _extract_forms(form.weight)
+        return (f1[0] | f2[0], f1[1] | f2[1])
+    raise TypeError(f"Invalid type {type(form)}")
+
+
+@dataclass(init=False, frozen=True)
+class KFormEquaton:
+    """Equation of differential forms, consisting of a left and a right side.
+
+    The equation represents an equation where all the implicit terms are on the left side
+    and all explicit ones are on the right side.
+
+    Parameters
+    ----------
+    left : KForm
+        The form representing the implicit part of the equation.
+    right : KFormProjection
+        The form representing the explicit part of the equation.
+    """
+
+    left: KForm
+    right: KFormProjection
+    variables: tuple[KForm, ...]
+
+    def __init__(self, left: KForm, right: KFormProjection) -> None:
+        p, d = _extract_forms(left)
+        if d != {right.dual}:
+            raise ValueError(
+                "Left and right side do not use the same dual form as a weight."
+            )
+        object.__setattr__(self, "left", left)
+        object.__setattr__(self, "right", right)
+        object.__setattr__(self, "variables", tuple(k for k in p))
+
+
+def _extract_rhs_1d(
+    right: KFormProjection, element: Element1D
+) -> npt.NDArray[np.float64]:
+    """Evaluate the differential form projections on the 1D element.
+
+    Parameters
+    ----------
+    right : KFormProjection
+        The projection onto a k-form.
+    element : Element1D
+        The element on which the projection is evaluated on.
+
+    Returns
+    -------
+    array of :class:`numpy.float64`
+        The resulting projection vector.
+    """
+    fn = right.func
+    n = element.order + 1 - right.dual.order
+    if fn is None:
+        return np.zeros(n)
+    else:
+        out_vec = np.empty(n)
+        mass: npt.NDArray[np.float64]
+        # TODO: find a nice way to do this
+        if right.dual.order == 1:
+            real_nodes = np.linspace(element.xleft, element.xright, n + 1)
+            for i in range(n):
+                out_vec[i] = quad(fn[1], real_nodes[i], real_nodes[i + 1])[0]
+            mass = element.mass_edge
+        elif right.dual.order == 0:
+            out_vec[:] = fn[1](element.nodes)
+            mass = element.mass_node
+        return np.astype(mass @ out_vec, np.float64)
+
+
 def _parse_form(form: KForm) -> tuple[KFormDual | None, dict[KForm, str | None]]:
+    """Extract the string representations of the forms, as well as their dual weight.
+
+    Parameters
+    ----------
+    form : KForm
+        Form, which is to be extracted.
+
+    Returns
+    -------
+    KFormDual
+        The dual form, if any are used.
+    dict of KForm -> (str or None)
+        Mapping of forms in the equation and string representation of the operations
+        performed on them.
+    """
     if isinstance(form, KFormSum):
         dl, left = _parse_form(form.first)
         dr, right = _parse_form(form.second)
@@ -232,209 +427,23 @@ def _parse_form(form: KForm) -> tuple[KFormDual | None, dict[KForm, str | None]]
     raise TypeError("Unknown type")
 
 
-def _evaluate_form_1d(
-    form: KForm, element: Element1D
-) -> dict[KForm, npt.NDArray[np.float64]]:
-    if isinstance(form, KFormSum):
-        left = _evaluate_form_1d(form.first, element)
-        right = _evaluate_form_1d(form.second, element)
-        for k in right:
-            if k in left:
-                left[k] = np.astype(left[k] + right[k], np.float64)
-            else:
-                left[k] = right[k]
-        return left
-    if isinstance(form, KFormInnerProduct):
-        if form.weight.is_dual and form.function.is_primal:
-            primal = _evaluate_form_1d(form.function, element)
-            dual = _evaluate_form_1d(form.weight, element)
-        elif form.weight.is_dual and form.function.is_primal:
-            dual = _evaluate_form_1d(form.function, element)
-            primal = _evaluate_form_1d(form.weight, element)
-        else:
-            raise ValueError(
-                "Inner product terms must be such that the one part is dual only while"
-                " another is primal only."
-            )
-        assert len(dual) == 1
-        dv = tuple(v for v in dual.keys())[0]
-        for k in primal:
-            vd = dual[dv]
-            mass: npt.NDArray[np.float64]
-            if form.function.order == 0:
-                mass = element.mass_node
-            elif form.function.order == 1:
-                mass = element.mass_edge
-            else:
-                raise ValueError(
-                    f"Order {form.function.order} can't be used on a 1D mesh."
-                )
+class KFormSystem:
+    """System of equations of differential forms, which are optionally sorted.
 
-            primal[k] = np.astype(vd.T @ mass @ primal[k], np.float64)
-        return primal
-    if isinstance(form, KFormDerivative):
-        res = _evaluate_form_1d(form.form, element)
-        for k in res:
-            res[k] = np.astype(element.incidence_primal_0() @ res[k], np.float64)
-        return res
-    if isinstance(form, KFormPrimal):
-        return {form: np.eye(element.order + 1 - form.order)}
-    if isinstance(form, KFormDual):
-        return {form: np.eye(element.order + 1 - form.order)}
-    raise TypeError("Unknown type")
+    This is a collection of equations, which fully describe a problem to be solved for
+    the degrees of freedom of differential forms.
 
-
-@dataclass(init=False, frozen=True)
-class KFormEquaton:
-    """A left and right hand sides of an equation."""
-
-    left: KForm
-    right: KFormProjection
-    variables: tuple[KForm, ...]
-
-    def __init__(self, left: KForm, right: KFormProjection) -> None:
-        d, p = _parse_form(left)
-        if d != right.dual:
-            raise ValueError(
-                "Left and right side do not use the same dual form as a weight."
-            )
-        object.__setattr__(self, "left", left)
-        object.__setattr__(self, "right", right)
-        object.__setattr__(self, "variables", tuple(k for k in p))
-
-
-def _make_equations(equations: Sequence[KFormEquaton]) -> str:
-    duals: list[KFormDual] = []
-    parsed: list[dict[KForm, str]] = []
-    rhs: list[str] = []
-    for ie, eq in enumerate(equations):
-        d, p = _parse_form(eq.left)
-        if d is None:
-            raise ValueError(f"Equation {ie} has no weight.")
-        o: dict[KForm, str] = {}
-        for k in p:
-            v = p[k]
-            if v is None:
-                o[k] = "I"
-            else:
-                o[k] = v
-        duals.append(d)
-        parsed.append(o)
-        fn = eq.right.func
-        rhs.append(fn[0] if fn is not None else "0")
-
-    all_inputs: set[KForm] = set()
-    for p_dict in parsed:
-        all_inputs |= set(p_dict.keys())
-
-    if len(all_inputs) != len(equations):
-        raise ValueError(
-            f"There are {len(all_inputs)} unknown forms, but {len(equations)} equations."
-        )
-    if sum(i.order for i in all_inputs) != sum(d.order for d in duals):
-        raise ValueError("The system is not square.")
-
-    out_mat = [[p.get(v, "0") for v in all_inputs] for p in parsed]
-    out_dual = [str(d) for d in duals]
-    out_v = [str(iv) for iv in all_inputs]
-
-    w_mat = max(max(len(s) for s in row_list) for row_list in out_mat)
-    w_v = max(len(s) for s in out_v)
-    w_d = max(len(s) for s in out_dual)
-    w_r = max(len(s) for s in rhs)
-
-    s = ""
-    for ie in range(len(equations)):
-        row = out_mat[ie]
-        row_str = " | ".join(rs.rjust(w_mat) for rs in row)
-        s += (
-            f"[{out_dual[ie].rjust(w_d)}]"
-            + ("    (" if ie != 0 else "^T  (")
-            + f"[{row_str}]  [{out_v[ie].rjust(w_v)}] - [{rhs[ie].rjust(w_r)}]) = [0]\n"
-        )
-    return s
-
-
-def _extract_rhs_1d(
-    right: KFormProjection, element: Element1D
-) -> npt.NDArray[np.float64]:
-    fn = right.func
-    n = element.order + 1 - right.dual.order
-    if fn is None:
-        return np.zeros(n)
-    else:
-        out_vec = np.empty(n)
-        mass: npt.NDArray[np.float64]
-        # TODO: find a nice way to do this
-        if right.dual.order == 1:
-            real_nodes = np.linspace(element.xleft, element.xright, n + 1)
-            for i in range(n):
-                out_vec[i] = quad(fn[1], real_nodes[i], real_nodes[i + 1])[0]
-            mass = element.mass_edge
-        elif right.dual.order == 0:
-            out_vec[:] = fn[1](element.nodes)
-            mass = element.mass_node
-        return np.astype(mass @ out_vec, np.float64)
-
-
-def _make_matrix_eqn(
-    equations: Sequence[KFormEquaton], element: Element1D
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    lhs: list[dict[KForm, npt.NDArray[np.float64]]] = []
-    rhs: list[npt.NDArray[np.float64]] = []
-    for ie, eq in enumerate(equations):
-        expr = _evaluate_form_1d(eq.left, element)
-        lhs.append(expr)
-        rhs.append(_extract_rhs_1d(eq.right, element))
-
-    all_inputs: set[KForm] = set()
-    for p in lhs:
-        all_inputs |= set(p.keys())
-
-    if len(all_inputs) != len(equations):
-        raise ValueError(
-            f"There are {len(all_inputs)} unknown forms, but {len(equations)} equations."
-        )
-
-    input_orders = {form: element.order + 1 - form.order for form in all_inputs}
-
-    in_order = tuple(form for form in all_inputs)
-    in_offsets = np.pad(np.cumsum([input_orders[v] for v in in_order]), (1, 0))
-
-    elm_vec = np.concatenate(rhs)
-    out_offsets = np.pad(np.cumsum([v.size for v in rhs]), (1, 0))
-    elm_mat = np.zeros((elm_vec.size, in_offsets[-1]))
-    for ie, equation in enumerate(lhs):
-        for form in equation:
-            idx = in_order.index(form)
-            elm_mat[
-                out_offsets[ie] : out_offsets[ie + 1],
-                in_offsets[idx] : in_offsets[idx + 1],
-            ] += equation[form]
-
-    return elm_mat, elm_vec
-
-
-def _extract_forms(form: KForm) -> tuple[set[KFormPrimal], set[KFormDual]]:
-    if isinstance(form, KFormPrimal):
-        return ({form}, set())
-    if isinstance(form, KFormDual):
-        return (set(), {form})
-    if isinstance(form, KFormDerivative):
-        return _extract_forms(form.form)
-    if isinstance(form, KFormSum):
-        f1 = _extract_forms(form.first)
-        f2 = _extract_forms(form.second)
-        return (f1[0] | f2[0], f1[1] | f2[1])
-    if isinstance(form, KFormInnerProduct):
-        f1 = _extract_forms(form.function)
-        f2 = _extract_forms(form.weight)
-        return (f1[0] | f2[0], f1[1] | f2[1])
-    raise TypeError(f"Invalid type {type(form)}")
-
-
-class KFromSystem:
-    """A system of equations of differential forms."""
+    Parameters
+    ----------
+    *equations : KFormEquation
+        Equations which are to be used.
+    sorting_primal : (KFormPrimal) -> Any, optional
+        Callable passed to the :func:`sorted` builtin to sort the primal forms. This
+        corresponds to sorting the columns of the system matrix.
+    sorting_dual : (KFormDual) -> Any, optional
+        Callable passed to the :func:`sorted` builtin to sort the dual forms. This
+        corresponds to sorting the rows of the system matrix.
+    """
 
     primal_forms: tuple[KFormPrimal, ...]
     dual_forms: tuple[KFormDual, ...]
@@ -479,13 +488,39 @@ class KFromSystem:
         self.equations = tuple(equation_list[duals.index(d)] for d in self.dual_forms)
 
     def shape_1d(self, order: int) -> tuple[int, int]:
-        """Return the shape of the system for the 1D case."""
+        """Return the shape of the system for the 1D case.
+
+        Parameters
+        ----------
+        order : int
+            Order of 1D polynomial basis.
+
+        Returns
+        -------
+        int
+            Number of rows of the system.
+        int
+            Number of columns of the system.
+        """
         width = sum(order + 1 - d.order for d in self.dual_forms)
         height = sum(order + 1 - d.order for d in self.primal_forms)
         return (height, width)
 
     def offsets_1d(self, order: int) -> tuple[tuple[int, ...], tuple[int, ...]]:
-        """Compute offsets of different forms and equations."""
+        """Compute offsets of different forms and equations.
+
+        Parameters
+        ----------
+        order : int
+            Order of 1D polynomial basis.
+
+        Returns
+        -------
+        tuple[int, ...]
+            Offsets of different equations in rows.
+        tuple[int, ...]
+            Offsets of different form degrees of freedom in columns.
+        """
         offset_forms = (0,) + tuple(
             accumulate(order + 1 - d.order for d in self.primal_forms)
         )
@@ -545,6 +580,19 @@ class KFromSystem:
 def _equation_1d(
     form: KForm, element: Element1D
 ) -> dict[KForm, npt.NDArray[np.float64] | None]:
+    """Compute the matrix operations on individual forms.
+
+    Parameter
+    ---------
+    form : KForm
+        Form to evaluate.
+
+    Returns
+    -------
+    dict of KForm -> array or None
+        Dictionary mapping forms to either a matrix that represents the operation to
+        perform on them, or ``None``, if it should be the identity operation.
+    """
     if isinstance(form, KFormSum):
         left = _equation_1d(form.first, element)
         right = _equation_1d(form.second, element)
@@ -610,9 +658,24 @@ def _equation_1d(
 
 
 def element_system(
-    system: KFromSystem, element: Element1D
+    system: KFormSystem, element: Element1D
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Compute element matrix and vector."""
+    """Compute element matrix and vector.
+
+    Parameters
+    ----------
+    system : KFormSystem
+        System to discretize.
+    element : Element1D
+        The element on which the discretization should be performed.
+
+    Returns
+    -------
+    array
+        Element matrix representing the left side of the system.
+    array
+        Element vector representing the right side of the system
+    """
     system_size = system.shape_1d(element.order)
     assert system_size[0] == system_size[1], "System must be square."
     system_matrix = np.zeros(system_size, np.float64)
@@ -634,28 +697,3 @@ def element_system(
         )
 
     return system_matrix, system_vector
-
-
-# if __name__ == "__main__":
-#     # Weights
-#     v = KFormDual(0, "v")
-#     q = KFormDual(1, "q")
-
-#     # Functions
-#     u = KFormPrimal(0, "u")
-#     phi = KFormPrimal(1, "phi")
-#     f = KFormPrimal(1, "f")
-
-#     equation_u = KFormSum(
-#         KFormInnerProduct(v, u), KFormInnerProduct(KFormDerivative(v), phi)
-#     )
-#     equation_f = KFormInnerProduct(q, KFormDerivative(u))
-
-#     eq1 = KFormEquaton(equation_u, KFormProjection(v, None))
-#     eq2 = KFormEquaton(equation_f, KFormProjection(q, ("f", lambda _: 0)))
-
-#     e = Element1D(2, -1.0, +1.0)
-
-#     equations = (eq1, eq2)
-
-#     print(_make_equations(equations))

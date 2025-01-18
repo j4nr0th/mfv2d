@@ -5,7 +5,7 @@
 #ifndef BERNSTEIN_H
 #define BERNSTEIN_H
 
-#include "common_defines.h"
+#include "../common_defines.h"
 
 INTERPLIB_INTERNAL
 void bernstein_from_power_series(unsigned n, double INTERPLIB_ARRAY_ARG(coeffs, static n));

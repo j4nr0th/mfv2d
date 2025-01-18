@@ -1,89 +1,131 @@
 """Stub for the C implemented types and functions related to mimetics."""
 
+from typing import Self
+
 class GeoID:
-    """A way to identify a geometrical object in a mesh.
+    """Type used to identify a geometrical object with an index and orientation.
 
     Parameters
     ----------
     index : int
         Index of the geometrical object.
-    reversed : bool
+    reversed : any, default: False
         The object's orientation should be reversed.
     """
 
-    index: int
-    reversed: bool
+    def __new__(cls, index: int, reverse=False) -> Self: ...
+    @property
+    def index(self) -> int:
+        """Index of the object referenced by id."""
+        ...
+    @property
+    def reversed(self) -> bool:
+        """Is the orientation of the object reversed."""
+        ...
+
+    def __bool__(self) -> bool:
+        """Check if the ID is valid."""
 
 class Line:
-    """A geometrical object, which connects two points.
+    """Geometrical object, which connects two points.
 
     Parameters
     ----------
-    begin : GeoID
+    begin : GeoID or int
         ID of the point where the line beings.
-    end : GeoID
+    end : GeoID or int
         ID of the point where the line ends.
     """
 
-    begin: GeoID
-    end: GeoID
+    def __new__(cls, begin: GeoID | int, end: GeoID | int) -> Self: ...
+    @property
+    def begin(self) -> GeoID:
+        """ID of the point where the line beings."""
+        ...
+    @property
+    def end(self) -> GeoID:
+        """ID of the point where the line ends."""
+        ...
 
 class Surface:
-    """A geometrical object, which is bound by four lines.
+    """Geometrical object, which is bound by four lines.
 
     Parameters
     ----------
-    bottom : GeoID
+    bottom : GeoID or int
         Bottom boundary of the surface.
-    right : GeoID
+    right : GeoID or int
         Right boundary of the surface.
-    top : GeoID
+    top : GeoID or int
         Top boundary of the surface.
-    left : GeoID
+    left : GeoID or int
         Left boundary of the surface.
     """
 
-    bottom: GeoID
-    right: GeoID
-    top: GeoID
-    left: GeoID
+    def __new__(
+        cls, bottom: GeoID | int, right: GeoID | int, top: GeoID | int, left: GeoID | int
+    ) -> Self: ...
+    @property
+    def bottom(self) -> GeoID:
+        """Bottom boundary of the surface."""
+        ...
+    @property
+    def right(self) -> GeoID:
+        """Right boundary of the surface."""
+        ...
+    @property
+    def top(self) -> GeoID:
+        """Top boundary of the surface."""
+        ...
+    @property
+    def left(self) -> GeoID:
+        """Left boundary of the surface."""
+        ...
 
-class Volume:
-    """A geometrical object, which is bound by six surfaces.
-
-    left : GeoID
-        Left boundary surface of the surface.
-    back : GeoID
-        Back boundary surface of the surface.
-    bottom : GeoID
-        Bottom boundary surface of the surface.
-    right : GeoID
-        Right boundary surface of the surface.
-    front : GeoID
-        Front boundary surface of the surface.
-    top : GeoID
-        Top boundary surface of the surface.
-    """
-
-    left: GeoID
-    back: GeoID
-    bottom: GeoID
-    right: GeoID
-    front: GeoID
-    top: GeoID
+# class Volume:
+#     """A geometrical object, which is bound by six surfaces.
+#
+#     left : GeoID
+#         Left boundary surface of the surface.
+#     back : GeoID
+#         Back boundary surface of the surface.
+#     bottom : GeoID
+#         Bottom boundary surface of the surface.
+#     right : GeoID
+#         Right boundary surface of the surface.
+#     front : GeoID
+#         Front boundary surface of the surface.
+#     top : GeoID
+#         Top boundary surface of the surface.
+#     """
+#
+#     left: GeoID
+#     back: GeoID
+#     bottom: GeoID
+#     right: GeoID
+#     front: GeoID
+#     top: GeoID
 
 class Manifold:
     """A manifold of a finite number of dimensions."""
 
-    dimension: int
-    ...
+    @property
+    def dimension(self) -> int:
+        """Dimension of the manifold."""
+        ...
 
 class Manifold1D(Manifold):
-    """A 1D manifold."""
+    """One dimensional manifold."""
 
-    dimension: int = 1
-    n_lines: int
-    n_points: int
+    @property
+    def n_lines(self) -> int:
+        """Number of lines in the manifold."""
+        ...
+
+    @property
+    def n_points(self) -> int:
+        """Number of points in the manifold."""
+        ...
 
     def get_line(self, index: GeoID, /) -> Line:
         """Get the line of the specified ID."""
@@ -93,4 +135,17 @@ class Manifold1D(Manifold):
         """Find the ID of the specified line."""
         ...
 
-    ...
+    @classmethod
+    def line_mesh(cls, segments: int, /) -> Manifold1D:
+        """Create a new Manifold1D which represents a line.
+
+        Parameters
+        ----------
+        segments : int
+            Number of segments the line is split into. There will be one more point.
+
+        Returns
+        -------
+        Manifold1D
+            Manifold that represents the topology of the line.
+        """

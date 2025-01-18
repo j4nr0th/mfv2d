@@ -6,7 +6,7 @@
 
 #include <numpy/arrayobject.h>
 
-#include "common.h"
+#include "../common.h"
 
 static PyObject *basis1d_call(PyObject *Py_UNUSED(self), PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwargs))
 {

@@ -6,8 +6,8 @@
 
 #include <numpy/arrayobject.h>
 
+#include "../common.h"
 #include "basis1d.h"
-#include "common.h"
 #include "lagrange.h"
 #include <stddef.h>
 

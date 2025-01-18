@@ -6,7 +6,7 @@
 #define SPLINE1D_H
 #include <Python.h>
 
-#include "common_defines.h"
+#include "../common_defines.h"
 
 typedef struct
 {

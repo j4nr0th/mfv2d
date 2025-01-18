@@ -12,10 +12,10 @@ requires = ["scikit-build-core", "numpy"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
-cmake.verbose = true
+# cmake.verbose = true
 cmake.build-type = "Release"
 cmake.source-dir = "."
-# build.verbose = true
+build.verbose = true
 logging.level = "INFO"
 editable.verbose = true
 editable.rebuild = false

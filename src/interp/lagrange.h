@@ -3,8 +3,8 @@
 
 #ifndef LAGRANGE_H
 #define LAGRANGE_H
-#include "common_defines.h"
-#include "error.h"
+#include "../common_defines.h"
+#include "../error.h"
 
 /**
  * @brief Compute common denominators of Lagrange polynomials.

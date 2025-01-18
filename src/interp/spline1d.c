@@ -7,8 +7,8 @@
 #include <numpy/arrayobject.h>
 #include <stddef.h>
 
+#include "../common.h"
 #include "basis1d.h"
-#include "common.h"
 
 static PyObject *spline1d_vectorcall(PyObject *self, PyObject *const *args, size_t nargs, PyObject *Py_UNUSED(kwargs))
 {

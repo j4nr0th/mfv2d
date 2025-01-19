@@ -163,3 +163,14 @@ class Manifold1D(Manifold):
         Manifold1D
             Manifold that represents the topology of the line.
         """
+        ...
+
+    def compute_dual(self) -> Manifold1D:
+        """Compute the dual to the manifold.
+
+        Returns
+        -------
+        Manifold1D
+            The dual to the manifold.
+        """
+        ...

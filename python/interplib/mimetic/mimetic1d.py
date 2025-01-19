@@ -9,13 +9,14 @@ import numpy as np
 import numpy.typing as npt
 
 from interplib._interp import Polynomial1D
-from interplib._mimetic import Manifold1D
+from interplib._mimetic import Line, Manifold1D
 
 
 class Mesh1D:
     """Mainfold with geometry and basis attached."""
 
-    manifold: Manifold1D
+    primal: Manifold1D
+    dual: Manifold1D
     positions: npt.NDArray[np.float64]  # 1D array of positions
     element_orders: npt.NDArray[np.uint8]
 
@@ -30,8 +31,9 @@ class Mesh1D:
                 "The dimension of the positions array was not 1 but "
                 f"{self.positions.ndim}."
             )
-        self.manifold = Manifold1D.line_mesh(self.positions.size - 1)
-        n_elem = self.manifold.n_lines
+        self.primal = Manifold1D.line_mesh(self.positions.size - 1)
+        self.dual = self.primal.compute_dual()
+        n_elem = self.primal.n_lines
         order = np.array(element_order, np.uint8)
         if order.ndim == 0:
             self.element_orders = np.full(n_elem, order)
@@ -47,12 +49,17 @@ class Mesh1D:
     def get_element(self, index: int) -> Element1D:
         """Return the element at specified index."""
         assert index >= 0
-        line = self.manifold.get_line(index + 1)
+        line = self.primal.get_line(index + 1)
         return Element1D(
             self.element_orders[index],
             self.positions[line.begin.index],
             self.positions[line.end.index],
         )
+
+    def get_dual(self, index: int) -> Line:
+        """Return the dual of an element at specified index."""
+        assert index >= 0
+        return self.dual.get_line(index + 1)
 
 
 class Element1D:

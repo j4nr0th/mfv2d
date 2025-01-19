@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import accumulate
-from typing import Any
+from typing import Any, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -487,7 +487,17 @@ class KFormSystem:
             self.dual_forms = tuple(duals)
         self.equations = tuple(equation_list[duals.index(d)] for d in self.dual_forms)
 
-    def shape_1d(self, order: int) -> tuple[int, int]:
+    @overload
+    def shape_1d(
+        self, order: npt.NDArray[np.integer]
+    ) -> tuple[npt.NDArray[np.integer], npt.NDArray[np.integer]]: ...
+
+    @overload
+    def shape_1d(self, order: int) -> tuple[int, int]: ...
+
+    def shape_1d(
+        self, order: npt.NDArray[np.integer] | int
+    ) -> tuple[npt.NDArray[np.integer] | int, npt.NDArray[np.integer] | int]:
         """Return the shape of the system for the 1D case.
 
         Parameters
@@ -506,7 +516,22 @@ class KFormSystem:
         height = sum(order + 1 - d.order for d in self.primal_forms)
         return (height, width)
 
-    def offsets_1d(self, order: int) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    @overload
+    def offsets_1d(self, order: int) -> tuple[tuple[int, ...], tuple[int, ...]]: ...
+
+    @overload
+    def offsets_1d(
+        self, order: npt.NDArray[np.integer]
+    ) -> tuple[
+        tuple[npt.NDArray[np.integer], ...], tuple[npt.NDArray[np.integer], ...]
+    ]: ...
+
+    def offsets_1d(
+        self, order: int | npt.NDArray[np.integer]
+    ) -> tuple[
+        tuple[int | npt.NDArray[np.integer], ...],
+        tuple[int | npt.NDArray[np.integer], ...],
+    ]:
         """Compute offsets of different forms and equations.
 
         Parameters
@@ -521,10 +546,10 @@ class KFormSystem:
         tuple[int, ...]
             Offsets of different form degrees of freedom in columns.
         """
-        offset_forms = (0,) + tuple(
+        offset_forms = (np.zeros_like(order),) + tuple(
             accumulate(order + 1 - d.order for d in self.primal_forms)
         )
-        offset_equations = (0,) + tuple(
+        offset_equations = (np.zeros_like(order),) + tuple(
             accumulate(order + 1 - d.order for d in self.dual_forms)
         )
         return offset_equations, offset_forms

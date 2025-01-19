@@ -129,6 +129,39 @@ static PyObject *manifold1d_line_mesh(PyObject *cls, PyObject *arg)
     return (PyObject *)this;
 }
 
+static PyObject *manifold1d_compute_dual(PyObject *self, PyObject *Py_UNUSED(args))
+{
+    const manifold1d_object_t *this = (manifold1d_object_t *)self;
+
+    manifold1d_object_t *dual =
+        (manifold1d_object_t *)manifold1d_type_object.tp_alloc(&manifold1d_type_object, (Py_ssize_t)this->n_points);
+    if (!dual)
+        return NULL;
+    dual->n_points = this->n_lines;
+    dual->n_lines = this->n_points;
+
+    for (index_t point_idx = 0; point_idx < this->n_points; ++point_idx)
+    {
+        geo_id_t left = {.index = GEO_ID_INVALID, .reverse = 0};
+        geo_id_t right = {.index = GEO_ID_INVALID, .reverse = 0};
+        for (index_t line_idx = 0;
+             line_idx < this->n_lines && (left.index == GEO_ID_INVALID || right.index == GEO_ID_INVALID); ++line_idx)
+        {
+            const line_t *p_line = this->lines + line_idx;
+            if (p_line->begin.index == point_idx)
+            {
+                left.index = line_idx;
+            }
+            if (p_line->end.index == point_idx)
+            {
+                right.index = line_idx;
+            }
+        }
+        dual->lines[point_idx] = (line_t){.begin = left, .end = right};
+    }
+    return (PyObject *)dual;
+}
+
 static PyMethodDef manifold1d_methods[] = {
     {.ml_name = "get_line",
      .ml_meth = manifold1d_get_line,
@@ -174,6 +207,16 @@ static PyMethodDef manifold1d_methods[] = {
                "-------\n"
                "Manifold1D\n"
                "    Manifold that represents the topology of the line.\n"},
+    {.ml_name = "compute_dual",
+     .ml_meth = manifold1d_compute_dual,
+     .ml_flags = METH_NOARGS,
+     .ml_doc = "compute_dual() -> Manifold1D\n"
+               "Compute the dual to the manifold.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "Manifold1D\n"
+               "    The dual to the manifold.\n"},
     {},
 };
 

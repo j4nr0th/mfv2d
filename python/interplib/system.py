@@ -158,6 +158,7 @@ def solve_system_on_mesh(
 
     # with open("my_mat.dat", "w") as f_out:
     #     np.savetxt(f_out, matrix.toarray())
+    # from matplotlib import pyplot as plt
     # plt.figure()
     # plt.spy(matrix)
     # plt.show()

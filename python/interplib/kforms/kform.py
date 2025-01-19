@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import accumulate
-from typing import Any, overload
+from typing import Any, Literal, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -49,8 +49,50 @@ class KForm:
         del element
         raise NotImplementedError
 
+    def __mul__(self, other: KForm) -> KFormInnerProduct:
+        """Inner product of two KForms."""
+        if isinstance(other, KForm):
+            return KFormInnerProduct(self, other)
+        return NotImplemented
 
-@dataclass(frozen=True)
+    def __add__(self, other: KForm) -> KFormSum:
+        """Addition of two KForms."""
+        if isinstance(other, KForm):
+            return KFormSum(self, other)
+        return NotImplemented
+
+    @property
+    def derivative(self) -> KFormDerivative:
+        """Derivative of the form."""
+        return KFormDerivative(self)
+
+    @overload
+    def __eq__(self, other: KFormProjection, /) -> KFormEquaton: ...
+
+    @overload
+    def __eq__(self, other, /) -> bool: ...
+
+    def __eq__(self, other: KFormProjection | object) -> KFormEquaton | bool:
+        """When used against KFormProjection form an equation, otherwise compare.
+
+        If ``type(other) is KFormProjection``, the result is
+        ``KFormEquaton(self, other)``, otherwise it simply returns ``self is other``.
+        """
+        if isinstance(other, KFormProjection):
+            return KFormEquaton(self, other)
+        return self is other
+
+    def equals(self, other: KFormProjection) -> KFormEquaton:
+        """Check for equality with another object or form an equation.
+
+        If ``other`` is KFormProjection, the result is an equation. In any other
+        case, the result is equal to expression ``self == other`` is equivalent to
+        ``self is other``.
+        """
+        return KFormEquaton(self, other)
+
+
+@dataclass(frozen=True, eq=False)
 class KFormPrimal(KForm):
     """Differential K form represented with the primal basis.
 
@@ -71,7 +113,7 @@ class KFormPrimal(KForm):
         return np.eye(element.order + 1 - self.order)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class KFormDual(KForm):
     """Differential K form represented with the dual basis.
 
@@ -95,8 +137,15 @@ class KFormDual(KForm):
     def _matrix1d(self, element: Element1D) -> npt.NDArray[np.float64]:
         return np.eye(element.order + 1 - self.order)
 
+    def __matmul__(self, other: tuple[str, Callable] | Literal[0]) -> KFormProjection:
+        """Check for equality, or construct the projection."""
+        if isinstance(other, int) and other == 0:
+            return KFormProjection(self, None)
+        name, fn = other
+        return KFormProjection(self, (str(name), fn))
 
-@dataclass(init=False, frozen=True)
+
+@dataclass(init=False, frozen=True, eq=False)
 class KFormDerivative(KForm):
     r"""Exterior derivative of a form.
 
@@ -147,7 +196,7 @@ class KFormDerivative(KForm):
         #     return (e @ self.form._matrix1d(element)).T
 
 
-@dataclass(init=False, frozen=True)
+@dataclass(init=False, frozen=True, eq=False)
 class KFormInnerProduct(KForm):
     r"""Inner product of a primal and dual form.
 
@@ -207,7 +256,7 @@ class KFormInnerProduct(KForm):
         )
 
 
-@dataclass(init=False, frozen=True)
+@dataclass(init=False, frozen=True, eq=False)
 class KFormSum(KForm):
     """Sum of two differential forms of the same order.
 
@@ -340,22 +389,29 @@ def _extract_rhs_1d(
         The resulting projection vector.
     """
     fn = right.func
-    n = element.order + 1 - right.dual.order
+    p = element.order
     if fn is None:
-        return np.zeros(n)
+        if right.dual.order == 1:
+            return np.zeros(p)
+        elif right.dual.order == 0:
+            return np.zeros(p + 1)
+        else:
+            assert False
     else:
-        out_vec = np.empty(n)
+        out_vec: npt.NDArray[np.float64]
         mass: npt.NDArray[np.float64]
+        real_nodes = np.linspace(element.xleft, element.xright, p + 1)
         # TODO: find a nice way to do this
         if right.dual.order == 1:
-            real_nodes = np.linspace(element.xleft, element.xright, n + 1)
-            for i in range(n):
+            out_vec = np.empty(p)
+            for i in range(p):
                 out_vec[i] = quad(fn[1], real_nodes[i], real_nodes[i + 1])[0]
             mass = element.mass_edge
         elif right.dual.order == 0:
-            out_vec[:] = fn[1](element.nodes)
+            out_vec = np.empty(p + 1)
+            out_vec[:] = fn[1](real_nodes)
             mass = element.mass_node
-        return np.astype(mass @ out_vec, np.float64)
+        return np.astype(mass @ np.astype(out_vec, np.float64), np.float64)
 
 
 def _parse_form(form: KForm) -> tuple[KFormDual | None, dict[KForm, str | None]]:

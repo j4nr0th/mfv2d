@@ -37,9 +37,14 @@ from interplib.product_basis import BasisProduct2D as BasisProduct2D
 
 # Splines
 from interplib.splines import SplineBC as SplineBC
-from interplib.splines import element_interpolating_spline as element_interpolating_spline
+
+# TODO: maybe fix this some day.
+# from interplib.splines import (
+#     element_interpolating_spline as element_interpolating_spline,
+# )
 from interplib.splines import (
     element_interpolating_splinei as element_interpolating_splinei,
 )
-from interplib.splines import nodal_interpolating_spline as nodal_interpolating_spline
+
+# from interplib.splines import nodal_interpolating_spline as nodal_interpolating_spline
 from interplib.splines import nodal_interpolating_splinei as nodal_interpolating_splinei

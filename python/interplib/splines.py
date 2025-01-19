@@ -937,17 +937,16 @@ def nodal_interpolating_spline(
     m, k = _nodal_interpolation_system2(n, basis, vals, nodes, bcs_left, bcs_right)
     r = sla.spsolve(m, k)
     poly: list[Polynomial1D] = []
-    dx = nodes[1:] - nodes[:-1]
+    new_basis = tuple(
+        b.scale_by(2).offset_by(+1) * 2 ** (i // 2) for i, b in enumerate(basis)
+    )
+
     for i in range(nodes.shape[0] - 1):
-        d = np.tile(dx[i] ** (np.arange(n // 2) + 1), 2)
         # Make into local basis
-        local = tuple(
-            Polynomial1D(p.coefficients / dx[i] ** np.arange(p.order + 1)) for p in basis
-        )
         p = (
-            local[0] * float(values[i])
-            + local[1] * float(values[i + 1])
-            + sum(local[j + 2] * (r[(n - 1) // 2 * i + j] * d[j]) for j in range(n - 1))
+            new_basis[0] * float(values[i])
+            + new_basis[1] * float(values[i + 1])
+            + sum(new_basis[j + 2] * (r[(n - 1) // 2 * i + j]) for j in range(n - 1))
         )
         poly.append(p)
     spl = Spline1D(nodes, tuple(p.coefficients for p in poly))

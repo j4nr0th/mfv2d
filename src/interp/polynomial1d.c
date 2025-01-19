@@ -528,7 +528,7 @@ static int polynomial1d_set_coefficient(PyObject *self, Py_ssize_t idx, PyObject
 }
 
 PyDoc_STRVAR(lagrange_nodal_basis_docstring,
-             "lagrange_nodal_basis(self, nodes) -> tuple[Polynomial1D, ...]\n"
+             "lagrange_nodal_basis(self, nodes, /) -> tuple[Polynomial1D, ...]\n"
              "Return Lagrange nodal polynomial basis on the given set of nodes.\n"
              "\n"
              "Parameters\n"
@@ -621,7 +621,7 @@ end:
 }
 
 PyDoc_STRVAR(lagrange_nodal_fit_docstring,
-             "lagrange_nodal_fit(self, nodes: npt.ArrayLike, values: npt.ArrayLike) -> Polynomial1D\n"
+             "lagrange_nodal_fit(self, nodes: npt.ArrayLike, values: npt.ArrayLike, /) -> Polynomial1D\n"
              "Use Lagrange nodal polynomial basis to fit a function.\n"
              "\n"
              "Equivalent to calling::\n"
@@ -747,7 +747,7 @@ end:
 }
 
 PyDoc_STRVAR(polynomial1d_offset_by_docstring,
-             "offset_by(self, x: float | np.floating) -> Polynomial1D\n"
+             "offset_by(self, t: float | np.floating, /) -> Polynomial1D\n"
              "Compute polynomial offset by specified amount.\n"
              "\n"
              "The offset polynomial :math:`p^\\prime(t)` is such that:\n"
@@ -804,6 +804,54 @@ static PyObject *polynomial1d_offset_by(PyObject *self, PyObject *arg)
     return (PyObject *)out;
 }
 
+PyDoc_STRVAR(polynomial1d_scale_by_docstring,
+             "scale_by(self, a: float | np.floating, /) -> Polynomial1D\n"
+             "Compute polynomial scaled by specified amount.\n"
+             "\n"
+             "The scaled polynomial :math:`p^\\prime(t)` is such that:\n"
+             "\n"
+             ".. math::\n"
+             "\n"
+             "   p^\\prime(t) = p(a \\cdot t),\n"
+             "\n"
+             "where :math:`p(t)` is the original polynomial and :math:`a` is the scaling.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "a : float\n"
+             "   Amount by which to scale the polynomial by.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "Polynomial1D\n"
+             "   Polynomial which has been scaled by the specified amount.\n");
+static PyObject *polynomial1d_scale_by(PyObject *self, PyObject *arg)
+{
+    const double a = PyFloat_AsDouble(arg);
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
+    const polynomial1d_t *this = (polynomial1d_t *)self;
+    polynomial1d_t *out = PyObject_NewVar(polynomial1d_t, &polynomial1d_type_object, this->n);
+    if (!out)
+    {
+        return NULL;
+    }
+    out->n = this->n;
+    out->call_poly = polynomial1d_vectorcall;
+
+    //  Adjust the terms
+    double factor = 1.0;
+    for (unsigned n = 0; n < this->n; ++n)
+    {
+        out->k[n] = this->k[n] / factor;
+        factor *= a;
+    }
+
+    return (PyObject *)out;
+}
+
 static PyObject *polynomial1d_get_order(PyObject *self, void *Py_UNUSED(closure))
 {
     const polynomial1d_t *this = (polynomial1d_t *)self;
@@ -819,12 +867,12 @@ static PyGetSetDef polynomial1d_getset[] = {
     {.name = "derivative",
      .get = polynomial1d_derivative,
      .set = NULL,
-     .doc = "npt.NDArray[np.float64] : Return the derivative of the polynomial.\n",
+     .doc = "Polynomial1D : Return the derivative of the polynomial.\n",
      .closure = NULL},
     {.name = "antiderivative",
      .get = polynomial1d_antiderivative,
      .set = NULL,
-     .doc = "npt.NDArray[np.float64] : Return the antiderivative of the polynomial.\n",
+     .doc = "Polynomial1D : Return the antiderivative of the polynomial.\n",
      .closure = NULL},
     {.name = "order", .get = polynomial1d_get_order, .set = NULL, .doc = "int : Order of the polynomial.\n"},
     {NULL, NULL, NULL, NULL, NULL} // sentinel
@@ -858,11 +906,22 @@ static PyMethodDef polynomial1d_methods[] = {
      .ml_meth = (PyCFunction)polynomial1d_offset_by,
      .ml_flags = METH_O,
      .ml_doc = polynomial1d_offset_by_docstring},
+    {.ml_name = "scale_by",
+     .ml_meth = (PyCFunction)polynomial1d_scale_by,
+     .ml_flags = METH_O,
+     .ml_doc = polynomial1d_scale_by_docstring},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 
-PyDoc_STRVAR(polynomial1d_docstring, "Polynomial1D(coefficients: npt.ArrayLike)\n"
+PyDoc_STRVAR(polynomial1d_docstring, "Polynomial1D(coefficients: npt.ArrayLike, /)\n"
                                      "Function with increasing integer power basis.\n"
+                                     "\n"
+                                     "Given a set of coefficients :math:`\\left\\{ a_0, \\dots, a_n \\right\\}`,\n"
+                                     "the resulting polynomial will be:\n"
+                                     "\n"
+                                     ".. math::\n"
+                                     "\n"
+                                     "    p(x) = \\sum\\limits_{k=0}^n a_k x^k\n"
                                      "\n"
                                      "Parameters\n"
                                      "----------\n"

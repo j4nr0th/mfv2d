@@ -131,7 +131,7 @@ def solve_system_on_mesh(
         for form in bcs_right.forms:
             coeffs.append(bcs_right.forms[form])
             form_index = system.primal_forms.index(form)
-            form_offset = offset_primal[form_index + 1][0] - 1
+            form_offset = offset_primal[form_index + 1][-1] - 1
             dof_indices.append(form_offset + base_offset)
         element_vectors.append(np.array([bcs_right.value]))
         mat_vals += coeffs
@@ -170,6 +170,7 @@ def solve_system_on_mesh(
         form: [] for form in system.primal_forms
     }
 
+    max_coeffs = np.max(mesh.element_orders) + 1
     # Loop over element
     for ie in range(n_elem):
         element = mesh.get_element(ie)
@@ -193,8 +194,8 @@ def solve_system_on_mesh(
             polynomial: Polynomial1D
             polynomial = sum(p * d for p, d in zip(basis, form_dofs))
             # Offset and scale it to domain [0, 1], the put it into the build dict
-            k = polynomial.offset_by(+1.0).coefficients
-            build[form].append(np.astype(k / (2 ** np.arange(k.size)), np.float64))
+            k = polynomial.coefficients
+            build[form].append(np.pad(k, (0, max_coeffs - k.size)))
 
     out: dict[kform.KFormPrimal, Spline1D] = dict()
     nodes = mesh.positions

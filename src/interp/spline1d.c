@@ -37,13 +37,12 @@ static PyObject *spline1d_vectorcall(PyObject *self, PyObject *const *args, size
     for (npy_intp i = 0; i < m; ++i)
     {
         const double v = pv[i];
-        unsigned span;
         if (v < nodes[left_node])
         {
             // reset if the new node was to the left
             left_node = 0;
         }
-        span = this->n_nodes - left_node;
+        unsigned span = this->n_nodes - left_node;
         while (span > 1)
         {
             const unsigned pivot = left_node + span / 2;
@@ -64,10 +63,10 @@ static PyObject *spline1d_vectorcall(PyObject *self, PyObject *const *args, size
         if (!INTERPLIB_EXPECT_CONDITION(right_node < n_nodes))
         {
             left_node = n_nodes - 2;
-            // right_node = n_nodes - 1;
+            right_node = n_nodes - 1;
         }
 
-        const double t = v - nodes[left_node];
+        const double t = 2.0 * (v - nodes[left_node]) / (nodes[right_node] - nodes[left_node]) - 1.0;
         const double *restrict coeffs = coefficients + this->n_coefficients * left_node;
 
         double vv = 1.0;
@@ -126,8 +125,8 @@ static PyObject *spline1d_new(PyTypeObject *type, PyObject *args, PyObject *kwar
         goto end;
     }
 
-    this = (spline1d_t *)type->tp_alloc(type, (Py_ssize_clean_t)((PyArray_SIZE((PyArrayObject *)node_array) +
-                                                                  PyArray_SIZE((PyArrayObject *)coeff_array))));
+    this = (spline1d_t *)type->tp_alloc(
+        type, (Py_ssize_t)((PyArray_SIZE((PyArrayObject *)node_array) + PyArray_SIZE((PyArrayObject *)coeff_array))));
     if (!this)
     {
         goto end;
@@ -206,10 +205,11 @@ static PyObject *spline1d_derivative(PyObject *self, void *Py_UNUSED(closure))
     out->n_coefficients = this->n_coefficients - 1;
     for (unsigned i = 0; i < this->n_nodes - 1; ++i)
     {
+        const double jacobian = 2.0 / (this->data[i + 1] - this->data[i]);
         for (unsigned j = 1; j < this->n_coefficients; ++j)
         {
             out->data[this->n_nodes + out->n_coefficients * i + j - 1] =
-                this->data[this->n_nodes + this->n_coefficients * i + j] * (double)j;
+                this->data[this->n_nodes + this->n_coefficients * i + j] * (double)j * jacobian;
         }
     }
     return (PyObject *)out;
@@ -234,20 +234,23 @@ static PyObject *spline1d_antiderivative(PyObject *self, void *Py_UNUSED(closure
         out->data[i] = this->data[i];
     }
     out->n_coefficients = this->n_coefficients + 1;
-    double antiderivative = 0.0;
+    // Compute the higher terms
+    double anti_derivative = 0.0;
     for (unsigned i = 0; i < this->n_nodes - 1; ++i)
     {
-        out->data[this->n_nodes + out->n_coefficients * i] = antiderivative;
-        const double dx = this->data[i + 1] - this->data[i];
-        double d = dx;
+        const double jacobian = (this->data[i + 1] - this->data[i]) / 2.0;
+        double left_value = 0.0, right_value = 0.0;
         for (unsigned j = 0; j < this->n_coefficients; ++j)
         {
-            const double k = this->data[this->n_nodes + this->n_coefficients * i + j] / (double)(j + 1);
+            const double k = this->data[this->n_nodes + this->n_coefficients * i + j] / (double)(j + 1) * jacobian;
             out->data[this->n_nodes + out->n_coefficients * i + j + 1] = k;
-            antiderivative += k * d;
-            d *= dx;
+            left_value += (j & 1) ? k : -k;
+            right_value += k;
         }
+        out->data[this->n_nodes + out->n_coefficients * i] = anti_derivative - left_value;
+        anti_derivative += right_value - left_value;
     }
+    // TODO: Make the spline continuous
     return (PyObject *)out;
 }
 
@@ -321,12 +324,12 @@ static PyGetSetDef spline1d_getset[] = {
     {.name = "coefficients",
      .get = spline1d_get_coefficients,
      .set = spline1d_set_coefficients,
-     .doc = "(M,N) array : Coefficients of the polynomials\n",
+     .doc = "(M,N) array : Coefficients of the polynomials.\n",
      .closure = NULL},
     {.name = "nodes",
      .get = spline1d_get_nodes,
      .set = NULL,
-     .doc = "(M,) array : Nodes of the spline\n",
+     .doc = "(M,) array : Nodes of the spline.\n",
      .closure = NULL},
     {.name = "derivative",
      .get = spline1d_derivative,
@@ -342,8 +345,23 @@ static PyGetSetDef spline1d_getset[] = {
 };
 
 PyDoc_STRVAR(spline1d_docstring, "Spline1D(nodes: array_like, coefficients: array_like, /)\n"
+                                 "Piecewise polynomial function, defined between nodes. Given the set of nodes\n"
                                  "\n"
-                                 "Piecewise polynomial function, defined between nodes.\n"
+                                 ":math:`\\left\\{x_0, \\dots, x_n \\right\\}` and sets of coefficients\n"
+                                 ":math:`\\left\\{A_0, \\dots A_{n-1} \\right\\}`, the polynomial evaluated\n"
+                                 "between nodes :math:`x_i` and :math:`x_{i + 1}` will be:\n"
+                                 "\n"
+                                 ".. math::\n"
+                                 "\n"
+                                 "    p(x) = \\sum\\limits_{k=0}^M A_i^k \\left( 2 \\frac{x - x_i}{x_{i+1} -\n"
+                                 "    x_{i}} - 1 \\right)^k, \n"
+                                 "\n"
+                                 "where :math:`A_i^k` is the k-th coefficient of the set :math:`A_i`.\n"
+                                 "\n"
+                                 "These splines thus allow for simple stitching of solutions of different 1D elements\n"
+                                 "together, as those are typically defined on a reference element, where the\n"
+                                 "computational space :math:`\\xi \\in \\left[-1, +1\\right]` is then mapped to\n"
+                                 "physical space.\n"
                                  "\n"
                                  "Parameters\n"
                                  "----------\n"

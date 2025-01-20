@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 from itertools import accumulate
 from typing import Any, Literal, overload
 
 import numpy as np
 import numpy.typing as npt
-from scipy.integrate import quad
+from scipy.special import roots_legendre
 
 from interplib.mimetic.mimetic1d import Element1D
 
@@ -44,10 +45,6 @@ class KForm:
     def is_dual(self) -> bool:
         """Check if form is dual."""
         return not self.is_primal
-
-    def _matrix1d(self, element: Element1D) -> npt.NDArray[np.float64]:
-        del element
-        raise NotImplementedError
 
     def __mul__(self, other: KForm) -> KFormInnerProduct:
         """Inner product of two KForms."""
@@ -109,9 +106,6 @@ class KFormPrimal(KForm):
         """Check if form is primal."""
         return True
 
-    def _matrix1d(self, element: Element1D) -> npt.NDArray[np.float64]:
-        return np.eye(element.order + 1 - self.order)
-
 
 @dataclass(frozen=True, eq=False)
 class KFormDual(KForm):
@@ -133,9 +127,6 @@ class KFormDual(KForm):
     def __str__(self) -> str:
         """Return print-friendly representation of the object."""
         return f"{self.label}({self.order}*)"
-
-    def _matrix1d(self, element: Element1D) -> npt.NDArray[np.float64]:
-        return np.eye(element.order + 1 - self.order)
 
     def __matmul__(self, other: tuple[str, Callable] | Literal[0]) -> KFormProjection:
         """Check for equality, or construct the projection."""
@@ -184,17 +175,6 @@ class KFormDerivative(KForm):
         """Check if form is primal."""
         return self.form.is_primal
 
-    def _matrix1d(self, element: Element1D):
-        o = self.form.order
-        if o > 0:
-            raise ValueError(
-                f"Can not take an exterior derivative of {o}-form on a 1D mesh."
-            )
-        e = element.incidence_primal_0()
-        return e @ self.form._matrix1d(element)
-        # else:
-        #     return (e @ self.form._matrix1d(element)).T
-
 
 @dataclass(init=False, frozen=True, eq=False)
 class KFormInnerProduct(KForm):
@@ -238,23 +218,6 @@ class KFormInnerProduct(KForm):
         """Check if form is dual."""
         return False
 
-    def _matrix1d(self, element: Element1D) -> npt.NDArray[np.float64]:
-        mass: npt.NDArray[np.float64]
-        if self.weight.order == 0:
-            mass = element.mass_node
-        elif self.weight.order == 1:
-            mass = element.mass_edge
-        else:
-            raise ValueError(
-                f"Can not take inner product of {self.weight.order}-forms on a 1D mesh."
-            )
-        mat_w = self.weight._matrix1d(element)
-        mat_f = self.function._matrix1d(element)
-        return np.astype(
-            mat_w.T @ mass @ mat_f,
-            np.float64,
-        )
-
 
 @dataclass(init=False, frozen=True, eq=False)
 class KFormSum(KForm):
@@ -280,11 +243,6 @@ class KFormSum(KForm):
         object.__setattr__(self, "first", first)
         object.__setattr__(self, "second", second)
         super().__init__(order, f"({first.label} + {second.label})")
-
-    def _matrix1d(self, element: Element1D) -> npt.NDArray[np.float64]:
-        return np.concatenate(
-            (self.first._matrix1d(element), self.second._matrix1d(element)), axis=1
-        )
 
 
 @dataclass(frozen=True)
@@ -371,6 +329,9 @@ class KFormEquaton:
         object.__setattr__(self, "variables", tuple(k for k in p))
 
 
+_cached_roots_legendre = cache(roots_legendre)
+
+
 def _extract_rhs_1d(
     right: KFormProjection, element: Element1D
 ) -> npt.NDArray[np.float64]:
@@ -399,13 +360,17 @@ def _extract_rhs_1d(
             assert False
     else:
         out_vec: npt.NDArray[np.float64]
-        mass: npt.NDArray[np.float64]
+        mass: npt.NDArray[np.floating]
         real_nodes = np.linspace(element.xleft, element.xright, p + 1)
         # TODO: find a nice way to do this
         if right.dual.order == 1:
+            xi, w = _cached_roots_legendre(2 * p)
             out_vec = np.empty(p)
+            func = fn[1]
             for i in range(p):
-                out_vec[i] = quad(fn[1], real_nodes[i], real_nodes[i + 1])[0]
+                # out_vec[i] =  quad(fn[1], real_nodes[i], real_nodes[i + 1])[0]
+                dx = real_nodes[i + 1] - real_nodes[i]
+                out_vec[i] = np.dot(w, func(dx * (xi + 1) / 2 + real_nodes[i])) * (dx) / 2
             mass = element.mass_edge
         elif right.dual.order == 0:
             out_vec = np.empty(p + 1)
@@ -708,9 +673,9 @@ def _equation_1d(
             vp = primal[k]
             mass: npt.NDArray[np.float64]
             if form.function.order == 0:
-                mass = element.mass_node
+                mass = element.mass_node  # type: ignore
             elif form.function.order == 1:
-                mass = element.mass_edge
+                mass = element.mass_edge  # type: ignore
             else:
                 raise ValueError(
                     f"Order {form.function.order} can't be used on a 1D mesh."

@@ -61,18 +61,13 @@ def solve_system_on_mesh(
     sizes_primal, _ = system.shape_1d(mesh.element_orders)
     offset_primal, _ = system.offsets_1d(mesh.element_orders)
     element_offset = np.pad(np.cumsum(sizes_primal), (1, 0))
-    element_matrix: list[npt.NDArray[np.float64]] = []
-    element_vectors: list[npt.NDArray[np.float64]] = []
-    # Iterate over elements and make the element matrix-vector pairs
-    for ie in range(n_elem):
-        element = mesh.get_element(ie)
-        sys_mat, sys_vec = kform.element_system(system, element)
 
-        # shape = sys_mat.shape
-        #         current_h += shape[0]
-        #         current_w += shape[1]
-        element_matrix.append(sys_mat)
-        element_vectors.append(sys_vec)
+    # Make element matrices and vectors
+    element_outputs = tuple(
+        kform.element_system(system, mesh.get_element(ie)) for ie in range(n_elem)
+    )
+    element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
+    element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
 
     # Sanity check
     # Apply lagrange multipliers for continuity
@@ -82,6 +77,8 @@ def solve_system_on_mesh(
 
     lagrange_idx = element_offset[-1]  # current_h
     # Loop over dual elements
+    # NOTE: assuming you can make extending lists and incrementing the index atomic, this
+    # loop can be parallelized.
     for ie in range(n_elem + 1):
         dual = mesh.get_dual(ie)
         if not dual.begin or not dual.end:
@@ -196,7 +193,11 @@ def solve_system_on_mesh(
             polynomial = sum(p * d for p, d in zip(basis, form_dofs))
             # Offset and scale it to domain [0, 1], the put it into the build dict
             k = polynomial.coefficients
-            build[form].append(np.pad(k, (0, max_coeffs - k.size)))
+            bad_len = max_coeffs - k.size
+            if bad_len != 0:
+                build[form].append(np.pad(k, (0, max_coeffs - k.size)))
+            else:
+                build[form].append(k)
 
     out: dict[kform.KFormPrimal, Spline1D] = dict()
     nodes = mesh.positions

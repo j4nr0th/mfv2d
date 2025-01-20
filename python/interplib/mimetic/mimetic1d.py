@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from functools import cache
 from itertools import accumulate
 
 import numpy as np
@@ -62,6 +63,36 @@ class Mesh1D:
         return self.dual.get_line(index + 1)
 
 
+@cache
+def _reference_matrices_1d(
+    p: int,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute the mass matrices on a reference element."""
+    nodes = np.astype(np.linspace(-1.0, +1.0, p + 1), np.float64)
+    node_basis = Polynomial1D.lagrange_nodal_basis(nodes)
+    edge_basis = tuple(accumulate(basis.derivative for basis in node_basis))
+
+    mass_node = np.empty((p + 1, p + 1), np.float64)
+    for i in range(p + 1):
+        for j in range(i + 1):
+            inner = node_basis[i] * node_basis[j]
+            anti = inner.antiderivative
+            mass_node[i, j] = mass_node[j, i] = anti(+1) - anti(-1)
+    mass_edge = np.empty((p, p), np.float64)
+    for i in range(p):
+        for j in range(i + 1):
+            inner = edge_basis[i] * edge_basis[j]
+            anti = inner.antiderivative
+            mass_edge[i, j] = mass_edge[j, i] = anti(+1) - anti(-1)
+    return mass_node, mass_edge
+
+
+@cache
+def _cached_element_nodes(p: int) -> npt.NDArray[np.float64]:
+    """Get cached element nodes."""
+    return np.astype(np.linspace(-1.0, +1.0, p + 1), np.float64)
+
+
 class Element1D:
     """An element of a mesh in 1D."""
 
@@ -69,44 +100,41 @@ class Element1D:
     xright: float
     nodes: npt.NDArray[np.float64]
     order: int
-    node_basis: tuple[Polynomial1D, ...]
-    edge_basis: tuple[Polynomial1D, ...]
+    _node_basis: tuple[Polynomial1D, ...] | None
+    _edge_basis: tuple[Polynomial1D, ...] | None
     jacobian: float
+    mass_node: npt.NDArray[np.floating]
+    mass_edge: npt.NDArray[np.floating]
 
     def __init__(self, p: int, x0: float, x1: float) -> None:
         self.order = p
         self.jacobian = (x1 - x0) / 2.0
-        self.nodes = np.astype(np.linspace(-1.0, +1.0, p + 1), np.float64)
-        self.node_basis = Polynomial1D.lagrange_nodal_basis(self.nodes)
-        self.edge_basis = tuple(
-            accumulate(
-                -(1.0 / self.jacobian) * basis.derivative for basis in self.node_basis
-            )
-        )
+        self.nodes = _cached_element_nodes(p)
+        self._node_basis = None
+        self._edge_basis = None
         self.xleft = x0
         self.xright = x1
+        mat_n, mat_e = _reference_matrices_1d(p)
+        self.mass_node = mat_n * self.jacobian
+        self.mass_edge = mat_e / self.jacobian
 
     @property
-    def mass_node(self) -> npt.NDArray[np.float64]:
-        """Compute mass matrix of nodal basis functions."""
-        matrix = np.empty((self.order + 1, self.order + 1), np.float64)
-        for i in range(self.order + 1):
-            for j in range(i + 1):
-                inner = self.node_basis[i] * self.node_basis[j]
-                anti = inner.antiderivative
-                matrix[i, j] = matrix[j, i] = anti(+1) - anti(-1)
-        return np.astype(matrix * self.jacobian, np.float64)
+    def node_basis(self) -> tuple[Polynomial1D, ...]:
+        """Compute nodal basis if explicitly asked for."""
+        if self._node_basis is None:
+            self._node_basis = Polynomial1D.lagrange_nodal_basis(self.nodes)
+        return self._node_basis
 
     @property
-    def mass_edge(self) -> npt.NDArray[np.float64]:
-        """Compute mass matrix of edge basis functions."""
-        matrix = np.empty((self.order, self.order), np.float64)
-        for i in range(self.order):
-            for j in range(i + 1):
-                inner = self.edge_basis[i] * self.edge_basis[j]
-                anti = inner.antiderivative
-                matrix[i, j] = matrix[j, i] = anti(+1) - anti(-1)
-        return np.astype(matrix * self.jacobian, np.float64)
+    def edge_basis(self) -> tuple[Polynomial1D, ...]:
+        """Compute edge (and nodal) basis if explicitly asked for."""
+        if self._edge_basis is None:
+            self._edge_basis = tuple(
+                accumulate(
+                    -(1.0 / self.jacobian) * basis.derivative for basis in self.node_basis
+                )
+            )
+        return self._edge_basis
 
     def incidence_primal_0(
         self, mat: npt.ArrayLike | None = None

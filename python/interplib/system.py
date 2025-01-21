@@ -19,8 +19,8 @@ def solve_system_on_mesh(
     system: kform.KFormSystem,
     mesh: Mesh1D,
     continuous: Sequence[kform.KFormPrimal],
-    bcs_left: kform.BoundaryCondition1DStrong | None = None,
-    bcs_right: kform.BoundaryCondition1DStrong | None = None,
+    bcs_left: kform.BoundaryCondition1D | None = None,
+    bcs_right: kform.BoundaryCondition1D | None = None,
 ) -> dict[kform.KFormPrimal, Spline1D]:
     """Solve the system on the specified mesh."""
     # Check that inputs make sense.
@@ -32,18 +32,33 @@ def solve_system_on_mesh(
             )
     # Check that the boundary conditions make sense
     if bcs_left is not None:
-        for form in bcs_left.forms:
-            if form not in system.primal_forms:
+        if isinstance(bcs_left, kform.BoundaryCondition1DStrong):
+            for form in bcs_left.forms:
+                if form not in system.primal_forms:
+                    raise ValueError(
+                        f"Left boundary condition uses a form {form}, which is not in any"
+                        f" of the equations (which have forms {system.primal_forms})."
+                    )
+        elif isinstance(bcs_left, kform.BoundaryCondition1DWeak):
+            if bcs_left.form not in system.weak_forms:
                 raise ValueError(
-                    f"Left boundary condition uses a form {form}, which is not in any of"
-                    f" the equations (which have forms {system.primal_forms})."
+                    f"Form in the left weak condition ({bcs_left.form}) does not appear"
+                    f" in the system {system.weak_forms}."
                 )
+
     if bcs_right is not None:
-        for form in bcs_right.forms:
-            if form not in system.primal_forms:
+        if isinstance(bcs_right, kform.BoundaryCondition1DStrong):
+            for form in bcs_right.forms:
+                if form not in system.primal_forms:
+                    raise ValueError(
+                        f"Right boundary condition uses a form {form}, which is not in"
+                        f" any of the equations (which have forms {system.primal_forms})."
+                    )
+        elif isinstance(bcs_right, kform.BoundaryCondition1DWeak):
+            if bcs_right.form not in system.weak_forms:
                 raise ValueError(
-                    f"Right boundary condition uses a form {form}, which is not in any of"
-                    f" the equations (which have forms {system.primal_forms})."
+                    f"Form in the right weak condition ({bcs_right.form}) does not"
+                    f" appear in the system {system.weak_forms}."
                 )
 
     cont_indices: list[int] = []
@@ -59,7 +74,7 @@ def solve_system_on_mesh(
     # Obtain system information
     n_elem = mesh.primal.n_lines
     sizes_primal, _ = system.shape_1d(mesh.element_orders)
-    offset_primal, _ = system.offsets_1d(mesh.element_orders)
+    offset_primal, offset_dual = system.offsets_1d(mesh.element_orders)
     element_offset = np.pad(np.cumsum(sizes_primal), (1, 0))
 
     # Make element matrices and vectors
@@ -107,35 +122,65 @@ def solve_system_on_mesh(
     coeffs: list[float]
     dof_indices: list[int]
     if bcs_left is not None:
-        base_offset = element_offset[0]
-        coeffs = []
-        dof_indices = []
-        for form in bcs_left.forms:
-            coeffs.append(bcs_left.forms[form])
-            form_index = system.primal_forms.index(form)
-            form_offset = offset_primal[form_index][0] + 0
-            dof_indices.append(form_offset + base_offset)
-        element_vectors.append(np.array([bcs_left.value]))
-        mat_vals += coeffs
-        mat_cols += dof_indices
-        mat_rows += [lagrange_idx] * len(coeffs)
-        lagrange_idx += 1
+        if isinstance(bcs_left, kform.BoundaryCondition1DStrong):
+            base_offset = element_offset[0]
+            coeffs = []
+            dof_indices = []
+            for form in bcs_left.forms:
+                coeffs.append(bcs_left.forms[form])
+                form_index = system.primal_forms.index(form)
+                form_offset = offset_primal[form_index][0] + 0
+                dof_indices.append(form_offset + base_offset)
+            element_vectors.append(np.array([bcs_left.value]))
+            mat_vals += coeffs
+            mat_cols += dof_indices
+            mat_rows += [lagrange_idx] * len(coeffs)
+            lagrange_idx += 1
+
+        elif isinstance(bcs_left, kform.BoundaryCondition1DWeak):
+            for ie, eq in enumerate(system.equations):
+                for p_form in eq.weak_forms:
+                    if bcs_left.form != p_form:
+                        continue
+
+                    form_offset = offset_dual[ie][0] + 0
+                    element_vectors[0][form_offset] -= bcs_left.value
+
+            # form_index = system.primal_forms.index(bcs_left.form)
+            # form_offset = offset_primal[form_index][0] + 0
+            # element_vectors[0][form_offset] -= bcs_left.value
+
+        else:
+            assert False
 
     if bcs_right is not None:
-        base_offset = element_offset[-2]
-        coeffs = []
-        dof_indices = []
-        for form in bcs_right.forms:
-            coeffs.append(bcs_right.forms[form])
-            form_index = system.primal_forms.index(form)
-            form_offset = offset_primal[form_index + 1][-1] - 1
-            dof_indices.append(form_offset + base_offset)
-        element_vectors.append(np.array([bcs_right.value]))
-        mat_vals += coeffs
-        mat_cols += dof_indices
-        mat_rows += [lagrange_idx] * len(coeffs)
-        del coeffs
-        lagrange_idx += 1
+        if isinstance(bcs_right, kform.BoundaryCondition1DStrong):
+            base_offset = element_offset[-2]
+            coeffs = []
+            dof_indices = []
+            for form in bcs_right.forms:
+                coeffs.append(bcs_right.forms[form])
+                form_index = system.primal_forms.index(form)
+                form_offset = offset_primal[form_index + 1][-1] - 1
+                dof_indices.append(form_offset + base_offset)
+            element_vectors.append(np.array([bcs_right.value]))
+            mat_vals += coeffs
+            mat_cols += dof_indices
+            mat_rows += [lagrange_idx] * len(coeffs)
+            del coeffs
+            lagrange_idx += 1
+
+        elif isinstance(bcs_right, kform.BoundaryCondition1DWeak):
+            for ie, eq in enumerate(system.equations):
+                for p_form in eq.weak_forms:
+                    if bcs_right.form != p_form:
+                        continue
+
+                    form_offset = offset_dual[ie + 1][n_elem - 1] - 1
+                    element_vectors[n_elem - 1][form_offset] += bcs_right.value
+
+        else:
+            assert False
 
     # this transposes it
     indices1 = mat_rows + mat_cols

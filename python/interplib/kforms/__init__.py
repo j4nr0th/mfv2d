@@ -2,7 +2,13 @@
 
 # Boundary conditions
 from interplib.kforms.boundary import (
+    BoundaryCondition1D as BoundaryCondition1D,
+)
+from interplib.kforms.boundary import (
     BoundaryCondition1DStrong as BoundaryCondition1DStrong,
+)
+from interplib.kforms.boundary import (
+    BoundaryCondition1DWeak as BoundaryCondition1DWeak,
 )
 
 # Basic K-forms

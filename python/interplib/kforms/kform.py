@@ -267,7 +267,7 @@ class KFormProjection:
     func: tuple[str, Callable] | None = None
 
 
-def _extract_forms(form: KForm) -> tuple[set[KFormPrimal], set[KFormDual]]:
+def _extract_forms(form: KForm) -> tuple[set[KFormPrimal], set[KFormDual], list[KForm]]:
     """Extract all primal and dual forms, which make up the current form.
 
     Parameters
@@ -281,21 +281,26 @@ def _extract_forms(form: KForm) -> tuple[set[KFormPrimal], set[KFormDual]]:
         All unique primal forms occurring within the form.
     set of KFormDual
         All unique dual forms occurring within the form.
+    list of KForm
+        All k-forms for which the weak boundary conditions can be used.
     """
     if isinstance(form, KFormPrimal):
-        return ({form}, set())
+        return ({form}, set(), [])
     if isinstance(form, KFormDual):
-        return (set(), {form})
+        return (set(), {form}, [])
     if isinstance(form, KFormDerivative):
         return _extract_forms(form.form)
     if isinstance(form, KFormSum):
         f1 = _extract_forms(form.first)
         f2 = _extract_forms(form.second)
-        return (f1[0] | f2[0], f1[1] | f2[1])
+        return (f1[0] | f2[0], f1[1] | f2[1], f1[2] + f2[2])
     if isinstance(form, KFormInnerProduct):
         f1 = _extract_forms(form.function)
         f2 = _extract_forms(form.weight)
-        return (f1[0] | f2[0], f1[1] | f2[1])
+        out_weak: list[KForm] = []
+        if isinstance(form.weight, KFormDerivative) and form.weight.is_dual:
+            out_weak.append(form.function)
+        return (f1[0] | f2[0], f1[1] | f2[1], out_weak)
     raise TypeError(f"Invalid type {type(form)}")
 
 
@@ -317,9 +322,10 @@ class KFormEquaton:
     left: KForm
     right: KFormProjection
     variables: tuple[KForm, ...]
+    weak_forms: tuple[KForm]
 
     def __init__(self, left: KForm, right: KFormProjection) -> None:
-        p, d = _extract_forms(left)
+        p, d, w = _extract_forms(left)
         if d != {right.dual}:
             raise ValueError(
                 "Left and right side do not use the same dual form as a weight."
@@ -327,6 +333,7 @@ class KFormEquaton:
         object.__setattr__(self, "left", left)
         object.__setattr__(self, "right", right)
         object.__setattr__(self, "variables", tuple(k for k in p))
+        object.__setattr__(self, "weak_forms", tuple(w))
 
 
 _cached_roots_legendre = cache(roots_legendre)
@@ -469,6 +476,7 @@ class KFormSystem:
     primal_forms: tuple[KFormPrimal, ...]
     dual_forms: tuple[KFormDual, ...]
     equations: tuple[KFormEquaton, ...]
+    weak_forms: set[KForm]
 
     def __init__(
         self,
@@ -478,9 +486,11 @@ class KFormSystem:
     ) -> None:
         primals: set[KFormPrimal] = set()
         duals: list[KFormDual] = []
+        weak: set[KForm] = set()
         equation_list: list[KFormEquaton] = []
         for ie, equation in enumerate(equations):
-            p, d = _extract_forms(equation.left)
+            p, d, w = _extract_forms(equation.left)
+            weak |= set(w)
             primals |= p
             if len(d) != 1:
                 raise ValueError(f"Equation {ie} has more that one dual weight.")
@@ -497,7 +507,7 @@ class KFormSystem:
                 )
             duals.append(dual)
             equation_list.append(equation)
-
+        self.weak_forms = weak
         if sorting_primal is not None:
             self.primal_forms = tuple(sorted(primals, key=sorting_primal))
         else:

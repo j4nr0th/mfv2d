@@ -20,7 +20,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
     "sphinx.ext.viewcode",
-    # "sphinx_gallery.gen_gallery",
+    "sphinx_gallery.gen_gallery",
     "jupyter_sphinx",
     "pydata_sphinx_theme",
 ]
@@ -74,7 +74,7 @@ sphinx_gallery_conf = {
     "gallery_dirs": "auto_examples",
     "reference_url": {
          # The module you locally document uses None
-        "pyvl": None,
+        "interplib": None,
     },
     "image_scrapers": ("matplotlib", "pyvista"),
 }

@@ -386,7 +386,7 @@ def _extract_rhs_1d(
         return np.astype(mass @ np.astype(out_vec, np.float64), np.float64)
 
 
-def _parse_form(form: KForm) -> tuple[KFormDual | None, dict[KForm, str | None]]:
+def _parse_form(form: KForm) -> dict[KForm, str | None]:
     """Extract the string representations of the forms, as well as their dual weight.
 
     Parameters
@@ -403,10 +403,8 @@ def _parse_form(form: KForm) -> tuple[KFormDual | None, dict[KForm, str | None]]
         performed on them.
     """
     if isinstance(form, KFormSum):
-        dl, left = _parse_form(form.first)
-        dr, right = _parse_form(form.second)
-        if dl != dr:
-            raise ValueError(f"Sum of terms with differing dual weights {dl} and {dr}")
+        left = _parse_form(form.first)
+        right = _parse_form(form.second)
         for k in right:
             if k in left:
                 vl = left[k]
@@ -417,19 +415,14 @@ def _parse_form(form: KForm) -> tuple[KFormDual | None, dict[KForm, str | None]]
                     left[k] = vl if vl is not None else vr
             else:
                 left[k] = right[k]
-        return (dl, left)
+        return left
     if isinstance(form, KFormInnerProduct):
         if form.weight.is_dual:
-            dp, primal = _parse_form(form.function)
-            dd, dual = _parse_form(form.weight)
+            primal = _parse_form(form.function)
+            dual = _parse_form(form.weight)
         else:
-            dd, dual = _parse_form(form.function)
-            dp, primal = _parse_form(form.weight)
-        if dp is not None or dd is None:
-            raise ValueError(
-                "Inner product terms must be such that the one part is dual only while"
-                " another is primal only."
-            )
+            dual = _parse_form(form.function)
+            primal = _parse_form(form.weight)
         assert len(dual) == 1
         dv = tuple(v for v in dual.keys())[0]
         for k in primal:
@@ -440,18 +433,19 @@ def _parse_form(form: KForm) -> tuple[KFormDual | None, dict[KForm, str | None]]
                 + f"M({form.function.order})"
                 + (f" @ {vp}" if vp is not None else "")
             )
-        return dd, primal
+        primal[dv] = None
+        return primal
     if isinstance(form, KFormDerivative):
-        d, res = _parse_form(form.form)
+        res = _parse_form(form.form)
         for k in res:
             res[k] = f"E({form.order}, {form.order - 1})" + (
                 f" @ {res[k]}" if res[k] is not None else ""
             )
-        return d, res
+        return res
     if isinstance(form, KFormPrimal):
-        return None, {form: None}
+        return {form: None}
     if isinstance(form, KFormDual):
-        return form, {form: None}
+        return {form: None}
     raise TypeError("Unknown type")
 
 
@@ -591,17 +585,22 @@ class KFormSystem:
         out_mat: list[list[str]] = []
         rhs: list[str] = []
         for ie, eq in enumerate(self.equations):
-            d, p = _parse_form(eq.left)
-            if d is None:
-                raise ValueError(f"Equation {ie} has no weight.")
-            o: dict[KForm, str] = {}
+            p = _parse_form(eq.left)
+            d = [k for k in p if isinstance(k, KFormDual)]
+            if len(d) != 1:
+                raise ValueError(
+                    f"Equation {ie} does not have a single weight (weights were {d})."
+                )
+            o: dict[KFormPrimal, str] = {}
             for k in p:
+                if not isinstance(k, KFormPrimal):
+                    continue
                 v = p[k]
                 if v is None:
                     o[k] = "I"
                 else:
                     o[k] = v
-            duals.append(d)
+            duals.extend(d)
             out_list: list[str] = []
             for k in self.primal_forms:
                 if k in o:

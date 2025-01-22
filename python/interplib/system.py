@@ -14,7 +14,7 @@ from interplib._interp import Polynomial1D, Spline1D
 from interplib.mimetic.mimetic1d import Mesh1D
 
 
-# TODO: Boundary conditions.
+# BUG: Can't do Lagrange multipliers correctly if the DoFs aren't order correctly.
 def solve_system_on_mesh(
     system: kform.KFormSystem,
     mesh: Mesh1D,
@@ -62,6 +62,7 @@ def solve_system_on_mesh(
                 )
 
     cont_indices: list[int] = []
+    # d_cont_indices: list[int] = []
     for form in continuous:
         try:
             cont_indices.append(system.primal_forms.index(form))
@@ -73,9 +74,10 @@ def solve_system_on_mesh(
 
     # Obtain system information
     n_elem = mesh.primal.n_lines
-    sizes_primal, _ = system.shape_1d(mesh.element_orders)
-    offset_primal, offset_dual = system.offsets_1d(mesh.element_orders)
+    sizes_dual, sizes_primal = system.shape_1d(mesh.element_orders)
+    offset_dual, offset_primal = system.offsets_1d(mesh.element_orders)
     element_offset = np.pad(np.cumsum(sizes_primal), (1, 0))
+    dual_element_offset = np.pad(np.cumsum(sizes_dual), (1, 0))
 
     # Make element matrices and vectors
     element_outputs = tuple(
@@ -104,16 +106,32 @@ def solve_system_on_mesh(
 
         offset_left = element_offset[left_element_idx]
         offset_right = element_offset[right_element_idx]
+        d_offset_left = dual_element_offset[left_element_idx]
+        d_offset_right = dual_element_offset[right_element_idx]
         # For each variable which must be continuous, get locations in left and right
         for var_idx in cont_indices:
             # Left one is the first DoF of that variable
             left_var_offset = offset_primal[var_idx][left_element_idx]
+            d_left_var_offset = offset_dual[var_idx][left_element_idx]
             # Right one is the last DoF of that variable
             right_var_offset = offset_primal[var_idx + 1][right_element_idx] - 1
-            mat_vals.extend((+1, -1))
-            mat_rows.extend((lagrange_idx, lagrange_idx))
+            d_right_var_offset = offset_dual[var_idx + 1][right_element_idx] - 1
+            mat_vals.extend((+1, -1, +1, -1))
+            mat_rows.extend(
+                (
+                    lagrange_idx,
+                    lagrange_idx,
+                    d_offset_left + d_left_var_offset,
+                    d_offset_right + d_right_var_offset,
+                )
+            )
             mat_cols.extend(
-                (offset_left + left_var_offset, offset_right + right_var_offset)
+                (
+                    offset_left + left_var_offset,
+                    offset_right + right_var_offset,
+                    lagrange_idx,
+                    lagrange_idx,
+                )
             )
         lagrange_idx += 1
     element_vectors.append(np.zeros(lagrange_idx - element_offset[-1]))  # current_h))
@@ -164,9 +182,9 @@ def solve_system_on_mesh(
                 form_offset = offset_primal[form_index + 1][-1] - 1
                 dof_indices.append(form_offset + base_offset)
             element_vectors.append(np.array([bcs_right.value]))
-            mat_vals += coeffs
-            mat_cols += dof_indices
-            mat_rows += [lagrange_idx] * len(coeffs)
+            mat_vals += coeffs + coeffs
+            mat_cols += dof_indices + [lagrange_idx] * len(coeffs)
+            mat_rows += [lagrange_idx] * len(coeffs) + dof_indices
             del coeffs
             lagrange_idx += 1
 
@@ -183,12 +201,12 @@ def solve_system_on_mesh(
             assert False
 
     # this transposes it
-    indices1 = mat_rows + mat_cols
-    indices2 = mat_cols + mat_rows
-    mat_vals += mat_vals
+    # indices1 = mat_rows + mat_cols
+    # indices2 = mat_cols + mat_rows
+    # mat_vals += mat_vals
 
     lagrange = sp.coo_array(
-        (np.array(mat_vals), np.array((indices1, indices2), np.uint64)), dtype=np.float64
+        (np.array(mat_vals), np.array((mat_rows, mat_cols), np.uint64)), dtype=np.float64
     )
     # Make the big matrix
     sys_mat = sp.block_diag(element_matrix)
@@ -206,6 +224,7 @@ def solve_system_on_mesh(
     # plt.show()
 
     # Solve the system
+    # print(matrix.toarray())
     solution = sla.spsolve(matrix, vector)
 
     # Prepare to build up the 1D Splines

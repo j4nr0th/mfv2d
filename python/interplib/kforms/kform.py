@@ -537,8 +537,8 @@ class KFormSystem:
         int
             Number of columns of the system.
         """
-        width = sum(order + 1 - d.order for d in self.dual_forms)
-        height = sum(order + 1 - d.order for d in self.primal_forms)
+        height = sum(order + 1 - d.order for d in self.dual_forms)
+        width = sum(order + 1 - d.order for d in self.primal_forms)
         return (height, width)
 
     @overload

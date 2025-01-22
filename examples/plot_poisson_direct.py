@@ -1,6 +1,6 @@
 """
-Direct Formulation of Poisson Equation in 1D
-============================================
+Example 1: Direct Formulation of Poisson Equation in 1D
+=======================================================
 
 .. currentmodule:: interplib
 

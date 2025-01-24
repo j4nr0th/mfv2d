@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Self
+from typing import Self, overload
 
 import numpy as np
 import numpy.typing as npt
 
-from interplib._interp import Basis1D
+from interplib._interp import Polynomial1D
 
 
 @dataclass(frozen=True)
@@ -25,34 +25,62 @@ class BasisProduct2D:
 
     Parameters
     ----------
-    b1 : Basis1D
+    b1 : Polynomial1D
         First basis function.
 
-    b2 : Basis1D
+    b2 : Polynomial1D
         Second basis function.
     """
 
-    b1: Basis1D
-    b2: Basis1D
+    b1: Polynomial1D
+    b2: Polynomial1D
+
+    @overload
+    def __call__(self, x0: None, x1: float) -> Polynomial1D: ...
+    @overload
+    def __call__(self, x0: float, x1: None) -> Polynomial1D: ...
+    @overload
+    def __call__(
+        self, x0: npt.ArrayLike, x1: npt.ArrayLike
+    ) -> npt.NDArray[np.float64]: ...
 
     def __call__(
         self,
-        x0: npt.ArrayLike,
-        x1: npt.ArrayLike,
-    ) -> npt.NDArray[np.float64]:
+        x0: npt.ArrayLike | None | float,
+        x1: npt.ArrayLike | float | None,
+    ) -> npt.NDArray[np.float64] | Polynomial1D:
         """Evaluate the basis function at given positions.
+
+        If one of the parameters is missing, then a 1D function in the other
+        parameter will be returned.
 
         Parameters
         ----------
-        x : (N, 2) array
-            Array of position vectors.
+        x0 : (N,) array or None
+            Array of values for the first parameter. If missing, a function in x1
+            will be returned.
+        x1 : (N,) array or None
+            Array of values for the first parameter. If missing, a function in x0
+            will be returned.
 
         Returns
         -------
         (N,) array
             Array of basis function values at given positions.
+        Polynomial1D
+            Function of the remaining parameter.
         """
-        return np.astype(self.b1(x0) * self.b2(x1), np.float64)
+        if x0 is not None and x1 is not None:
+            return np.astype(self.b1(x0) * self.b2(x1), np.float64)
+        if x0 is not None and x1 is None:
+            a = np.asarray(x0, np.float64)
+            v = float(self.b1(float(a)))
+            return float(v) * self.b2
+        if x0 is None and x1 is not None:
+            a = np.asarray(x1, np.float64)
+            v = float(self.b2(float(a)))
+            return v * self.b1
+        raise TypeError("Invalid parameters.")
 
     def partial(self, dimension: int, /) -> BasisProduct2D:
         """Compute the partial derivative of a basis."""
@@ -68,7 +96,10 @@ class BasisProduct2D:
 
     @classmethod
     def outer_product_basis(
-        cls, basis1: Iterable[Basis1D], basis2: Iterable[Basis1D] | None = None, /
+        cls,
+        basis1: Iterable[Polynomial1D],
+        basis2: Iterable[Polynomial1D] | None = None,
+        /,
     ) -> tuple[tuple[Self, ...], ...]:
         r"""Create outer product basis.
 
@@ -96,3 +127,9 @@ class BasisProduct2D:
         basis1_tuple = tuple(basis1)
         basis2_tuple = tuple(basis2) if basis2 is not None else basis1_tuple
         return tuple(tuple(cls(b1, b2) for b2 in basis2_tuple) for b1 in basis1_tuple)
+
+    def __mul__(self, other: BasisProduct2D) -> BasisProduct2D:
+        """Multiply two product basis together."""
+        if isinstance(other, BasisProduct2D):
+            return BasisProduct2D(self.b1 * other.b1, self.b2 * other.b2)
+        return NotImplemented

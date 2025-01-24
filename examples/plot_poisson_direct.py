@@ -196,7 +196,7 @@ def phi_exact(x: npt.ArrayLike) -> npt.NDArray[np.float64]:
 #
 # #
 
-element_orders = [3, 4, 2, 3, 2, 5]
+element_orders = [3, 2, 4, 6]
 mesh = mimetic.Mesh1D(
     positions=(1 - np.cos(np.linspace(0, np.pi, len(element_orders) + 1))) / 2.0,
     element_order=element_orders,
@@ -217,16 +217,14 @@ mesh = mimetic.Mesh1D(
 # the :class:`kforms.KFormDual` object, whereas the unknown must be a
 # :class:`kforms.KFormPrimal` object.
 #
-v = kforms.KFormDual(0, "v")
 ## Unknown forms
-phi = kforms.KFormPrimal(0, "phi")
+phi = kforms.KForm("phi", 0)
+v = phi.weight
 
 # %%
 #
 # With these defined, we can now formulate the equation that will be solved
-
-equation = (v.derivative * phi.derivative) == (v @ ("f", f_exact))
-print(equation)
+equation = (v.derivative * phi.derivative) == (v * f_exact)
 
 # %%
 #

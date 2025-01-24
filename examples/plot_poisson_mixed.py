@@ -162,14 +162,14 @@ mesh = mimetic.Mesh1D(
 #
 
 ## Weight form
-w = kforms.KFormDual(0, "w")
 
 ## Unknown forms
-phi = kforms.KFormPrimal(1, "phi")
-u = kforms.KFormPrimal(0, "u")
+phi = kforms.KForm("phi", 1)
+u = kforms.KForm("u", 0)
+w = u.weight
 
 # Brackets are for readability
-eq1 = (w * u) + (w.derivative * phi) == w @ 0
+eq1 = (w * u) + (w.derivative * phi) == w * 0
 
 # %%
 #
@@ -178,10 +178,10 @@ eq1 = (w * u) + (w.derivative * phi) == w @ 0
 #
 
 ## New weight form
-q = kforms.KFormDual(1, "q")
+q = phi.weight
 
 # Brackets are for readability
-eq2 = (q * u.derivative) == (q @ ("f", lambda x: -f_exact(x)))
+eq2 = (q * u.derivative) == (q * (lambda x: -f_exact(x)))
 
 # %%
 #
@@ -192,8 +192,7 @@ eq2 = (q * u.derivative) == (q @ ("f", lambda x: -f_exact(x)))
 system = kforms.KFormSystem(
     eq1,
     eq2,
-    sorting_primal=lambda form: form.order,
-    sorting_dual=lambda form: form.order,
+    sorting=lambda form: -form.order,
 )
 print(system)
 

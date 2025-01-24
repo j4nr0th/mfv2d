@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from interplib.kforms.kform import KFormPrimal
+from interplib.kforms.kform import KForm
 
 
 @dataclass(init=False, frozen=True)
@@ -26,9 +26,9 @@ class BoundaryCondition1DStrong(BoundaryCondition1D):
     """
 
     value: float
-    forms: dict[KFormPrimal, float]
+    forms: dict[KForm, float]
 
-    def __init__(self, forms: Mapping[KFormPrimal, float], value: float) -> None:
+    def __init__(self, forms: Mapping[KForm, float], value: float) -> None:
         object.__setattr__(self, "value", value)
         object.__setattr__(self, "forms", {form: forms[form] for form in forms})
         for form in self.forms:
@@ -50,7 +50,7 @@ class BoundaryCondition1DWeak(BoundaryCondition1D):
         Value of the form on the boundary.
     """
 
-    form: KFormPrimal
+    form: KForm
     value: float
 
     def __post_init__(self) -> None:

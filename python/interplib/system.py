@@ -18,10 +18,10 @@ from interplib.mimetic.mimetic1d import Mesh1D
 def solve_system_on_mesh(
     system: kform.KFormSystem,
     mesh: Mesh1D,
-    continuous: Sequence[kform.KFormPrimal],
+    continuous: Sequence[kform.KForm],
     bcs_left: kform.BoundaryCondition1D | None = None,
     bcs_right: kform.BoundaryCondition1D | None = None,
-) -> dict[kform.KFormPrimal, Spline1D]:
+) -> dict[kform.KForm, Spline1D]:
     """Solve the system on the specified mesh."""
     # Check that inputs make sense.
     for primal in system.primal_forms:
@@ -150,9 +150,9 @@ def solve_system_on_mesh(
                 form_offset = offset_primal[form_index][0] + 0
                 dof_indices.append(form_offset + base_offset)
             element_vectors.append(np.array([bcs_left.value]))
-            mat_vals += coeffs
-            mat_cols += dof_indices
-            mat_rows += [lagrange_idx] * len(coeffs)
+            mat_vals += coeffs + coeffs
+            mat_cols += dof_indices + [lagrange_idx] * len(coeffs)
+            mat_rows += [lagrange_idx] * len(coeffs) + dof_indices
             lagrange_idx += 1
 
         elif isinstance(bcs_left, kform.BoundaryCondition1DWeak):
@@ -164,9 +164,9 @@ def solve_system_on_mesh(
                     form_offset = offset_dual[ie][0] + 0
                     element_vectors[0][form_offset] -= bcs_left.value
 
-            # form_index = system.primal_forms.index(bcs_left.form)
-            # form_offset = offset_primal[form_index][0] + 0
-            # element_vectors[0][form_offset] -= bcs_left.value
+            form_index = system.primal_forms.index(bcs_left.form)
+            form_offset = offset_primal[form_index][0] + 0
+            element_vectors[0][form_offset] -= bcs_left.value
 
         else:
             assert False
@@ -228,7 +228,7 @@ def solve_system_on_mesh(
     solution = sla.spsolve(matrix, vector)
 
     # Prepare to build up the 1D Splines
-    build: dict[kform.KFormPrimal, list[npt.NDArray[np.float64]]] = {
+    build: dict[kform.KForm, list[npt.NDArray[np.float64]]] = {
         form: [] for form in system.primal_forms
     }
 
@@ -263,7 +263,7 @@ def solve_system_on_mesh(
             else:
                 build[form].append(k)
 
-    out: dict[kform.KFormPrimal, Spline1D] = dict()
+    out: dict[kform.KForm, Spline1D] = dict()
     nodes = mesh.positions
     # Build the output splines
     for form in build:

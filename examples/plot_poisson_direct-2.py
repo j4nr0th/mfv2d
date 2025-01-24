@@ -167,18 +167,22 @@ from interplib import kforms, mimetic, solve_system_on_mesh
 
 ALPHA = 1.2
 BETA = 0.2
+A = 0.1
+B = -0.02
 
 
 def f_exact(x: npt.ArrayLike) -> npt.NDArray[np.float64]:
     """Compute f(x)."""
-    return np.astype(
-        -((ALPHA * np.pi) ** 2) * np.sin(ALPHA * np.pi * np.asarray(x) + BETA), np.float64
+    t = ALPHA * np.pi * np.asarray(x) + BETA
+    return -np.astype(
+        A * (ALPHA * np.pi) * np.cos(t) - B * ((ALPHA * np.pi) ** 2) * np.sin(t),
+        np.float64,
     )
 
 
 def phi_exact(x: npt.ArrayLike) -> npt.NDArray[np.float64]:
     """Compute phi(x)."""
-    return np.astype(-np.sin(ALPHA * np.pi * np.asarray(x) + BETA), np.float64)
+    return np.astype(np.sin(ALPHA * np.pi * np.asarray(x) + BETA), np.float64)
 
 
 # %%
@@ -196,7 +200,7 @@ def phi_exact(x: npt.ArrayLike) -> npt.NDArray[np.float64]:
 #
 # #
 
-element_orders = [3, 2, 4, 6]
+element_orders = [3, 3]
 mesh = mimetic.Mesh1D(
     positions=(1 - np.cos(np.linspace(0, np.pi, len(element_orders) + 1))) / 2.0,
     element_order=element_orders,
@@ -224,7 +228,9 @@ v = phi.weight
 # %%
 #
 # With these defined, we can now formulate the equation that will be solved
-equation = (v.derivative * phi.derivative) == (v * f_exact)
+equation = (
+    -A * (v * ~(phi.derivative)) + B * (v.derivative * phi.derivative) == v * f_exact
+)
 
 # %%
 #
@@ -276,7 +282,7 @@ resulting_splines = solve_system_on_mesh(
 
 from matplotlib import pyplot as plt  # noqa: E402
 
-nplt = 100
+nplt = 100 * mesh.element_orders.size
 xplt = np.linspace(0, 1, nplt)
 
 plt.figure()

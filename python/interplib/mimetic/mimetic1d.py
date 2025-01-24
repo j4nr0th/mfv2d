@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 
 from interplib._interp import Polynomial1D
-from interplib._mimetic import Line, Manifold1D
+from interplib._mimetic import Line, Manifold, Manifold1D
 
 
 class Mesh1D:
@@ -62,11 +62,16 @@ class Mesh1D:
         assert index >= 0
         return self.dual.get_line(index + 1)
 
+    @property
+    def manifold(self) -> Manifold:
+        """Return the manifold of the mesh."""
+        return self.primal
+
 
 @cache
 def _reference_matrices_1d(
     p: int,
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Compute the mass matrices on a reference element."""
     nodes = np.astype(np.linspace(-1.0, +1.0, p + 1), np.float64)
     node_basis = Polynomial1D.lagrange_nodal_basis(nodes)
@@ -84,7 +89,15 @@ def _reference_matrices_1d(
             inner = edge_basis[i] * edge_basis[j]
             anti = inner.antiderivative
             mass_edge[i, j] = mass_edge[j, i] = anti(+1) - anti(-1)
-    return mass_node, mass_edge
+
+    mass_ne = np.empty((p + 1, p), np.float64)
+    for i in range(p + 1):
+        for j in range(p):
+            inner = node_basis[i] * edge_basis[j]
+            anti = inner.antiderivative
+            mass_ne[i, j] = anti(+1) - anti(-1)
+
+    return mass_node, mass_edge, mass_ne
 
 
 @cache
@@ -105,6 +118,7 @@ class Element1D:
     jacobian: float
     mass_node: npt.NDArray[np.floating]
     mass_edge: npt.NDArray[np.floating]
+    mass_node_edge: npt.NDArray[np.floating]
 
     def __init__(self, p: int, x0: float, x1: float) -> None:
         self.order = p
@@ -114,9 +128,10 @@ class Element1D:
         self._edge_basis = None
         self.xleft = x0
         self.xright = x1
-        mat_n, mat_e = _reference_matrices_1d(p)
+        mat_n, mat_e, mat_ne = _reference_matrices_1d(p)
         self.mass_node = mat_n * self.jacobian
         self.mass_edge = mat_e / self.jacobian
+        self.mass_node_edge = mat_ne
 
     @property
     def node_basis(self) -> tuple[Polynomial1D, ...]:

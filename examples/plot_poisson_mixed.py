@@ -164,8 +164,8 @@ mesh = mimetic.Mesh1D(
 ## Weight form
 
 ## Unknown forms
-phi = kforms.KForm("phi", 1)
-u = kforms.KForm("u", 0)
+phi = kforms.KForm(mesh.manifold, "phi", 1)
+u = kforms.KForm(mesh.manifold, "u", 0)
 w = u.weight
 
 # Brackets are for readability

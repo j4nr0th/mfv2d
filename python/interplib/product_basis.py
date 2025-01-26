@@ -10,10 +10,11 @@ import numpy as np
 import numpy.typing as npt
 
 from interplib._interp import Polynomial1D
+from interplib.interp2d import Function2D, Polynomial2D
 
 
 @dataclass(frozen=True)
-class BasisProduct2D:
+class BasisProduct2D(Function2D):
     r"""A basis function, which is a product of two 1D basis.
 
     Given basis functions :math:`\phi(x)` and :math:`\psi(x)` with a constant weight
@@ -128,8 +129,30 @@ class BasisProduct2D:
         basis2_tuple = tuple(basis2) if basis2 is not None else basis1_tuple
         return tuple(tuple(cls(b1, b2) for b2 in basis2_tuple) for b1 in basis1_tuple)
 
-    def __mul__(self, other: BasisProduct2D) -> BasisProduct2D:
-        """Multiply two product basis together."""
+    def __mul__(self, other: float | BasisProduct2D) -> BasisProduct2D:
+        """Multiply two product basis together or scale by scalar."""
         if isinstance(other, BasisProduct2D):
             return BasisProduct2D(self.b1 * other.b1, self.b2 * other.b2)
-        return NotImplemented
+        try:
+            v = float(other)
+            if v > 0:
+                root = np.sqrt(v)
+                return BasisProduct2D(self.b1 * root, self.b2 * root)
+            else:
+                root = np.sqrt(-v)
+                return BasisProduct2D(self.b1 * root, self.b2 * -root)
+        except Exception:
+            return NotImplemented
+
+    def __rmul__(self, other: float | BasisProduct2D) -> BasisProduct2D:
+        """Reversed multiply."""
+        return self.__mul__(other)
+
+    def __add__(self, other: BasisProduct2D) -> BasisProduct2D:
+        """Add two basis product basis together."""
+        # BUG: WRONG!
+        return BasisProduct2D(self.b1 + other.b1, self.b2 + other.b2)
+
+    def as_polynomial(self) -> Polynomial2D:
+        """Convert the factored version into a polynomial."""
+        return Polynomial2D(*(k * self.b1 for k in self.b2.coefficients))

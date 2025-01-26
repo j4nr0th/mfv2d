@@ -69,15 +69,16 @@ static PyObject *polynomial1d_new(PyTypeObject *type, PyObject *args, PyObject *
 
     const unsigned n = PyArray_Size(array);
     allocfunc alloc = PyType_GetSlot(type, Py_tp_alloc);
-    polynomial1d_t *this = (polynomial1d_t *)alloc(type, (Py_ssize_t)(n ? n : 0));
+    polynomial1d_t *this = (polynomial1d_t *)alloc(type, (Py_ssize_t)(n ? n : 1));
     if (!this)
     {
         goto end;
     }
 
-    this->n = n;
+    this->n = n ? n : 1;
     this->call_poly = polynomial1d_vectorcall;
     const double *k = PyArray_DATA((PyArrayObject *)array);
+    this->k[0] = 0; // in case n was actually 0
     for (unsigned i = 0; i < n; ++i)
     {
         this->k[i] = k[i];

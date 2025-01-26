@@ -179,3 +179,30 @@ def test_conversion():
             y_cov = cov(x1, x2)
             y_org = b(x1, x2)
             assert pytest.approx(y_cov) == y_org
+
+
+def test_compose():
+    """Check that a simple manual version works."""
+    np.random.seed(0)
+    x1 = np.random.random_sample(512)
+    x2 = np.random.random_sample(512)
+    poly2d = Polynomial2D(
+        Polynomial1D((1,)),
+        Polynomial1D(()),
+        Polynomial1D((0, 1)),
+        Polynomial1D((1,)),
+    )
+    poly2d2 = Polynomial2D(
+        Polynomial1D((-1,)),
+        Polynomial1D((2, 1)),
+        Polynomial1D((0,)),
+        Polynomial1D((-2,)),
+    )
+    poly_cmp = poly2d(poly2d, poly2d2)
+    y_auto = poly_cmp(x1, x2)
+    y_manual = poly2d(poly2d(x1, x2), poly2d2(x1, x2))
+    assert pytest.approx(y_auto) == y_manual
+
+
+if __name__ == "__main__":
+    test_compose()

@@ -50,6 +50,7 @@ set(MIMETIC_SOURCE_FILES
         src/mimetic/surfaceobject.c
         src/mimetic/manifold.c
         src/mimetic/manifold1d.c
+        src/mimetic/manifold2d.c
 )
 set(MIMETIC_HEADER_FILES
         src/mimetic/module.h
@@ -58,6 +59,7 @@ set(MIMETIC_HEADER_FILES
         src/mimetic/surfaceobject.h
         src/mimetic/manifold.h
         src/mimetic/manifold1d.h
+        src/mimetic/manifold2d.h
 )
 
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!

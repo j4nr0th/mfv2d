@@ -10,3 +10,6 @@ from interplib._mimetic import Surface as Surface
 # 1D types
 from interplib.mimetic.mimetic1d import Element1D as Element1D
 from interplib.mimetic.mimetic1d import Mesh1D as Mesh1D
+
+# 2D types
+from interplib.mimetic.mimetic2d import Manifold2D as Manifold2D

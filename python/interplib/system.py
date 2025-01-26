@@ -11,7 +11,7 @@ from scipy.sparse import linalg as sla
 
 from interplib import kforms as kform
 from interplib._interp import Polynomial1D, Spline1D
-from interplib.mimetic.mimetic1d import Mesh1D
+from interplib.mimetic.mimetic1d import Mesh1D, element_system
 
 
 # BUG: Can't do Lagrange multipliers correctly if the DoFs aren't order correctly.
@@ -81,7 +81,7 @@ def solve_system_on_mesh(
 
     # Make element matrices and vectors
     element_outputs = tuple(
-        kform.element_system(system, mesh.get_element(ie)) for ie in range(n_elem)
+        element_system(system, mesh.get_element(ie)) for ie in range(n_elem)
     )
     element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
     element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]

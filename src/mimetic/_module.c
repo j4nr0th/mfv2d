@@ -18,6 +18,7 @@
 
 #include "manifold.h"
 #include "manifold1d.h"
+#include "manifold2d.h"
 
 #define PRINT_EXPRESSION(expr, fmt) printf(#expr ": " fmt "\n", (expr))
 
@@ -54,7 +55,8 @@ PyMODINIT_FUNC PyInit__mimetic(void)
     PyObject *mod = NULL;
     if (!((mod = PyModule_Create(&module))) || PyModule_AddType(mod, &geo_id_type_object) < 0 ||
         PyModule_AddType(mod, &line_type_object) < 0 || PyModule_AddType(mod, &surface_type_object) < 0 ||
-        PyModule_AddType(mod, &manifold_type_object) < 0 || PyModule_AddType(mod, &manifold1d_type_object) < 0)
+        PyModule_AddType(mod, &manifold_type_object) < 0 || PyModule_AddType(mod, &manifold1d_type_object) < 0 ||
+        PyModule_AddType(mod, &manifold2d_type_object) < 0)
     {
         Py_XDECREF(mod);
         return NULL;

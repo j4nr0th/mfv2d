@@ -4,16 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from functools import cache
 from itertools import accumulate
 from typing import Any, Literal, overload
 
 import numpy as np
 import numpy.typing as npt
-from scipy.special import roots_legendre
 
 from interplib._mimetic import Manifold
-from interplib.mimetic.mimetic1d import Element1D
 
 
 @dataclass(frozen=True)
@@ -440,9 +437,9 @@ def _extract_forms(form: Term) -> tuple[set[KForm], set[KWeight], list[KForm]]:
         List of weak form terms.
     """
     if type(form) is KFormDerivative:
-        return ({form.form}, set(), [])
+        return _extract_forms(form.form)
     if type(form) is KWeightDerivative:
-        return (set(), {form.form}, [])
+        return _extract_forms(form.form)
     if type(form) is KSum:
         set_f: set[KForm] = set()
         set_w: set[KWeight] = set()
@@ -498,56 +495,6 @@ class KEquaton:
         object.__setattr__(self, "right", right)
         object.__setattr__(self, "variables", tuple(k for k in p))
         object.__setattr__(self, "weak_forms", tuple(w))
-
-
-_cached_roots_legendre = cache(roots_legendre)
-
-
-def _extract_rhs_1d(
-    right: KFormProjection, element: Element1D
-) -> npt.NDArray[np.float64]:
-    """Evaluate the differential form projections on the 1D element.
-
-    Parameters
-    ----------
-    right : KFormProjection
-        The projection onto a k-form.
-    element : Element1D
-        The element on which the projection is evaluated on.
-
-    Returns
-    -------
-    array of :class:`numpy.float64`
-        The resulting projection vector.
-    """
-    fn = right.func
-    p = element.order
-    if fn is None:
-        if right.weight.order == 1:
-            return np.zeros(p)
-        elif right.weight.order == 0:
-            return np.zeros(p + 1)
-        else:
-            assert False
-    else:
-        out_vec: npt.NDArray[np.float64]
-        mass: npt.NDArray[np.floating]
-        real_nodes = np.linspace(element.xleft, element.xright, p + 1)
-        # TODO: find a nice way to do this
-        if right.weight.order == 1:
-            xi, w = _cached_roots_legendre(2 * p)
-            out_vec = np.empty(p)
-            func = fn
-            for i in range(p):
-                # out_vec[i] =  quad(fn[1], real_nodes[i], real_nodes[i + 1])[0]
-                dx = real_nodes[i + 1] - real_nodes[i]
-                out_vec[i] = np.dot(w, func(dx * (xi + 1) / 2 + real_nodes[i])) * (dx) / 2
-            mass = element.mass_edge
-        elif right.weight.order == 0:
-            out_vec = np.empty(p + 1)
-            out_vec[:] = fn(real_nodes)
-            mass = element.mass_node
-        return np.astype(mass @ np.astype(out_vec, np.float64), np.float64)
 
 
 def _parse_form(form: Term) -> dict[Term, str | None]:
@@ -816,170 +763,3 @@ class KFormSystem:
                 + " [0]\n"
             )
         return s
-
-
-def _equation_1d(
-    form: Term, element: Element1D
-) -> dict[Term, npt.NDArray[np.float64] | np.float64]:
-    """Compute the matrix operations on individual forms.
-
-    Parameter
-    ---------
-    form : Term
-        Form to evaluate.
-
-    Returns
-    -------
-    dict of KForm -> array or float
-        Dictionary mapping forms to either a matrix that represents the operation to
-        perform on them, or ``float``, if it should be multiplication with a constant.
-    """
-    if type(form) is KSum:
-        left: dict[Term, npt.NDArray[np.float64] | np.float64] = {}
-
-        for c, ip in form.pairs:
-            right = _equation_1d(ip, element)
-            if c != 1.0:
-                for f in right:
-                    right[f] *= c  # type: ignore
-
-            for k in right:
-                vr = right[k]
-                if k in left:
-                    vl = left[k]
-                    if vl.ndim == vr.ndim:
-                        left[k] = np.asarray(
-                            vl + vr, np.float64
-                        )  # vl and vr are non-none
-                    elif vl.ndim == 0:
-                        assert isinstance(vr, np.ndarray)
-                        mat = np.eye(vr.shape[0], vr.shape[1]) * vr
-                        left[k] = np.astype(mat + vr, np.float64)
-                else:
-                    left[k] = right[k]  # k is not in left
-        return left
-    if type(form) is KInnerProduct:
-        primal = _equation_1d(form.function, element)
-        dual = _equation_1d(form.weight, element)
-        dv = tuple(v for v in dual.keys())[0]
-        for k in primal:
-            vd = dual[dv]
-            vp = primal[k]
-            order_p = form.function.primal_order
-            order_d = form.weight.order
-            mass: npt.NDArray[np.float64]
-            if order_p == 0 and order_d == 0:
-                mass = element.mass_node  # type: ignore
-            elif order_p == 1 and order_d == 1:
-                mass = element.mass_edge  # type: ignore
-            elif order_p == 1 and order_d == 0:
-                mass = element.mass_node_edge  # type: ignore
-            elif order_p == 0 and order_d == 1:
-                mass = element.mass_node_edge.transpose()  # type: ignore
-            else:
-                raise ValueError(
-                    f"Order {form.function.order} can't be used on a 1D mesh."
-                )
-            if vd.ndim != 0:
-                assert isinstance(vd, np.ndarray)
-                mass = np.astype(vd.T @ mass, np.float64)
-            else:
-                assert isinstance(vd, np.float64)
-                mass *= vd
-            if vp.ndim != 0:
-                assert isinstance(vp, np.ndarray)
-                mass = np.astype(mass @ vp, np.float64)
-            else:
-                assert isinstance(vp, np.float64)
-                mass *= vp
-            primal[k] = mass
-        return primal
-    if type(form) is KFormDerivative:
-        res = _equation_1d(form.form, element)
-        e = element.incidence_primal_0()
-        for k in res:
-            rk = res[k]
-            if rk.ndim != 0:
-                res[k] = np.astype(e @ rk, np.float64)
-            else:
-                assert isinstance(rk, np.float64)
-                res[k] = np.astype(e * rk, np.float64)
-        return res
-
-    if type(form) is KWeightDerivative:
-        res = _equation_1d(form.form, element)
-        e = element.incidence_primal_0()
-        for k in res:
-            rk = res[k]
-            if rk.ndim != 0:
-                res[k] = np.astype(e @ rk, np.float64)
-            else:
-                assert isinstance(rk, np.float64)
-                res[k] = np.astype(e * rk, np.float64)
-        return res
-    if type(form) is KHodge:
-        primal = _equation_1d(form.base_form, element)
-        prime_order = form.primal_order
-        for k in primal:
-            if prime_order == 0:
-                mass = element.mass_node  # type: ignore
-            elif prime_order == 1:
-                mass = element.mass_edge  # type: ignore
-            else:
-                assert False
-            vp = primal[k]
-            if vp.ndim != 0:
-                assert isinstance(vp, np.ndarray)
-                mass = np.astype(mass @ vp, np.float64)
-            else:
-                assert isinstance(vp, np.float64)
-                mass *= vp
-            primal[k] = mass
-        return primal
-    if type(form) is KForm:
-        return {form: np.float64(1.0)}
-    if type(form) is KWeight:
-        return {form: np.float64(1.0)}
-    raise TypeError("Unknown type")
-
-
-def element_system(
-    system: KFormSystem, element: Element1D
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Compute element matrix and vector.
-
-    Parameters
-    ----------
-    system : KFormSystem
-        System to discretize.
-    element : Element1D
-        The element on which the discretization should be performed.
-
-    Returns
-    -------
-    array
-        Element matrix representing the left side of the system.
-    array
-        Element vector representing the right side of the system
-    """
-    system_size = system.shape_1d(element.order)
-    assert system_size[0] == system_size[1], "System must be square."
-    system_matrix = np.zeros(system_size, np.float64)
-    system_vector = np.zeros(system_size[0], np.float64)
-    offset_equations, offset_forms = system.offsets_1d(element.order)
-
-    for ie, equation in enumerate(system.equations):
-        form_matrices = _equation_1d(equation.left, element)
-        for form in form_matrices:
-            val = form_matrices[form]
-            idx = system.primal_forms.index(form)
-            assert val is not None
-            system_matrix[
-                offset_equations[ie] : offset_equations[ie + 1],
-                offset_forms[idx] : offset_forms[idx + 1],
-            ] = val
-        system_vector[offset_equations[ie] : offset_equations[ie + 1]] = _extract_rhs_1d(
-            equation.right, element
-        )
-
-    return system_matrix, system_vector

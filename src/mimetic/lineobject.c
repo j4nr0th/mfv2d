@@ -7,6 +7,8 @@
 #include <stddef.h>
 
 #include "geoidobject.h"
+// This should be after other includes
+#include <numpy/ndarrayobject.h>
 
 static PyObject *line_object_repr(PyObject *self)
 {
@@ -110,6 +112,50 @@ static PyGetSetDef line_object_getset[] = {
     {},
 };
 
+static PyObject *line_object_as_array(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    PyArray_Descr *dtype = NULL;
+    int b_copy = 1;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Op", (char *[3]){"dtype", "copy", NULL}, &dtype, &b_copy))
+    {
+        return NULL;
+    }
+
+    if (!b_copy)
+    {
+        PyErr_SetString(PyExc_ValueError, "A copy is always created when converting to NDArray.");
+        return NULL;
+    }
+
+    const line_object_t *this = (line_object_t *)self;
+    const npy_intp size = 2;
+
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(1, &size, NPY_INT);
+    if (!out)
+        return NULL;
+
+    int *const ptr = PyArray_DATA(out);
+    ptr[0] = geo_id_unpack(this->value.begin);
+    ptr[1] = geo_id_unpack(this->value.end);
+
+    if (dtype)
+    {
+        PyObject *const new_out = PyArray_CastToType(out, dtype, 0);
+        Py_DECREF(out);
+        return new_out;
+    }
+
+    return (PyObject *)out;
+}
+
+static PyMethodDef line_methods[] = {
+    {.ml_name = "__array__",
+     .ml_meth = (void *)line_object_as_array,
+     .ml_flags = METH_VARARGS | METH_KEYWORDS,
+     .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray"},
+    {},
+};
+
 PyTypeObject line_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._mimetic.Line",
     .tp_basicsize = sizeof(line_object_t),
@@ -121,4 +167,5 @@ PyTypeObject line_type_object = {
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
     .tp_richcompare = line_object_rich_compare,
     .tp_getset = line_object_getset,
+    .tp_methods = line_methods,
 };

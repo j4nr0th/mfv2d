@@ -1,5 +1,6 @@
 """Stub for the C implemented types and functions related to mimetics."""
 
+from collections.abc import Sequence
 from typing import Self, final
 
 import numpy.typing as npt
@@ -54,6 +55,7 @@ class Line:
         """ID of the point where the line ends."""
         ...
 
+    def __array__(self, dtype=None, copy=None) -> npt.NDArray: ...
     def __eq__(self, value) -> bool: ...
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
@@ -69,9 +71,7 @@ class Surface:
     """
 
     def __new__(cls, *ids: GeoID | int) -> Self: ...
-    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
-        """Convert to numpy array."""
-        ...
+    def __array__(self, dtype=None, copy=None) -> npt.NDArray: ...
     def __getitem__(self, idx: int) -> GeoID: ...
     def __len__(self) -> int: ...
     def __eq__(self, value) -> bool: ...
@@ -157,3 +157,88 @@ class Manifold1D(Manifold):
             The dual to the manifold.
         """
         ...
+
+class Manifold2D(Manifold):
+    """A manifold of a finite number of dimensions."""
+
+    @property
+    def dimension(self) -> int:
+        """Dimension of the manifold."""
+        ...
+
+    @property
+    def n_points(self) -> int:
+        """Number of points in the mesh."""
+        ...
+
+    @property
+    def n_lines(self) -> int:
+        """Number of lines in the mesh."""
+        ...
+
+    @property
+    def n_surfaces(self) -> int:
+        """Number of surfaces in the mesh."""
+        ...
+
+    def get_line(self, index: int | GeoID, /) -> Line:
+        """Get the line from the mesh.
+
+        Parameters
+        ----------
+        index : int or GeoID
+           Id of the line to get in 1-based indexing or GeoID. If negative, the
+           orientation will be reversed.
+
+        Returns
+        -------
+        Line
+           Line object corresponding to the ID.
+        """
+        ...
+
+    def get_surface(self, index: int | GeoID, /) -> Surface:
+        """Get the surface from the mesh.
+
+        Parameters
+        ----------
+        index : int or GeoID
+           Id of the surface to get in 1-based indexing or GeoID. If negative,
+           the orientation will be reversed.
+
+        Returns
+        -------
+        Surface
+           Surface object corresponding to the ID.
+        """
+
+    @classmethod
+    def from_irregular(
+        cls,
+        n_points: int,
+        line_connectivity: npt.ArrayLike,
+        surface_connectivity: Sequence[npt.ArrayLike] | npt.ArrayLike,
+    ) -> Self:
+        """Create Manifold2D from surfaces with non-constant number of lines.
+
+        Parameters
+        ----------
+        n_points : int
+            Number of points in the mesh.
+        line_connectivity : (N, 2) array_like
+            Connectivity of points which form lines in 0-based indexing.
+        surface_connectivity : Sequence of array_like
+            Sequence of arrays specifying connectivity of mesh surfaces in 1-based
+            indexing, where a negative value means that the line's orientation is
+            reversed.
+
+        Returns
+        -------
+        Self
+            Two dimensional manifold.
+        """
+        ...
+
+    def __eq__(self, value) -> bool: ...
+    def __str__(self) -> str: ...
+    def __repr__(self) -> str: ...

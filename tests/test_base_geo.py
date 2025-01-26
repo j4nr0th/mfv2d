@@ -1,5 +1,6 @@
 """Test basic mimetic geometry elements."""
 
+import numpy as np
 from interplib.mimetic import GeoID, Line, Surface
 
 
@@ -45,16 +46,15 @@ def test_surface():
     # Invalid IDs when 0 is used as index
     s = Surface(0, 0, 0, 0)
 
-    assert not s.left
-    assert not s.right
-    assert not s.top
-    assert not s.bottom
+    for idx in s:
+        # Should be invalid index
+        assert not idx
 
     assert Surface(1, 3, 4, 5) == Surface(1, 3, 4, 5)
     assert Surface(1, 3, 2, 1) != Surface(1, 2, 6, 4)
     ln1 = Surface(3, -2, -3, +2)
-    assert ln1.bottom == -ln1.top
-    assert ln1.right == -ln1.left
+    assert ln1[0] == -ln1[2]
+    assert ln1[1] == -ln1[3]
     id1 = GeoID(0, False)
     id2 = GeoID(2, False)
     id3 = GeoID(4, False)
@@ -62,3 +62,12 @@ def test_surface():
     assert Surface(id1, id2, id3, id4) == Surface(id1, id2, id3, id4)
     assert Surface(id1, id2, id3, id4) != Surface(id2, id2, id2, id2)
     assert Surface(id1, id2, id3, id4) != Surface(id2, id1, id3, id4)
+
+
+def test_surface_conversion():
+    """Check that it can be converted to a numpy array and back."""
+    np.random.seed(0)
+    a = np.random.randint(-152, +215, 25)
+    s = Surface(*a)
+    a2 = np.array(s)
+    assert all(a == a2)

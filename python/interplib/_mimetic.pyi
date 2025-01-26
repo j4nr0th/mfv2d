@@ -2,6 +2,8 @@
 
 from typing import Self, final
 
+import numpy.typing as npt
+
 @final
 class GeoID:
     """Type used to identify a geometrical object with an index and orientation.
@@ -58,39 +60,20 @@ class Line:
 
 @final
 class Surface:
-    """Geometrical object, which is bound by four lines.
+    """Two dimensional geometrical object, which is bound by lines.
 
     Parameters
     ----------
-    bottom : GeoID or int
-        Bottom boundary of the surface.
-    right : GeoID or int
-        Right boundary of the surface.
-    top : GeoID or int
-        Top boundary of the surface.
-    left : GeoID or int
-        Left boundary of the surface.
+    *ids : GeoID or int
+        Ids of the lines which are the boundary of the surface.
     """
 
-    def __new__(
-        cls, bottom: GeoID | int, right: GeoID | int, top: GeoID | int, left: GeoID | int
-    ) -> Self: ...
-    @property
-    def bottom(self) -> GeoID:
-        """Bottom boundary of the surface."""
+    def __new__(cls, *ids: GeoID | int) -> Self: ...
+    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
+        """Convert to numpy array."""
         ...
-    @property
-    def right(self) -> GeoID:
-        """Right boundary of the surface."""
-        ...
-    @property
-    def top(self) -> GeoID:
-        """Top boundary of the surface."""
-        ...
-    @property
-    def left(self) -> GeoID:
-        """Left boundary of the surface."""
-        ...
+    def __getitem__(self, idx: int) -> GeoID: ...
+    def __len__(self) -> int: ...
     def __eq__(self, value) -> bool: ...
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...

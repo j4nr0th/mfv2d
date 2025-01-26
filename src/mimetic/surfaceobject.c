@@ -3,41 +3,81 @@
 //
 
 #include "surfaceobject.h"
-
 #include "geoidobject.h"
 #include "lineobject.h"
+
+// This should be last
+#include <numpy/ndarrayobject.h>
 
 static PyObject *surface_object_repr(PyObject *self)
 {
     const surface_object_t *this = (surface_object_t *)self;
 
-    return PyUnicode_FromFormat("Surface(GeoID(%u, %u), GeoID(%u, %u), GeoID(%u, %u), GeoID(%u, %u))",
-                                this->value.bottom.index, this->value.bottom.reverse, this->value.right.index,
-                                this->value.right.reverse, this->value.top.index, this->value.top.reverse,
-                                this->value.left.index, this->value.left.reverse);
+    PyObject *current_out = PyUnicode_FromString("Surface(");
+    if (!current_out)
+        return NULL;
+
+    for (unsigned i = 0; i < this->n_lines; ++i)
+    {
+        const geo_id_t id = this->lines[i];
+        const char end = i + 1 == this->n_lines ? ')' : ' ';
+        PyObject *repr = PyUnicode_FromFormat("GeoID(%u, %u),%c", id.index, id.reverse, end);
+        if (!repr)
+        {
+            Py_DECREF(current_out);
+            return NULL;
+        }
+        PyObject *new = PyUnicode_Concat(current_out, repr);
+        Py_DECREF(repr);
+        if (!new)
+        {
+            Py_DECREF(current_out);
+            return NULL;
+        }
+        current_out = new;
+    }
+
+    return current_out;
 }
 
 static PyObject *surface_object_str(PyObject *self)
 {
     const surface_object_t *this = (surface_object_t *)self;
-    return PyUnicode_FromFormat("(%c%u -> %c%u -> %c%u -> %c%u)", this->value.bottom.reverse ? '-' : '+',
-                                this->value.bottom.index, this->value.right.reverse ? '-' : '+',
-                                this->value.right.index, this->value.top.reverse ? '-' : '+', this->value.top.index,
-                                this->value.left.reverse ? '-' : '+', this->value.left.index);
+
+    PyObject *current_out = PyUnicode_FromString("(");
+    if (!current_out)
+        return NULL;
+
+    for (unsigned i = 0; i < this->n_lines; ++i)
+    {
+        const geo_id_t id = this->lines[i];
+        const char end = i + 1 == this->n_lines ? ')' : ' ';
+        PyObject *repr = PyUnicode_FromFormat("%c%u ->%c", id.reverse ? '-' : '+', id.index, end);
+        if (!repr)
+        {
+            Py_DECREF(current_out);
+            return NULL;
+        }
+        PyObject *new = PyUnicode_Concat(current_out, repr);
+        Py_DECREF(repr);
+        if (!new)
+        {
+            Py_DECREF(current_out);
+            return NULL;
+        }
+        current_out = new;
+    }
+
+    return current_out;
 }
 
-PyDoc_STRVAR(surface_object_type_docstring, "Geometrical object, which is bound by four lines.\n"
+PyDoc_STRVAR(surface_object_type_docstring, "Surface(*ids)\n"
+                                            "Two dimensional geometrical object, which is bound by lines.\n"
                                             "\n"
                                             "Parameters\n"
                                             "----------\n"
-                                            "bottom : GeoID\n"
-                                            "    Bottom boundary of the surface.\n"
-                                            "right : GeoID\n"
-                                            "    Right boundary of the surface.\n"
-                                            "top : GeoID\n"
-                                            "    Top boundary of the surface.\n"
-                                            "left : GeoID\n"
-                                            "    Left boundary of the surface.\n");
+                                            "*ids : GeoID or int\n"
+                                            "    Ids of the lines which are the boundary of the surface.\n");
 
 static PyObject *surface_object_rich_compare(PyObject *self, PyObject *other, const int op)
 {
@@ -51,11 +91,23 @@ static PyObject *surface_object_rich_compare(PyObject *self, PyObject *other, co
         Py_RETURN_NOTIMPLEMENTED;
     }
     const surface_object_t *const that = (surface_object_t *)other;
-    const int val = geo_id_compare(this->value.bottom, that->value.bottom) &&
-                    geo_id_compare(this->value.right, that->value.right) &&
-                    geo_id_compare(this->value.top, that->value.top) &&
-                    geo_id_compare(this->value.left, that->value.left);
+    int val = 1;
+    if (this->n_lines != that->n_lines)
+    {
+        val = 0;
+        goto ret;
+    }
+    for (unsigned i = 0; i < this->n_lines; ++i)
+    {
+        if (!geo_id_compare(this->lines[i], that->lines[i]))
+        {
+            val = 0;
+            break;
+            // goto ret;
+        }
+    }
 
+ret:
     if (op == Py_NE)
     {
         return PyBool_FromLong(!val);
@@ -63,83 +115,149 @@ static PyObject *surface_object_rich_compare(PyObject *self, PyObject *other, co
     return PyBool_FromLong(val);
 }
 
-static PyObject *surface_object_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+static PyObject *surface_object_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *arg_vals[4];
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO", (char *[5]){"bottom", "right", "top", "left", NULL},
-                                     arg_vals + 0, arg_vals + 1, arg_vals + 2, arg_vals + 3))
+    if (kwds != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "Keywords were given to the constructor, but it takes none.");
+        return NULL;
+    }
+    PyObject *seq = PySequence_Fast(args, "Argument could not be converted into a sequence.");
+    if (!seq)
     {
         return NULL;
     }
-    surface_object_t *const this = (surface_object_t *)type->tp_alloc(type, 0);
+    const size_t n = PySequence_Fast_GET_SIZE(seq);
+
+    surface_object_t *const this = (surface_object_t *)type->tp_alloc(type, (Py_ssize_t)n);
 
     if (!this)
-        return NULL;
-
-    if (geo_id_from_object(arg_vals[0], &this->value.bottom) < 0 ||
-        geo_id_from_object(arg_vals[1], &this->value.right) < 0 ||
-        geo_id_from_object(arg_vals[2], &this->value.top) < 0 || geo_id_from_object(arg_vals[3], &this->value.left) < 0)
     {
-        Py_DECREF(this);
+        Py_DECREF(seq);
         return NULL;
     }
+    this->n_lines = n;
 
+    for (unsigned i = 0; i < n; ++i)
+    {
+        if (geo_id_from_object(PySequence_Fast_GET_ITEM(seq, i), this->lines + i) < 0)
+        {
+            Py_DECREF(this);
+            Py_DECREF(seq);
+            return NULL;
+        }
+    }
+
+    Py_DECREF(seq);
     return (PyObject *)this;
 }
 
-static PyObject *surface_object_get_bottom(PyObject *self, void *Py_UNUSED(closure))
+INTERPLIB_INTERNAL
+surface_object_t *surface_object_empty(size_t count)
 {
-    const surface_object_t *this = (surface_object_t *)self;
-    return (PyObject *)geo_id_object_from_value(this->value.bottom);
+    return (surface_object_t *)surface_type_object.tp_alloc(&surface_type_object, (Py_ssize_t)count);
 }
 
-static PyObject *surface_object_get_right(PyObject *self, void *Py_UNUSED(closure))
+INTERPLIB_INTERNAL
+surface_object_t *surface_object_from_value(size_t count, geo_id_t ids[static count])
 {
-    const surface_object_t *this = (surface_object_t *)self;
-    return (PyObject *)geo_id_object_from_value(this->value.right);
+    surface_object_t *const this = surface_object_empty(count);
+    if (!this)
+    {
+        return NULL;
+    }
+    for (unsigned i = 0; i < count; ++i)
+    {
+        this->lines[i] = ids[i];
+    }
+
+    return this;
 }
 
-static PyObject *surface_object_get_top(PyObject *self, void *Py_UNUSED(closure))
+static PyObject *surface_object_as_array(PyObject *self, PyObject *args, PyObject *kwds)
 {
+    PyArray_Descr *dtype = NULL;
+    int b_copy = 1;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Op", (char *[3]){"dtype", "copy", NULL}, &dtype, &b_copy))
+    {
+        return NULL;
+    }
+
+    if (!b_copy)
+    {
+        PyErr_SetString(PyExc_ValueError, "A copy is always created when converting to NDArray.");
+        return NULL;
+    }
+
     const surface_object_t *this = (surface_object_t *)self;
-    return (PyObject *)geo_id_object_from_value(this->value.top);
+    const npy_intp size = (npy_intp)this->n_lines;
+
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(1, &size, NPY_INT);
+    if (!out)
+        return NULL;
+
+    int *const ptr = PyArray_DATA(out);
+    for (unsigned i = 0; i < this->n_lines; ++i)
+    {
+        ptr[i] = geo_id_unpack(this->lines[i]);
+    }
+
+    if (dtype)
+    {
+        PyObject *const new_out = PyArray_CastToType(out, dtype, 0);
+        Py_DECREF(out);
+        return new_out;
+    }
+
+    return (PyObject *)out;
 }
 
-static PyObject *surface_object_get_left(PyObject *self, void *Py_UNUSED(closure))
+static PyMethodDef surface_methods[] = {
+    {.ml_name = "__array__",
+     .ml_meth = (void *)surface_object_as_array,
+     .ml_flags = METH_VARARGS | METH_KEYWORDS,
+     .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray[int]\n"
+               "Convert to numpy array.\n"},
+    {},
+};
+
+static Py_ssize_t surface_sequence_length(PyObject *self)
 {
     const surface_object_t *this = (surface_object_t *)self;
-    return (PyObject *)geo_id_object_from_value(this->value.left);
+    return (Py_ssize_t)this->n_lines;
+}
+static PyObject *surface_sequence_item(PyObject *self, Py_ssize_t idx)
+{
+    const surface_object_t *this = (surface_object_t *)self;
+    // Correction: Python don't give a fuck, it just keeps on chucking idx in here until index error.
+    if (idx < 0)
+    {
+        idx = (Py_ssize_t)(this->n_lines + 1) - idx;
+    }
+    if (idx >= this->n_lines)
+    {
+        PyErr_SetString(PyExc_IndexError, "Index is out of bounds.");
+        return NULL;
+    }
+
+    return (PyObject *)geo_id_object_from_value(this->lines[idx]);
 }
 
-static PyGetSetDef pyvl_surface_getset[] = {
-    {.name = "bottom",
-     .get = surface_object_get_bottom,
-     .set = NULL,
-     .doc = "Bottom boundary of the surface.",
-     .closure = NULL},
-    {.name = "right",
-     .get = surface_object_get_right,
-     .set = NULL,
-     .doc = "Right boundary of the surface.",
-     .closure = NULL},
-    {.name = "top", .get = surface_object_get_top, .set = NULL, .doc = "Top boundary of the surface.", .closure = NULL},
-    {.name = "left",
-     .get = surface_object_get_left,
-     .set = NULL,
-     .doc = "Left boundary of the surface.",
-     .closure = NULL},
-    {0},
+static PySequenceMethods surface_sequence_methods = {
+    .sq_length = surface_sequence_length,
+    .sq_item = surface_sequence_item,
 };
 
 INTERPLIB_INTERNAL
 PyTypeObject surface_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._mimetic.Surface",
     .tp_basicsize = sizeof(surface_object_t),
-    .tp_itemsize = 0,
+    .tp_itemsize = sizeof(geo_id_t),
     .tp_repr = surface_object_repr,
     .tp_str = surface_object_str,
     .tp_doc = surface_object_type_docstring,
     .tp_richcompare = surface_object_rich_compare,
-    .tp_getset = pyvl_surface_getset,
     .tp_new = surface_object_new,
+    .tp_methods = surface_methods,
+    .tp_as_sequence = &surface_sequence_methods,
 };

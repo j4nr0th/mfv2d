@@ -10,13 +10,17 @@
 
 typedef struct
 {
-    PyObject_HEAD surface_t value;
+    PyObject_HEAD size_t n_lines;
+    geo_id_t lines[];
 } surface_object_t;
 
 INTERPLIB_INTERNAL
 extern PyTypeObject surface_type_object;
 
 INTERPLIB_INTERNAL
-surface_object_t *pyvl_surface_from_value(geo_id_t bottom, geo_id_t right, geo_id_t top, geo_id_t left);
+surface_object_t *surface_object_empty(size_t count);
+
+INTERPLIB_INTERNAL
+surface_object_t *surface_object_from_value(size_t count, geo_id_t ids[static count]);
 
 #endif // SURFACEOBJECT_H

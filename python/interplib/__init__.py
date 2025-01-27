@@ -11,6 +11,7 @@ from interplib._interp import Basis1D as Basis1D
 from interplib._interp import Polynomial1D as Polynomial1D
 from interplib._interp import Spline1D as Spline1D
 from interplib._interp import Spline1Di as Spline1Di
+from interplib._interp import compute_gll as compute_gll
 from interplib._interp import test as test
 
 # Bernstein polynomials

@@ -53,6 +53,31 @@ def bernstein_coefficients(x: npt.ArrayLike, /) -> npt.NDArray[np.double]:
     """
     ...
 
+def compute_gll(
+    order: int, max_iter: int = 10, tol: float = 1e-15
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute Gauss-Legendre-Lobatto integration nodes and weights.
+
+    If you are often re-using these, consider caching them.
+
+    Parameters
+    ----------
+    order : int
+       Order of the scheme. The number of node-weight pairs is one more.
+    max_iter : int, default: 10
+       Maximum number of iterations used to further refine the values.
+    tol : float, default: 1e-15
+       Tolerance for stopping the refinement of the nodes.
+
+    Returns
+    -------
+    array
+       Array of ``order + 1`` integration nodes on the interval :math:`[-1, +1]`.
+    array
+       Array of integration weights which correspond to the nodes.
+    """
+    ...
+
 class Basis1D:
     def __call__(self, x: npt.ArrayLike, /) -> npt.NDArray[np.float64]: ...
     @property

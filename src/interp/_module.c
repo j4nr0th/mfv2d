@@ -15,6 +15,7 @@
 #include "basis1d.h"
 #include "bernstein.h"
 #include "cubic_splines.h"
+#include "gausslobatto.h"
 #include "lagrange.h"
 #include "polynomial1d.h"
 #include "spline1d.h"
@@ -227,6 +228,10 @@ static PyMethodDef module_methods[] = {
     {"hermite", interp_hermite_coefficients, METH_VARARGS, interp_hermite_doc},
     {"bernstein1d", (PyCFunction)bernstein_interpolation_matrix, METH_FASTCALL, bernstein_interpolation_matrix_doc},
     {"bernstein_coefficients", (PyCFunction)bernstein_coefficients, METH_O, bernstein_coefficients_doc},
+    {.ml_name = "compute_gll",
+     .ml_meth = (void *)compute_gauss_lobatto_nodes,
+     .ml_flags = METH_VARARGS | METH_KEYWORDS,
+     .ml_doc = compute_gll_docstring},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

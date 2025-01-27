@@ -33,6 +33,7 @@ set(INTERP_SOURCE_FILES
         src/interp/polynomial1d.c
         src/interp/spline1d.c
         src/interp/bernstein.c
+        src/interp/gausslobatto.c
 )
 set(INTERP_HEADER_FILES
         src/interp/lagrange.h
@@ -41,6 +42,7 @@ set(INTERP_HEADER_FILES
         src/interp/polynomial1d.h
         src/interp/spline1d.h
         src/interp/bernstein.h
+        src/interp/gausslobatto.h
 )
 
 set(MIMETIC_SOURCE_FILES

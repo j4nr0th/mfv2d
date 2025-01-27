@@ -16,7 +16,7 @@ jobs:
           cache: pip
       - name: Build the Package
         run: |
-          pip install .[doc]
+          pip install .[docs]
       - name: Build the docs
         run: |
           sphinx-build doc _build

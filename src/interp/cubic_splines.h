@@ -4,9 +4,9 @@
 
 #ifndef CUBIC_SPLINES_H
 #define CUBIC_SPLINES_H
-#include "common.h"
-#include "common_defines.h"
-#include "error.h"
+#include "../common.h"
+#include "../common_defines.h"
+#include "../error.h"
 
 /**
  * Structure used to define boundary conditions for a cubic spline.

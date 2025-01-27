@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._interp import Polynomial1D
+from interplib import Polynomial1D
 
 
 def test_init_from_array():

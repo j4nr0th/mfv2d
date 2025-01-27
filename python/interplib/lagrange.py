@@ -10,7 +10,6 @@ from __future__ import absolute_import, annotations
 import numpy as np
 from numpy import typing as npt
 
-from interplib._common import ensure_array
 from interplib._interp import d2lagrange1d as _d2lagrange1d
 from interplib._interp import dlagrange1d as _dlagrange1d
 from interplib._interp import lagrange1d as _lagrange1d
@@ -34,8 +33,8 @@ def lagrange_function_samples(
         Matrix which, if multiplied by ``f(xp)`` will give approximations to
         ``f(x)``, where ``f`` is a scalar function.
     """
-    real_x: npt.NDArray[np.float64] = np.atleast_1d(ensure_array(x, np.float64))
-    real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
+    real_x: npt.NDArray[np.float64] = np.atleast_1d(np.asarray(x, np.float64))
+    real_xp: npt.NDArray[np.float64] = np.asarray(xp, np.float64)
 
     flat_x = np.ravel(real_x, order="C")
 
@@ -62,8 +61,8 @@ def lagrange_derivative_samples(
         Matrix which, if multiplied by ``f(xp)`` will give approximations to
         ``df/dx``, where ``f`` is a scalar function.
     """
-    real_x: npt.NDArray[np.float64] = np.atleast_1d(ensure_array(x, np.float64))
-    real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
+    real_x: npt.NDArray[np.float64] = np.atleast_1d(np.asarray(x, np.float64))
+    real_xp: npt.NDArray[np.float64] = np.asarray(xp, np.float64)
 
     flat_x = np.ravel(real_x, order="C")
 
@@ -90,8 +89,8 @@ def lagrange_2derivative_samples(
         Matrix which, if multiplied by ``f(xp)`` will give approximations to
         ``d^2f/dx^2``, where ``f`` is a scalar function.
     """
-    real_x: npt.NDArray[np.float64] = np.atleast_1d(ensure_array(x, np.float64))
-    real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
+    real_x: npt.NDArray[np.float64] = np.atleast_1d(np.asarray(x, np.float64))
+    real_xp: npt.NDArray[np.float64] = np.asarray(xp, np.float64)
 
     flat_x = np.ravel(real_x, order="C")
 
@@ -120,9 +119,9 @@ def interp1d_function_samples(
     array of float64
         Array with interpolated values at locations ``x``
     """
-    real_x: npt.NDArray[np.float64] = ensure_array(x, np.float64)
-    real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
-    real_yp: npt.NDArray[np.float64] = ensure_array(yp, np.float64)
+    real_x: npt.NDArray[np.float64] = np.asarray(x, np.float64)
+    real_xp: npt.NDArray[np.float64] = np.asarray(xp, np.float64)
+    real_yp: npt.NDArray[np.float64] = np.asarray(yp, np.float64)
 
     if (
         len(real_xp.shape) != 1
@@ -133,7 +132,7 @@ def interp1d_function_samples(
 
     interp_mtx = lagrange_function_samples(real_x, real_xp)
 
-    return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
+    return np.astype(np.reshape(interp_mtx @ real_yp, shape=real_x.shape), np.float64)
 
 
 def interp1d_derivative_samples(
@@ -156,9 +155,9 @@ def interp1d_derivative_samples(
     array of float64
         Array with interpolated derivatives at locations ``x``
     """
-    real_x: npt.NDArray[np.float64] = ensure_array(x, np.float64)
-    real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
-    real_yp: npt.NDArray[np.float64] = ensure_array(yp, np.float64)
+    real_x: npt.NDArray[np.float64] = np.asarray(x, np.float64)
+    real_xp: npt.NDArray[np.float64] = np.asarray(xp, np.float64)
+    real_yp: npt.NDArray[np.float64] = np.asarray(yp, np.float64)
 
     if (
         len(real_xp.shape) != 1
@@ -169,7 +168,7 @@ def interp1d_derivative_samples(
 
     interp_mtx = lagrange_derivative_samples(real_x, real_xp)
 
-    return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
+    return np.astype(np.reshape(interp_mtx @ real_yp, shape=real_x.shape), np.float64)
 
 
 def interp1d_2derivative_samples(
@@ -192,9 +191,9 @@ def interp1d_2derivative_samples(
     array of float64
         Array with interpolated derivatives at locations ``x``
     """
-    real_x: npt.NDArray[np.float64] = ensure_array(x, np.float64)
-    real_xp: npt.NDArray[np.float64] = ensure_array(xp, np.float64)
-    real_yp: npt.NDArray[np.float64] = ensure_array(yp, np.float64)
+    real_x: npt.NDArray[np.float64] = np.asarray(x, np.float64)
+    real_xp: npt.NDArray[np.float64] = np.asarray(xp, np.float64)
+    real_yp: npt.NDArray[np.float64] = np.asarray(yp, np.float64)
 
     if (
         len(real_xp.shape) != 1
@@ -205,4 +204,4 @@ def interp1d_2derivative_samples(
 
     interp_mtx = lagrange_2derivative_samples(real_x, real_xp)
 
-    return np.reshape(interp_mtx @ real_yp, shape=real_x.shape)
+    return np.astype(np.reshape(interp_mtx @ real_yp, shape=real_x.shape), np.float64)

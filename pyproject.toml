@@ -4,7 +4,11 @@ version = "0.0.1a"
 authors = [{ name = "Jan Roth", email = "r0th.j4n@gmail.com" }]
 description = "Interpolation library designed to handle different topologies."
 requires-python = ">=3.10"
-dependencies = ["numpy>=2.0.0", "scipy"]
+dependencies = [
+    "numpy>=2.0.0",
+    "scipy",
+    # "rmsh @ git+https://github.com/j4nr0th/rmesh@master",
+]
 
 
 [build-system]
@@ -12,10 +16,10 @@ requires = ["scikit-build-core", "numpy"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
-cmake.verbose = true
+# cmake.verbose = true
 cmake.build-type = "Release"
 cmake.source-dir = "."
-# build.verbose = true
+build.verbose = true
 logging.level = "INFO"
 editable.verbose = true
 editable.rebuild = false
@@ -58,7 +62,7 @@ docs = [
 
 
 [tool.mypy]
-mypy_path = "src"
+mypy_path = "python/interplib"
 plugins = ["npt_promote", "numpy.typing.mypy_plugin"]
 ignore_missing_imports = true
 warn_unused_configs = true

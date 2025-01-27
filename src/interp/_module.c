@@ -2,7 +2,7 @@
 // Created by jan on 29.9.2024.
 //
 #define PY_ARRAY_UNIQUE_SYMBOL _interp
-#include "common_defines.h"
+#include "../common_defines.h"
 //  Common definitions
 
 //  Python

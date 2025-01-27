@@ -25,9 +25,9 @@ boundary conditions.
 .. autoclass:: Spline1D
     :members:
 
-    .. autofunction:: nodal_interpolating_spline
+    .. .. autofunction:: nodal_interpolating_spline
 
-    .. autofunction:: element_interpolating_spline
+    .. .. autofunction:: element_interpolating_spline
 
 .. autoclass:: Spline1Di
     :members:

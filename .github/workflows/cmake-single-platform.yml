@@ -1,0 +1,28 @@
+name: Build and Test on a Linux (Ubuntu)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: pip
+    - name: Install the extension
+      run: pip install .[dev]
+    - name: Test
+      run: pytest

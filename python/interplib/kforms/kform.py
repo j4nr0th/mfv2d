@@ -539,7 +539,10 @@ def _parse_form(form: Term) -> dict[Term, str | None]:
                     left[k] = right[k]
         return left
     if type(form) is KInnerProduct:
-        primal = _parse_form(form.function)
+        if isinstance(form.function, KHodge):
+            primal = _parse_form(form.function.base_form)
+        else:
+            primal = _parse_form(form.function)
         dual = _parse_form(form.weight)
         dv = tuple(v for v in dual.keys())[0]
         for k in primal:
@@ -547,7 +550,7 @@ def _parse_form(form: Term) -> dict[Term, str | None]:
             vp = primal[k]
             primal[k] = (
                 (f"({vd})^T @ " if vd is not None else "")
-                + f"M({form.weight.order}, {form.function.primal_order})"
+                + (f"M({form.weight.order})" if form.function.is_primal else "")
                 + (f" @ {vp}" if vp is not None else "")
             )
         primal[dv] = None

@@ -287,23 +287,26 @@ def _equation_1d(
                     left[k] = right[k]  # k is not in left
         return left
     if type(form) is KInnerProduct:
-        primal = _equation_1d(form.function, element)
+        primal: dict[Term, npt.NDArray[np.float64] | np.float64]
+        if isinstance(form.function, KHodge):
+            primal = _equation_1d(form.function.base_form, element)
+        else:
+            primal = _equation_1d(form.function, element)
         dual = _equation_1d(form.weight, element)
         dv = tuple(v for v in dual.keys())[0]
         for k in primal:
             vd = dual[dv]
             vp = primal[k]
-            order_p = form.function.primal_order
+            order_p = form.function.order
             order_d = form.weight.order
+            assert order_p == order_d
             mass: npt.NDArray[np.float64]
-            if order_p == 0 and order_d == 0:
+            if not form.function.is_primal:
+                mass = np.eye(element.order + 1 - order_p)
+            elif order_p == 0 and order_d == 0:
                 mass = element.mass_node  # type: ignore
             elif order_p == 1 and order_d == 1:
                 mass = element.mass_edge  # type: ignore
-            elif order_p == 1 and order_d == 0:
-                mass = element.mass_node_edge  # type: ignore
-            elif order_p == 0 and order_d == 1:
-                mass = element.mass_node_edge.transpose()  # type: ignore
             else:
                 raise ValueError(
                     f"Order {form.function.order} can't be used on a 1D mesh."

@@ -35,22 +35,19 @@ void lagrange_polynomial_coefficients(unsigned n, unsigned j,
  * mesh by taking the inner product of the weight matrix with the function
  * values.
  *
- * @param n_in Number of points where the interpolation will be needed.
- * @param pos Array of nodes where interpolation will be computed
- * @param n_nodes Number of nodes where the function is known.
- * @param x Array of x-values of nodes where the function is known which must
- * be monotonically increasing.
- * @param weights Array which receives the weights for the interpolation.
+ * @param n_in Number of points where polynomials should be evaluated.
+ * @param pos Points where the Lagrange polynomials should be evaluated at.
+ * @param n_nodes Number or roots of Lagrange polynomials, which is also the order of the polynomials.
+ * @param x Roots of the lagrange polynomials.
+ * @param weights Array which receives the values of Lagrange polynomials.
  * @param work Array used to store intermediate results.
  *
- * @return `INTERP_SUCCESS` on success, `INTERP_ERROR_NOT_INCREASING` if `x[i +
- * 1] > x[i]` does not hold for all `i`.
  */
 INTERPLIB_INTERNAL
-interp_error_t lagrange_polynomial_values(unsigned n_in, const double INTERPLIB_ARRAY_ARG(pos, static n_in),
-                                          unsigned n_nodes, const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
-                                          double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes *n_in),
-                                          double INTERPLIB_ARRAY_ARG(work, restrict n_nodes));
+void lagrange_polynomial_values(unsigned n_in, const double INTERPLIB_ARRAY_ARG(pos, static n_in), unsigned n_nodes,
+                                const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
+                                double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes *n_in),
+                                double INTERPLIB_ARRAY_ARG(work, restrict n_nodes));
 
 /**
  * @brief Compute first derivative of Lagrange polynomials with given nodes at

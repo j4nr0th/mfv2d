@@ -17,7 +17,7 @@ from interplib._interp import lagrange1d as _lagrange1d
 
 def lagrange_function_samples(
     x: npt.ArrayLike, xp: npt.ArrayLike
-) -> npt.NDArray[np.float64]:
+) -> npt.NDArray[np.double]:
     """Compute interpolation matrix for function based on samples.
 
     Parameters
@@ -36,9 +36,7 @@ def lagrange_function_samples(
     real_x: npt.NDArray[np.float64] = np.atleast_1d(np.asarray(x, np.float64))
     real_xp: npt.NDArray[np.float64] = np.asarray(xp, np.float64)
 
-    flat_x = np.ravel(real_x, order="C")
-
-    interp_mtx = _lagrange1d(flat_x, real_xp)
+    interp_mtx = _lagrange1d(real_xp, real_x)
 
     return interp_mtx
 
@@ -130,7 +128,7 @@ def interp1d_function_samples(
     ):
         raise ValueError("Both xp and yp must be flat arrays of equal length")
 
-    interp_mtx = lagrange_function_samples(real_x, real_xp)
+    interp_mtx = lagrange_function_samples(real_xp, real_x)
 
     return np.astype(np.reshape(interp_mtx @ real_yp, shape=real_x.shape), np.float64)
 

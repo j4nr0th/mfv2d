@@ -58,10 +58,10 @@ void lagrange_polynomial_coefficients(unsigned n, unsigned j,
 }
 
 INTERPLIB_INTERNAL
-interp_error_t lagrange_polynomial_values(unsigned n_in, const double INTERPLIB_ARRAY_ARG(pos, static n_in),
-                                          unsigned n_nodes, const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
-                                          double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes *n_in),
-                                          double INTERPLIB_ARRAY_ARG(work, restrict n_nodes))
+void lagrange_polynomial_values(unsigned n_in, const double INTERPLIB_ARRAY_ARG(pos, static n_in), unsigned n_nodes,
+                                const double INTERPLIB_ARRAY_ARG(x, static n_nodes),
+                                double INTERPLIB_ARRAY_ARG(weights, restrict n_nodes *n_in),
+                                double INTERPLIB_ARRAY_ARG(work, restrict n_nodes))
 {
     lagrange_polynomial_denominators(n_nodes, x, work);
 
@@ -102,8 +102,6 @@ interp_error_t lagrange_polynomial_values(unsigned n_in, const double INTERPLIB_
             row[i] *= work[i];
         }
     }
-
-    return INTERP_SUCCESS;
 }
 
 INTERPLIB_INTERNAL

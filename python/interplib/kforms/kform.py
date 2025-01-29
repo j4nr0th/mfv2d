@@ -584,6 +584,27 @@ def _parse_form(form: Term) -> dict[Term, str | None]:
     raise TypeError("Unknown type")
 
 
+@overload
+def _form_size_2d(p: npt.NDArray[np.integer], k: int) -> npt.NDArray[np.integer]: ...
+
+
+@overload
+def _form_size_2d(p: int, k: int) -> int: ...
+
+
+def _form_size_2d(
+    p: npt.NDArray[np.integer] | int, k: int
+) -> npt.NDArray[np.integer] | int:
+    """Compute number of degrees of freedom a form gets on an element with order."""
+    if k == 0:
+        return (p + 1) * (p + 1)
+    if k == 1:
+        return 2 * p * (p + 1)
+    if k == 2:
+        return p * p
+    assert False
+
+
 class KFormSystem:
     """System of equations of differential forms, which are optionally sorted.
 
@@ -712,6 +733,73 @@ class KFormSystem:
         )
         offset_equations = (np.zeros_like(order),) + tuple(
             accumulate(order + 1 - d.order for d in self.dual_forms)
+        )
+        return offset_equations, offset_forms
+
+    @overload
+    def shape_2d(
+        self, order: npt.NDArray[np.integer]
+    ) -> tuple[npt.NDArray[np.integer], npt.NDArray[np.integer]]: ...
+
+    @overload
+    def shape_2d(self, order: int) -> tuple[int, int]: ...
+
+    def shape_2d(
+        self, order: npt.NDArray[np.integer] | int
+    ) -> tuple[npt.NDArray[np.integer] | int, npt.NDArray[np.integer] | int]:
+        """Return the shape of the system for the 2D case.
+
+        Parameters
+        ----------
+        order : int
+            Order of 2D polynomial basis.
+
+        Returns
+        -------
+        int
+            Number of rows of the system.
+        int
+            Number of columns of the system.
+        """
+        height = sum(_form_size_2d(order, d.order) for d in self.dual_forms)
+        width = sum(_form_size_2d(order, d.order) for d in self.primal_forms)
+        return (height, width)
+
+    @overload
+    def offsets_2d(self, order: int) -> tuple[tuple[int, ...], tuple[int, ...]]: ...
+
+    @overload
+    def offsets_2d(
+        self, order: npt.NDArray[np.integer]
+    ) -> tuple[
+        tuple[npt.NDArray[np.integer], ...], tuple[npt.NDArray[np.integer], ...]
+    ]: ...
+
+    def offsets_2d(
+        self, order: int | npt.NDArray[np.integer]
+    ) -> tuple[
+        tuple[int | npt.NDArray[np.integer], ...],
+        tuple[int | npt.NDArray[np.integer], ...],
+    ]:
+        """Compute offsets of different forms and equations.
+
+        Parameters
+        ----------
+        order : int
+            Order of 2D polynomial basis.
+
+        Returns
+        -------
+        tuple[int, ...]
+            Offsets of different equations in rows.
+        tuple[int, ...]
+            Offsets of different form degrees of freedom in columns.
+        """
+        offset_forms = (np.zeros_like(order),) + tuple(
+            accumulate(_form_size_2d(order, d.order) for d in self.primal_forms)
+        )
+        offset_equations = (np.zeros_like(order),) + tuple(
+            accumulate(_form_size_2d(order, d.order) for d in self.dual_forms)
         )
         return offset_equations, offset_forms
 

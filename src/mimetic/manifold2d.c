@@ -133,6 +133,11 @@ static void manifold2d_dealloc(PyObject *self)
     Py_TYPE(this)->tp_free(this);
 }
 
+static PyObject *manifold2d_get_dimension(PyObject *Py_UNUSED(self), void *Py_UNUSED(closure))
+{
+    return PyLong_FromLong(2);
+}
+
 static PyObject *manifold2d_get_n_points(PyObject *self, void *Py_UNUSED(closure))
 {
     const manifold2d_object_t *this = (manifold2d_object_t *)self;
@@ -152,6 +157,11 @@ static PyObject *manifold2d_get_n_surfaces(PyObject *self, void *Py_UNUSED(closu
 }
 
 static PyGetSetDef manifold2d_getset[] = {
+    {.name = "dimension",
+     .get = manifold2d_get_dimension,
+     .set = NULL,
+     .doc = "int : Dimension of the manifold.",
+     .closure = NULL},
     {.name = "n_points",
      .get = manifold2d_get_n_points,
      .set = NULL,
@@ -820,31 +830,32 @@ static PyMethodDef pyvl_mesh_methods[] = {
     {0},
 };
 
-static PyObject *pyvl_mesh_rich_compare(PyObject *self, PyObject *other, const int op)
-{
-    if (!PyObject_TypeCheck(other, &manifold2d_type_object) || (op != Py_EQ && op != Py_NE))
-    {
-        Py_RETURN_NOTIMPLEMENTED;
-    }
-    int res = 1;
-    const manifold2d_object_t *const this = (manifold2d_object_t *)self;
-    const manifold2d_object_t *const that = (manifold2d_object_t *)other;
-    if (this->n_points != that->n_points || this->n_lines != that->n_lines || this->n_surfaces != that->n_surfaces ||
-        memcmp(this->lines, that->lines, sizeof(*this->lines) * this->n_lines) != 0 ||
-        memcmp(this->surf_counts, that->surf_counts, sizeof(*this->surf_counts) * (this->n_surfaces + 1)) != 0 ||
-        memcmp(this->surf_lines, that->surf_lines, sizeof(*this->surf_lines) * this->surf_counts[this->n_surfaces]) !=
-            0)
-    {
-        res = 0;
-    }
+// static PyObject *pyvl_mesh_rich_compare(PyObject *self, PyObject *other, const int op)
+// {
+//     if (!PyObject_TypeCheck(other, &manifold2d_type_object) || (op != Py_EQ && op != Py_NE))
+//     {
+//         Py_RETURN_NOTIMPLEMENTED;
+//     }
+//     int res = 1;
+//     const manifold2d_object_t *const this = (manifold2d_object_t *)self;
+//     const manifold2d_object_t *const that = (manifold2d_object_t *)other;
+//     if (this->n_points != that->n_points || this->n_lines != that->n_lines || this->n_surfaces != that->n_surfaces ||
+//         memcmp(this->lines, that->lines, sizeof(*this->lines) * this->n_lines) != 0 ||
+//         memcmp(this->surf_counts, that->surf_counts, sizeof(*this->surf_counts) * (this->n_surfaces + 1)) != 0 ||
+//         memcmp(this->surf_lines, that->surf_lines, sizeof(*this->surf_lines) * this->surf_counts[this->n_surfaces])
+//         !=
+//             0)
+//     {
+//         res = 0;
+//     }
 
-    res = (op == Py_EQ) ? res : !res;
-    if (res)
-    {
-        Py_RETURN_TRUE;
-    }
-    Py_RETURN_FALSE;
-}
+//     res = (op == Py_EQ) ? res : !res;
+//     if (res)
+//     {
+//         Py_RETURN_TRUE;
+//     }
+//     Py_RETURN_FALSE;
+// }
 
 INTERPLIB_INTERNAL
 PyTypeObject manifold2d_type_object = {
@@ -858,6 +869,6 @@ PyTypeObject manifold2d_type_object = {
     .tp_getset = manifold2d_getset,
     // .tp_new = manifold2d_new,
     .tp_dealloc = manifold2d_dealloc,
-    .tp_richcompare = pyvl_mesh_rich_compare,
+    // .tp_richcompare = pyvl_mesh_rich_compare,
     .tp_base = &manifold_type_object,
 };

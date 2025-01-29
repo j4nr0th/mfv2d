@@ -36,7 +36,9 @@ def lagrange_function_samples(
     real_x: npt.NDArray[np.float64] = np.atleast_1d(np.asarray(x, np.float64))
     real_xp: npt.NDArray[np.float64] = np.asarray(xp, np.float64)
 
-    interp_mtx = _lagrange1d(real_xp, real_x)
+    flat_x = np.ravel(real_x, order="C")
+
+    interp_mtx = _lagrange1d(real_xp, flat_x)
 
     return interp_mtx
 
@@ -64,9 +66,9 @@ def lagrange_derivative_samples(
 
     flat_x = np.ravel(real_x, order="C")
 
-    interp_mtx = _dlagrange1d(flat_x, real_xp)
+    interp_mtx = _dlagrange1d(real_xp, flat_x)
 
-    return interp_mtx
+    return np.astype(interp_mtx, np.float64)
 
 
 def lagrange_2derivative_samples(

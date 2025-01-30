@@ -1,6 +1,5 @@
 """Implementation of the 2D mimetic meshes and manifolds."""
 
-from functools import cache
 from itertools import accumulate
 
 import numpy as np
@@ -21,19 +20,6 @@ from interplib.kforms.kform import (
     Term,
 )
 from interplib.product_basis import BasisProduct2D
-
-_cached_roots_legendre = cache(compute_gll)
-
-
-@cache
-def _cached_roots_legendre2(
-    p: int,
-) -> tuple[
-    tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-    npt.NDArray[np.float64],
-]:
-    x, w = _cached_roots_legendre(p)
-    return (np.meshgrid(x, x), np.prod(np.meshgrid(w, w), axis=-1))  # type: ignore
 
 
 class Element2D:
@@ -71,14 +57,14 @@ class Element2D:
         self.geo_basis = tuple(tuple(b.as_polynomial() for b in bg) for bg in basis_geo)
         self.poly_x = (
             bl[0] * self.geo_basis[0][0]
-            + br[0] * self.geo_basis[0][1]
-            + tl[0] * self.geo_basis[1][0]
+            + br[0] * self.geo_basis[1][0]
+            + tl[0] * self.geo_basis[0][1]
             + tr[0] * self.geo_basis[1][1]
         )
         self.poly_y = (
             bl[1] * self.geo_basis[0][0]
-            + br[1] * self.geo_basis[0][1]
-            + tl[1] * self.geo_basis[1][0]
+            + br[1] * self.geo_basis[1][0]
+            + tl[1] * self.geo_basis[0][1]
             + tr[1] * self.geo_basis[1][1]
         )
 
@@ -102,7 +88,7 @@ class Element2D:
                 [b.as_polynomial() for b in ba]
                 for ba in BasisProduct2D.outer_product_basis(node1d, node1d)
             ]
-        )
+        ).T
         self.basis_edge_h = np.array(
             [
                 [b.as_polynomial() for b in ba]
@@ -120,19 +106,26 @@ class Element2D:
                 [b.as_polynomial() for b in ba]
                 for ba in BasisProduct2D.outer_product_basis(edge1d, edge1d)
             ]
-        )
+        ).T
 
     @property
     def mass_matrix_node(self) -> npt.NDArray[np.float64]:
         """Element's mass matrix for nodal basis."""
         n = self.order + 1
         mat = np.empty((n**2, n**2), np.float64)
-        nodes, weights = compute_gll(self.order + 2)  # I think this gives exact
+        nodes, weights = compute_gll(5 * self.order + 2)  # `self.order + 2` is exact
         values = lagrange1d(self.nodes_1d, nodes)
         weights_2d = weights[:, None] * weights[None, :]
-        jacob = self.jacobian(nodes[:, None], nodes[None, :])
-        weights_2d *= jacob
+        jacob = self.jacobian  # (nodes[:, None], nodes[None, :])
+        j00 = jacob[0][0](nodes[:, None], nodes[None, :])
+        j01 = jacob[0][1](nodes[:, None], nodes[None, :])
+        j10 = jacob[1][0](nodes[:, None], nodes[None, :])
+        j11 = jacob[1][1](nodes[:, None], nodes[None, :])
+        det = j00 * j11 - j10 * j01
+
+        weights_2d *= det
         basis_vals: list[npt.NDArray] = list()
+        # analytical_basis: list[Polynomial2D] = tuple(self.basis_node.flat)
         for i1 in range(n):
             v1 = values[..., i1]
             for j1 in range(n):
@@ -141,7 +134,14 @@ class Element2D:
                 basis_vals.append(basis1)
         for i in range(n * n):
             for j in range(i + 1):
-                mat[i, j] = mat[j, i] = np.sum(basis_vals[i] * basis_vals[j] * weights_2d)
+                # prod = analytical_basis[j] * analytical_basis[i]
+                # ad0 = prod.antiderivative(0)
+                # ad1 = (ad0(+1, None) + (-1) * ad0(-1, None)).antiderivative
+                # res_anl = ad1(+1) - ad1(-1)
+                res = np.sum(basis_vals[i] * basis_vals[j] * weights_2d)
+                # assert np.isclose(res, res_anl)
+                mat[i, j] = mat[j, i] = res
+        assert np.allclose(mat, mat.T)
         return mat
 
     @property
@@ -153,29 +153,53 @@ class Element2D:
         values = lagrange1d(self.nodes_1d, nodes)
         in_dvalues = dlagrange1d(self.nodes_1d, nodes)
         dvalues = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
-        weights_2d = weights[:, None] * weights[None, :]
-        jacob = self.jacobian(nodes[:, None], nodes[None, :])
-        weights_2d *= jacob
-        basis_vals: list[npt.NDArray] = list()
+        weights_2d = weights[None, :] * weights[:, None]
+        jacob = self.jacobian  # (nodes[:, None], nodes[None, :])
+        j00 = jacob[0][0](nodes[:, None], nodes[None, :])
+        j01 = jacob[0][1](nodes[:, None], nodes[None, :])
+        j10 = jacob[1][0](nodes[:, None], nodes[None, :])
+        j11 = jacob[1][1](nodes[:, None], nodes[None, :])
+        det = j00 * j11 - j10 * j01
+
+        khh = j00**2 + j10**2
+        kvv = j01**2 + j11**2
+        kvh = j01 * j00 + j11 * j10
+
+        weights_2d /= det
+        basis_h: list[npt.NDArray] = list()
+        basis_v: list[npt.NDArray] = list()
 
         for i1 in range(n + 1):
             v1 = values[..., i1]
             for j1 in range(n):
                 u1 = dvalues[j1]
                 basis1 = v1[:, None] * u1[None, :]
-                basis_vals.append(basis1)
+                basis_h.append(basis1)
 
         for i1 in range(n):
             v1 = dvalues[i1]
             for j1 in range(n + 1):
                 u1 = values[..., j1]
                 basis1 = v1[:, None] * u1[None, :]
-                basis_vals.append(basis1)
-
-        for i in range(2 * n * (n + 1)):
+                basis_v.append(basis1)
+        nh = len(basis_h)
+        nv = len(basis_v)
+        for i in range(nh):
             for j in range(i + 1):
-                mat[i, j] = mat[j, i] = np.sum(weights_2d * basis_vals[i] * basis_vals[j])
+                res = np.sum(weights_2d * basis_h[i] * basis_h[j] * khh)
+                mat[i, j] = mat[j, i] = res
 
+        for i in range(nv):
+            for j in range(i + 1):
+                res = np.sum(weights_2d * basis_v[i] * basis_v[j] * kvv)
+                mat[nh + i, nh + j] = mat[nh + j, nh + i] = res
+
+        for i in range(nv):
+            for j in range(nh):
+                res = np.sum(weights_2d * basis_v[j] * basis_h[i] * kvh)
+                mat[nh + i, j] = mat[j, nh + i] = res
+
+        assert np.allclose(mat, mat.T)
         return mat
 
     @property
@@ -183,37 +207,51 @@ class Element2D:
         """Element's mass matrix for surface basis."""
         n = self.order
         mat = np.empty((n**2, n**2), np.float64)
-        nodes, weights = compute_gll(self.order)  # I think this gives exact
+        nodes, weights = compute_gll(2 * self.order)  # I think `self.order` gives exact
         in_dvalues = dlagrange1d(self.nodes_1d, nodes)
         values = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
         weights_2d = weights[:, None] * weights[None, :]
-        jacob = self.jacobian(nodes[:, None], nodes[None, :])
-        weights_2d *= jacob
+        jacob = self.jacobian  # (nodes[:, None], nodes[None, :])
+        j00 = jacob[0][0](nodes[:, None], nodes[None, :])
+        j01 = jacob[0][1](nodes[:, None], nodes[None, :])
+        j10 = jacob[1][0](nodes[:, None], nodes[None, :])
+        j11 = jacob[1][1](nodes[:, None], nodes[None, :])
+        det = j00 * j11 - j10 * j01
+
+        weights_2d /= det
         basis_vals: list[npt.NDArray] = list()
+        analitical_basis: tuple[Polynomial2D] = tuple(self.basis_surf.flat)
         for i1 in range(n):
             v1 = values[i1]
             for j1 in range(n):
                 u1 = values[j1]
-                basis1 = v1[:, None] * u1[None, :]
+                basis1 = v1[None, :] * u1[:, None]
                 basis_vals.append(basis1)
         for i in range(n * n):
             for j in range(i + 1):
-                mat[i, j] = mat[j, i] = np.sum(weights_2d * basis_vals[i] * basis_vals[j])
+                # from matplotlib import pyplot as plt
+
+                prod = analitical_basis[j] * analitical_basis[i]
+                ad0 = prod.antiderivative(0)
+                ad1 = (ad0(+1, None) + (-1) * ad0(-1, None)).antiderivative
+                res_anl = ad1(+1) - ad1(-1)
+                res = np.sum(weights_2d * basis_vals[i] * basis_vals[j])
+                assert np.isclose(res, res_anl)
+                mat[i, j] = mat[j, i] = res
         return mat
 
     @property
-    def jacobian(self) -> Polynomial2D:
-        """Jacobian function."""
+    def jacobian(
+        self,
+    ) -> tuple[tuple[Polynomial2D, Polynomial2D], tuple[Polynomial2D, Polynomial2D]]:
+        """Jacobian functions."""
         px = self.poly_x
         py = self.poly_y
-        dx_dxi = px.partial(0)(0, None)
-        dx_deta = px.partial(1)(None, 0)
-        dy_dxi = py.partial(0)(0, None)
-        dy_deta = py.partial(1)(None, 0)
-        return (
-            BasisProduct2D(dx_dxi, dy_deta).as_polynomial()
-            - BasisProduct2D(dx_deta, dy_dxi).as_polynomial()
-        )
+        dx_dxi = px.partial(0)
+        dx_deta = px.partial(1)
+        dy_dxi = py.partial(0)
+        dy_deta = py.partial(1)
+        return ((dx_dxi, dx_deta), (dy_dxi, dy_deta))
 
     def incidence_01(self) -> npt.NDArray[np.float64]:
         """Incidence matrix from points to lines."""
@@ -249,7 +287,7 @@ class Element2D:
         return e
 
     @property
-    def boundary_dof_indices(self) -> npt.NDArray[np.uint32]:
+    def boundary_edge_dof_indices(self) -> npt.NDArray[np.uint32]:
         """Indices of degrees of freedom associated with boundary lines."""
         bottom = np.arange(0, self.order, dtype=np.uint32)
         left = np.flip(
@@ -261,6 +299,19 @@ class Element2D:
             (self.order * (self.order + 1))
             + self.order
             + np.arange(0, self.order, dtype=np.uint32) * (self.order + 1)
+        )
+        return np.concatenate((bottom, right, top, left))
+
+    @property
+    def boundary_node_dof_indices(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with boundary nodes."""
+        bottom = np.arange(0, self.order + 1, dtype=np.uint32)
+        left = np.flip(np.arange(0, self.order + 1, dtype=np.uint32) * (self.order + 1))
+        top = np.flip(
+            (self.order + 1) * self.order + np.arange(0, self.order + 1, dtype=np.uint32)
+        )
+        right = self.order + np.arange(0, self.order + 1, dtype=np.uint32) * (
+            self.order + 1
         )
         return np.concatenate((bottom, right, top, left))
 
@@ -280,6 +331,7 @@ def _extract_rhs_2d(
     Returns
     -------
     array of :class:`numpy.float64`
+        weights_2d = weights[:, None] * weights[None, :]
         The resulting projection vector.
     """
     fn = right.func
@@ -300,57 +352,69 @@ def _extract_rhs_2d(
         out_vec: npt.NDArray[np.float64]
         mass: npt.NDArray[np.floating]
         comp_1d = np.linspace(-1, 1, p + 1)
-        comp_xi, comp_eta = np.meshgrid(comp_1d, comp_1d)
-        real_x = element.poly_x(comp_xi, comp_eta)
-        real_y = element.poly_y(comp_xi, comp_eta)
-        # TODO: Throw up due to how ugly this is.
-        # TODO: fix this >:(
+        real_x = element.poly_x(comp_1d[None, :], comp_1d[:, None])
+        real_y = element.poly_y(comp_1d[None, :], comp_1d[:, None])
+
         if right.weight.order == 2:
             out_vec = np.empty(n_dof)
-            jac = element.jacobian
-            (xi, eta), w = _cached_roots_legendre2(2 * p)
-            (b1, b2), (b3, b4) = element.geo_basis
+            jacob = element.jacobian  # (nodes[:, None], nodes[None, :])
+
+            nodes, weights = compute_gll(2 * p)
+            weights_2d = weights[None, :] * weights[:, None]
             for i in range(p):
                 for j in range(p):
-                    # poly_x and poly_y map the computational nodes on element
-                    # sub-division to the "physical" space
-                    poly_x = (
-                        real_x[i, j] * b1
-                        + real_x[i, j + 1] * b2
-                        + real_x[i + 1, j] * b3
-                        + real_x[i + 1, j + 1] * b4
-                    )
-                    poly_y = (
-                        real_y[i, j] * b1
-                        + real_y[i, j + 1] * b2
-                        + real_y[i + 1, j] * b3
-                        + real_y[i + 1, j + 1] * b4
-                    )
+                    xi = (nodes + 1) / 2 * (comp_1d[j + 1] - comp_1d[j]) + comp_1d[j]
+                    eta = (nodes + 1) / 2 * (comp_1d[i + 1] - comp_1d[i]) + comp_1d[i]
 
-                    xcomp = poly_x(xi, eta)
-                    ycomp = poly_y(xi, eta)
+                    xcomp = element.poly_x(xi[None, :], eta[:, None])
+                    ycomp = element.poly_y(xi[None, :], eta[:, None])
 
-                    out_vec[i * p + j] = np.sum(w * fn(xcomp, ycomp) * jac(xi, eta))
+                    j00 = jacob[0][0](xi[None, :], eta[:, None])
+                    j01 = jacob[0][1](xi[None, :], eta[:, None])
+                    j10 = jacob[1][0](xi[None, :], eta[:, None])
+                    j11 = jacob[1][1](xi[None, :], eta[:, None])
+                    det = j00 * j11 - j10 * j01
+
+                    out_vec[i * p + j] = np.sum(weights_2d * fn(xcomp, ycomp) * det)
             mass = element.mass_matrix_surface
         elif right.weight.order == 1:
-            xi, w = _cached_roots_legendre(2 * p)
+            nodes, weights = compute_gll(2 * p)
             out_vec = np.empty(n_dof)
+            jacob = element.jacobian  # (nodes[:, None], nodes[None, :])
             for i in range(p + 1):
                 for j in range(p):
-                    xv = real_x[i, j] * (1 - xi) + real_x[i, j + 1] * xi
-                    yv = real_y[i, j] * (1 - xi) + real_y[i, j + 1] * xi
-                    res = np.sum(fn(xv, yv) * w) * np.hypot(
-                        real_x[i, j] - real_x[i, j + 1], real_y[i, j] - real_y[i, j + 1]
-                    )
+                    xi = (nodes + 1) / 2 * (comp_1d[j + 1] - comp_1d[j]) + comp_1d[j]
+                    eta = comp_1d[i]
+
+                    xcomp = element.poly_x(xi, eta[None])
+                    ycomp = element.poly_y(xi, eta[None])
+
+                    w = weights * (comp_1d[j + 1] - comp_1d[j]) / 2
+                    j00 = jacob[0][0](xi, eta[None])
+                    j01 = jacob[0][1](xi, eta[None])
+                    j10 = jacob[1][0](xi, eta[None])
+                    j11 = jacob[1][1](xi, eta[None])
+                    det = j00 * j11 - j10 * j01
+
+                    res = np.sum(fn(xcomp, ycomp) * w * det)
                     out_vec[i * p + j] = res
 
             for i in range(p):
                 for j in range(p + 1):
-                    xv = real_x[i, j] * (1 - xi) + real_x[i + 1, j] * xi
-                    yv = real_y[i, j] * (1 - xi) + real_y[i + 1, j] * xi
-                    res = np.sum(fn(xv, yv) * w) * np.hypot(
-                        real_x[i, j] - real_x[i + 1, j], real_y[i + 1, j] - real_y[i, j]
-                    )
+                    xi = comp_1d[j]
+                    eta = (nodes + 1) / 2 * (comp_1d[i + 1] - comp_1d[i]) + comp_1d[i]
+
+                    xcomp = element.poly_x(xi[None], eta)
+                    ycomp = element.poly_y(xi[None], eta)
+
+                    w = weights * (comp_1d[i + 1] - comp_1d[i]) / 2
+                    j00 = jacob[0][0](xi[None], eta)
+                    j01 = jacob[0][1](xi[None], eta)
+                    j10 = jacob[1][0](xi[None], eta)
+                    j11 = jacob[1][1](xi[None], eta)
+                    det = j00 * j11 - j10 * j01
+
+                    res = np.sum(fn(xcomp, ycomp) * w * det)
                     out_vec[p * (p + 1) + i * (p + 1) + j] = res
 
             mass = element.mass_matrix_edge

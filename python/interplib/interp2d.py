@@ -149,7 +149,7 @@ class Polynomial2D(Function2D):
 
         raise ValueError("Dimension can not be 2 or more.")
 
-    def antiderivative(self, dim: int, /) -> Function2D:
+    def antiderivative(self, dim: int, /) -> Polynomial2D:
         """Anti-derivative with respect to the specified dimension."""
         if dim == 0:
             return Polynomial2D(*(p.antiderivative for p in self.polynomials))

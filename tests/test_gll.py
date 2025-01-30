@@ -6,20 +6,31 @@ from interplib._interp import compute_gll
 
 
 @pytest.mark.parametrize("n", (1, 3, 5, 6, 8, 10, 20))
-def check_weight_sum(n: int):
+def test_weight_sum(n: int):
     """Check that the weights sum to 2."""
     _, w = compute_gll(n)
     assert np.sum(w) == pytest.approx(2.0)
 
 
 @pytest.mark.parametrize("n", (0, 1, 2, 3, 5, 6, 8, 10, 20))
-def check_weight_integration(n: int):
+def test_weight_integration(n: int):
     """Check that integrals hold."""
     x, w = compute_gll(n)
     for p in range(max(n + 1, 2 * n - 2)):
         # Exact up to and including 2 * n - 3
         num = np.sum(x**p * w)
         assert (1 / (p + 1) - ((-1) ** (p + 1)) / (p + 1)) == pytest.approx(num)
+
+
+@pytest.mark.parametrize("n", (0, 1, 2, 3, 5, 6, 8, 10, 20))
+def test_independence(n: int):
+    """Check that calling it multiple times is consistent."""
+    x, w = compute_gll(n)
+    for p in range(10 * (n + 1)):
+        # Exact up to and including 2 * n - 3
+        x1, w1 = compute_gll(n)
+        assert np.allclose(x, x1)
+        assert np.allclose(w, w1)
 
 
 #     from time import perf_counter

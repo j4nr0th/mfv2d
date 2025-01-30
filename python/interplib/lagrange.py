@@ -130,7 +130,7 @@ def interp1d_function_samples(
     ):
         raise ValueError("Both xp and yp must be flat arrays of equal length")
 
-    interp_mtx = lagrange_function_samples(real_xp, real_x)
+    interp_mtx = lagrange_function_samples(real_x, real_xp)
 
     return np.astype(np.reshape(interp_mtx @ real_yp, shape=real_x.shape), np.float64)
 

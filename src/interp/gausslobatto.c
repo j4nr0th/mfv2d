@@ -32,9 +32,10 @@ static void legendre_eval_bonnet_two(const unsigned n, const double x, double IN
 }
 
 INTERPLIB_INTERNAL
-void gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsigned max_iter,
-                                 double INTERPLIB_ARRAY_ARG(x, restrict n), double INTERPLIB_ARRAY_ARG(w, restrict n))
+int gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsigned max_iter,
+                                double INTERPLIB_ARRAY_ARG(x, restrict n), double INTERPLIB_ARRAY_ARG(w, restrict n))
 {
+    int non_converged = 0;
     // n >= 2
     x[0] = -1.0;
     x[n - 1] = +1.0;
@@ -57,10 +58,12 @@ void gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsig
             new_x -= dx;
             error = fabs(dx);
         }
+        non_converged += (error > tol);
         x[n - i] = new_x;
         legendre_eval_bonnet_two(n - 1, new_x, leg_poly);
         w[n - i] = 2.0 / (n * (n - 1) * leg_poly[1] * leg_poly[1]);
     }
+    return non_converged;
 }
 
 INTERPLIB_INTERNAL
@@ -130,7 +133,14 @@ PyObject *compute_gauss_lobatto_nodes(PyObject *Py_UNUSED(self), PyObject *args,
     double *const p_w = PyArray_DATA(weights);
     if (order != 0)
     {
-        gauss_lobatto_nodes_weights(order + 1, tol, max_iter, p_x, p_w);
+        const int non_converged = gauss_lobatto_nodes_weights(order + 1, tol, max_iter, p_x, p_w);
+        if (non_converged != 0)
+        {
+            PyErr_Format(PyExc_RuntimeWarning,
+                         "A total of %i nodes were non-converged. Consider changing"
+                         " the tolerance or increase the number of iterations.",
+                         non_converged);
+        }
     }
     else
     {

@@ -30,8 +30,10 @@ class Term:
 
 
 @dataclass(frozen=True)
-class KFormBase(Term):
-    """Base class for K forms, which implements the common methods.
+class KForm(Term):
+    """Differential K form.
+
+    It is described by and order and identifier, that is used to print it.
 
     Parameters
     ----------
@@ -39,7 +41,6 @@ class KFormBase(Term):
         Order of the differential form.
     label : str
         Label which is used to print form as a string.
-
     """
 
     order: int
@@ -57,32 +58,17 @@ class KFormBase(Term):
         """Return print-friendly representation of the object."""
         return f"{self.label}({self.order})"
 
-
-@dataclass(frozen=True)
-class KForm(KFormBase):
-    """Differential K form.
-
-    It is described by and order and identifier, that is used to print it.
-
-    Parameters
-    ----------
-    order : int
-        Order of the differential form.
-    label : str
-        Label which is used to print form as a string.
-    """
-
-    def __mul__(self, other: KWeight, /) -> KInnerProduct:
+    def __mul__(self, other: KForm, /) -> KInnerProduct:
         """Inner product with a weight."""
-        if isinstance(other, KWeight):
+        if type(self) is KWeight:
+            return KInnerProduct(other, self)
+        if type(other) is KWeight:
             return KInnerProduct(other, self)
         return NotImplemented
 
-    def __rmul__(self, other: KWeight, /) -> KInnerProduct:
+    def __rmul__(self, other: KForm, /) -> KInnerProduct:
         """Inner product with a weight."""
-        if isinstance(other, KWeight):
-            return KInnerProduct(other, self)
-        return NotImplemented
+        return self.__mul__(other)
 
     def __invert__(self) -> KHodge:
         """Hodge the k-form."""
@@ -94,14 +80,34 @@ class KForm(KFormBase):
         return KFormDerivative(self)
 
     @property
+    def is_primal(self) -> bool:
+        """Check if the form is primal."""
+        return True
+
+    @property
+    def is_weight(self) -> bool:
+        """Check if the form is a weight."""
+        raise NotImplementedError
+
+    @property
+    def primal_order(self) -> int:
+        """Order in primal basis."""
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class KFormUnknown(KForm):
+    """Differential form which is to be computed."""
+
+    @property
     def weight(self) -> KWeight:
         """Create a weight based on this form."""
         return KWeight(self.manifold, self.label, self.order, self)
 
     @property
-    def is_primal(self) -> bool:
-        """Check if the form is primal."""
-        return True
+    def is_weight(self) -> bool:
+        """Check if the form is a weight."""
+        return False
 
     @property
     def primal_order(self) -> int:
@@ -177,9 +183,14 @@ class KHodge(KForm):
             return self.order
         return self.manifold.dimension - self.order
 
+    @property
+    def is_weight(self) -> bool:
+        """Check if the form is a weight."""
+        return self.base_form.is_weight
+
 
 @dataclass(frozen=True, eq=False)
-class KWeight(KFormBase):
+class KWeight(KForm):
     """Differential K form represented with the dual basis.
 
     Parameters
@@ -199,17 +210,32 @@ class KWeight(KFormBase):
         return f"{self.label}({self.order}*)"
 
     @property
-    def derivative(self) -> KWeightDerivative:
+    def derivative(self) -> KFormDerivative:
         """Derivative of the form."""
-        return KWeightDerivative(self)
+        return KFormDerivative(self)
 
-    def __mul__(self, other: Callable | Literal[0], /) -> KFormProjection:
+    def __matmul__(self, other: Callable | Literal[0], /) -> KFormProjection:
         """Create projection for the right hand side."""
         if isinstance(other, int) and other == 0:
             return KFormProjection(self, None)
         if callable(other):
             return KFormProjection(self, other)
         return NotImplemented
+
+    @property
+    def weight(self) -> KWeight:
+        """Return itself."""
+        return self
+
+    @property
+    def is_weight(self) -> bool:
+        """Check if the form is a weight."""
+        return True
+
+    @property
+    def primal_order(self) -> int:
+        """Order in primal basis."""
+        return self.order
 
 
 @dataclass(init=False, frozen=True, eq=False)
@@ -251,27 +277,18 @@ class KFormDerivative(KForm):
         """Check if the form is primal."""
         return self.form.is_primal
 
+    @property
+    def is_weight(self) -> bool:
+        """Check if the form is a weight."""
+        return self.form.is_weight
 
-@dataclass(init=False, frozen=True, eq=False)
-class KWeightDerivative(KWeight):
-    r"""Exterior derivative of a weight form.
-
-    This is the operation represented by :class:`KFormDerivative`, but applied to a weight
-    function. This means that it is represented by a transpose of the incidence matrix.
-
-    Parameters
-    ----------
-    form : KFormWeight
-        The weight form of which the derivative is to be taken.
-    """
-
-    form: KWeight
-
-    def __init__(self, form: KWeight) -> None:
-        object.__setattr__(self, "form", form)
-        super().__init__(
-            form.manifold, "d" + form.label, form.order + 1, base_form=form.base_form
-        )
+    @property
+    def primal_order(self) -> int:
+        """Order in primal basis."""
+        if self.form.is_primal:
+            return self.order
+        else:
+            return self.form.primal_order - 1
 
 
 @dataclass(init=False, frozen=True, eq=False)
@@ -288,11 +305,26 @@ class KInnerProduct(Term):
         \vec{p}^T \mathbb{M}^k \vec{q}
     """
 
-    weight: KWeight
+    weight: KForm
     function: KForm
 
     # Check if order is even needed
-    def __init__(self, weight: KWeight, function: KForm) -> None:
+    @overload
+    def __init__(self, weight: KWeight, function: KForm, /) -> None: ...
+    @overload
+    def __init__(self, weight: KForm, function: KWeight, /) -> None: ...
+
+    def __init__(self, a: KForm | KWeight, b: KForm | KWeight, /) -> None:
+        if a.is_weight == b.is_weight:
+            raise TypeError(
+                "Inner product can only be taken between a weight and an unknown k-form."
+            )
+        if a.is_weight:
+            weight = a
+            function = b
+        else:
+            weight = b
+            function = a
         wg_order = weight.order
         fn_order = function.order
         if wg_order != fn_order:
@@ -408,7 +440,7 @@ class KFormProjection:
 
     Parameters
     ----------
-    dual : KFormWeight
+    dual : KWeight
         Dual form used as a weight.
     func : tuple[str, Callable], optional
         The function to use, specified by a name and the callable to use. If it not
@@ -419,7 +451,7 @@ class KFormProjection:
     func: Callable | None = None
 
 
-def _extract_forms(form: Term) -> tuple[set[KForm], set[KWeight], list[KForm]]:
+def _extract_forms(form: Term) -> tuple[set[KFormUnknown], set[KWeight], list[KForm]]:
     """Extract all primal and dual forms, which make up the current form.
 
     Parameters
@@ -438,10 +470,8 @@ def _extract_forms(form: Term) -> tuple[set[KForm], set[KWeight], list[KForm]]:
     """
     if type(form) is KFormDerivative:
         return _extract_forms(form.form)
-    if type(form) is KWeightDerivative:
-        return _extract_forms(form.form)
     if type(form) is KSum:
-        set_f: set[KForm] = set()
+        set_f: set[KFormUnknown] = set()
         set_w: set[KWeight] = set()
         weak_all: list[KForm] = []
         for _, ip in form.pairs:
@@ -455,12 +485,12 @@ def _extract_forms(form: Term) -> tuple[set[KForm], set[KWeight], list[KForm]]:
         f2 = _extract_forms(form.function)
         weak = f1[2] + f2[2]
         assert len(f1[2]) == 0 and len(f2[2]) == 0
-        if type(form.weight) is KWeightDerivative:
+        if type(form.weight) is KFormDerivative:
             weak.append(form.function)
         return (f1[0] | f2[0], f1[1] | f2[1], weak)
     if type(form) is KHodge:
         return _extract_forms(form.base_form)
-    if type(form) is KForm:
+    if type(form) is KFormUnknown:
         return ({form}, set(), [])
     if type(form) is KWeight:
         return (set(), {form}, [])
@@ -548,36 +578,45 @@ def _parse_form(form: Term) -> dict[Term, str | None]:
         for k in primal:
             vd = dual[dv]
             vp = primal[k]
+            if form.function.is_primal:
+                if form.weight.is_primal:
+                    mtx_name = f"M({form.weight.order})"
+                else:
+                    mtx_name = ""
+            else:
+                if form.weight.is_primal:
+                    mtx_name = ""
+                else:
+                    mtx_name = f"M({form.weight.primal_order})^{{-1}}"
+
             primal[k] = (
                 (f"({vd})^T @ " if vd is not None else "")
-                + (f"M({form.weight.order})" if form.function.is_primal else "")
+                + mtx_name
                 + (f" @ {vp}" if vp is not None else "")
             )
         primal[dv] = None
         return primal
     if type(form) is KFormDerivative:
         res = _parse_form(form.form)
+        if form.form.is_primal:
+            mtx_name = f"E({form.order}, {form.order - 1})"
+        else:
+            mtx_name = f"E({form.primal_order + 1}, {form.primal_order})^T"
         for k in res:
-            res[k] = f"E({form.order}, {form.order - 1})" + (
-                f" @ {res[k]}" if res[k] is not None else ""
-            )
+            res[k] = mtx_name + (f" @ {res[k]}" if res[k] is not None else "")
         return res
-    if type(form) is KWeightDerivative:
-        res = _parse_form(form.form)
-        for k in res:
-            res[k] = f"E({form.order}, {form.order - 1})" + (
-                f" @ {res[k]}" if res[k] is not None else ""
-            )
-        return res
+
     if type(form) is KHodge:
         res = _parse_form(form.base_form)
         for k in res:
-            res[k] = f"M({form.primal_order})" + (
-                f" @ {res[k]}" if res[k] is not None else ""
-            )
+            if form.base_form.is_primal:
+                mtx_name = f"M({form.primal_order})"
+            else:
+                mtx_name = f"M({form.primal_order})^{{-1}}"
+            res[k] = mtx_name + (f" @ {res[k]}" if res[k] is not None else "")
         return res
 
-    if type(form) is KForm:
+    if type(form) is KFormUnknown:
         return {form: None}
     if type(form) is KWeight:
         return {form: None}
@@ -623,7 +662,7 @@ class KFormSystem:
         corresponds to sorting the rows of the system matrix.
     """
 
-    primal_forms: tuple[KForm, ...]
+    unknown_forms: tuple[KFormUnknown, ...]
     dual_forms: tuple[KWeight, ...]
     equations: tuple[KEquaton, ...]
     weak_forms: set[KForm]
@@ -633,14 +672,14 @@ class KFormSystem:
         *equations: KEquaton,
         sorting: Callable[[KForm], Any] | None = None,
     ) -> None:
-        primals: set[KForm] = set()
-        duals: list[KWeight] = []
+        unknowns: set[KFormUnknown] = set()
+        weights: list[KWeight] = []
         weak: set[KForm] = set()
         equation_list: list[KEquaton] = []
         for ie, equation in enumerate(equations):
             p, d, w = _extract_forms(equation.left)
             weak |= set(w)
-            primals |= p
+            unknowns |= p
             if len(d) != 1:
                 raise ValueError(f"Equation {ie} has more that one dual weight.")
             dual = d.pop()
@@ -649,24 +688,24 @@ class KFormSystem:
                     f"The dual forms of the left and right sides of the equation {ie} "
                     f"don't match ({dual} vs {equation.right.weight})."
                 )
-            if dual in duals:
+            if dual in weights:
                 raise ValueError(
                     f"Dual form is not unique to the equation {ie}, as it already appears"
-                    f" in equation {duals.index(dual)}."
+                    f" in equation {weights.index(dual)}."
                 )
-            duals.append(dual)
+            weights.append(dual)
             equation_list.append(equation)
         self.weak_forms = weak
         if sorting is not None:
-            self.primal_forms = tuple(sorted(primals, key=sorting))
+            self.unknown_forms = tuple(sorted(unknowns, key=sorting))
         else:
-            self.primal_forms = tuple(primals)
+            self.unknown_forms = tuple(unknowns)
 
         self.dual_forms = tuple(
-            duals[self.primal_forms.index(d.base_form)] for d in duals
+            weights[self.unknown_forms.index(d.base_form)] for d in weights
         )
         self.equations = tuple(
-            equation_list[self.primal_forms.index(d.base_form)] for d in duals
+            equation_list[self.unknown_forms.index(d.base_form)] for d in weights
         )
 
     @overload
@@ -695,7 +734,7 @@ class KFormSystem:
             Number of columns of the system.
         """
         height = sum(order + 1 - d.order for d in self.dual_forms)
-        width = sum(order + 1 - d.order for d in self.primal_forms)
+        width = sum(order + 1 - d.order for d in self.unknown_forms)
         return (height, width)
 
     @overload
@@ -729,7 +768,7 @@ class KFormSystem:
             Offsets of different form degrees of freedom in columns.
         """
         offset_forms = (np.zeros_like(order),) + tuple(
-            accumulate(order + 1 - d.order for d in self.primal_forms)
+            accumulate(order + 1 - d.order for d in self.unknown_forms)
         )
         offset_equations = (np.zeros_like(order),) + tuple(
             accumulate(order + 1 - d.order for d in self.dual_forms)
@@ -762,7 +801,7 @@ class KFormSystem:
             Number of columns of the system.
         """
         height = sum(_form_size_2d(order, d.order) for d in self.dual_forms)
-        width = sum(_form_size_2d(order, d.order) for d in self.primal_forms)
+        width = sum(_form_size_2d(order, d.order) for d in self.unknown_forms)
         return (height, width)
 
     @overload
@@ -796,7 +835,7 @@ class KFormSystem:
             Offsets of different form degrees of freedom in columns.
         """
         offset_forms = (np.zeros_like(order),) + tuple(
-            accumulate(_form_size_2d(order, d.order) for d in self.primal_forms)
+            accumulate(_form_size_2d(order, d.order) for d in self.unknown_forms)
         )
         offset_equations = (np.zeros_like(order),) + tuple(
             accumulate(_form_size_2d(order, d.order) for d in self.dual_forms)
@@ -826,7 +865,7 @@ class KFormSystem:
                     o[k] = v
             duals.extend(d)
             out_list: list[str] = []
-            for k in self.primal_forms:
+            for k in self.unknown_forms:
                 if k in o:
                     out_list.append(o[k])
                 else:
@@ -836,7 +875,7 @@ class KFormSystem:
             rhs.append(fn.__name__ if fn is not None else "0")
 
         out_dual = [str(d) for d in self.dual_forms]
-        out_v = [str(iv) for iv in self.primal_forms]
+        out_v = [str(iv) for iv in self.unknown_forms]
 
         w_mat = max(max(len(s) for s in row) for row in out_mat)
         w_v = max(len(s) for s in out_v)

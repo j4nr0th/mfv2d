@@ -21,7 +21,6 @@ from interplib.kforms.kform import (
     KInnerProduct,
     KSum,
     KWeight,
-    KWeightDerivative,
     Term,
 )
 
@@ -327,7 +326,10 @@ def _equation_1d(
         return primal
     if type(form) is KFormDerivative:
         res = _equation_1d(form.form, element)
-        e = element.incidence_primal_0()
+        if form.is_primal:
+            e = element.incidence_primal_0()
+        else:
+            e = -element.incidence_primal_0().T
         for k in res:
             rk = res[k]
             if rk.ndim != 0:
@@ -337,17 +339,6 @@ def _equation_1d(
                 res[k] = np.astype(e * rk, np.float64)
         return res
 
-    if type(form) is KWeightDerivative:
-        res = _equation_1d(form.form, element)
-        e = element.incidence_primal_0()
-        for k in res:
-            rk = res[k]
-            if rk.ndim != 0:
-                res[k] = np.astype(e @ rk, np.float64)
-            else:
-                assert isinstance(rk, np.float64)
-                res[k] = np.astype(e * rk, np.float64)
-        return res
     if type(form) is KHodge:
         primal = _equation_1d(form.base_form, element)
         prime_order = form.primal_order
@@ -403,7 +394,7 @@ def element_system(
         form_matrices = _equation_1d(equation.left, element)
         for form in form_matrices:
             val = form_matrices[form]
-            idx = system.primal_forms.index(form)
+            idx = system.unknown_forms.index(form)
             assert val is not None
             system_matrix[
                 offset_equations[ie] : offset_equations[ie + 1],

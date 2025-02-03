@@ -18,13 +18,13 @@ from interplib.mimetic.mimetic1d import Mesh1D, element_system
 def solve_system_on_mesh(
     system: kform.KFormSystem,
     mesh: Mesh1D,
-    continuous: Sequence[kform.KForm],
+    continuous: Sequence[kform.KFormUnknown],
     bcs_left: kform.BoundaryCondition1D | None = None,
     bcs_right: kform.BoundaryCondition1D | None = None,
-) -> dict[kform.KForm, Spline1D]:
+) -> dict[kform.KFormUnknown, Spline1D]:
     """Solve the system on the specified mesh."""
     # Check that inputs make sense.
-    for primal in system.primal_forms:
+    for primal in system.unknown_forms:
         if primal.order > 1:
             raise ValueError(
                 f"Can not solve the system on a 1D mesh, as it contains a {primal.order}"
@@ -34,10 +34,10 @@ def solve_system_on_mesh(
     if bcs_left is not None:
         if isinstance(bcs_left, kform.BoundaryCondition1DStrong):
             for form in bcs_left.forms:
-                if form not in system.primal_forms:
+                if form not in system.unknown_forms:
                     raise ValueError(
                         f"Left boundary condition uses a form {form}, which is not in any"
-                        f" of the equations (which have forms {system.primal_forms})."
+                        f" of the equations (which have forms {system.unknown_forms})."
                     )
         elif isinstance(bcs_left, kform.BoundaryCondition1DWeak):
             if bcs_left.form not in system.weak_forms:
@@ -49,10 +49,11 @@ def solve_system_on_mesh(
     if bcs_right is not None:
         if isinstance(bcs_right, kform.BoundaryCondition1DStrong):
             for form in bcs_right.forms:
-                if form not in system.primal_forms:
+                if form not in system.unknown_forms:
                     raise ValueError(
                         f"Right boundary condition uses a form {form}, which is not in"
-                        f" any of the equations (which have forms {system.primal_forms})."
+                        " any of the equations (which have forms"
+                        f" {system.unknown_forms})."
                     )
         elif isinstance(bcs_right, kform.BoundaryCondition1DWeak):
             if bcs_right.form not in system.weak_forms:
@@ -65,7 +66,7 @@ def solve_system_on_mesh(
     # d_cont_indices: list[int] = []
     for form in continuous:
         try:
-            cont_indices.append(system.primal_forms.index(form))
+            cont_indices.append(system.unknown_forms.index(form))
         except ValueError:
             raise ValueError(
                 f"Can not enforce continuity on {form}, as it is not a form in the system"
@@ -146,7 +147,7 @@ def solve_system_on_mesh(
             dof_indices = []
             for form in bcs_left.forms:
                 coeffs.append(bcs_left.forms[form])
-                form_index = system.primal_forms.index(form)
+                form_index = system.unknown_forms.index(form)
                 form_offset = offset_primal[form_index][0] + 0
                 dof_indices.append(form_offset + base_offset)
             element_vectors.append(np.array([bcs_left.value]))
@@ -164,7 +165,7 @@ def solve_system_on_mesh(
                     form_offset = offset_dual[ie][0] + 0
                     element_vectors[0][form_offset] -= bcs_left.value
 
-            form_index = system.primal_forms.index(bcs_left.form)
+            form_index = system.unknown_forms.index(bcs_left.form)
             form_offset = offset_primal[form_index][0] + 0
             element_vectors[0][form_offset] -= bcs_left.value
 
@@ -178,7 +179,7 @@ def solve_system_on_mesh(
             dof_indices = []
             for form in bcs_right.forms:
                 coeffs.append(bcs_right.forms[form])
-                form_index = system.primal_forms.index(form)
+                form_index = system.unknown_forms.index(form)
                 form_offset = offset_primal[form_index + 1][-1] - 1
                 dof_indices.append(form_offset + base_offset)
             element_vectors.append(np.array([bcs_right.value]))
@@ -228,8 +229,8 @@ def solve_system_on_mesh(
     solution = sla.spsolve(matrix, vector)
 
     # Prepare to build up the 1D Splines
-    build: dict[kform.KForm, list[npt.NDArray[np.float64]]] = {
-        form: [] for form in system.primal_forms
+    build: dict[kform.KFormUnknown, list[npt.NDArray[np.float64]]] = {
+        form: [] for form in system.unknown_forms
     }
 
     max_coeffs = np.max(mesh.element_orders) + 1
@@ -240,7 +241,7 @@ def solve_system_on_mesh(
         element_dofs = solution[element_offset[ie] : element_offset[ie + 1]]
 
         # Loop over each of the primal forms
-        for idx, form in enumerate(system.primal_forms):
+        for idx, form in enumerate(system.unknown_forms):
             basis: tuple[Polynomial1D, ...]
             # Pick the basis
             if form.order == 0:
@@ -263,7 +264,7 @@ def solve_system_on_mesh(
             else:
                 build[form].append(k)
 
-    out: dict[kform.KForm, Spline1D] = dict()
+    out: dict[kform.KFormUnknown, Spline1D] = dict()
     nodes = mesh.positions
     # Build the output splines
     for form in build:

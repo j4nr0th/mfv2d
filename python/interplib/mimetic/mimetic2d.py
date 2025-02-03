@@ -8,15 +8,14 @@ import numpy.typing as npt
 from interplib._interp import Polynomial1D, compute_gll, dlagrange1d, lagrange1d
 from interplib.interp2d import Polynomial2D
 from interplib.kforms.kform import (
-    KForm,
     KFormDerivative,
     KFormProjection,
     KFormSystem,
+    KFormUnknown,
     KHodge,
     KInnerProduct,
     KSum,
     KWeight,
-    KWeightDerivative,
     Term,
 )
 from interplib.product_basis import BasisProduct2D
@@ -481,25 +480,43 @@ def _equation_2d(
         for k in primal:
             vd = dual[dv]
             vp = primal[k]
-            order_p = form.function.order
-            order_d = form.weight.order
+            order_p = form.function.primal_order
+            order_d = form.weight.primal_order
             assert order_p == order_d
             mass: npt.NDArray[np.float64]
             if order_p == 0 and order_d == 0:
-                if not form.function.is_primal:
-                    mass = np.eye((element.order + 1) ** 2)
+                if form.function.is_primal:
+                    if form.weight.is_primal:
+                        mass = element.mass_matrix_node
+                    else:
+                        mass = np.eye((element.order + 1) ** 2)
                 else:
-                    mass = element.mass_matrix_node
+                    if form.weight.is_primal:
+                        mass = np.eye((element.order + 1) ** 2)
+                    else:
+                        mass = np.linalg.inv(element.mass_matrix_node)  # type: ignore
             elif order_p == 1 and order_d == 1:
-                if not form.function.is_primal:
-                    mass = np.eye((element.order + 1) * element.order * 2)
+                if form.function.is_primal:
+                    if form.weight.is_primal:
+                        mass = element.mass_matrix_edge
+                    else:
+                        mass = np.eye((element.order + 1) * element.order * 2)
                 else:
-                    mass = element.mass_matrix_edge
+                    if form.weight.is_primal:
+                        mass = np.eye((element.order + 1) * element.order * 2)
+                    else:
+                        mass = np.linalg.inv(element.mass_matrix_edge)  # type: ignore
             elif order_p == 2 and order_d == 2:
-                if not form.function.is_primal:
-                    mass = np.eye((element.order) ** 2)
+                if form.function.is_primal:
+                    if form.weight.is_primal:
+                        mass = element.mass_matrix_surface
+                    else:
+                        mass = np.eye(element.order**2)
                 else:
-                    mass = element.mass_matrix_surface
+                    if form.weight.is_primal:
+                        mass = np.eye(element.order**2)
+                    else:
+                        mass = np.linalg.inv(element.mass_matrix_surface)  # type: ignore
             else:
                 raise ValueError(
                     f"Order {form.function.order} can't be used on a 2D mesh."
@@ -521,12 +538,21 @@ def _equation_2d(
     if type(form) is KFormDerivative:
         res = _equation_2d(form.form, element)
         e: npt.NDArray[np.float64]
-        if form.form.order == 0:
-            e = element.incidence_01()
-        elif form.form.order == 1:
-            e = element.incidence_12()
+        if form.is_primal:
+            if form.form.order == 0:
+                e = element.incidence_01()
+            elif form.form.order == 1:
+                e = element.incidence_12()
+            else:
+                assert False
         else:
-            assert False
+            if form.form.order == 0:
+                e = -element.incidence_12().T
+            elif form.form.order == 1:
+                e = -element.incidence_01().T
+            else:
+                assert False
+
         for k in res:
             rk = res[k]
             if rk.ndim != 0:
@@ -536,22 +562,6 @@ def _equation_2d(
                 res[k] = np.astype(e * rk, np.float64)
         return res
 
-    if type(form) is KWeightDerivative:
-        res = _equation_2d(form.form, element)
-        if form.form.order == 0:
-            e = element.incidence_01()
-        elif form.form.order == 1:
-            e = element.incidence_12()
-        else:
-            assert False
-        for k in res:
-            rk = res[k]
-            if rk.ndim != 0:
-                res[k] = np.astype(e @ rk, np.float64)
-            else:
-                assert isinstance(rk, np.float64)
-                res[k] = np.astype(e * rk, np.float64)
-        return res
     if type(form) is KHodge:
         primal = _equation_2d(form.base_form, element)
         prime_order = form.primal_order
@@ -564,6 +574,8 @@ def _equation_2d(
                 mass = element.mass_matrix_surface
             else:
                 assert False
+            if form.is_primal:
+                mass = np.linalg.inv(mass)  # type: ignore
             vp = primal[k]
             if vp.ndim != 0:
                 assert isinstance(vp, np.ndarray)
@@ -573,7 +585,7 @@ def _equation_2d(
                 mass *= vp
             primal[k] = mass
         return primal
-    if type(form) is KForm:
+    if type(form) is KFormUnknown:
         return {form: np.float64(1.0)}
     if type(form) is KWeight:
         return {form: np.float64(1.0)}
@@ -609,7 +621,7 @@ def element_system(
         form_matrices = _equation_2d(equation.left, element)
         for form in form_matrices:
             val = form_matrices[form]
-            idx = system.primal_forms.index(form)
+            idx = system.unknown_forms.index(form)
             assert val is not None
             system_matrix[
                 offset_equations[ie] : offset_equations[ie + 1],

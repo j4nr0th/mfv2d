@@ -116,11 +116,11 @@ class Element2D:
         nodes, weights = compute_gll(5 * self.order + 2)  # `self.order + 2` is exact
         values = lagrange1d(self.nodes_1d, nodes)
         weights_2d = weights[:, None] * weights[None, :]
-        jacob = self.jacobian  # (nodes[:, None], nodes[None, :])
-        j00 = jacob[0][0](nodes[:, None], nodes[None, :])
-        j01 = jacob[0][1](nodes[:, None], nodes[None, :])
-        j10 = jacob[1][0](nodes[:, None], nodes[None, :])
-        j11 = jacob[1][1](nodes[:, None], nodes[None, :])
+        jacob = self.jacobian  # (nodes[None, :], nodes[:, None])
+        j00 = jacob[0][0](nodes[None, :], nodes[:, None])
+        j01 = jacob[0][1](nodes[None, :], nodes[:, None])
+        j10 = jacob[1][0](nodes[None, :], nodes[:, None])
+        j11 = jacob[1][1](nodes[None, :], nodes[:, None])
         det = j00 * j11 - j10 * j01
 
         weights_2d *= det
@@ -154,11 +154,11 @@ class Element2D:
         in_dvalues = dlagrange1d(self.nodes_1d, nodes)
         dvalues = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
         weights_2d = weights[None, :] * weights[:, None]
-        jacob = self.jacobian  # (nodes[:, None], nodes[None, :])
-        j00 = jacob[0][0](nodes[:, None], nodes[None, :])
-        j01 = jacob[0][1](nodes[:, None], nodes[None, :])
-        j10 = jacob[1][0](nodes[:, None], nodes[None, :])
-        j11 = jacob[1][1](nodes[:, None], nodes[None, :])
+        jacob = self.jacobian  # (nodes[None, :], nodes[:, None])
+        j00 = jacob[0][0](nodes[None, :], nodes[:, None])
+        j01 = jacob[0][1](nodes[None, :], nodes[:, None])
+        j10 = jacob[1][0](nodes[None, :], nodes[:, None])
+        j11 = jacob[1][1](nodes[None, :], nodes[:, None])
         det = j00 * j11 - j10 * j01
 
         khh = j00**2 + j10**2
@@ -211,11 +211,11 @@ class Element2D:
         in_dvalues = dlagrange1d(self.nodes_1d, nodes)
         values = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
         weights_2d = weights[:, None] * weights[None, :]
-        jacob = self.jacobian  # (nodes[:, None], nodes[None, :])
-        j00 = jacob[0][0](nodes[:, None], nodes[None, :])
-        j01 = jacob[0][1](nodes[:, None], nodes[None, :])
-        j10 = jacob[1][0](nodes[:, None], nodes[None, :])
-        j11 = jacob[1][1](nodes[:, None], nodes[None, :])
+        jacob = self.jacobian  # (nodes[None, :], nodes[:, None])
+        j00 = jacob[0][0](nodes[None, :], nodes[:, None])
+        j01 = jacob[0][1](nodes[None, :], nodes[:, None])
+        j10 = jacob[1][0](nodes[None, :], nodes[:, None])
+        j11 = jacob[1][1](nodes[None, :], nodes[:, None])
         det = j00 * j11 - j10 * j01
 
         weights_2d /= det
@@ -225,12 +225,10 @@ class Element2D:
             v1 = values[i1]
             for j1 in range(n):
                 u1 = values[j1]
-                basis1 = v1[None, :] * u1[:, None]
+                basis1 = v1[:, None] * u1[None, :]
                 basis_vals.append(basis1)
         for i in range(n * n):
             for j in range(i + 1):
-                # from matplotlib import pyplot as plt
-
                 prod = analitical_basis[j] * analitical_basis[i]
                 ad0 = prod.antiderivative(0)
                 ad1 = (ad0(+1, None) + (-1) * ad0(-1, None)).antiderivative
@@ -357,7 +355,7 @@ def _extract_rhs_2d(
 
         if right.weight.order == 2:
             out_vec = np.empty(n_dof)
-            jacob = element.jacobian  # (nodes[:, None], nodes[None, :])
+            jacob = element.jacobian  # (nodes[None, :], nodes[:, None])
 
             nodes, weights = compute_gll(2 * p)
             weights_2d = weights[None, :] * weights[:, None]
@@ -368,6 +366,12 @@ def _extract_rhs_2d(
 
                     xcomp = element.poly_x(xi[None, :], eta[:, None])
                     ycomp = element.poly_y(xi[None, :], eta[:, None])
+                    w = (
+                        weights_2d
+                        * (comp_1d[i + 1] - comp_1d[i])
+                        * (comp_1d[j + 1] - comp_1d[j])
+                        / 4
+                    )
 
                     j00 = jacob[0][0](xi[None, :], eta[:, None])
                     j01 = jacob[0][1](xi[None, :], eta[:, None])
@@ -375,12 +379,12 @@ def _extract_rhs_2d(
                     j11 = jacob[1][1](xi[None, :], eta[:, None])
                     det = j00 * j11 - j10 * j01
 
-                    out_vec[i * p + j] = np.sum(weights_2d * fn(xcomp, ycomp) * det)
+                    out_vec[i * p + j] = np.sum(w * fn(xcomp, ycomp) * det)
             mass = element.mass_matrix_surface
         elif right.weight.order == 1:
             nodes, weights = compute_gll(2 * p)
             out_vec = np.empty(n_dof)
-            jacob = element.jacobian  # (nodes[:, None], nodes[None, :])
+            jacob = element.jacobian  # (nodes[None, :], nodes[:, None])
             for i in range(p + 1):
                 for j in range(p):
                     xi = (nodes + 1) / 2 * (comp_1d[j + 1] - comp_1d[j]) + comp_1d[j]
@@ -396,7 +400,7 @@ def _extract_rhs_2d(
                     j11 = jacob[1][1](xi, eta[None])
                     det = j00 * j11 - j10 * j01
 
-                    res = np.sum(fn(xcomp, ycomp) * w * det)
+                    res = np.sum(fn(xcomp, ycomp)[..., 1] * w * det)
                     out_vec[i * p + j] = res
 
             for i in range(p):
@@ -414,7 +418,7 @@ def _extract_rhs_2d(
                     j11 = jacob[1][1](xi[None], eta)
                     det = j00 * j11 - j10 * j01
 
-                    res = np.sum(fn(xcomp, ycomp) * w * det)
+                    res = np.sum(fn(xcomp, ycomp)[..., 0] * w * det)
                     out_vec[p * (p + 1) + i * (p + 1) + j] = res
 
             mass = element.mass_matrix_edge

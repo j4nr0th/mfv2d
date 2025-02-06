@@ -663,6 +663,7 @@ static PyObject *maifold2d_from_irregular(PyObject *type, PyObject *args, PyObje
     {
         Py_DECREF(seq);
         Py_DECREF(this);
+        return NULL;
     }
     int same_size = 1;
     const size_t first_size = this->n_surfaces ? this->surf_counts[1] - this->surf_counts[0] : 0;
@@ -752,7 +753,171 @@ static PyObject *maifold2d_from_irregular(PyObject *type, PyObject *args, PyObje
     return (PyObject *)this;
 }
 
-static PyMethodDef pyvl_mesh_methods[] = {
+static PyObject *maifold2d_from_regular(PyObject *type, PyObject *args, PyObject *kwargs)
+{
+    unsigned npts;
+    PyObject *arg_lines;
+    PyObject *arg_surf;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "IOO",
+                                     (char *[4]){"n_points", "line_connectivity", "surface_connectivity", NULL}, &npts,
+                                     &arg_lines, &arg_surf))
+    {
+        return NULL;
+    }
+
+    PyArrayObject *const line_array = (PyArrayObject *)PyArray_FromAny(
+        arg_lines, PyArray_DescrFromType(NPY_INT), 2, 2, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
+    if (!line_array)
+        return NULL;
+    const unsigned n_lines = PyArray_DIM(line_array, 0);
+    if (PyArray_DIM(line_array, 1) != 2)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Connectivity array must have the shape (N, 2), but instead its shape was (%u, %u).",
+                     (unsigned)PyArray_DIM(line_array, 0), (unsigned)PyArray_DIM(line_array, 1));
+        Py_DECREF(line_array);
+        return NULL;
+    }
+    PyTypeObject *const obj_type = (PyTypeObject *)type;
+    manifold2d_object_t *const this = (manifold2d_object_t *)obj_type->tp_alloc(obj_type, 0);
+    if (!this)
+    {
+        Py_DECREF(line_array);
+        return NULL;
+    }
+
+    this->n_points = npts;
+    this->n_lines = n_lines;
+    this->n_surfaces = 0;
+
+    this->lines = NULL;
+    this->surf_lines = NULL;
+    this->surf_counts = NULL;
+
+    this->lines = PyObject_Malloc(sizeof *this->lines * n_lines);
+    if (!this->lines)
+    {
+        Py_DECREF(this);
+        Py_DECREF(line_array);
+        return NULL;
+    }
+
+    const int *restrict p_in = PyArray_DATA(line_array);
+    for (unsigned i_ln = 0; i_ln < n_lines; ++i_ln)
+    {
+        const geo_id_t begin = geo_id_pack(p_in[0]);
+        const geo_id_t end = geo_id_pack(p_in[1]);
+
+        if (begin.index >= npts || end.index >= npts)
+        {
+            PyErr_Format(PyExc_ValueError, "Line %u has points (%u, %u), but there were only %u points specified.",
+                         i_ln, begin.index, end.index, npts);
+            Py_DECREF(this);
+            Py_DECREF(line_array);
+            return NULL;
+        }
+        this->lines[i_ln] = (line_t){
+            .begin = begin,
+            .end = end,
+        };
+        p_in += 2;
+    }
+    Py_DECREF(line_array);
+
+    PyArrayObject *const surfaces = (PyArrayObject *)PyArray_FromAny(arg_surf, PyArray_DescrFromType(NPY_INT), 2, 2,
+                                                                     NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
+    if (!surfaces)
+    {
+        Py_DECREF(this);
+        return NULL;
+    }
+    this->n_surfaces = PyArray_DIM(surfaces, 0);
+    const unsigned n_per_surf = PyArray_DIM(surfaces, 1);
+
+    this->surf_counts = PyObject_Malloc(sizeof *this->surf_counts * (this->n_surfaces + 1));
+    if (!this->surf_counts)
+    {
+        Py_DECREF(this);
+        return NULL;
+    }
+    this->surf_lines = PyObject_Malloc(sizeof(*this->surf_lines) * this->n_surfaces * n_per_surf);
+    if (!this->surf_lines)
+    {
+        Py_DECREF(surfaces);
+        Py_DECREF(this);
+        return NULL;
+    }
+
+    // Count up the offsets
+    this->surf_counts[0] = 0;
+    const int *const lines = PyArray_DATA(surfaces);
+    for (unsigned i = 0; i < this->n_surfaces; ++i)
+    {
+        const size_t offset = this->surf_counts[i];
+        this->surf_counts[i + 1] = offset + n_per_surf;
+        geo_id_t *const surf_lines = this->surf_lines + offset;
+        for (unsigned j = 0; j < n_per_surf; ++j)
+        {
+            const geo_id_t id = geo_id_pack(lines[offset + j]);
+            if (id.index != GEO_ID_INVALID && id.index >= this->n_lines)
+            {
+                PyErr_Format(PyExc_ValueError,
+                             "Surface %u specified a line with index %u, which is larger than"
+                             "the number of lines in the mesh (%u).",
+                             i, id.index, this->n_lines);
+                Py_DECREF(surfaces);
+                Py_DECREF(this);
+                return NULL;
+            }
+            surf_lines[j] = id;
+        }
+
+        geo_id_t end;
+        {
+            const geo_id_t id1 = surf_lines[n_per_surf - 1];
+            if (id1.reverse)
+            {
+                end = this->lines[id1.index].begin;
+            }
+            else
+            {
+                end = this->lines[id1.index].end;
+            }
+        }
+        for (unsigned j = 0; j < n_per_surf; ++j)
+        {
+
+            geo_id_t begin, new_end;
+            const geo_id_t id2 = surf_lines[j];
+            if (id2.reverse)
+            {
+                begin = this->lines[id2.index].end;
+                new_end = this->lines[id2.index].begin;
+            }
+            else
+            {
+                begin = this->lines[id2.index].begin;
+                new_end = this->lines[id2.index].end;
+            }
+
+            if (begin.index != end.index)
+            {
+                PyErr_Format(PyExc_ValueError,
+                             "Line %u does not end (point %u) where line %u begins (point %u) for surface %u.",
+                             j == 0 ? n_per_surf - 1 : j - 1, end.index, j, begin.index, i);
+                Py_DECREF(surfaces);
+                Py_DECREF(this);
+                return NULL;
+            }
+            end = new_end;
+        }
+    }
+    Py_DECREF(surfaces);
+
+    return (PyObject *)this;
+}
+
+static PyMethodDef manifold2d_object_methods[] = {
     {.ml_name = "get_line",
      .ml_meth = manifold2d_get_line,
      .ml_flags = METH_O,
@@ -827,6 +992,31 @@ static PyMethodDef pyvl_mesh_methods[] = {
                "-------\n"
                "Self\n"
                "    Two dimensional manifold.\n"},
+    {.ml_name = "from_regular",
+     .ml_meth = (void *)maifold2d_from_regular,
+     .ml_flags = METH_CLASS | METH_VARARGS | METH_KEYWORDS,
+     .ml_doc = "from_regular(\n"
+               "    n_points: int,\n"
+               "    line_connectivity: array_like,\n"
+               "    surface_connectivity: array_like,\n"
+               ") -> Self\n"
+               "Create Manifold2D from surfaces with constant number of lines.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "n_points : int\n"
+               "    Number of points in the mesh.\n"
+               "line_connectivity : (N, 2) array_like\n"
+               "    Connectivity of points which form lines in 0-based indexing.\n"
+               "surface_connectivity : array_like\n"
+               "    Two dimensional array-like object specifying connectivity of mesh\n"
+               "    surfaces in 1-based indexing, where a negative value means that\n"
+               "    the line's orientation is reversed.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "Self\n"
+               "    Two dimensional manifold.\n"},
     {0},
 };
 
@@ -865,7 +1055,7 @@ PyTypeObject manifold2d_type_object = {
     .tp_str = manifold2d_str,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
     .tp_doc = manifold2d_type_docstring,
-    .tp_methods = pyvl_mesh_methods,
+    .tp_methods = manifold2d_object_methods,
     .tp_getset = manifold2d_getset,
     // .tp_new = manifold2d_new,
     .tp_dealloc = manifold2d_dealloc,

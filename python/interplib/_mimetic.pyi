@@ -239,6 +239,33 @@ class Manifold2D(Manifold):
         """
         ...
 
+    @classmethod
+    def from_regular(
+        cls,
+        n_points: int,
+        line_connectivity: npt.ArrayLike,
+        surface_connectivity: Sequence[npt.ArrayLike] | npt.ArrayLike,
+    ) -> Self:
+        """Create Manifold2D from surfaces with constant number of lines.
+
+        Parameters
+        ----------
+        n_points : int
+            Number of points in the mesh.
+        line_connectivity : (N, 2) array_like
+            Connectivity of points which form lines in 0-based indexing.
+        surface_connectivity : array_like
+            Two dimensional array-like object specifying connectivity of mesh
+            surfaces in 1-based indexing, where a negative value means that
+            the line's orientation is reversed.
+
+        Returns
+        -------
+        Self
+            Two dimensional manifold.
+        """
+        ...
+
     def __eq__(self, value) -> bool: ...
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...

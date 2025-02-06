@@ -60,11 +60,10 @@ class KForm(Term):
 
     def __mul__(self, other: KForm, /) -> KInnerProduct:
         """Inner product with a weight."""
-        if type(self) is KWeight:
+        try:
             return KInnerProduct(other, self)
-        if type(other) is KWeight:
-            return KInnerProduct(other, self)
-        return NotImplemented
+        except Exception:
+            return NotImplemented
 
     def __rmul__(self, other: KForm, /) -> KInnerProduct:
         """Inner product with a weight."""
@@ -308,13 +307,7 @@ class KInnerProduct(Term):
     weight: KForm
     function: KForm
 
-    # Check if order is even needed
-    @overload
-    def __init__(self, weight: KWeight, function: KForm, /) -> None: ...
-    @overload
-    def __init__(self, weight: KForm, function: KWeight, /) -> None: ...
-
-    def __init__(self, a: KForm | KWeight, b: KForm | KWeight, /) -> None:
+    def __init__(self, a: KForm, b: KForm, /) -> None:
         if a.is_weight == b.is_weight:
             raise TypeError(
                 "Inner product can only be taken between a weight and an unknown k-form."

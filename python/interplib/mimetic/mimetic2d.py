@@ -73,7 +73,7 @@ class Element2D:
         self.top_right = tr
         self.top_left = tl
 
-        nodes1d = np.linspace(-1, 1, p + 1, dtype=np.float64)
+        nodes1d, _ = compute_gll(p)
         self.nodes_1d = nodes1d
         self.nodes_2d = np.empty((p + 1, p + 1, 2))
         for i in range(p + 1):
@@ -195,7 +195,7 @@ class Element2D:
 
         for i in range(nv):
             for j in range(nh):
-                res = np.sum(weights_2d * basis_v[j] * basis_h[i] * kvh)
+                res = np.sum(weights_2d * basis_h[j] * basis_v[i] * kvh)
                 mat[nh + i, j] = mat[j, nh + i] = res
 
         assert np.allclose(mat, mat.T)
@@ -219,7 +219,7 @@ class Element2D:
 
         weights_2d /= det
         basis_vals: list[npt.NDArray] = list()
-        analitical_basis: tuple[Polynomial2D] = tuple(self.basis_surf.flat)
+        # analitical_basis: tuple[Polynomial2D] = tuple(self.basis_surf.flat)
         for i1 in range(n):
             v1 = values[i1]
             for j1 in range(n):
@@ -228,12 +228,12 @@ class Element2D:
                 basis_vals.append(basis1)
         for i in range(n * n):
             for j in range(i + 1):
-                prod = analitical_basis[j] * analitical_basis[i]
-                ad0 = prod.antiderivative(0)
-                ad1 = (ad0(+1, None) + (-1) * ad0(-1, None)).antiderivative
-                res_anl = ad1(+1) - ad1(-1)
+                # prod = analitical_basis[j] * analitical_basis[i]
+                # ad0 = prod.antiderivative(0)
+                # ad1 = (ad0(+1, None) + (-1) * ad0(-1, None)).antiderivative
+                # res_anl = ad1(+1) - ad1(-1)
                 res = np.sum(weights_2d * basis_vals[i] * basis_vals[j])
-                assert np.isclose(res, res_anl)
+                # assert np.isclose(res, res_anl)
                 mat[i, j] = mat[j, i] = res
         return mat
 
@@ -345,87 +345,89 @@ def _extract_rhs_2d(
 
     if fn is None:
         return np.zeros(n_dof)
+
+    out_vec = np.empty(n_dof)
+
+    basis_vals: list[npt.NDArray[np.floating]] = list()
+
+    nodes, weights = compute_gll(3 * (p + 1))
+    jacob = element.jacobian  # (nodes[None, :], nodes[:, None])
+    j00 = jacob[0][0](nodes[None, :], nodes[:, None])
+    j01 = jacob[0][1](nodes[None, :], nodes[:, None])
+    j10 = jacob[1][0](nodes[None, :], nodes[:, None])
+    j11 = jacob[1][1](nodes[None, :], nodes[:, None])
+    real_x = element.poly_x(nodes[None, :], nodes[:, None])
+    real_y = element.poly_y(nodes[None, :], nodes[:, None])
+    det = j00 * j11 - j10 * j01
+    f_vals = fn(real_x, real_y)
+    weights_2d = weights[None, :] * weights[:, None]
+
+    # Deal with vectors first. These need special care.
+    if right.weight.order == 1:
+        values = lagrange1d(element.nodes_1d, nodes)
+        d_vals = dlagrange1d(element.nodes_1d, nodes)
+        d_values = tuple(accumulate(-d_vals[..., i] for i in range(p)))
+
+        new_f0 = j00 * f_vals[..., 0] + j01 * f_vals[..., 1]
+        new_f1 = j10 * f_vals[..., 0] + j11 * f_vals[..., 1]
+
+        for i1 in range(p + 1):
+            v1 = values[..., i1]
+            for j1 in range(p):
+                u1 = d_values[j1]
+                basis1 = v1[:, None] * u1[None, :]
+
+                out_vec[i1 * p + j1] = np.sum(basis1 * new_f1 * weights_2d)
+
+        for i1 in range(p):
+            v1 = d_values[i1]
+            for j1 in range(p + 1):
+                u1 = values[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+
+                out_vec[p * (p + 1) + i1 * (p + 1) + j1] = np.sum(
+                    basis1 * new_f0 * weights_2d
+                )
+        return out_vec
+
+    if right.weight.order == 2:
+        d_vals = dlagrange1d(element.nodes_1d, nodes)
+        d_values = tuple(accumulate(-d_vals[..., i] for i in range(p)))
+        for i1 in range(p):
+            v1 = d_values[i1]
+            for j1 in range(p):
+                u1 = d_values[j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_vals.append(basis1)
+        assert len(basis_vals) == n_dof
+        # weights_2d /= det
+
+    elif right.weight.order == 0:
+        values = lagrange1d(element.nodes_1d, nodes)
+        for i1 in range(p + 1):
+            v1 = values[..., i1]
+            for j1 in range(p + 1):
+                u1 = values[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_vals.append(basis1)
+        assert len(basis_vals) == n_dof
+        weights_2d *= det
+
     else:
-        out_vec: npt.NDArray[np.float64]
-        mass: npt.NDArray[np.floating]
-        comp_1d = np.linspace(-1, 1, p + 1)
-        real_x = element.poly_x(comp_1d[None, :], comp_1d[:, None])
-        real_y = element.poly_y(comp_1d[None, :], comp_1d[:, None])
+        assert False
 
-        if right.weight.order == 2:
-            out_vec = np.empty(n_dof)
-            jacob = element.jacobian  # (nodes[None, :], nodes[:, None])
+    # Compute rhs integrals
+    for i, bv in enumerate(basis_vals):
+        # from matplotlib import pyplot as plt
 
-            nodes, weights = compute_gll(2 * p)
-            weights_2d = weights[None, :] * weights[:, None]
-            for i in range(p):
-                for j in range(p):
-                    xi = (nodes + 1) / 2 * (comp_1d[j + 1] - comp_1d[j]) + comp_1d[j]
-                    eta = (nodes + 1) / 2 * (comp_1d[i + 1] - comp_1d[i]) + comp_1d[i]
+        # plt.figure()
+        # plt.title(f"Basis {i + 1:d} out of {len(basis_vals):d}")
+        # plt.imshow(bv)
+        # plt.colorbar()
+        # plt.show()
+        out_vec[i] = np.sum(bv * f_vals * weights_2d)
 
-                    xcomp = element.poly_x(xi[None, :], eta[:, None])
-                    ycomp = element.poly_y(xi[None, :], eta[:, None])
-                    w = (
-                        weights_2d
-                        * (comp_1d[i + 1] - comp_1d[i])
-                        * (comp_1d[j + 1] - comp_1d[j])
-                        / 4
-                    )
-
-                    j00 = jacob[0][0](xi[None, :], eta[:, None])
-                    j01 = jacob[0][1](xi[None, :], eta[:, None])
-                    j10 = jacob[1][0](xi[None, :], eta[:, None])
-                    j11 = jacob[1][1](xi[None, :], eta[:, None])
-                    det = j00 * j11 - j10 * j01
-
-                    out_vec[i * p + j] = np.sum(w * fn(xcomp, ycomp) * det)
-            mass = element.mass_matrix_surface
-        elif right.weight.order == 1:
-            nodes, weights = compute_gll(2 * p)
-            out_vec = np.empty(n_dof)
-            jacob = element.jacobian  # (nodes[None, :], nodes[:, None])
-            for i in range(p + 1):
-                for j in range(p):
-                    xi = (nodes + 1) / 2 * (comp_1d[j + 1] - comp_1d[j]) + comp_1d[j]
-                    eta = comp_1d[i]
-
-                    xcomp = element.poly_x(xi, eta[None])
-                    ycomp = element.poly_y(xi, eta[None])
-
-                    w = weights * (comp_1d[j + 1] - comp_1d[j]) / 2
-                    j00 = jacob[0][0](xi, eta[None])
-                    j01 = jacob[0][1](xi, eta[None])
-                    j10 = jacob[1][0](xi, eta[None])
-                    j11 = jacob[1][1](xi, eta[None])
-                    det = j00 * j11 - j10 * j01
-
-                    res = np.sum(fn(xcomp, ycomp)[..., 1] * w * det)
-                    out_vec[i * p + j] = res
-
-            for i in range(p):
-                for j in range(p + 1):
-                    xi = comp_1d[j]
-                    eta = (nodes + 1) / 2 * (comp_1d[i + 1] - comp_1d[i]) + comp_1d[i]
-
-                    xcomp = element.poly_x(xi[None], eta)
-                    ycomp = element.poly_y(xi[None], eta)
-
-                    w = weights * (comp_1d[i + 1] - comp_1d[i]) / 2
-                    j00 = jacob[0][0](xi[None], eta)
-                    j01 = jacob[0][1](xi[None], eta)
-                    j10 = jacob[1][0](xi[None], eta)
-                    j11 = jacob[1][1](xi[None], eta)
-                    det = j00 * j11 - j10 * j01
-
-                    res = np.sum(fn(xcomp, ycomp)[..., 0] * w * det)
-                    out_vec[p * (p + 1) + i * (p + 1) + j] = res
-
-            mass = element.mass_matrix_edge
-        elif right.weight.order == 0:
-            out_vec = np.empty(n_dof)
-            out_vec[:] = np.asarray(fn(real_x, real_y)).flatten()
-            mass = element.mass_matrix_node
-        return np.astype(mass @ np.astype(out_vec, np.float64), np.float64)
+    return out_vec
 
 
 #

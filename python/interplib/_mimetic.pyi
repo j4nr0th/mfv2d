@@ -216,7 +216,7 @@ class Manifold2D(Manifold):
     def from_irregular(
         cls,
         n_points: int,
-        line_connectivity: npt.ArrayLike,
+        line_connectivity: Sequence[npt.ArrayLike] | npt.ArrayLike,
         surface_connectivity: Sequence[npt.ArrayLike] | npt.ArrayLike,
     ) -> Self:
         """Create Manifold2D from surfaces with non-constant number of lines.
@@ -243,7 +243,7 @@ class Manifold2D(Manifold):
     def from_regular(
         cls,
         n_points: int,
-        line_connectivity: npt.ArrayLike,
+        line_connectivity: Sequence[npt.ArrayLike] | npt.ArrayLike,
         surface_connectivity: Sequence[npt.ArrayLike] | npt.ArrayLike,
     ) -> Self:
         """Create Manifold2D from surfaces with constant number of lines.
@@ -263,6 +263,37 @@ class Manifold2D(Manifold):
         -------
         Self
             Two dimensional manifold.
+        """
+        ...
+
+    def compute_dual(self) -> Manifold2D:
+        """Compute the dual to the manifold.
+
+        A dual of each k-dimensional object in an n-dimensional space is a
+        (n-k)-dimensional object. This means that duals of surfaces are points,
+        duals of lines are also lines, and that the duals of points are surfaces.
+
+        A dual line connects the dual points which correspond to surfaces which
+        the line was a part of. Since the change over a line is computed by
+        subtracting the value at the beginning from that at the end, the dual point
+        which corresponds to the primal surface where the primal line has a
+        positive orientation is the end point of the dual line and conversely the end
+        dual point is the one corresponding to the surface which contained the primal
+        line in the negative orientation. Since lines may only be contained in a
+        single primal surface, they may have an invalid ID as either their beginning or
+        their end. This can be used to determine if the line is actually a boundary of
+        the manifold.
+
+        A dual surface corresponds to a point and contains dual lines which correspond
+        to primal lines, which contained the primal point of which the dual surface is
+        the result of. The orientation of dual lines in this dual surface is positive if
+        the primal line of which they are duals originated in the primal point in question
+        and negative if it was their end point.
+
+        Returns
+        -------
+        Manifold2D
+            Dual manifold.
         """
         ...
 

@@ -33,7 +33,4 @@ static inline void deallocate(const allocator_callbacks *allocator, void *ptr)
     return allocator->free(allocator->state, ptr);
 }
 
-INTERPLIB_INTERNAL
-extern int base_traverse_heap_typed(PyObject *self, visitproc visit, void *arg);
-
 #endif // COMMON_H

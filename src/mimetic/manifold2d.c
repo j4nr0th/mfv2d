@@ -234,24 +234,132 @@ static PyObject *manifold2d_get_surface(PyObject *self, PyObject *arg)
     return (PyObject *)surf;
 }
 
-// TODO: oh God have mercy
-// static PyObject *pyvl_mesh_compute_dual(PyObject *self, PyObject *Py_UNUSED(arg))
-// {
-//     PyVL_MeshObject *that = (PyVL_MeshObject *)pyvl_mesh_type.tp_alloc(&pyvl_mesh_type, 0);
-//     if (!that)
-//     {
-//         return NULL;
-//     }
-//     const PyVL_MeshObject *this = (PyVL_MeshObject *)self;
-//     const int stat = mesh_dual_from_primal(&that->mesh, &this->mesh, &CVL_OBJ_ALLOCATOR);
-//     if (stat != 0)
-//     {
-//         PyErr_Format(PyExc_RuntimeError, "Could not compute dual to the mesh.");
-//         Py_DECREF(that);
-//         return NULL;
-//     }
-//     return (PyObject *)that;
-// }
+static int mesh_dual_from_primal(const manifold2d_object_t *const primal, manifold2d_object_t *const dual)
+{
+    const unsigned n_lines = primal->n_lines;
+    line_t *const dual_lines = PyObject_Malloc(sizeof *dual_lines * n_lines);
+    if (!dual_lines)
+        return -1;
+
+    dual->n_lines = n_lines;
+    dual->lines = dual_lines;
+
+    for (unsigned i_ln = 0; i_ln < n_lines; ++i_ln)
+    {
+        line_t line = {.begin = {.index = GEO_ID_INVALID}, .end = {.index = GEO_ID_INVALID}};
+        size_t cnt_before = 0;
+        // NOTE: this loop could be broken as soon as beginning and end are found, assuming the manifold is
+        // not invalid. For now the function does not assume this, since this is likely not a huge performance
+        // hit.
+        for (unsigned i_surf = 0; i_surf < primal->n_surfaces; ++i_surf)
+        {
+            const size_t cnt_after = primal->surf_counts[i_surf + 1];
+            for (size_t i = cnt_before; i < cnt_after; ++i)
+            {
+                const geo_id_t id = primal->surf_lines[i];
+                if (id.index != i_ln)
+                {
+                    continue;
+                }
+                if (id.reverse)
+                {
+                    if (line.begin.index != GEO_ID_INVALID)
+                    {
+                        PyErr_Format(PyExc_ValueError,
+                                     "Line %u appears in at least two surfaces (%u and %u)"
+                                     " with negative orientation. Such manifold is invalid.",
+                                     i_ln, line.begin.index, i_surf);
+                        // PyObject_Free(dual_lines);
+                        return -1;
+                    }
+                    line.begin.index = i_surf;
+                }
+                else
+                {
+                    if (line.end.index != GEO_ID_INVALID)
+                    {
+                        PyErr_Format(PyExc_ValueError,
+                                     "Line %u appears in at least two surfaces (%u and %u)"
+                                     " with positive orientation. Such manifold is invalid.",
+                                     i_ln, line.end.index, i_surf);
+                        // PyObject_Free(dual_lines);
+                        return -1;
+                    }
+                    line.end.index = i_surf;
+                }
+            }
+            cnt_before = cnt_after;
+        }
+        dual_lines[i_ln] = line;
+    }
+
+    const unsigned n_surf = primal->n_points;
+    size_t *const surf_counts = PyObject_Malloc(sizeof *surf_counts * (n_surf + 1));
+    if (!surf_counts)
+    {
+        return -1;
+    }
+    dual->surf_counts = surf_counts;
+
+    surf_counts[0] = 0;
+    size_t acc_cnt = 0;
+    for (unsigned pt_idx = 0; pt_idx < primal->n_points; ++pt_idx)
+    {
+        for (unsigned i_ln = 0; i_ln < primal->n_lines; ++i_ln)
+        {
+            const line_t *ln = primal->lines + i_ln;
+            acc_cnt += (ln->begin.index == pt_idx);
+            acc_cnt += (ln->end.index == pt_idx);
+        }
+        surf_counts[pt_idx + 1] = acc_cnt;
+    }
+
+    geo_id_t *dual_surf = PyObject_Malloc(sizeof *dual_surf * surf_counts[n_surf]);
+    if (!dual_surf)
+    {
+        return -1;
+    }
+    dual->surf_lines = dual_surf;
+
+    size_t offset = 0;
+    for (unsigned pt_idx = 0; pt_idx < primal->n_points; ++pt_idx)
+    {
+        const size_t offset_end = surf_counts[pt_idx + 1];
+        for (unsigned i_ln = 0; offset < offset_end; ++i_ln)
+        {
+            const line_t *ln = primal->lines + i_ln;
+            if (ln->begin.index == pt_idx)
+            {
+                dual_surf[offset] = (geo_id_t){.index = i_ln, .reverse = 0};
+                offset += 1;
+            }
+            if (ln->end.index == pt_idx)
+            {
+                dual_surf[offset] = (geo_id_t){.index = i_ln, .reverse = 1};
+                offset += 1;
+            }
+        }
+    }
+    dual->n_points = primal->n_surfaces;
+    return 0;
+}
+
+static PyObject *manifold2d_compute_dual(PyObject *self, PyObject *Py_UNUSED(arg))
+{
+    manifold2d_object_t *that = (manifold2d_object_t *)manifold_type_object.tp_alloc(&manifold_type_object, 0);
+    if (!that)
+    {
+        return NULL;
+    }
+    const manifold2d_object_t *this = (manifold2d_object_t *)self;
+    const int stat = mesh_dual_from_primal(this, that);
+    if (stat != 0)
+    {
+        Py_DECREF(that);
+        return NULL;
+    }
+    return (PyObject *)that;
+}
 
 // static void cleanup_memory(PyObject *cap)
 // {
@@ -950,10 +1058,37 @@ static PyMethodDef manifold2d_object_methods[] = {
                "-------\n"
                "Surface\n"
                "   Surface object corresponding to the ID.\n"},
-    // {.ml_name = "compute_dual",
-    //  .ml_meth = pyvl_mesh_compute_dual,
-    //  .ml_flags = METH_NOARGS,
-    //  .ml_doc = "Create dual to the mesh."},
+    {.ml_name = "compute_dual",
+     .ml_meth = manifold2d_compute_dual,
+     .ml_flags = METH_NOARGS,
+     .ml_doc = "compute_dual() -> Manifold2D\n"
+               "Compute the dual to the manifold.\n"
+               "\n"
+               "A dual of each k-dimensional object in an n-dimensional space is a\n"
+               "(n-k)-dimensional object. This means that duals of surfaces are points,\n"
+               "duals of lines are also lines, and that the duals of points are surfaces.\n"
+               "\n"
+               "A dual line connects the dual points which correspond to surfaces which\n"
+               "the line was a part of. Since the change over a line is computed by\n"
+               "subtracting the value at the beginning from that at the end, the dual point\n"
+               "which corresponds to the primal surface where the primal line has a\n"
+               "positive orientation is the end point of the dual line and conversely the end\n"
+               "dual point is the one corresponding to the surface which contained the primal\n"
+               "line in the negative orientation. Since lines may only be contained in a\n"
+               "single primal surface, they may have an invalid ID as either their beginning or\n"
+               "their end. This can be used to determine if the line is actually a boundary of\n"
+               "the manifold.\n"
+               "\n"
+               "A dual surface corresponds to a point and contains dual lines which correspond\n"
+               "to primal lines, which contained the primal point of which the dual surface is\n"
+               "the result of. The orientation of dual lines in this dual surface is positive if\n"
+               "the primal line of which they are duals originated in the primal point in question\n"
+               "and negative if it was their end point.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "Manifold2D\n"
+               "    Dual manifold.\n"},
     // {.ml_name = "to_element_connectivity",
     //  .ml_meth = pyvl_mesh_to_element_connectivity,
     //  .ml_flags = METH_NOARGS,
@@ -1053,7 +1188,7 @@ PyTypeObject manifold2d_type_object = {
     .tp_basicsize = sizeof(manifold2d_object_t),
     .tp_itemsize = 0,
     .tp_str = manifold2d_str,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
     .tp_doc = manifold2d_type_docstring,
     .tp_methods = manifold2d_object_methods,
     .tp_getset = manifold2d_getset,

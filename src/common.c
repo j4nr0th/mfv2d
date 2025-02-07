@@ -65,10 +65,3 @@ allocator_callbacks PYTHON_ALLOCATOR = {
     .realloc = reallocate_python,
     .state = (void *)PYTHON_MAGIC,
 };
-
-INTERPLIB_INTERNAL
-int base_traverse_heap_typed(PyObject *self, visitproc visit, void *arg)
-{
-    Py_VISIT(PyObject_Type(self));
-    return 0;
-}

@@ -1,11 +1,13 @@
 """Implementation of the 2D mimetic meshes and manifolds."""
 
+from collections.abc import Sequence
 from itertools import accumulate
 
 import numpy as np
 import numpy.typing as npt
 
 from interplib._interp import Polynomial1D, compute_gll, dlagrange1d, lagrange1d
+from interplib._mimetic import Manifold2D
 from interplib.interp2d import Polynomial2D
 from interplib.kforms.kform import (
     KFormDerivative,
@@ -634,3 +636,67 @@ def element_system(
         )
 
     return system_matrix, system_vector
+
+
+class Mesh2D:
+    """Two dimensional manifold with associated geometry."""
+
+    order: int
+    positions: npt.NDArray[np.float64]
+    primal: Manifold2D
+    dual: Manifold2D
+
+    def __init__(
+        self,
+        order: int,
+        positions: Sequence[tuple[float, float, float]]
+        | Sequence[Sequence[float]]
+        | Sequence[npt.ArrayLike]
+        | npt.ArrayLike,
+        lines: Sequence[tuple[int, int]]
+        | Sequence[npt.ArrayLike]
+        | Sequence[Sequence[int]],
+        surfaces: Sequence[tuple[int, ...]]
+        | Sequence[Sequence[int]]
+        | Sequence[npt.ArrayLike]
+        | npt.ArrayLike,
+    ) -> None:
+        """Create new mesh from given geometry."""
+        self.order = int(order)
+        if order < 1:
+            raise ValueError("Order can not be lower than 1.")
+
+        pos = np.array(positions, np.float64, copy=True, ndmin=2)
+        if pos.ndim != 2 or pos.shape[1] != 2:
+            raise ValueError("Positions must be a (N, 2) array.")
+        # First try the regular surfaces
+        surf = np.array(surfaces, int, copy=None)
+        if surf.ndim != 2 or surf.shape[1] != 4:
+            raise ValueError("Surfaces should be a (M, 4) array of integers")
+
+        man = Manifold2D.from_regular(pos.shape[0], lines, surf)
+
+        self.positions = pos
+        self.primal = man
+        self.dual = man.compute_dual()
+
+    @property
+    def n_elements(self) -> int:
+        """Number of (surface) elements in the mesh."""
+        return self.primal.n_surfaces
+
+    def get_element(self, idx: int, /) -> Element2D:
+        """Obtain the 2D element corresponding to the index."""
+        s = self.primal.get_surface(idx + 1)
+        assert len(s) == 4, "Primal surface must be square."
+        indices = np.zeros(4, dtype=int)
+        for i in range(4):
+            line = self.primal.get_line(s[i])
+            indices[i] = line.begin.index
+        return Element2D(
+            self.order,
+            tuple(self.positions[indices[0], :]),  # type: ignore
+            tuple(self.positions[indices[1], :]),  # type: ignore
+            tuple(self.positions[indices[2], :]),  # type: ignore
+            tuple(self.positions[indices[3], :]),  # type: ignore
+        )

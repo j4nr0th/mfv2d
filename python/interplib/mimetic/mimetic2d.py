@@ -24,7 +24,26 @@ from interplib.product_basis import BasisProduct2D
 
 
 class Element2D:
-    """Class which represents a 2D square element."""
+    """Two dimensional square element.
+
+    This type facilitates operations related to calculations which need
+    to be carried out on the reference element itself, such as calculation
+    of the mass and incidence matrices, as well as the reconstruction of
+    the solution.
+
+    Parameters
+    ----------
+    p : int
+        Order of the basis functions used for the nodal basis.
+    bl : (float, float)
+        Coordinates of the bottom left corner.
+    br : (float, float)
+        Coordinates of the bottom right corner.
+    tr : (float, float)
+        Coordinates of the top right corner.
+    tl : (float, float)
+        Coordinates of the top left corner.
+    """
 
     order: int
 
@@ -34,15 +53,9 @@ class Element2D:
     top_left: tuple[float, float]
 
     nodes_1d: npt.NDArray[np.float64]
-    nodes_2d: npt.NDArray[np.float64]
-    basis_node: npt.NDArray
-    basis_edge_h: npt.NDArray
-    basis_edge_v: npt.NDArray
 
     poly_x: Polynomial2D
     poly_y: Polynomial2D
-
-    geo_basis: tuple[tuple[Polynomial2D, ...], ...]
 
     def __init__(
         self,
@@ -55,18 +68,18 @@ class Element2D:
         basis_geo = BasisProduct2D.outer_product_basis(
             Polynomial1D.lagrange_nodal_basis([-1, +1])
         )
-        self.geo_basis = tuple(tuple(b.as_polynomial() for b in bg) for bg in basis_geo)
+        geo_basis = tuple(tuple(b.as_polynomial() for b in bg) for bg in basis_geo)
         self.poly_x = (
-            bl[0] * self.geo_basis[0][0]
-            + br[0] * self.geo_basis[1][0]
-            + tl[0] * self.geo_basis[0][1]
-            + tr[0] * self.geo_basis[1][1]
+            bl[0] * geo_basis[0][0]
+            + br[0] * geo_basis[1][0]
+            + tl[0] * geo_basis[0][1]
+            + tr[0] * geo_basis[1][1]
         )
         self.poly_y = (
-            bl[1] * self.geo_basis[0][0]
-            + br[1] * self.geo_basis[1][0]
-            + tl[1] * self.geo_basis[0][1]
-            + tr[1] * self.geo_basis[1][1]
+            bl[1] * geo_basis[0][0]
+            + br[1] * geo_basis[1][0]
+            + tl[1] * geo_basis[0][1]
+            + tr[1] * geo_basis[1][1]
         )
 
         self.order = int(p)
@@ -77,37 +90,6 @@ class Element2D:
 
         nodes1d, _ = compute_gll(p)
         self.nodes_1d = nodes1d
-        self.nodes_2d = np.empty((p + 1, p + 1, 2))
-        for i in range(p + 1):
-            self.nodes_2d[i, :, 0] = nodes1d
-            self.nodes_2d[:, i, 1] = nodes1d
-        node1d = Polynomial1D.lagrange_nodal_basis(nodes1d)
-        edge1d = tuple(accumulate(-basis.derivative for basis in node1d[:-1]))
-
-        self.basis_node = np.array(
-            [
-                [b.as_polynomial() for b in ba]
-                for ba in BasisProduct2D.outer_product_basis(node1d, node1d)
-            ]
-        ).T
-        self.basis_edge_h = np.array(
-            [
-                [b.as_polynomial() for b in ba]
-                for ba in BasisProduct2D.outer_product_basis(edge1d, node1d)
-            ]
-        ).T
-        self.basis_edge_v = np.array(
-            [
-                [b.as_polynomial() for b in ba]
-                for ba in BasisProduct2D.outer_product_basis(node1d, edge1d)
-            ]
-        ).T
-        self.basis_surf = np.array(
-            [
-                [b.as_polynomial() for b in ba]
-                for ba in BasisProduct2D.outer_product_basis(edge1d, edge1d)
-            ]
-        ).T
 
     @property
     def mass_matrix_node(self) -> npt.NDArray[np.float64]:
@@ -126,23 +108,19 @@ class Element2D:
 
         weights_2d *= det
         basis_vals: list[npt.NDArray] = list()
-        # analytical_basis: list[Polynomial2D] = tuple(self.basis_node.flat)
+
         for i1 in range(n):
             v1 = values[..., i1]
             for j1 in range(n):
                 u1 = values[..., j1]
                 basis1 = v1[:, None] * u1[None, :]
                 basis_vals.append(basis1)
+
         for i in range(n * n):
             for j in range(i + 1):
-                # prod = analytical_basis[j] * analytical_basis[i]
-                # ad0 = prod.antiderivative(0)
-                # ad1 = (ad0(+1, None) + (-1) * ad0(-1, None)).antiderivative
-                # res_anl = ad1(+1) - ad1(-1)
                 res = np.sum(basis_vals[i] * basis_vals[j] * weights_2d)
-                # assert np.isclose(res, res_anl)
                 mat[i, j] = mat[j, i] = res
-        assert np.allclose(mat, mat.T)
+
         return mat
 
     @property
@@ -163,45 +141,39 @@ class Element2D:
         kvh = j01 * j11 + j00 * j10
         weights_2d /= det
 
-        # khh = j00**2 + j10**2
-        # kvv = j01**2 + j11**2
-        # kvh = j01 * j00 + j11 * j10
-        # weights_2d /= det
-
-        basis_h: list[npt.NDArray] = list()
-        basis_v: list[npt.NDArray] = list()
+        basis_eta: list[npt.NDArray] = list()
+        basis_xi: list[npt.NDArray] = list()
 
         for i1 in range(n + 1):
             v1 = values[..., i1]
             for j1 in range(n):
                 u1 = dvalues[j1]
                 basis1 = v1[:, None] * u1[None, :]
-                basis_h.append(basis1)
+                basis_eta.append(basis1)
 
         for i1 in range(n):
             v1 = dvalues[i1]
             for j1 in range(n + 1):
                 u1 = values[..., j1]
                 basis1 = v1[:, None] * u1[None, :]
-                basis_v.append(basis1)
-        nh = len(basis_h)
-        nv = len(basis_v)
+                basis_xi.append(basis1)
+        nh = len(basis_eta)
+        nv = len(basis_xi)
         for i in range(nh):
             for j in range(i + 1):
-                res = np.sum(weights_2d * basis_h[i] * basis_h[j] * khh)
+                res = np.sum(weights_2d * basis_eta[i] * basis_eta[j] * khh)
                 mat[i, j] = mat[j, i] = res
 
         for i in range(nv):
             for j in range(i + 1):
-                res = np.sum(weights_2d * basis_v[i] * basis_v[j] * kvv)
+                res = np.sum(weights_2d * basis_xi[i] * basis_xi[j] * kvv)
                 mat[nh + i, nh + j] = mat[nh + j, nh + i] = res
 
         for i in range(nv):
             for j in range(nh):
-                res = np.sum(weights_2d * basis_h[j] * basis_v[i] * kvh)
+                res = np.sum(weights_2d * basis_eta[j] * basis_xi[i] * kvh)
                 mat[nh + i, j] = mat[j, nh + i] = res
 
-        assert np.allclose(mat, mat.T)
         return mat
 
     @property
@@ -214,30 +186,22 @@ class Element2D:
         values = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
         weights_2d = weights[:, None] * weights[None, :]
         (j00, j01), (j10, j11) = self.jacobian(nodes[None, :], nodes[:, None])
-        # j00 = jacob[0][0](nodes[None, :], nodes[:, None])
-        # j01 = jacob[0][1](nodes[None, :], nodes[:, None])
-        # j10 = jacob[1][0](nodes[None, :], nodes[:, None])
-        # j11 = jacob[1][1](nodes[None, :], nodes[:, None])
         det = j00 * j11 - j10 * j01
 
         weights_2d /= det
         basis_vals: list[npt.NDArray] = list()
-        # analitical_basis: tuple[Polynomial2D] = tuple(self.basis_surf.flat)
         for i1 in range(n):
             v1 = values[i1]
             for j1 in range(n):
                 u1 = values[j1]
                 basis1 = v1[:, None] * u1[None, :]
                 basis_vals.append(basis1)
+
         for i in range(n * n):
             for j in range(i + 1):
-                # prod = analitical_basis[j] * analitical_basis[i]
-                # ad0 = prod.antiderivative(0)
-                # ad1 = (ad0(+1, None) + (-1) * ad0(-1, None)).antiderivative
-                # res_anl = ad1(+1) - ad1(-1)
                 res = np.sum(weights_2d * basis_vals[i] * basis_vals[j])
-                # assert np.isclose(res, res_anl)
                 mat[i, j] = mat[j, i] = res
+
         return mat
 
     def jacobian(
@@ -318,8 +282,31 @@ class Element2D:
         )
         return ((dx_dxi, dy_dxi), (dx_deta, dy_deta))
 
-    def incidence_01(self) -> npt.NDArray[np.float64]:
-        """Incidence matrix from points to lines."""
+    def incidence_10(self) -> npt.NDArray[np.float64]:
+        r"""Incidence matrix from 0.forms to 1-forms.
+
+        This applies the exterior derivative operation to primal 0-forms and maps them
+        into 1-forms. The negative transpose is the equivalent operation for the dual
+        1-forms, the derivatives of which are consequently dual 2-forms.
+
+        This is done by mapping degrees of freedom of the original primal 0-form or dual
+        1-form into those of the derivative primal 1-forms or dual 2-forms respectively.
+
+        .. math::
+
+            \vec{\mathcal{N}}^{(1)}(f) = \mathbb{E}^{(1,0)} \vec{\mathcal{N}}^{(0)}(f)
+
+
+        .. math::
+
+            \tilde{\mathcal{N}}^{(2)}(f) = -\left(\mathbb{E}^{(1,0)}\right)^{T}
+            \tilde{\mathcal{N}}^{(1)}(f)
+
+        Returns
+        -------
+        array
+            Incidence matrix :math:`\mathbb{E}^{(1,0)}`.
+        """
         n_nodes = self.order + 1
         n_lines = self.order
         e = np.zeros(((n_nodes * n_lines + n_lines * n_nodes), (n_nodes * n_nodes)))
@@ -336,8 +323,31 @@ class Element2D:
 
         return e
 
-    def incidence_12(self) -> npt.NDArray[np.float64]:
-        """Incidence matrix from lines to surfaces."""
+    def incidence_21(self) -> npt.NDArray[np.float64]:
+        r"""Incidence matrix from 1-forms to 2-forms.
+
+        This applies the exterior derivative operation to primal 1-forms and maps them
+        into 2-forms. The negative transpose is the equivalent operation for the dual
+        0-forms, the derivatives of which are consequently dual 1-forms.
+
+        This is done by mapping degrees of freedom of the original primal 1-form or dual
+        0-form into those of the derivative primal 2-forms or dual 1-forms respectively.
+
+        .. math::
+
+            \vec{\mathcal{N}}^{(2)}(f) = \mathbb{E}^{(2,1)} \vec{\mathcal{N}}^{(1)}(f)
+
+
+        .. math::
+
+            \tilde{\mathcal{N}}^{(1)}(f) = -\left(\mathbb{E}^{(2,1)}\right)^{T}
+            \tilde{\mathcal{N}}^{(0)}(f)
+
+        Returns
+        -------
+        array
+            Incidence matrix :math:`\mathbb{E}^{(2,1)}`.
+        """
         n_nodes = self.order + 1
         n_lines = self.order
         e = np.zeros(((n_lines * n_lines), (n_nodes * n_lines + n_lines * n_nodes)))
@@ -352,33 +362,100 @@ class Element2D:
         return e
 
     @property
-    def boundary_edge_dof_indices(self) -> npt.NDArray[np.uint32]:
-        """Indices of degrees of freedom associated with boundary lines."""
-        bottom = np.arange(0, self.order, dtype=np.uint32)
-        left = np.flip(
-            (self.order * (self.order + 1))
-            + np.arange(0, self.order, dtype=np.uint32) * (self.order + 1)
+    def boundary_edge_bottom(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with edges on the bottom side."""
+        return np.arange(0, self.order, dtype=np.uint32)
+
+    @property
+    def boundary_edge_left(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with edges on the left side."""
+        return np.astype(
+            np.flip(
+                (self.order * (self.order + 1))
+                + np.arange(0, self.order, dtype=np.uint32) * (self.order + 1)
+            ),
+            np.uint32,
+            copy=False,
         )
-        top = np.flip(self.order * self.order + np.arange(0, self.order, dtype=np.uint32))
-        right = (
+
+    @property
+    def boundary_edge_top(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with edges on the top side."""
+        return np.astype(
+            np.flip(self.order * self.order + np.arange(0, self.order, dtype=np.uint32)),
+            np.uint32,
+            copy=False,
+        )
+
+    @property
+    def boundary_edge_right(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with edges on the right side."""
+        return np.astype(
             (self.order * (self.order + 1))
             + self.order
-            + np.arange(0, self.order, dtype=np.uint32) * (self.order + 1)
+            + np.arange(0, self.order, dtype=np.uint32) * (self.order + 1),
+            np.uint32,
+            copy=False,
         )
-        return np.concatenate((bottom, right, top, left))
+
+    @property
+    def boundary_edge_dof_indices(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with boundary lines."""
+        return np.concatenate(
+            (
+                self.boundary_edge_bottom,
+                self.boundary_edge_right,
+                self.boundary_edge_top,
+                self.boundary_edge_left,
+            )
+        )
+
+    @property
+    def boundary_nodes_bottom(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with nodes on the bottom side."""
+        return np.arange(0, self.order + 1, dtype=np.uint32)
+
+    @property
+    def boundary_nodes_left(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with nodes on the left side."""
+        return np.astype(
+            np.flip(np.arange(0, self.order + 1, dtype=np.uint32) * (self.order + 1)),
+            np.uint32,
+            copy=False,
+        )
+
+    @property
+    def boundary_nodes_top(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with nodes on the top side."""
+        return np.astype(
+            np.flip(
+                (self.order + 1) * self.order
+                + np.arange(0, self.order + 1, dtype=np.uint32)
+            ),
+            np.uint32,
+            copy=False,
+        )
+
+    @property
+    def boundary_nodes_right(self) -> npt.NDArray[np.uint32]:
+        """Indices of degrees of freedom associated with nodes on the right side."""
+        return np.astype(
+            self.order + np.arange(0, self.order + 1, dtype=np.uint32) * (self.order + 1),
+            np.uint32,
+            copy=False,
+        )
 
     @property
     def boundary_node_dof_indices(self) -> npt.NDArray[np.uint32]:
         """Indices of degrees of freedom associated with boundary nodes."""
-        bottom = np.arange(0, self.order + 1, dtype=np.uint32)
-        left = np.flip(np.arange(0, self.order + 1, dtype=np.uint32) * (self.order + 1))
-        top = np.flip(
-            (self.order + 1) * self.order + np.arange(0, self.order + 1, dtype=np.uint32)
+        return np.concatenate(
+            (
+                self.boundary_nodes_bottom,
+                self.boundary_nodes_right,
+                self.boundary_nodes_top,
+                self.boundary_nodes_left,
+            )
         )
-        right = self.order + np.arange(0, self.order + 1, dtype=np.uint32) * (
-            self.order + 1
-        )
-        return np.concatenate((bottom, right, top, left))
 
 
 def _extract_rhs_2d(
@@ -483,13 +560,6 @@ def _extract_rhs_2d(
 
     # Compute rhs integrals
     for i, bv in enumerate(basis_vals):
-        # from matplotlib import pyplot as plt
-
-        # plt.figure()
-        # plt.title(f"Basis {i + 1:d} out of {len(basis_vals):d}")
-        # plt.imshow(bv)
-        # plt.colorbar()
-        # plt.show()
         out_vec[i] = np.sum(bv * f_vals * weights_2d)
 
     return out_vec
@@ -536,17 +606,18 @@ def _equation_2d(
                 else:
                     left[k] = right[k]  # k is not in left
         return left
+
     if type(form) is KInnerProduct:
-        primal: dict[Term, npt.NDArray[np.float64] | np.float64]
+        unknown: dict[Term, npt.NDArray[np.float64] | np.float64]
         if isinstance(form.function, KHodge):
-            primal = _equation_2d(form.function.base_form, element)
+            unknown = _equation_2d(form.function.base_form, element)
         else:
-            primal = _equation_2d(form.function, element)
-        dual = _equation_2d(form.weight, element)
-        dv = tuple(v for v in dual.keys())[0]
-        for k in primal:
-            vd = dual[dv]
-            vp = primal[k]
+            unknown = _equation_2d(form.function, element)
+        weight = _equation_2d(form.weight, element)
+        dv = tuple(v for v in weight.keys())[0]
+        for k in unknown:
+            vd = weight[dv]
+            vp = unknown[k]
             order_p = form.function.primal_order
             order_d = form.weight.primal_order
             assert order_p == order_d
@@ -600,23 +671,23 @@ def _equation_2d(
             else:
                 assert isinstance(vp, np.float64)
                 mass *= vp
-            primal[k] = mass
-        return primal
+            unknown[k] = mass
+        return unknown
     if type(form) is KFormDerivative:
         res = _equation_2d(form.form, element)
         e: npt.NDArray[np.float64]
         if form.is_primal:
             if form.form.order == 0:
-                e = element.incidence_01()
+                e = element.incidence_10()
             elif form.form.order == 1:
-                e = element.incidence_12()
+                e = element.incidence_21()
             else:
                 assert False
         else:
             if form.form.order == 0:
-                e = -element.incidence_12().T
+                e = -element.incidence_21().T
             elif form.form.order == 1:
-                e = -element.incidence_01().T
+                e = -element.incidence_10().T
             else:
                 assert False
 
@@ -630,9 +701,9 @@ def _equation_2d(
         return res
 
     if type(form) is KHodge:
-        primal = _equation_2d(form.base_form, element)
+        unknown = _equation_2d(form.base_form, element)
         prime_order = form.primal_order
-        for k in primal:
+        for k in unknown:
             if prime_order == 0:
                 mass = element.mass_matrix_node
             elif prime_order == 1:
@@ -643,15 +714,15 @@ def _equation_2d(
                 assert False
             if form.is_primal:
                 mass = np.linalg.inv(mass)  # type: ignore
-            vp = primal[k]
+            vp = unknown[k]
             if vp.ndim != 0:
                 assert isinstance(vp, np.ndarray)
                 mass = np.astype(mass @ vp, np.float64)
             else:
                 assert isinstance(vp, np.float64)
                 mass *= vp
-            primal[k] = mass
-        return primal
+            unknown[k] = mass
+        return unknown
     if type(form) is KFormUnknown:
         return {form: np.float64(1.0)}
     if type(form) is KWeight:

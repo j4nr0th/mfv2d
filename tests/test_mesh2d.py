@@ -38,7 +38,7 @@ def check_e01():
 
     e = Element2D(3, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
 
-    e10 = e.incidence_01()
+    e10 = e.incidence_10()
 
     y_e = e10 @ x
     assert pytest.approx(y_e) == y
@@ -76,7 +76,7 @@ def check_e12():
 
     e = Element2D(3, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
 
-    e21 = e.incidence_12()
+    e21 = e.incidence_21()
 
     y_e = e21 @ x
     assert pytest.approx(y_e) == y
@@ -85,6 +85,6 @@ def check_e12():
 def check_e10_e21_null():
     """Product of E21 @ E10 should be zero."""
     e = Element2D(10, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e10 = e.incidence_01()
-    e21 = e.incidence_12()
+    e10 = e.incidence_10()
+    e21 = e.incidence_21()
     assert np.all(e21 @ e10 == 0)

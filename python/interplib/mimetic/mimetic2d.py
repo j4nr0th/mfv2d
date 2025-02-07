@@ -117,11 +117,11 @@ class Element2D:
         nodes, weights = compute_gll(5 * self.order + 2)  # `self.order + 2` is exact
         values = lagrange1d(self.nodes_1d, nodes)
         weights_2d = weights[:, None] * weights[None, :]
-        jacob = self.jacobian  # (nodes[None, :], nodes[:, None])
-        j00 = jacob[0][0](nodes[None, :], nodes[:, None])
-        j01 = jacob[0][1](nodes[None, :], nodes[:, None])
-        j10 = jacob[1][0](nodes[None, :], nodes[:, None])
-        j11 = jacob[1][1](nodes[None, :], nodes[:, None])
+        (j00, j01), (j10, j11) = self.jacobian(nodes[None, :], nodes[:, None])
+        # j00 = jacob[0][0](nodes[None, :], nodes[:, None])
+        # j01 = jacob[0][1](nodes[None, :], nodes[:, None])
+        # j10 = jacob[1][0](nodes[None, :], nodes[:, None])
+        # j11 = jacob[1][1](nodes[None, :], nodes[:, None])
         det = j00 * j11 - j10 * j01
 
         weights_2d *= det
@@ -155,18 +155,19 @@ class Element2D:
         in_dvalues = dlagrange1d(self.nodes_1d, nodes)
         dvalues = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
         weights_2d = weights[None, :] * weights[:, None]
-        jacob = self.jacobian  # (nodes[None, :], nodes[:, None])
-        j00 = jacob[0][0](nodes[None, :], nodes[:, None])
-        j01 = jacob[0][1](nodes[None, :], nodes[:, None])
-        j10 = jacob[1][0](nodes[None, :], nodes[:, None])
-        j11 = jacob[1][1](nodes[None, :], nodes[:, None])
+        (j00, j01), (j10, j11) = self.jacobian(nodes[None, :], nodes[:, None])
         det = j00 * j11 - j10 * j01
 
-        khh = j00**2 + j10**2
-        kvv = j01**2 + j11**2
-        kvh = j01 * j00 + j11 * j10
-
+        khh = j11**2 + j10**2
+        kvv = j01**2 + j00**2
+        kvh = j01 * j11 + j00 * j10
         weights_2d /= det
+
+        # khh = j00**2 + j10**2
+        # kvv = j01**2 + j11**2
+        # kvh = j01 * j00 + j11 * j10
+        # weights_2d /= det
+
         basis_h: list[npt.NDArray] = list()
         basis_v: list[npt.NDArray] = list()
 
@@ -212,11 +213,11 @@ class Element2D:
         in_dvalues = dlagrange1d(self.nodes_1d, nodes)
         values = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
         weights_2d = weights[:, None] * weights[None, :]
-        jacob = self.jacobian  # (nodes[None, :], nodes[:, None])
-        j00 = jacob[0][0](nodes[None, :], nodes[:, None])
-        j01 = jacob[0][1](nodes[None, :], nodes[:, None])
-        j10 = jacob[1][0](nodes[None, :], nodes[:, None])
-        j11 = jacob[1][1](nodes[None, :], nodes[:, None])
+        (j00, j01), (j10, j11) = self.jacobian(nodes[None, :], nodes[:, None])
+        # j00 = jacob[0][0](nodes[None, :], nodes[:, None])
+        # j01 = jacob[0][1](nodes[None, :], nodes[:, None])
+        # j10 = jacob[1][0](nodes[None, :], nodes[:, None])
+        # j11 = jacob[1][1](nodes[None, :], nodes[:, None])
         det = j00 * j11 - j10 * j01
 
         weights_2d /= det
@@ -239,18 +240,83 @@ class Element2D:
                 mat[i, j] = mat[j, i] = res
         return mat
 
-    @property
     def jacobian(
-        self,
-    ) -> tuple[tuple[Polynomial2D, Polynomial2D], tuple[Polynomial2D, Polynomial2D]]:
-        """Jacobian functions."""
-        px = self.poly_x
-        py = self.poly_y
-        dx_dxi = px.partial(0)
-        dx_deta = px.partial(1)
-        dy_dxi = py.partial(0)
-        dy_deta = py.partial(1)
-        return ((dx_dxi, dx_deta), (dy_dxi, dy_deta))
+        self, xi: npt.ArrayLike, eta: npt.ArrayLike, /
+    ) -> tuple[
+        tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+        tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    ]:
+        r"""Evaluate the Jacobian matrix entries.
+
+        The Jacobian matrix :math:`\mathbf{J}` is defined such that:
+
+        .. math::
+
+            \mathbf{J} = \begin{bmatrix}
+            \frac{\partial x}{\partial \xi} & \frac{\partial y}{\partial \xi} \\
+            \frac{\partial x}{\partial \eta} & \frac{\partial y}{\partial \eta} \\
+            \end{bmatrix}
+
+        Which means that a coordinate transformation is performed by:
+
+        .. math::
+
+            \begin{bmatrix} {dx} \\ {dy} \end{bmatrix} = \mathbf{J}
+            \begin{bmatrix} {d\xi} \\ {d\eta} \end{bmatrix}
+
+        Parameters
+        ----------
+        xi : array_like
+            The first computational component for the element where the Jacobian should
+            be evaluated.
+        eta : array_like
+            The second computational component for the element where the Jacobian should
+            be evaluated.
+
+        Returns
+        -------
+        j00 : array
+            The :math:`(1, 1)` component of the Jacobian corresponding to the value of
+            :math:`\frac{\partial x}{\partial \xi}`.
+
+        j01 : array
+            The :math:`(1, 2)` component of the Jacobian corresponding to the value of
+            :math:`\frac{\partial y}{\partial \xi}`.
+
+        j10 : array
+            The :math:`(2, 1)` component of the Jacobian corresponding to the value of
+            :math:`\frac{\partial x}{\partial \eta}`.
+
+        j11 : array
+            The :math:`(2, 2)` component of the Jacobian corresponding to the value of
+            :math:`\frac{\partial y}{\partial \eta}`.
+        """
+        t0 = np.asarray(xi)
+        t1 = np.asarray(eta)
+
+        x0 = self.bottom_left[0]
+        x1 = self.bottom_right[0]
+        x2 = self.top_right[0]
+        x3 = self.top_left[0]
+
+        y0 = self.bottom_left[1]
+        y1 = self.bottom_right[1]
+        y2 = self.top_right[1]
+        y3 = self.top_left[1]
+
+        dx_dxi = np.astype(
+            ((x1 - x0) * (1 - t1) + (x2 - x3) * (1 + t1)) / 4, np.float64, copy=False
+        )
+        dx_deta = np.astype(
+            ((x3 - x0) * (1 - t0) + (x2 - x1) * (1 + t0)) / 4, np.float64, copy=False
+        )
+        dy_dxi = np.astype(
+            ((y1 - y0) * (1 - t1) + (y2 - y3) * (1 + t1)) / 4, np.float64, copy=False
+        )
+        dy_deta = np.astype(
+            ((y3 - y0) * (1 - t0) + (y2 - y1) * (1 + t0)) / 4, np.float64, copy=False
+        )
+        return ((dx_dxi, dy_dxi), (dx_deta, dy_deta))
 
     def incidence_01(self) -> npt.NDArray[np.float64]:
         """Incidence matrix from points to lines."""
@@ -353,14 +419,11 @@ def _extract_rhs_2d(
     basis_vals: list[npt.NDArray[np.floating]] = list()
 
     nodes, weights = compute_gll(3 * (p + 1))
-    jacob = element.jacobian  # (nodes[None, :], nodes[:, None])
-    j00 = jacob[0][0](nodes[None, :], nodes[:, None])
-    j01 = jacob[0][1](nodes[None, :], nodes[:, None])
-    j10 = jacob[1][0](nodes[None, :], nodes[:, None])
-    j11 = jacob[1][1](nodes[None, :], nodes[:, None])
+    (j00, j01), (j10, j11) = element.jacobian(nodes[None, :], nodes[:, None])
+    det = j00 * j11 - j10 * j01
+
     real_x = element.poly_x(nodes[None, :], nodes[:, None])
     real_y = element.poly_y(nodes[None, :], nodes[:, None])
-    det = j00 * j11 - j10 * j01
     f_vals = fn(real_x, real_y)
     weights_2d = weights[None, :] * weights[:, None]
 
@@ -379,7 +442,7 @@ def _extract_rhs_2d(
                 u1 = d_values[j1]
                 basis1 = v1[:, None] * u1[None, :]
 
-                out_vec[i1 * p + j1] = np.sum(basis1 * new_f1 * weights_2d)
+                out_vec[i1 * p + j1] = np.sum(basis1 * weights_2d * new_f1)
 
         for i1 in range(p):
             v1 = d_values[i1]
@@ -388,7 +451,7 @@ def _extract_rhs_2d(
                 basis1 = v1[:, None] * u1[None, :]
 
                 out_vec[p * (p + 1) + i1 * (p + 1) + j1] = np.sum(
-                    basis1 * new_f0 * weights_2d
+                    basis1 * weights_2d * new_f0
                 )
         return out_vec
 

@@ -96,14 +96,10 @@ class Element2D:
         """Element's mass matrix for nodal basis."""
         n = self.order + 1
         mat = np.empty((n**2, n**2), np.float64)
-        nodes, weights = compute_gll(5 * self.order + 2)  # `self.order + 2` is exact
+        nodes, weights = compute_gll(2 * self.order)
         values = lagrange1d(self.nodes_1d, nodes)
         weights_2d = weights[:, None] * weights[None, :]
         (j00, j01), (j10, j11) = self.jacobian(nodes[None, :], nodes[:, None])
-        # j00 = jacob[0][0](nodes[None, :], nodes[:, None])
-        # j01 = jacob[0][1](nodes[None, :], nodes[:, None])
-        # j10 = jacob[1][0](nodes[None, :], nodes[:, None])
-        # j11 = jacob[1][1](nodes[None, :], nodes[:, None])
         det = j00 * j11 - j10 * j01
 
         weights_2d *= det
@@ -128,7 +124,7 @@ class Element2D:
         """Element's mass matrix for mixed node-edge basis."""
         n = self.order
         mat = np.empty((2 * n * (n + 1), 2 * n * (n + 1)), np.float64)
-        nodes, weights = compute_gll(5 * self.order)  # I think this gives exact
+        nodes, weights = compute_gll(2 * self.order)
         values = lagrange1d(self.nodes_1d, nodes)
         in_dvalues = dlagrange1d(self.nodes_1d, nodes)
         dvalues = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
@@ -181,7 +177,7 @@ class Element2D:
         """Element's mass matrix for surface basis."""
         n = self.order
         mat = np.empty((n**2, n**2), np.float64)
-        nodes, weights = compute_gll(2 * self.order)  # I think `self.order` gives exact
+        nodes, weights = compute_gll(2 * self.order)
         in_dvalues = dlagrange1d(self.nodes_1d, nodes)
         values = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
         weights_2d = weights[:, None] * weights[None, :]
@@ -456,6 +452,87 @@ class Element2D:
                 self.boundary_nodes_left,
             )
         )
+
+    def reconstruct(
+        self,
+        k: int,
+        coeffs: npt.ArrayLike,
+        xi: npt.ArrayLike,
+        eta: npt.ArrayLike,
+        /,
+    ) -> npt.NDArray[np.float64]:
+        """Reconstruct a k-form on the element."""
+        assert k >= 0 and k < 3
+        out: float | npt.NDArray[np.floating] = 0.0
+        c = np.asarray(coeffs, dtype=np.float64, copy=None)
+        if c.ndim != 1:
+            raise ValueError("Coefficient array must be one dimensional.")
+
+        if k == 0:
+            vals_xi = lagrange1d(self.nodes_1d, xi)
+            vals_eta = lagrange1d(self.nodes_1d, eta)
+            for i in range(self.order + 1):
+                v = vals_eta[..., i]
+                for j in range(self.order + 1):
+                    u = vals_xi[..., j]
+                    out += c[i * (self.order + 1) + j] * (u * v)
+
+        elif k == 1:
+            values_xi = lagrange1d(self.nodes_1d, xi)
+            values_eta = lagrange1d(self.nodes_1d, eta)
+            in_dvalues_xi = dlagrange1d(self.nodes_1d, xi)
+            in_dvalues_eta = dlagrange1d(self.nodes_1d, eta)
+            dvalues_xi = tuple(
+                accumulate(-in_dvalues_xi[..., i] for i in range(self.order))
+            )
+            dvalues_eta = tuple(
+                accumulate(-in_dvalues_eta[..., i] for i in range(self.order))
+            )
+            (j00, j01), (j10, j11) = self.jacobian(xi, eta)
+            det = j00 * j11 - j10 * j01
+            out_xi: float | npt.NDArray[np.floating] = 0.0
+            out_eta: float | npt.NDArray[np.floating] = 0.0
+            for i1 in range(self.order + 1):
+                v1 = values_eta[..., i1]
+                for j1 in range(self.order):
+                    u1 = dvalues_xi[j1]
+                    out_eta += c[i1 * self.order + j1] * u1 * v1
+
+            for i1 in range(self.order):
+                v1 = dvalues_eta[i1]
+                for j1 in range(self.order + 1):
+                    u1 = values_xi[..., j1]
+
+                    out_xi += (
+                        c[(self.order + 1) * self.order + i1 * (self.order + 1) + j1]
+                        * u1
+                        * v1
+                    )
+            out = np.stack((out_xi * j00 + out_eta * j10, out_xi * j01 + out_eta * j11))
+            out /= det
+
+        elif k == 2:
+            in_dvalues_xi = dlagrange1d(self.nodes_1d, xi)
+            in_dvalues_eta = dlagrange1d(self.nodes_1d, eta)
+            dvalues_xi = tuple(
+                accumulate(-in_dvalues_xi[..., i] for i in range(self.order))
+            )
+            dvalues_eta = tuple(
+                accumulate(-in_dvalues_eta[..., i] for i in range(self.order))
+            )
+            (j00, j01), (j10, j11) = self.jacobian(xi, eta)
+            det = j00 * j11 - j10 * j01
+            for i1 in range(self.order):
+                v1 = dvalues_eta[i1]
+                for j1 in range(self.order):
+                    u1 = dvalues_xi[j1]
+                    out += c[i1 * self.order + j1] * u1 * v1
+
+            out /= det
+        else:
+            raise ValueError(f"Order of the differential form {k} is not valid.")
+
+        return np.array(out, np.float64, copy=None)
 
 
 def _extract_rhs_2d(

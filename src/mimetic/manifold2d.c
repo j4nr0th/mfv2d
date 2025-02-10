@@ -366,7 +366,7 @@ static int mesh_dual_from_primal(const manifold2d_object_t *const primal, manifo
 
 static PyObject *manifold2d_compute_dual(PyObject *self, PyObject *Py_UNUSED(arg))
 {
-    manifold2d_object_t *that = (manifold2d_object_t *)manifold_type_object.tp_alloc(&manifold2d_type_object, 0);
+    manifold2d_object_t *that = (manifold2d_object_t *)manifold2d_type_object.tp_alloc(&manifold2d_type_object, 0);
     if (!that)
     {
         return NULL;

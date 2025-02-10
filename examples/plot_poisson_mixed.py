@@ -103,7 +103,7 @@ may be more desirable in some cases.
 
 import numpy as np
 import numpy.typing as npt
-from interplib import kforms, mimetic, solve_system_on_mesh
+from interplib import kforms, mimetic, solve_system_1d
 
 ALPHA = 1.2
 BETA = 0.2
@@ -164,12 +164,12 @@ mesh = mimetic.Mesh1D(
 ## Weight form
 
 ## Unknown forms
-phi = kforms.KForm(mesh.manifold, "phi", 1)
-u = kforms.KForm(mesh.manifold, "u", 0)
+phi = kforms.KFormUnknown(mesh.manifold, "phi", 1)
+u = kforms.KFormUnknown(mesh.manifold, "u", 0)
 w = u.weight
 
 # Brackets are for readability
-eq1 = (w * u) + (w.derivative * phi) == w * 0
+eq1 = (w * u) + (w.derivative * phi) == w @ 0
 
 # %%
 #
@@ -181,7 +181,7 @@ eq1 = (w * u) + (w.derivative * phi) == w * 0
 q = phi.weight
 
 # Brackets are for readability
-eq2 = (q * u.derivative) == (q * (lambda x: -f_exact(x)))
+eq2 = (q * u.derivative) == (q @ (lambda x: -f_exact(x)))
 
 # %%
 #
@@ -205,7 +205,7 @@ print(system)
 # since that's a 0-form, while :math:`phi` is a 1-form. This time, a weak boundary
 # condition on :math:`\phi` is given on the left boundary.
 with np.printoptions(2):
-    resulting_splines = solve_system_on_mesh(
+    resulting_splines = solve_system_1d(
         system,
         mesh,
         continuous=[u],

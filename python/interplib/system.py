@@ -14,8 +14,7 @@ from interplib._interp import Polynomial1D, Spline1D
 from interplib.mimetic.mimetic1d import Mesh1D, element_system
 
 
-# BUG: Can't do Lagrange multipliers correctly if the DoFs aren't order correctly.
-def solve_system_on_mesh(
+def solve_system_1d(
     system: kform.KFormSystem,
     mesh: Mesh1D,
     continuous: Sequence[kform.KFormUnknown],

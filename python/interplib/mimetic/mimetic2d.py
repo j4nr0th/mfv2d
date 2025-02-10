@@ -866,7 +866,8 @@ class Mesh2D:
         | npt.ArrayLike,
         lines: Sequence[tuple[int, int]]
         | Sequence[npt.ArrayLike]
-        | Sequence[Sequence[int]],
+        | Sequence[Sequence[int]]
+        | npt.ArrayLike,
         surfaces: Sequence[tuple[int, ...]]
         | Sequence[Sequence[int]]
         | Sequence[npt.ArrayLike]
@@ -881,11 +882,11 @@ class Mesh2D:
         if pos.ndim != 2 or pos.shape[1] != 2:
             raise ValueError("Positions must be a (N, 2) array.")
         # First try the regular surfaces
-        surf = np.array(surfaces, int, copy=None)
+        surf = np.array(surfaces, np.int32, copy=None)
         if surf.ndim != 2 or surf.shape[1] != 4:
             raise ValueError("Surfaces should be a (M, 4) array of integers")
-
-        man = Manifold2D.from_regular(pos.shape[0], lines, surf)
+        lns = np.array(lines, np.int32, copy=None)
+        man = Manifold2D.from_regular(pos.shape[0], lns, surf)
 
         self.positions = pos
         self.primal = man

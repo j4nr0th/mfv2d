@@ -186,6 +186,17 @@ static PyObject *manifold2d_get_line(PyObject *self, PyObject *arg)
     geo_id_t id;
     if (geo_id_from_object(arg, &id) < 0)
         return NULL;
+    if (id.index == GEO_ID_INVALID)
+    {
+        PyErr_SetString(PyExc_ValueError, "Invalid GeoID was given.");
+        return NULL;
+    }
+    if (id.index >= this->n_lines)
+    {
+        PyErr_Format(PyExc_IndexError, "Manifold has only %u lines, but line with index %u was requested.",
+                     (unsigned)this->n_lines, (unsigned)id.index);
+        return NULL;
+    }
 
     line_object_t *const line = line_from_indices(this->lines[id.index].begin, this->lines[id.index].end);
     if (!line)
@@ -193,8 +204,9 @@ static PyObject *manifold2d_get_line(PyObject *self, PyObject *arg)
 
     if (id.reverse)
     {
-        line->value.begin.reverse = !line->value.begin.reverse;
-        line->value.end.reverse = !line->value.end.reverse;
+        const geo_id_t tmp = line->value.begin;
+        line->value.begin = line->value.end;
+        line->value.end = tmp;
     }
 
     return (PyObject *)line;
@@ -209,10 +221,16 @@ static PyObject *manifold2d_get_surface(PyObject *self, PyObject *arg)
     {
         return NULL;
     }
-    if (id.index >= (long)this->n_surfaces)
+    if (id.index == GEO_ID_INVALID)
     {
-        PyErr_Format(PyExc_IndexError, "Index %ld is our of bounds for a mesh with %u surfaces.", id.index,
-                     this->n_surfaces);
+        PyErr_SetString(PyExc_ValueError, "Invalid GeoID was given.");
+        return NULL;
+    }
+
+    if (id.index >= this->n_surfaces)
+    {
+        PyErr_Format(PyExc_IndexError, "Index %u is our of bounds for a mesh with %u surfaces.", (unsigned)id.index,
+                     (unsigned)this->n_surfaces);
         return NULL;
     }
 
@@ -246,7 +264,8 @@ static int mesh_dual_from_primal(const manifold2d_object_t *const primal, manifo
 
     for (unsigned i_ln = 0; i_ln < n_lines; ++i_ln)
     {
-        line_t line = {.begin = {.index = GEO_ID_INVALID}, .end = {.index = GEO_ID_INVALID}};
+        line_t line = {.begin = {.reverse = 0, .index = GEO_ID_INVALID},
+                       .end = {.reverse = 0, .index = GEO_ID_INVALID}};
         size_t cnt_before = 0;
         // NOTE: this loop could be broken as soon as beginning and end are found, assuming the manifold is
         // not invalid. For now the function does not assume this, since this is likely not a huge performance
@@ -294,6 +313,7 @@ static int mesh_dual_from_primal(const manifold2d_object_t *const primal, manifo
     }
 
     const unsigned n_surf = primal->n_points;
+    dual->n_surfaces = n_surf;
     size_t *const surf_counts = PyObject_Malloc(sizeof *surf_counts * (n_surf + 1));
     if (!surf_counts)
     {
@@ -346,7 +366,7 @@ static int mesh_dual_from_primal(const manifold2d_object_t *const primal, manifo
 
 static PyObject *manifold2d_compute_dual(PyObject *self, PyObject *Py_UNUSED(arg))
 {
-    manifold2d_object_t *that = (manifold2d_object_t *)manifold_type_object.tp_alloc(&manifold_type_object, 0);
+    manifold2d_object_t *that = (manifold2d_object_t *)manifold_type_object.tp_alloc(&manifold2d_type_object, 0);
     if (!that)
     {
         return NULL;

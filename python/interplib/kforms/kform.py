@@ -885,4 +885,4 @@ class KFormSystem:
                 + f"[{row_str}]  [{out_v[ie].rjust(w_v)}] - [{rhs[ie].rjust(w_r)}]) ="
                 + " [0]\n"
             )
-        return s
+        return s[:-1]  # strip the trailing new line.

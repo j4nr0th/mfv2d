@@ -55,4 +55,7 @@ from interplib.splines import (
 from interplib.splines import nodal_interpolating_splinei as nodal_interpolating_splinei
 
 # System
-from interplib.system import solve_system_on_mesh as solve_system_on_mesh
+from interplib.system import solve_system_1d as solve_system_1d
+
+# System 2D
+from interplib.system2d import solve_system_2d as solve_system_2d

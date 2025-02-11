@@ -60,10 +60,7 @@ class KForm(Term):
 
     def __mul__(self, other: KForm, /) -> KInnerProduct:
         """Inner product with a weight."""
-        try:
-            return KInnerProduct(other, self)
-        except Exception:
-            return NotImplemented
+        return KInnerProduct(other, self)
 
     def __rmul__(self, other: KForm, /) -> KInnerProduct:
         """Inner product with a weight."""

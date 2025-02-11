@@ -1,12 +1,15 @@
 """Functionality related to creating a full system of equations."""
 
+from collections.abc import Sequence
+
 import numpy as np
 import numpy.typing as npt
 from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
 from interplib import kforms as kform
-from interplib._mimetic import Surface
+from interplib._interp import compute_gll
+from interplib._mimetic import GeoID, Surface
 from interplib.mimetic.mimetic2d import Element2D, Mesh2D, element_system
 
 
@@ -44,6 +47,7 @@ def solve_system_2d(
     system: kform.KFormSystem,
     mesh: Mesh2D,
     rec_order: int,
+    boundaray_conditions: Sequence[kform.BoundaryCondition2DStrong] | None = None,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -77,10 +81,24 @@ def solve_system_2d(
                 f"Can not solve the system on a 2D mesh, as it contains a {primal.order}"
                 "-form."
             )
+    # Check boundary conditions are sensible
+    if boundaray_conditions is not None:
+        for bc in boundaray_conditions:
+            if bc.form not in system.unknown_forms:
+                raise ValueError(
+                    f"Boundary conditions specify form {bc.form}, which is not in the"
+                    " system"
+                )
+            if np.any(bc.indices >= mesh.primal.n_lines):
+                raise ValueError(
+                    f"Boundary condition on {bc.form} specifies lines which are"
+                    " outside not in the mesh (highest index specified was "
+                    f"{np.max(bc.indices)}, but mesh has {mesh.primal.n_points}"
+                    " lines)."
+                )
 
     cont_indices_edges: list[int] = []
     cont_indices_nodes: list[int] = []
-    # d_cont_indices: list[int] = []
     for form in system.unknown_forms:
         if form.order == 2:
             continue
@@ -126,22 +144,11 @@ def solve_system_2d(
     # Continuity of 1-forms
     if cont_indices_edges:
         for il in range(mesh.dual.n_lines):
-            # primal_surface = mesh.primal.get_surface(ie + 1)
-            # dofs_self_edge = (
-            #     elm.boundary_edge_bottom,
-            #     elm.boundary_edge_right,
-            #     elm.boundary_edge_top,
-            #     elm.boundary_edge_left,
-            # )
-            # dofs_self_nodes = (
-            #     elm.boundary_nodes_bottom,
-            #     elm.boundary_nodes_right,
-            #     elm.boundary_nodes_top,
-            #     elm.boundary_nodes_left,
-            # )
             dual_line = mesh.dual.get_line(il + 1)
             idx_neighbour = dual_line.begin
             idx_self = dual_line.end
+            if not idx_self or not idx_neighbour:
+                continue
 
             # print(f"Linking {idx_self.index} to {idx_neighbour.index}.")
 
@@ -241,10 +248,24 @@ def solve_system_2d(
     if cont_indices_nodes:
         for i_surf in range(mesh.dual.n_surfaces):
             dual_surface = mesh.dual.get_surface(i_surf + 1)
-
-            for i_ln in range(len(dual_surface) - 1):
+            closed = True
+            valid: list[int] = list()
+            for i_ln in range(len(dual_surface)):
                 id_line = dual_surface[i_ln]
-                dual_line = mesh.dual.get_line(il)
+                dual_line = mesh.dual.get_line(id_line)
+                idx_neighbour = dual_line.begin
+                idx_self = dual_line.end
+                if not idx_neighbour or not idx_self:
+                    closed = False
+                else:
+                    valid.append(i_ln)
+
+            if closed:
+                valid.pop()
+
+            for i_ln in valid:
+                id_line = dual_surface[i_ln]
+                dual_line = mesh.dual.get_line(id_line)
                 idx_neighbour = dual_line.begin
                 idx_self = dual_line.end
 
@@ -271,8 +292,8 @@ def solve_system_2d(
 
                     dofs_other = node_dof_indices_from_line(
                         e_other, s_other, id_line.index
-                    )[0]
-                    ds = node_dof_indices_from_line(e_self, s_self, id_line.index)[-1]
+                    )[-1]
+                    ds = node_dof_indices_from_line(e_self, s_self, id_line.index)[0]
 
                     # If this is atomic, this works in parallel
                     begin_idx = lagrange_idx
@@ -288,9 +309,131 @@ def solve_system_2d(
                     )
 
     num_lagrange_coeffs = lagrange_idx - unknown_element_offset[-1]
-    sys_mat = sp.block_diag(element_matrix)
     if num_lagrange_coeffs > 0:
         element_vectors.append(np.zeros(num_lagrange_coeffs))
+
+    # Strong boundary conditions
+    if boundaray_conditions is not None:
+        bc_entries: list[
+            tuple[
+                npt.NDArray[np.integer],
+                npt.NDArray[np.integer],
+                npt.NDArray[np.integer | np.floating],
+            ]
+        ] = list()
+        bc_rhs: list[npt.NDArray[np.float64]] = []
+        set_nodes: set[int] = set()
+        for bc in boundaray_conditions:
+            self_var_offset = offset_unknown[system.unknown_forms.index(bc.form)]
+
+            for idx in bc.indices:
+                dof_offsets: npt.NDArray[np.integer] | None = None
+                surf_id: GeoID | None = None
+                x0: float
+                x1: float
+                y0: float
+                y1: float
+
+                dual_line = mesh.dual.get_line(idx + 1)
+                if dual_line.begin and dual_line.end:
+                    raise ValueError(
+                        f"Boundary condition for {bc.form} was specified for"
+                        f" line {idx}, which is not on the boundary."
+                    )
+                surf_id = dual_line.begin if dual_line.begin else dual_line.end
+                primal_surface = mesh.primal.get_surface(surf_id)
+                assert len(primal_surface) == 4
+
+                for i in range(4):
+                    if primal_surface[i].index == idx:
+                        break
+                assert i != 4
+                elm = elements[surf_id.index]
+                if i == 0:
+                    if bc.form.order == 0:
+                        dof_offsets = elm.boundary_nodes_bottom
+                    else:
+                        dof_offsets = elm.boundary_edge_bottom
+                elif i == 1:
+                    if bc.form.order == 0:
+                        dof_offsets = elm.boundary_nodes_right
+                    else:
+                        dof_offsets = elm.boundary_edge_right
+                elif i == 2:
+                    if bc.form.order == 0:
+                        dof_offsets = elm.boundary_nodes_top
+                    else:
+                        dof_offsets = elm.boundary_edge_top
+                elif i == 3:
+                    if bc.form.order == 0:
+                        dof_offsets = elm.boundary_nodes_left
+                    else:
+                        dof_offsets = elm.boundary_edge_left
+                else:
+                    assert False
+                assert dof_offsets is not None
+                assert surf_id is not None
+
+                dof_offsets += np.astype(
+                    self_var_offset[surf_id.index]
+                    + unknown_element_offset[surf_id.index],
+                    np.uint32,
+                )
+                assert dof_offsets is not None
+
+                primal_line = mesh.primal.get_line(primal_surface[i])
+                x0, y0 = mesh.positions[primal_line.begin.index, :]
+                x1, y1 = mesh.positions[primal_line.end.index, :]
+
+                comp_nodes = elm.nodes_1d
+                xv = (x1 + x0) / 2 + (x1 - x0) / 2 * comp_nodes
+                yv = (y1 + y0) / 2 + (y1 - y0) / 2 * comp_nodes
+
+                vals = np.empty_like(dof_offsets, np.float64)
+                if bc.form.order == 0:
+                    vals[:] = bc.func(xv, yv)
+
+                    if primal_line.begin.index in set_nodes:
+                        vals = vals[1:]
+                        dof_offsets = dof_offsets[1:]
+                    else:
+                        set_nodes.add(primal_line.begin.index)
+
+                    if primal_line.end.index in set_nodes:
+                        vals = vals[:-1]
+                        dof_offsets = dof_offsets[:-1]
+                    else:
+                        set_nodes.add(primal_line.end.index)
+
+                elif bc.form.order == 1:
+                    # TODO: this might be more efficiently done as some sort of projection
+                    lnds, wnds = compute_gll(2 * elm.order)
+                    for i in range(bc.form.order):
+                        xc = (xv[i + 1] + xv[i]) / 2 + (xv[i + 1] - xv[i]) / 2 * lnds
+                        yc = (yv[i + 1] + yv[i]) / 2 + (yv[i + 1] - yv[i]) / 2 * lnds
+                        fvals = bc.func(xc, yc)
+                        vals[i] = np.sum(fvals * wnds) / np.hypot(
+                            xv[i + 1] - xv[i], yv[i + 1] - yv[i]
+                        )
+                else:
+                    assert False
+
+                n_lag = vals.size
+                assert n_lag == dof_offsets.size
+                if n_lag:
+                    rows = np.arange(n_lag) + lagrange_idx
+                    lagrange_idx += n_lag
+
+                    bc_entries.append((rows, dof_offsets, np.ones_like(dof_offsets)))
+                    bc_rhs.append(vals)
+
+        entries.extend(bc_entries)
+        element_vectors.extend(bc_rhs)
+
+    num_lagrange_coeffs = lagrange_idx - unknown_element_offset[-1]
+    sys_mat = sp.block_diag(element_matrix)
+    if entries:
+        # element_vectors.append(np.zeros(num_lagrange_coeffs))
 
         # Transpose
         l1 = [e[1] for e in entries]
@@ -312,7 +455,7 @@ def solve_system_2d(
 
     # from matplotlib import pyplot as plt
 
-    # plt.spy(matrix.toarray())
+    # plt.spy(matrix)
     # plt.show()
     # with open("my_mat.dat", "w") as f_out:
     #     np.savetxt(f_out, matrix.toarray())

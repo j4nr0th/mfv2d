@@ -10,6 +10,9 @@ from interplib.kforms.boundary import (
 from interplib.kforms.boundary import (
     BoundaryCondition1DWeak as BoundaryCondition1DWeak,
 )
+from interplib.kforms.boundary import (
+    BoundaryCondition2DStrong as BoundaryCondition2DStrong,
+)
 
 # Basic K-forms
 from interplib.kforms.kform import KEquaton as KEquaton

@@ -344,27 +344,27 @@ def solve_system_2d(
                 primal_surface = mesh.primal.get_surface(surf_id)
                 assert len(primal_surface) == 4
 
-                for i in range(4):
-                    if primal_surface[i].index == idx:
+                for i_side in range(4):
+                    if primal_surface[i_side].index == idx:
                         break
-                assert i != 4
+                assert i_side != 4
                 elm = elements[surf_id.index]
-                if i == 0:
+                if i_side == 0:
                     if bc.form.order == 0:
                         dof_offsets = elm.boundary_nodes_bottom
                     else:
                         dof_offsets = elm.boundary_edge_bottom
-                elif i == 1:
+                elif i_side == 1:
                     if bc.form.order == 0:
                         dof_offsets = elm.boundary_nodes_right
                     else:
                         dof_offsets = elm.boundary_edge_right
-                elif i == 2:
+                elif i_side == 2:
                     if bc.form.order == 0:
                         dof_offsets = elm.boundary_nodes_top
                     else:
                         dof_offsets = elm.boundary_edge_top
-                elif i == 3:
+                elif i_side == 3:
                     if bc.form.order == 0:
                         dof_offsets = elm.boundary_nodes_left
                     else:
@@ -381,7 +381,7 @@ def solve_system_2d(
                 )
                 assert dof_offsets is not None
 
-                primal_line = mesh.primal.get_line(primal_surface[i])
+                primal_line = mesh.primal.get_line(primal_surface[i_side])
                 x0, y0 = mesh.positions[primal_line.begin.index, :]
                 x1, y1 = mesh.positions[primal_line.end.index, :]
 
@@ -411,10 +411,21 @@ def solve_system_2d(
                     for i in range(bc.form.order):
                         xc = (xv[i + 1] + xv[i]) / 2 + (xv[i + 1] - xv[i]) / 2 * lnds
                         yc = (yv[i + 1] + yv[i]) / 2 + (yv[i + 1] - yv[i]) / 2 * lnds
+                        dx = (xv[i + 1] - xv[i]) / 2
+                        dy = (yv[i + 1] - yv[i]) / 2
+                        if i_side == 0:
+                            normal = np.array((-dy, dx))
+                        elif i_side == 1:
+                            normal = np.array((dy, -dx))
+                        elif i_side == 2:
+                            normal = np.array((dy, -dx))
+                        elif i_side == 3:
+                            normal = np.array((-dy, dx))
+                        else:
+                            assert False
                         fvals = bc.func(xc, yc)
-                        vals[i] = np.sum(fvals * wnds) / np.hypot(
-                            xv[i + 1] - xv[i], yv[i + 1] - yv[i]
-                        )
+                        fvals = fvals[..., 0] * normal[0] + fvals[..., 1] * normal[1]
+                        vals[i] = np.sum(fvals * wnds)
                 else:
                     assert False
 
@@ -458,7 +469,7 @@ def solve_system_2d(
     # plt.spy(matrix)
     # plt.show()
     # with open("my_mat.dat", "w") as f_out:
-    #     np.savetxt(f_out, matrix.toarray())
+    #     np.savetxt(f_out, sys_mat.toarray())
     # from matplotlib import pyplot as plt
     # plt.figure()
     # plt.spy(matrix)
@@ -488,8 +499,8 @@ def solve_system_2d(
         ex = elm.poly_x(recon_nodes_1d[None, :], recon_nodes_1d[:, None])
         ey = elm.poly_y(recon_nodes_1d[None, :], recon_nodes_1d[:, None])
 
-        xvals.append(ex)
-        yvals.append(ey)
+        xvals.append(ex.flatten())
+        yvals.append(ey.flatten())
 
         # Loop over each of the primal forms
         for idx, form in enumerate(system.unknown_forms):
@@ -501,17 +512,17 @@ def solve_system_2d(
             v = elm.reconstruct(
                 form.order, form_dofs, recon_nodes_1d[None, :], recon_nodes_1d[:, None]
             )
-
-            build[form].append(v)
+            shape = (-1, 2) if form.order == 1 else (-1,)
+            build[form].append(np.reshape(v, shape))
 
     out: dict[kform.KFormUnknown, npt.NDArray[np.float64]] = dict()
 
     # Build the output splines
     for form in build:
-        out[form] = np.concatenate(build[form], dtype=np.float64)
+        out[form] = np.stack(build[form], dtype=np.float64)
 
     return (
-        np.concatenate(xvals, dtype=np.float64),
-        np.concatenate(yvals, dtype=np.float64),
+        np.stack(xvals, dtype=np.float64),
+        np.stack(yvals, dtype=np.float64),
         out,
     )

@@ -508,8 +508,10 @@ class Element2D:
                         * u1
                         * v1
                     )
-            out = np.stack((out_xi * j00 + out_eta * j10, out_xi * j01 + out_eta * j11))
-            out /= det
+            out = np.stack(
+                (out_xi * j00 + out_eta * j10, out_xi * j01 + out_eta * j11), axis=-1
+            )
+            out /= det[..., None]
 
         elif k == 2:
             in_dvalues_xi = dlagrange1d(self.nodes_1d, xi)

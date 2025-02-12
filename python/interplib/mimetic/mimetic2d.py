@@ -23,6 +23,142 @@ from interplib.kforms.kform import (
 from interplib.product_basis import BasisProduct2D
 
 
+class BasisCache:
+    """Cache for basis evaluation to allow for faster evaluation of mass matrices."""
+
+    basis_order: int
+    integration_order: int
+    nodal_1d: npt.NDArray[np.double]
+    edge_1d: npt.NDArray[np.double]
+    nodes_1d: npt.NDArray[np.float64]
+    int_nodes_1d: npt.NDArray[np.float64]
+    int_weights_1d: npt.NDArray[np.float64]
+    _precomp_node: npt.NDArray[np.float64] | None = None
+    _precomp_edge: npt.NDArray[np.float64] | None = None
+    _precomp_surf: npt.NDArray[np.float64] | None = None
+
+    def __init__(self, basis_order: int, integration_order: int, /) -> None:
+        self.basis_order = int(basis_order)
+        self.integration_order = int(integration_order)
+        n, _ = compute_gll(self.basis_order)
+        self.nodes_1d = n
+        ni, wi = compute_gll(self.integration_order)
+        self.int_nodes_1d = ni
+        self.int_weights_1d = wi
+        self.nodal_1d = lagrange1d(self.nodes_1d, self.int_nodes_1d)
+        dvals = dlagrange1d(self.nodes_1d, self.int_nodes_1d)
+        self.edge_1d = np.cumsum(-dvals[..., :-1], axis=-1)
+        self.int_weights_2d = wi[:, None] * wi[None, :]
+
+    @property
+    def mass_node_precomp(self) -> npt.NDArray[np.float64]:
+        """Precomputed entries for nodal mass matrix which just need to be scaled."""
+        if self._precomp_node is not None:
+            return self._precomp_node
+
+        n = self.basis_order + 1
+        m = self.integration_order + 1
+        mat = np.empty((n**2, n**2, m, m), np.float64)
+        values = self.nodal_1d
+        weights_2d = self.int_weights_2d
+
+        basis_vals: list[npt.NDArray] = list()
+
+        for i1 in range(n):
+            v1 = values[..., i1]
+            for j1 in range(n):
+                u1 = values[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_vals.append(basis1)
+
+        for i in range(n * n):
+            for j in range(i + 1):
+                res = basis_vals[i] * basis_vals[j] * weights_2d
+                mat[i, j, ...] = mat[j, i, ...] = res
+
+        self._precomp_node = mat
+        return mat
+
+    @property
+    def mass_edge_precomp(self) -> npt.NDArray[np.float64]:
+        """Precomputed entries for edge mass matrix which just need to be scaled."""
+        if self._precomp_edge is not None:
+            return self._precomp_edge
+
+        n = self.basis_order
+        m = self.integration_order + 1
+        mat = np.empty((2 * n * (n + 1), 2 * n * (n + 1), m, m), np.float64)
+        values = self.nodal_1d
+        dvalues = self.edge_1d
+        weights_2d = self.int_weights_2d
+
+        basis_eta: list[npt.NDArray] = list()
+        basis_xi: list[npt.NDArray] = list()
+
+        for i1 in range(n + 1):
+            v1 = values[..., i1]
+            for j1 in range(n):
+                u1 = dvalues[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_eta.append(basis1)
+
+        for i1 in range(n):
+            v1 = dvalues[..., i1]
+            for j1 in range(n + 1):
+                u1 = values[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_xi.append(basis1)
+
+        nb = n * (n + 1)
+
+        for i in range(nb):
+            for j in range(i + 1):
+                res = weights_2d * basis_eta[i] * basis_eta[j]
+                mat[i, j, ...] = mat[j, i, ...] = res
+
+        for i in range(nb):
+            for j in range(i + 1):
+                res = weights_2d * basis_xi[i] * basis_xi[j]
+                mat[nb + i, nb + j, ...] = mat[nb + j, nb + i, ...] = res
+
+        for i in range(nb):
+            for j in range(nb):
+                res = weights_2d * basis_eta[j] * basis_xi[i]
+                mat[nb + i, j, ...] = mat[j, nb + i, ...] = res
+
+        self._precomp_edge = mat
+        return mat
+
+    @property
+    def mass_surf_precomp(self) -> npt.NDArray[np.float64]:
+        """Precomputed entries for surface mass matrix which just need to be scaled."""
+        if self._precomp_surf is not None:
+            return self._precomp_surf
+
+        n = self.basis_order
+        m = self.integration_order + 1
+        mat = np.empty((n**2, n**2, m, m), np.float64)
+        values = self.edge_1d
+        weights_2d = self.int_weights_2d
+
+        basis_vals: list[npt.NDArray] = list()
+
+        for i1 in range(n):
+            v1 = values[..., i1]
+            for j1 in range(n):
+                u1 = values[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_vals.append(basis1)
+
+        for i in range(n * n):
+            for j in range(i + 1):
+                res = basis_vals[i] * basis_vals[j] * weights_2d
+                mat[i, j, ...] = mat[j, i, ...] = res
+
+        self._precomp_surf = mat
+        return mat
+
+
 class Element2D:
     """Two dimensional square element.
 
@@ -91,112 +227,69 @@ class Element2D:
         nodes1d, _ = compute_gll(p)
         self.nodes_1d = nodes1d
 
-    @property
-    def mass_matrix_node(self) -> npt.NDArray[np.float64]:
+    def mass_matrix_node(self, cache: BasisCache) -> npt.NDArray[np.float64]:
         """Element's mass matrix for nodal basis."""
-        n = self.order + 1
-        mat = np.empty((n**2, n**2), np.float64)
-        nodes, weights = compute_gll(2 * self.order)
-        values = lagrange1d(self.nodes_1d, nodes)
-        weights_2d = weights[:, None] * weights[None, :]
-        (j00, j01), (j10, j11) = self.jacobian(nodes[None, :], nodes[:, None])
+        assert cache.basis_order == self.order
+        precomp = cache.mass_node_precomp
+        (j00, j01), (j10, j11) = self.jacobian(
+            cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None]
+        )
         det = j00 * j11 - j10 * j01
 
-        weights_2d *= det
-        basis_vals: list[npt.NDArray] = list()
-
-        for i1 in range(n):
-            v1 = values[..., i1]
-            for j1 in range(n):
-                u1 = values[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                basis_vals.append(basis1)
-
-        for i in range(n * n):
-            for j in range(i + 1):
-                res = np.sum(basis_vals[i] * basis_vals[j] * weights_2d)
-                mat[i, j] = mat[j, i] = res
+        # Does not use symmetry (yet)
+        mat = np.sum(precomp * det[None, None, ...], axis=(-2, -1))
 
         return mat
 
-    @property
-    def mass_matrix_edge(self) -> npt.NDArray[np.float64]:
+    def mass_matrix_edge(self, cache: BasisCache) -> npt.NDArray[np.float64]:
         """Element's mass matrix for mixed node-edge basis."""
-        n = self.order
-        mat = np.empty((2 * n * (n + 1), 2 * n * (n + 1)), np.float64)
-        nodes, weights = compute_gll(2 * self.order)
-        values = lagrange1d(self.nodes_1d, nodes)
-        in_dvalues = dlagrange1d(self.nodes_1d, nodes)
-        dvalues = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
-        weights_2d = weights[None, :] * weights[:, None]
-        (j00, j01), (j10, j11) = self.jacobian(nodes[None, :], nodes[:, None])
+        assert cache.basis_order == self.order
+        precomp = cache.mass_edge_precomp
+        (j00, j01), (j10, j11) = self.jacobian(
+            cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None]
+        )
         det = j00 * j11 - j10 * j01
 
         khh = j11**2 + j10**2
         kvv = j01**2 + j00**2
         kvh = j01 * j11 + j00 * j10
-        weights_2d /= det
+        khh = khh / det
+        kvv = kvv / det
+        kvh = kvh / det
 
-        basis_eta: list[npt.NDArray] = list()
-        basis_xi: list[npt.NDArray] = list()
+        nb = self.order * (self.order + 1)
+        mat = np.empty((2 * nb, 2 * nb), np.float64)
 
-        for i1 in range(n + 1):
-            v1 = values[..., i1]
-            for j1 in range(n):
-                u1 = dvalues[j1]
-                basis1 = v1[:, None] * u1[None, :]
-                basis_eta.append(basis1)
-
-        for i1 in range(n):
-            v1 = dvalues[i1]
-            for j1 in range(n + 1):
-                u1 = values[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                basis_xi.append(basis1)
-        nh = len(basis_eta)
-        nv = len(basis_xi)
-        for i in range(nh):
-            for j in range(i + 1):
-                res = np.sum(weights_2d * basis_eta[i] * basis_eta[j] * khh)
-                mat[i, j] = mat[j, i] = res
-
-        for i in range(nv):
-            for j in range(i + 1):
-                res = np.sum(weights_2d * basis_xi[i] * basis_xi[j] * kvv)
-                mat[nh + i, nh + j] = mat[nh + j, nh + i] = res
-
-        for i in range(nv):
-            for j in range(nh):
-                res = np.sum(weights_2d * basis_eta[j] * basis_xi[i] * kvh)
-                mat[nh + i, j] = mat[j, nh + i] = res
+        mat[0 * nb : 1 * nb, 0 * nb : 1 * nb] = np.sum(
+            precomp[0 * nb : 1 * nb, 0 * nb : 1 * nb, ...] * khh[None, None, ...],
+            axis=(-2, -1),
+        )
+        mat[1 * nb : 2 * nb, 0 * nb : 1 * nb] = np.sum(
+            precomp[1 * nb : 2 * nb, 0 * nb : 1 * nb, ...] * kvh[None, None, ...],
+            axis=(-2, -1),
+        )
+        mat[0 * nb : 1 * nb, 1 * nb : 2 * nb] = np.sum(
+            precomp[0 * nb : 1 * nb, 1 * nb : 2 * nb, ...] * kvh[None, None, ...],
+            axis=(-2, -1),
+        )
+        mat[1 * nb : 2 * nb, 1 * nb : 2 * nb] = np.sum(
+            precomp[1 * nb : 2 * nb, 1 * nb : 2 * nb, ...] * kvv[None, None, ...],
+            axis=(-2, -1),
+        )
 
         return mat
 
-    @property
-    def mass_matrix_surface(self) -> npt.NDArray[np.float64]:
+    def mass_matrix_surface(self, cache: BasisCache) -> npt.NDArray[np.float64]:
         """Element's mass matrix for surface basis."""
-        n = self.order
-        mat = np.empty((n**2, n**2), np.float64)
-        nodes, weights = compute_gll(2 * self.order)
-        in_dvalues = dlagrange1d(self.nodes_1d, nodes)
-        values = tuple(accumulate(-in_dvalues[..., i] for i in range(self.order)))
-        weights_2d = weights[:, None] * weights[None, :]
-        (j00, j01), (j10, j11) = self.jacobian(nodes[None, :], nodes[:, None])
+        assert cache.basis_order == self.order
+        precomp = cache.mass_surf_precomp
+        (j00, j01), (j10, j11) = self.jacobian(
+            cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None]
+        )
         det = j00 * j11 - j10 * j01
 
-        weights_2d /= det
-        basis_vals: list[npt.NDArray] = list()
-        for i1 in range(n):
-            v1 = values[i1]
-            for j1 in range(n):
-                u1 = values[j1]
-                basis1 = v1[:, None] * u1[None, :]
-                basis_vals.append(basis1)
-
-        for i in range(n * n):
-            for j in range(i + 1):
-                res = np.sum(weights_2d * basis_vals[i] * basis_vals[j])
-                mat[i, j] = mat[j, i] = res
+        # Does not use symmetry (yet)
+        mat = np.sum(precomp / det[None, None, ...], axis=(-2, -1))
 
         return mat
 
@@ -644,9 +737,10 @@ def _extract_rhs_2d(
     return out_vec
 
 
-#
 def _equation_2d(
-    form: Term, element: Element2D
+    form: Term,
+    element: Element2D,
+    cache: BasisCache,
 ) -> dict[Term, npt.NDArray[np.float64] | np.float64]:
     """Compute the matrix operations on individual forms.
 
@@ -665,7 +759,7 @@ def _equation_2d(
         left: dict[Term, npt.NDArray[np.float64] | np.float64] = {}
 
         for c, ip in form.pairs:
-            right = _equation_2d(ip, element)
+            right = _equation_2d(ip, element, cache)
             if c != 1.0:
                 for f in right:
                     right[f] *= c  # type: ignore
@@ -689,10 +783,10 @@ def _equation_2d(
     if type(form) is KInnerProduct:
         unknown: dict[Term, npt.NDArray[np.float64] | np.float64]
         if isinstance(form.function, KHodge):
-            unknown = _equation_2d(form.function.base_form, element)
+            unknown = _equation_2d(form.function.base_form, element, cache)
         else:
-            unknown = _equation_2d(form.function, element)
-        weight = _equation_2d(form.weight, element)
+            unknown = _equation_2d(form.function, element, cache)
+        weight = _equation_2d(form.weight, element, cache)
         dv = tuple(v for v in weight.keys())[0]
         for k in unknown:
             vd = weight[dv]
@@ -704,36 +798,36 @@ def _equation_2d(
             if order_p == 0 and order_d == 0:
                 if form.function.is_primal:
                     if form.weight.is_primal:
-                        mass = element.mass_matrix_node
+                        mass = element.mass_matrix_node(cache)
                     else:
                         mass = np.eye((element.order + 1) ** 2)
                 else:
                     if form.weight.is_primal:
                         mass = np.eye((element.order + 1) ** 2)
                     else:
-                        mass = np.linalg.inv(element.mass_matrix_node)  # type: ignore
+                        mass = np.linalg.inv(element.mass_matrix_node(cache))  # type: ignore
             elif order_p == 1 and order_d == 1:
                 if form.function.is_primal:
                     if form.weight.is_primal:
-                        mass = element.mass_matrix_edge
+                        mass = element.mass_matrix_edge(cache)
                     else:
                         mass = np.eye((element.order + 1) * element.order * 2)
                 else:
                     if form.weight.is_primal:
                         mass = np.eye((element.order + 1) * element.order * 2)
                     else:
-                        mass = np.linalg.inv(element.mass_matrix_edge)  # type: ignore
+                        mass = np.linalg.inv(element.mass_matrix_edge(cache))  # type: ignore
             elif order_p == 2 and order_d == 2:
                 if form.function.is_primal:
                     if form.weight.is_primal:
-                        mass = element.mass_matrix_surface
+                        mass = element.mass_matrix_surface(cache)
                     else:
                         mass = np.eye(element.order**2)
                 else:
                     if form.weight.is_primal:
                         mass = np.eye(element.order**2)
                     else:
-                        mass = np.linalg.inv(element.mass_matrix_surface)  # type: ignore
+                        mass = np.linalg.inv(element.mass_matrix_surface(cache))  # type: ignore
             else:
                 raise ValueError(
                     f"Order {form.function.order} can't be used on a 2D mesh."
@@ -753,7 +847,7 @@ def _equation_2d(
             unknown[k] = mass
         return unknown
     if type(form) is KFormDerivative:
-        res = _equation_2d(form.form, element)
+        res = _equation_2d(form.form, element, cache)
         e: npt.NDArray[np.float64]
         if form.is_primal:
             if form.form.order == 0:
@@ -780,15 +874,15 @@ def _equation_2d(
         return res
 
     if type(form) is KHodge:
-        unknown = _equation_2d(form.base_form, element)
+        unknown = _equation_2d(form.base_form, element, cache)
         prime_order = form.primal_order
         for k in unknown:
             if prime_order == 0:
-                mass = element.mass_matrix_node
+                mass = element.mass_matrix_node(cache)
             elif prime_order == 1:
-                mass = element.mass_matrix_edge
+                mass = element.mass_matrix_edge(cache)
             elif prime_order == 2:
-                mass = element.mass_matrix_surface
+                mass = element.mass_matrix_surface(cache)
             else:
                 assert False
             if form.is_primal:
@@ -810,7 +904,7 @@ def _equation_2d(
 
 
 def element_system(
-    system: KFormSystem, element: Element2D
+    system: KFormSystem, element: Element2D, cache: BasisCache
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Compute element matrix and vector.
 
@@ -828,6 +922,7 @@ def element_system(
     array
         Element vector representing the right side of the system
     """
+    assert element.order == cache.basis_order
     system_size = system.shape_2d(element.order)
     assert system_size[0] == system_size[1], "System must be square."
     system_matrix = np.zeros(system_size, np.float64)
@@ -835,7 +930,7 @@ def element_system(
     offset_equations, offset_forms = system.offsets_2d(element.order)
 
     for ie, equation in enumerate(system.equations):
-        form_matrices = _equation_2d(equation.left, element)
+        form_matrices = _equation_2d(equation.left, element, cache)
         for form in form_matrices:
             val = form_matrices[form]
             idx = system.unknown_forms.index(form)

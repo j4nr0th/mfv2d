@@ -10,7 +10,7 @@ from scipy.sparse import linalg as sla
 from interplib import kforms as kform
 from interplib._interp import compute_gll
 from interplib._mimetic import GeoID, Surface
-from interplib.mimetic.mimetic2d import Element2D, Mesh2D, element_system
+from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_system
 
 
 def edge_dof_indices_from_line(
@@ -63,6 +63,8 @@ def solve_system_2d(
         Mesh on which to solve the system on.
     rec_order : int
         Order of reconstruction returned.
+    boundary_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
+        Sequence of boundary conditions to be applied to the system.
 
     Returns
     -------
@@ -121,7 +123,12 @@ def solve_system_2d(
 
     # Make element matrices and vectors
     elements = tuple(mesh.get_element(ie) for ie in range(n_elem))
-    element_outputs = tuple(element_system(system, e) for e in elements)
+    cache: dict[int, BasisCache] = dict()
+    for e in elements:
+        if e.order in cache:
+            continue
+        cache[e.order] = BasisCache(e.order, 3 * e.order)
+    element_outputs = tuple(element_system(system, e, cache[e.order]) for e in elements)
     element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
     element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
 

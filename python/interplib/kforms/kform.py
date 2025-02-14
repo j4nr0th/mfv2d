@@ -78,7 +78,7 @@ class KForm(Term):
     @property
     def is_primal(self) -> bool:
         """Check if the form is primal."""
-        return True
+        raise NotImplementedError
 
     @property
     def is_weight(self) -> bool:
@@ -93,7 +93,15 @@ class KForm(Term):
 
 @dataclass(frozen=True)
 class KFormUnknown(KForm):
-    """Differential form which is to be computed."""
+    """Differential form which is to be computed.
+
+    Parameters
+    ----------
+    dual : bool, default: False
+        Is the form represented by the dual or primal basis.
+    """
+
+    dual: bool = False
 
     @property
     def weight(self) -> KWeight:
@@ -107,8 +115,15 @@ class KFormUnknown(KForm):
 
     @property
     def primal_order(self) -> int:
-        """Order in primal basis."""
-        return self.order
+        """Order of the mass matrix which needs to be used."""
+        if self.is_primal:
+            return self.order
+        return self.manifold.dimension - self.order
+
+    @property
+    def is_primal(self) -> bool:
+        """Check if form is primal or dual."""
+        return not self.dual
 
 
 @dataclass(frozen=True, init=False)
@@ -230,8 +245,15 @@ class KWeight(KForm):
 
     @property
     def primal_order(self) -> int:
-        """Order in primal basis."""
-        return self.order
+        """Order of the mass matrix which needs to be used."""
+        if self.is_primal:
+            return self.order
+        return self.manifold.dimension - self.order
+
+    @property
+    def is_primal(self) -> bool:
+        """Check if form is primal or dual."""
+        return self.base_form.is_primal
 
 
 @dataclass(init=False, frozen=True, eq=False)
@@ -336,6 +358,14 @@ class KInnerProduct(Term):
             return KSum((1.0, self), (1.0, other))
         if isinstance(other, KSum):
             return KSum((1.0, self), *other.pairs)
+        return NotImplemented
+
+    def __sub__(self, other: KInnerProduct | KSum, /) -> KSum:
+        """Subtract the inner products."""
+        if isinstance(other, KInnerProduct):
+            return KSum((1.0, self), (-1.0, other))
+        if isinstance(other, KSum):
+            return KSum((1.0, self), *((-c, f) for c, f in other.pairs))
         return NotImplemented
 
     def __mul__(self, other: float, /) -> KSum:
@@ -556,7 +586,12 @@ def _parse_form(form: Term) -> dict[Term, str | None]:
                     else:
                         left[k] = vl if vl is not None else vr
                 else:
-                    left[k] = right[k]
+                    vr = right[k]
+                    if c >= 0 or vr is None:
+                        left[k] = vr
+                    else:
+                        left[k] = "-" + vr
+
         return left
     if type(form) is KInnerProduct:
         if isinstance(form.function, KHodge):

@@ -2,6 +2,8 @@
 
 from collections.abc import Sequence
 
+# from concurrent.futures import ThreadPoolExecutor
+# from functools import partial
 import numpy as np
 import numpy.typing as npt
 from scipy import sparse as sp
@@ -48,6 +50,7 @@ def solve_system_2d(
     mesh: Mesh2D,
     rec_order: int,
     boundaray_conditions: Sequence[kform.BoundaryCondition2DStrong] | None = None,
+    # workers: int | None = None,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -128,6 +131,15 @@ def solve_system_2d(
         if e.order in cache:
             continue
         cache[e.order] = BasisCache(e.order, 3 * e.order)
+    # with ThreadPoolExecutor(workers) as executor:
+    #     element_outputs = tuple(
+    #         v
+    #         for v in executor.map(
+    #             partial(element_system, system),
+    #             (e for e in elements),
+    #             (cache[e.order] for e in elements),
+    #         )
+    #     )
     element_outputs = tuple(element_system(system, e, cache[e.order]) for e in elements)
     element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
     element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
@@ -514,7 +526,17 @@ def solve_system_2d(
             form_offset = offset_unknown[idx][ie]
             form_offset_end = offset_unknown[idx + 1][ie]
             form_dofs = element_dofs[form_offset:form_offset_end]
-
+            if not form.is_primal:
+                mass: npt.NDArray[np.float64]
+                if form.order == 0:
+                    mass = elm.mass_matrix_surface(cache[elm.order])
+                elif form.order == 1:
+                    mass = elm.mass_matrix_edge(cache[elm.order])
+                elif form.order == 2:
+                    mass = elm.mass_matrix_node(cache[elm.order])
+                else:
+                    assert False
+                form_dofs = np.linalg.solve(mass, form_dofs)
             # Reconstruct unknown
             v = elm.reconstruct(
                 form.order, form_dofs, recon_nodes_1d[None, :], recon_nodes_1d[:, None]

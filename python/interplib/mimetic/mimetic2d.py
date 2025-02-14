@@ -193,6 +193,10 @@ class Element2D:
     poly_x: Polynomial2D
     poly_y: Polynomial2D
 
+    _mass_node: npt.NDArray[np.float64] | None
+    _mass_edge: npt.NDArray[np.float64] | None
+    _mass_surf: npt.NDArray[np.float64] | None
+
     def __init__(
         self,
         p: int,
@@ -227,8 +231,14 @@ class Element2D:
         nodes1d, _ = compute_gll(p)
         self.nodes_1d = nodes1d
 
+        self._mass_node = None
+        self._mass_edge = None
+        self._mass_surf = None
+
     def mass_matrix_node(self, cache: BasisCache) -> npt.NDArray[np.float64]:
         """Element's mass matrix for nodal basis."""
+        if self._mass_node is not None:
+            return self._mass_node
         assert cache.basis_order == self.order
         precomp = cache.mass_node_precomp
         (j00, j01), (j10, j11) = self.jacobian(
@@ -239,10 +249,13 @@ class Element2D:
         # Does not use symmetry (yet)
         mat = np.sum(precomp * det[None, None, ...], axis=(-2, -1))
 
+        self._mass_node = mat
         return mat
 
     def mass_matrix_edge(self, cache: BasisCache) -> npt.NDArray[np.float64]:
         """Element's mass matrix for mixed node-edge basis."""
+        if self._mass_edge is not None:
+            return self._mass_edge
         assert cache.basis_order == self.order
         precomp = cache.mass_edge_precomp
         (j00, j01), (j10, j11) = self.jacobian(
@@ -276,11 +289,13 @@ class Element2D:
             precomp[1 * nb : 2 * nb, 1 * nb : 2 * nb, ...] * kvv[None, None, ...],
             axis=(-2, -1),
         )
-
+        self._mass_edge = mat
         return mat
 
     def mass_matrix_surface(self, cache: BasisCache) -> npt.NDArray[np.float64]:
         """Element's mass matrix for surface basis."""
+        if self._mass_surf is not None:
+            return self._mass_surf
         assert cache.basis_order == self.order
         precomp = cache.mass_surf_precomp
         (j00, j01), (j10, j11) = self.jacobian(
@@ -290,7 +305,7 @@ class Element2D:
 
         # Does not use symmetry (yet)
         mat = np.sum(precomp / det[None, None, ...], axis=(-2, -1))
-
+        self._mass_surf = mat
         return mat
 
     def jacobian(

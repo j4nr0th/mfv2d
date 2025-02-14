@@ -225,12 +225,12 @@ class KWeight(KForm):
         """Derivative of the form."""
         return KFormDerivative(self)
 
-    def __matmul__(self, other: Callable | Literal[0], /) -> KFormProjection:
+    def __matmul__(self, other: Callable | Literal[0], /) -> KElementProjection:
         """Create projection for the right hand side."""
         if isinstance(other, int) and other == 0:
-            return KFormProjection(self, None)
+            return KElementProjection(self, None)
         if callable(other):
-            return KFormProjection(self, other)
+            return KElementProjection(self, other)
         return NotImplemented
 
     @property
@@ -381,14 +381,16 @@ class KInnerProduct(Term):
         return self.__mul__(other)
 
     @overload
-    def __eq__(self, other: KFormProjection, /) -> KEquaton: ...
+    def __eq__(self, other: KProjection | KProjectionCombination, /) -> KEquaton: ...
 
     @overload
     def __eq__(self, other, /) -> bool: ...
 
-    def __eq__(self, other: KFormProjection, /) -> KEquaton | bool:
+    def __eq__(self, other: KProjection | KProjectionCombination, /) -> KEquaton | bool:
         """Check equality or form an equation."""
-        if isinstance(other, KFormProjection):
+        if isinstance(other, KProjection):
+            return KEquaton(self, KProjectionCombination(other.weight, (1.0, other)))
+        if isinstance(other, KProjectionCombination):
             return KEquaton(self, other)
         return self is other
 
@@ -437,38 +439,209 @@ class KSum(Term):
             return NotImplemented
 
     @overload
-    def __eq__(self, other: KFormProjection, /) -> KEquaton: ...
+    def __eq__(self, other: KProjection | KProjectionCombination, /) -> KEquaton: ...
 
     @overload
     def __eq__(self, other, /) -> bool: ...
 
-    def __eq__(self, other: KFormProjection, /) -> KEquaton | bool:
+    def __eq__(self, other: KProjection | KProjectionCombination, /) -> KEquaton | bool:
         """Check equality or form an equation."""
-        if isinstance(other, KFormProjection):
+        if isinstance(other, KProjection):
+            return KEquaton(self, KProjectionCombination(other.weight, (1.0, other)))
+        if isinstance(other, KProjectionCombination):
             return KEquaton(self, other)
         return self is other
 
 
 @dataclass(frozen=True)
-class KFormProjection:
-    r"""Weigh a form with a dual form and implicilty project it.
+class KProjection:
+    """Base class for projections used on the right hand side of the equations."""
 
-    This is used to form the right side of the systems of equations. It represents
-    the projection of a given  function :math:`f: \mathbb{R}^n -> \mathbb{R}` onto
-    a set of primal basis to create a k-form, which is then used to compute the inner
-    product with the specified dual form.
+    weight: KWeight
+    func: Callable | None = None
+
+    def __add__(self, other: KProjection, /) -> KProjectionCombination:
+        """Add the term to another."""
+        if isinstance(other, KProjection):
+            return KProjectionCombination(self.weight, (1.0, self), (1.0, other))
+        return NotImplemented
+
+    def __radd__(self, other: KProjection, /) -> KProjectionCombination:
+        """Add the term to another."""
+        return self.__add__(other)
+
+    def __sub__(self, other: KProjection, /) -> KProjectionCombination:
+        """Subtract the term from another."""
+        if isinstance(other, KProjection):
+            return KProjectionCombination(self.weight, (1.0, self), (-1.0, other))
+        return NotImplemented
+
+    def __rsub__(self, other: KProjection, /) -> KProjectionCombination:
+        """Subtract the combination to another."""
+        if isinstance(other, KProjection):
+            return KProjectionCombination(self.weight, (1.0, other), (-1.0, self))
+        return NotImplemented
+
+    def __mul__(self, other: float | int, /) -> KProjectionCombination:
+        """Multiply the projection by a constant."""
+        try:
+            v = float(other)
+        except Exception:
+            return NotImplemented
+        return KProjectionCombination(self.weight, (v, self))
+
+    def __rmul__(self, other: float | int, /) -> KProjectionCombination:
+        """Multiply the projection by a constant."""
+        return self.__mul__(other)
+
+    def __div__(self, other: float | int, /) -> KProjectionCombination:
+        """Divide the projection by a constant."""
+        try:
+            v = float(other)
+        except Exception:
+            return NotImplemented
+        return KProjectionCombination(self.weight, (1 / v, self))
+
+    def __neg__(self) -> KProjectionCombination:
+        """Negate the combination."""
+        return KProjectionCombination(self.weight, (-1, self))
+
+
+@dataclass(frozen=True)
+class KElementProjection(KProjection):
+    r"""Element integral of the function with the basis.
+
+    This is used to form the right side of the systems of equations coming from a forcing
+    function.
 
     Parameters
     ----------
-    dual : KWeight
-        Dual form used as a weight.
+    weight : KWeight
+        Weight form used.
     func : tuple[str, Callable], optional
         The function to use, specified by a name and the callable to use. If it not
         specified or given as ``None``, then :math:`f = 0`.
     """
 
+
+@dataclass(frozen=True)
+class KBoundaryProjection(KProjection):
+    r"""Boundary integral of a forcing.
+
+    This is intended to be used to define boundary conditions. Given that
+    the function to be projected is denoted by :math:`f` and the weight function
+    is denoted by :math:`w`, this term represents the integral
+
+    .. math::
+
+        \int_{\partial \Omega} f w {d \vec{\Gamma}}
+
+    Such terms typically arise from weak boundary conditions.
+    """
+
+
+@dataclass(frozen=True, init=False)
+class KProjectionCombination:
+    """Combination of boundary and element projections."""
+
+    pairs: tuple[tuple[float, KProjection]]
     weight: KWeight
-    func: Callable | None = None
+
+    def __init__(self, weight: KWeight, *pairs: tuple[float, KProjection]) -> None:
+        object.__setattr__(self, "pairs", tuple((float(a), b) for a, b in pairs))
+        object.__setattr__(self, "weight", weight)
+        for _, f in self.pairs:
+            if self.weight != f.weight:
+                raise ValueError(
+                    "Can not combine projections with different weight functions"
+                    f" (namely {self.weight} and {f.weight})."
+                )
+
+    def __add__(
+        self, other: KProjectionCombination | KProjection, /
+    ) -> KProjectionCombination:
+        """Add the combination to another."""
+        if isinstance(other, KProjectionCombination):
+            return KProjectionCombination(self.weight, *self.pairs, *other.pairs)
+        if isinstance(other, (KProjection)):
+            return KProjectionCombination(self.weight, *self.pairs, (1.0, other))
+        return NotImplemented
+
+    def __radd__(
+        self, other: KProjectionCombination | KProjection, /
+    ) -> KProjectionCombination:
+        """Add the combination to another."""
+        return self.__add__(other)
+
+    def __sub__(
+        self, other: KProjectionCombination | KProjection, /
+    ) -> KProjectionCombination:
+        """Subtract the combination to another."""
+        if isinstance(other, KProjectionCombination):
+            return KProjectionCombination(
+                self.weight, *self.pairs, *((-a, b) for a, b in other.pairs)
+            )
+        if isinstance(other, (KProjection)):
+            return KProjectionCombination(self.weight, *self.pairs, (-1.0, other))
+        return NotImplemented
+
+    def __rsub__(
+        self, other: KProjectionCombination | KProjection, /
+    ) -> KProjectionCombination:
+        """Subtract the combination to another."""
+        return (self.__sub__(other)).__neg__()
+
+    def __mul__(self, other: float | int, /) -> KProjectionCombination:
+        """Multiply the projection by a constant."""
+        try:
+            v = float(other)
+        except Exception:
+            return NotImplemented
+        return KProjectionCombination(self.weight, *((v * a, b) for a, b in self.pairs))
+
+    def __rmul__(self, other: float | int, /) -> KProjectionCombination:
+        """Multiply the projection by a constant."""
+        return self.__mul__(other)
+
+    def __div__(self, other: float | int, /) -> KProjectionCombination:
+        """Divide the projection by a constant."""
+        try:
+            v = float(other)
+        except Exception:
+            return NotImplemented
+        return KProjectionCombination(self.weight, *((a / v, b) for a, b in self.pairs))
+
+    def __neg__(self) -> KProjectionCombination:
+        """Negate the combination."""
+        return KProjectionCombination(self.weight, *((-a, b) for a, b in self.pairs))
+
+    def __str__(self) -> str:
+        """Convert into a print-friendly string."""
+        s = ""
+        for a, b in self.pairs:
+            fn = b.func
+            if fn is None or a == 0:
+                continue
+            else:
+                name = fn.__name__
+
+            pre = ""
+
+            if len(s):
+                if a < 0:
+                    pre = " - "
+                else:
+                    pre = " + "
+            else:
+                if a < 0:
+                    pre = "-"
+                else:
+                    pre = ""
+
+            s += pre + f"{a:g} * {name}"
+        if not s:
+            return "0"
+        return s
 
 
 def _extract_forms(form: Term) -> tuple[set[KFormUnknown], set[KWeight], list[KForm]]:
@@ -533,11 +706,11 @@ class KEquaton:
     """
 
     left: KSum | KInnerProduct
-    right: KFormProjection
+    right: KProjectionCombination
     variables: tuple[KForm, ...]
     weak_forms: tuple[KForm]
 
-    def __init__(self, left: KSum | KInnerProduct, right: KFormProjection) -> None:
+    def __init__(self, left: KSum | KInnerProduct, right: KProjectionCombination) -> None:
         p, d, w = _extract_forms(left)
         if d != {right.weight}:
             raise ValueError("Left and right side do not use the same weight.")
@@ -896,8 +1069,7 @@ class KFormSystem:
                 else:
                     out_list.append("0")
             out_mat.append(out_list)
-            fn = eq.right.func
-            rhs.append(fn.__name__ if fn is not None else "0")
+            rhs.append(str(eq.right))
 
         out_dual = [str(d) for d in self.dual_forms]
         out_v = [str(iv) for iv in self.unknown_forms]

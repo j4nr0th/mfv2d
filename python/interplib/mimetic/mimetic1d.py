@@ -13,12 +13,14 @@ from scipy.special import roots_legendre
 from interplib._interp import Polynomial1D
 from interplib._mimetic import Line, Manifold, Manifold1D
 from interplib.kforms.kform import (
+    KBoundaryProjection,
+    KElementProjection,
     KForm,
     KFormDerivative,
-    KFormProjection,
     KFormSystem,
     KHodge,
     KInnerProduct,
+    KProjectionCombination,
     KSum,
     KWeight,
     Term,
@@ -198,8 +200,39 @@ class Element1D:
         return out
 
 
-def _extract_rhs_1d(
-    right: KFormProjection, element: Element1D
+def rhs_1d_boundary(
+    right: KBoundaryProjection, element: Element1D, bid: int, /
+) -> np.float64:
+    """Evaluate the differential form projections on the 1D element.
+
+    Parameters
+    ----------
+    right : KFormProjection
+        The projection onto a k-form.
+    element : Element1D
+        The element on which the projection is evaluated on.
+    bid : int
+        If 0, then the left boundary is used, if 1 the right
+        boundary is used.
+
+    Returns
+    -------
+    numpy.float64
+        The resulting value on the boundary.
+    """
+    fn = right.func
+    if fn is None:
+        return np.float64(0)
+    if bid == 0:
+        return np.float64(-fn(element.xleft))
+    elif bid == 1:
+        return np.float64(+fn(element.xleft))
+    else:
+        assert False
+
+
+def rhs_1d_element(
+    right: KElementProjection, element: Element1D, /
 ) -> npt.NDArray[np.float64]:
     """Evaluate the differential form projections on the 1D element.
 
@@ -243,6 +276,35 @@ def _extract_rhs_1d(
             out_vec[:] = fn(real_nodes)
             mass = element.mass_node
         return np.astype(mass @ np.astype(out_vec, np.float64), np.float64)
+
+
+def _extract_rhs_1d(
+    right: KProjectionCombination, element: Element1D
+) -> npt.NDArray[np.float64]:
+    """Evaluate the differential form projections on the 1D element.
+
+    Parameters
+    ----------
+    right : KFormProjection
+        The projection onto a k-form.
+    element : Element1D
+        The element on which the projection is evaluated on.
+
+    Returns
+    -------
+    array of :class:`numpy.float64`
+        The resulting projection vector.
+    """
+    out = np.zeros(element.order + 1 - right.weight.order)
+    for coeff, proj in filter(
+        lambda v: isinstance(v[1], KElementProjection), right.pairs
+    ):
+        assert isinstance(proj, KElementProjection)
+        rhs = rhs_1d_element(proj, element)
+        if coeff != 1.0:
+            rhs *= coeff
+        out += rhs
+    return out
 
 
 def _equation_1d(

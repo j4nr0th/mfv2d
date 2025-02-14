@@ -10,12 +10,14 @@ from interplib._interp import Polynomial1D, compute_gll, dlagrange1d, lagrange1d
 from interplib._mimetic import Manifold2D
 from interplib.interp2d import Polynomial2D
 from interplib.kforms.kform import (
+    KBoundaryProjection,
+    KElementProjection,
     KFormDerivative,
-    KFormProjection,
     KFormSystem,
     KFormUnknown,
     KHodge,
     KInnerProduct,
+    KProjectionCombination,
     KSum,
     KWeight,
     Term,
@@ -645,8 +647,8 @@ class Element2D:
         return np.array(out, np.float64, copy=None)
 
 
-def _extract_rhs_2d(
-    right: KFormProjection, element: Element2D
+def rhs_2d_element_projection(
+    right: KElementProjection, element: Element2D
 ) -> npt.NDArray[np.float64]:
     """Evaluate the differential form projections on the 1D element.
 
@@ -750,6 +752,107 @@ def _extract_rhs_2d(
         out_vec[i] = np.sum(bv * f_vals * weights_2d)
 
     return out_vec
+
+
+def rhs_2d_boundary_projection(
+    right: KBoundaryProjection, element: Element2D, cache: BasisCache, bid: int
+) -> npt.NDArray[np.float64]:
+    """Evaluate the differential form projections on the 2D element boundary.
+
+    Parameters
+    ----------
+    right : KBoundaryProjection
+        The projection onto a k-form.
+    element : Element2D
+        The element on which the projection is evaluated on.
+    bid : int
+        Id of the boundary. The following values have meaning:
+
+        - ``0`` is bottom
+        - ``1`` is right
+        - ``2`` is top
+        - ``3`` is left
+
+    Returns
+    -------
+    array of :class:`numpy.float64`
+        The resulting projection vector.
+    """
+    if bid == 0:
+        begin = element.bottom_left
+        end = element.bottom_right
+    elif bid == 1:
+        begin = element.bottom_right
+        end = element.top_right
+    elif bid == 2:
+        begin = element.top_right
+        end = element.top_left
+    elif bid == 3:
+        begin = element.top_left
+        end = element.bottom_left
+    else:
+        assert False
+
+    nds, w = cache.int_nodes_1d, cache.int_weights_1d
+    dx = (end[0] - begin[0]) / 2
+    dy = (end[1] - begin[1]) / 2
+    x = (end[0] + begin[0]) / 2 + dx * nds
+    y = (end[1] + begin[1]) / 2 + dy * nds
+
+    if bid == 0 or bid == 3:
+        normal = np.array((-dy, dx), np.float64)
+    elif bid == 1 or bid == 2:
+        normal = np.array((dy, -dx), np.float64)
+    else:
+        assert False
+
+    w1 = np.astype(w * normal[0], np.float64, copy=False)
+    w2 = np.astype(w * normal[1], np.float64, copy=False)
+
+    fn = right.func
+    assert fn is not None
+    vals = np.asarray(fn(x, y), np.float64, copy=None)
+
+    if right.weight.order == 0:
+        # the function is 1 form, weight is 0 form
+        w_vals = cache.nodal_1d
+        f_vals = vals[..., 0] * w1 + vals[..., 1] * w2
+        p = f_vals[..., None] * w_vals
+        n = p.shape[-1]
+        r = np.empty(n)
+        for i in range(n):
+            r[i] = np.sum(p[..., i])
+        return r
+
+    # if right.weight.order == 1:
+    #     w_vals = cache.edge_1d
+    #     f_vals = vals
+    raise NotImplementedError("Not finished yet.")
+
+
+def _extract_rhs_2d(
+    proj: KProjectionCombination, element: Element2D
+) -> npt.NDArray[np.float64]:
+    """Extract the rhs resulting from element projections."""
+    if proj.weight.order == 0:
+        n_out = (element.order + 1) ** 2
+    elif proj.weight.order == 1:
+        n_out = 2 * (element.order + 1) * element.order
+    elif proj.weight.order == 2:
+        n_out = element.order**2
+    else:
+        assert False
+
+    vec = np.zeros(n_out)
+
+    for k, f in filter(lambda v: isinstance(v[1], KElementProjection), proj.pairs):
+        assert isinstance(f, KElementProjection)
+        rhs = rhs_2d_element_projection(f, element)
+        if k != 1.0:
+            rhs *= k
+        vec += rhs
+
+    return vec
 
 
 def _equation_2d(

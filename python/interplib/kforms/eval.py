@@ -69,9 +69,194 @@ class Sum(MatOp):
     count: int
 
 
-def translate_equation(
-    form: Term,
-) -> dict[Term, list[MatOp]]:
+def simplify_expression(*operations: MatOp) -> list[MatOp]:
+    """Simplify expressions as much as possible."""
+    ops = list(operations)
+    nops = len(ops)
+    initial_nops = 0
+    while initial_nops != nops:
+        i = 0
+        initial_nops = int(nops)
+        r: Identity | Scale
+        while i < nops:
+            if nops - i >= 2 and (
+                type(ops[i]) is MassMat and type(ops[i + 1]) is MassMat
+            ):
+                # Mass matrix and its inverse result in identity
+                m1 = ops[i]
+                m2 = ops[i + 1]
+                assert type(m1) is MassMat and type(m2) is MassMat
+                if m1.order == m2.order and m1.inv != m2.inv:
+                    del ops[i + 1]
+                    ops[i] = Identity()
+                    nops -= 1
+                    continue
+
+            if nops - i >= 2 and (
+                type(ops[i]) is Transpose and type(ops[i + 1]) is Transpose
+            ):
+                # Double transpose does nothing
+                del ops[i + 1]
+                del ops[i]
+                nops -= 2
+                continue
+
+            if nops - i >= 2 and (
+                type(ops[i]) is Identity
+                and (
+                    type(ops[i + 1]) is MassMat
+                    or type(ops[i + 1]) is Incidence
+                    or type(ops[i + 1]) is Push
+                    or type(ops[i + 1]) is Scale
+                )
+            ):
+                # Identity does nothing to these
+                del ops[i]
+                nops -= 1
+                continue
+
+            if nops - i >= 2 and (
+                type(ops[i]) is Identity and (type(ops[i + 1]) is Transpose)
+            ):
+                # Transpose of identity does nothing
+                del ops[i + 1]
+                nops -= 1
+                continue
+
+            if nops - i >= 3 and (
+                type(ops[i]) is Push
+                and type(ops[i + 1]) is Scale
+                and type(ops[i + 2]) is Transpose
+            ):
+                # Transpose of a fresh scale does nothing
+                del ops[i + 2]
+                nops -= 1
+                continue
+
+            if nops - i >= 2 and (
+                (type(ops[i]) is Scale or type(ops[i]) is Identity)
+                and (type(ops[i + 1]) is Scale or type(ops[i + 1]) is Identity)
+            ):
+                # Merge identities/scaling
+                v1 = ops[i]
+                v2 = ops[i + 1]
+
+                if type(v1) is Identity:
+                    if type(v2) is Identity:
+                        r = Identity()
+                    else:
+                        assert type(v2) is Scale
+                        r = v2
+                else:
+                    assert type(v1) is Scale
+                    if type(v2) is Identity:
+                        r = v1
+                    else:
+                        assert type(v2) is Scale
+                        r = Scale(v1.k + v2.k)
+
+                del ops[i + 1]
+                ops[i] = r
+                nops -= 1
+                continue
+
+            if nops - i >= 1 and (type(ops[i]) is Sum):
+                # Sum of zero stack values is no-op
+                sop = ops[i]
+                assert type(sop) is Sum
+                if sop.count == 0:
+                    del ops[i]
+                    nops -= 1
+                    continue
+
+            if nops - i >= 3 and (
+                type(ops[i]) is Push
+                and type(ops[i + 1]) is Identity
+                and type(ops[i + 2]) is MatMul
+            ):
+                # Multiplication by identity is no-op
+                del ops[i + 2]
+                del ops[i + 1]
+                del ops[i]
+                nops -= 3
+                continue
+
+            if nops - i >= 3 and (
+                type(ops[i]) is Push
+                and type(ops[i + 1]) is Scale
+                and type(ops[i + 2]) is MatMul
+            ):
+                # MatMul by Scale-only matrix is same as scaling itself
+                s = ops[i + 1]
+                del ops[i + 2]
+                del ops[i + 1]
+                ops[i] = s
+                nops -= 2
+                continue
+
+            if nops - i >= 5 and (
+                type(ops[i]) is Push
+                and (type(ops[i + 1]) is Scale or type(ops[i + 1]) is Identity)
+                and type(ops[i + 2]) is Push
+                and (type(ops[i + 3]) is Scale or type(ops[i + 3]) is Identity)
+                and type(ops[i + 4]) is Sum
+            ):
+                # Sum of two pure identity/scale matrices can be pre-computed
+                v1 = ops[i + 1]
+                v2 = ops[i + 3]
+
+                if type(v1) is Identity:
+                    if type(v2) is Identity:
+                        r = Scale(2)
+                    else:
+                        assert type(v2) is Scale
+                        r = Scale(v2.k + 1)
+                else:
+                    assert type(v1) is Scale
+                    if type(v2) is Identity:
+                        r = Scale(v1.k + 1)
+                    else:
+                        assert type(v2) is Scale
+                        r = Scale(v1.k + v2.k)
+                ops[i + 1] = r
+                sop = ops[i + 4]
+                assert type(sop) is Sum
+                ops[i + 4] = Sum(sop.count - 1)
+                del ops[i + 3]
+                del ops[i + 2]
+                nops -= 2
+                continue
+
+            else:
+                i += 1
+
+    return ops
+
+
+def translate_equation(form: Term, simplify: bool = True) -> dict[Term, list[MatOp]]:
+    """Compute the matrix operations on individual forms.
+
+    Parameter
+    ---------
+    form : Term
+        Form to evaluate.
+    simplify : bool, default: True
+        Simplify the expressions at the top level
+
+    Returns
+    -------
+    dict of KForm -> array or float
+        Dictionary mapping forms to either a matrix that represents the operation to
+        perform on them, or ``float``, if it should be multiplication with a constant.
+    """
+    v = _translate_equation(form)
+    if simplify:
+        for k in v:
+            v[k] = simplify_expression(*v[k])
+    return v
+
+
+def _translate_equation(form: Term) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
     Parameter
@@ -91,7 +276,7 @@ def translate_equation(
         accum: dict[Term, list[MatOp]] = {}
         counts: dict[Term, int] = {}
         for c, ip in form.pairs:
-            right = translate_equation(ip)
+            right = _translate_equation(ip)
             if c != 1.0:
                 for f in right:
                     right[f].append(Scale(c))
@@ -116,11 +301,11 @@ def translate_equation(
 
     if type(form) is KInnerProduct:
         unknown: dict[Term, list[MatOp]]
-        if isinstance(form.function, KHodge):
-            unknown = translate_equation(form.function.base_form)
-        else:
-            unknown = translate_equation(form.function)
-        weight = translate_equation(form.weight)
+        # if isinstance(form.function, KHodge):
+        #     unknown = _translate_equation(form.function.base_form)
+        # else:
+        unknown = _translate_equation(form.function)
+        weight = _translate_equation(form.weight)
         assert len(weight) == 1
         dv = tuple(v for v in weight.keys())[0]
         for k in unknown:
@@ -152,17 +337,17 @@ def translate_equation(
         return unknown
 
     if type(form) is KFormDerivative:
-        res = translate_equation(form.form)
+        res = _translate_equation(form.form)
         for k in res:
             vr = res[k]
             vr.append(Incidence(form.form.order, not form.form.is_primal))
         return res
 
     if type(form) is KHodge:
-        unknown = translate_equation(form.base_form)
+        unknown = _translate_equation(form.base_form)
         prime_order = form.primal_order
         for k in unknown:
-            mass = MassMat(prime_order, form.is_primal)
+            mass = MassMat(prime_order, not form.base_form.is_primal)
             uv = unknown[k]
             uv.append(mass)
             unknown[k] = uv

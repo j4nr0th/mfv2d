@@ -12,6 +12,7 @@ from scipy.sparse import linalg as sla
 from interplib import kforms as kform
 from interplib._interp import compute_gll
 from interplib._mimetic import GeoID, Surface
+from interplib.kforms.eval import translate_equation
 from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_system
 
 
@@ -51,6 +52,7 @@ def solve_system_2d(
     rec_order: int,
     boundaray_conditions: Sequence[kform.BoundaryCondition2DStrong] | None = None,
     # workers: int | None = None,
+    new_evaluation: bool = True,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -68,6 +70,9 @@ def solve_system_2d(
         Order of reconstruction returned.
     boundary_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
         Sequence of boundary conditions to be applied to the system.
+    new_evaluation: bool, default: True
+        Use newer evaluation based on a virtual stack machine. This can then be
+        ported to C.
 
     Returns
     -------
@@ -140,7 +145,15 @@ def solve_system_2d(
     #             (cache[e.order] for e in elements),
     #         )
     #     )
-    element_outputs = tuple(element_system(system, e, cache[e.order]) for e in elements)
+    bytecodes = (
+        [translate_equation(eq.left, simplify=True) for eq in system.equations]
+        if new_evaluation
+        else None
+    )
+
+    element_outputs = tuple(
+        element_system(system, e, cache[e.order], bytecodes) for e in elements
+    )
     element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
     element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
 

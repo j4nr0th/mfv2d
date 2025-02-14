@@ -1,6 +1,6 @@
 """Implementation of the 2D mimetic meshes and manifolds."""
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from itertools import accumulate
 
 import numpy as np
@@ -9,6 +9,17 @@ import numpy.typing as npt
 from interplib._interp import Polynomial1D, compute_gll, dlagrange1d, lagrange1d
 from interplib._mimetic import Manifold2D
 from interplib.interp2d import Polynomial2D
+from interplib.kforms.eval import (
+    Identity,
+    Incidence,
+    MassMat,
+    MatMul,
+    MatOp,
+    Push,
+    Scale,
+    Sum,
+    Transpose,
+)
 from interplib.kforms.kform import (
     KBoundaryProjection,
     KElementProjection,
@@ -1022,7 +1033,10 @@ def _equation_2d(
 
 
 def element_system(
-    system: KFormSystem, element: Element2D, cache: BasisCache
+    system: KFormSystem,
+    element: Element2D,
+    cache: BasisCache,
+    bytecodes: list[dict[Term, list[MatOp]]] | None = None,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Compute element matrix and vector.
 
@@ -1050,7 +1064,19 @@ def element_system(
     for ie, equation in enumerate(system.equations):
         form_matrices = _equation_2d(equation.left, element, cache)
         for form in form_matrices:
-            val = form_matrices[form]
+            if bytecodes is not None:
+                val = eval_expression(bytecodes[ie][form], element, cache)
+                if val.ndim == 0:
+                    # Identity times val
+                    val = np.astype(
+                        val * np.eye(offset_equations[ie + 1] - offset_equations[ie]),
+                        np.float64,
+                        copy=False,
+                    )
+                # assert isinstance(new_val, np.ndarray)
+                # assert np.allclose(val, new_val)
+            else:
+                val = form_matrices[form]
             idx = system.unknown_forms.index(form)
             assert val is not None
             system_matrix[
@@ -1127,3 +1153,141 @@ class Mesh2D:
             tuple(self.positions[indices[2], :]),  # type: ignore
             tuple(self.positions[indices[3], :]),  # type: ignore
         )
+
+
+def eval_expression(
+    expr: Iterable[MatOp], element: Element2D, cache: BasisCache
+) -> npt.NDArray[np.float64] | np.float64:
+    """Evaluate the matrix expression."""
+    stack: list[tuple[float, npt.NDArray[np.floating] | None]] = []
+    val: tuple[float, npt.NDArray[np.floating] | None] | None = None
+    mat: npt.NDArray[np.floating]
+    for op in expr:
+        if type(op) is MassMat:
+            if op.order == 0:
+                mat = element.mass_matrix_node(cache)
+            elif op.order == 1:
+                mat = element.mass_matrix_edge(cache)
+            elif op.order == 2:
+                mat = element.mass_matrix_surface(cache)
+            else:
+                assert False
+
+            if op.inv:
+                mat = np.linalg.inv(mat)
+
+            if val is not None:
+                c, s = val
+                if s is None:
+                    val = (c, mat)
+                else:
+                    val = (c, mat @ s)
+            else:
+                val = (1.0, mat)
+
+        elif type(op) is Incidence:
+            if op.dual:
+                if op.begin == 0:
+                    mat = -element.incidence_21().T
+                elif op.begin == 1:
+                    mat = -element.incidence_10().T
+                else:
+                    assert False
+            else:
+                if op.begin == 0:
+                    mat = element.incidence_10()
+                elif op.begin == 1:
+                    mat = element.incidence_21()
+                else:
+                    assert False
+
+            if val is not None:
+                c, s = val
+                if s is None:
+                    val = (c, mat)
+                else:
+                    val = (c, mat @ s)
+            else:
+                val = (1.0, mat)
+
+        elif type(op) is Push:
+            if val is None:
+                raise ValueError("Invalid Push operation.")
+            stack.append(val)
+            val = None
+
+        elif type(op) is Scale:
+            if val is None:
+                val = (op.k, None)
+            else:
+                c, s = val
+                val = (c * op.k, s)
+
+        elif type(op) is MatMul:
+            k, m = stack.pop()
+            if val is None:
+                raise ValueError("Invalid MatMul operation.")
+
+            c, s = val
+            c *= k
+            if m is None:
+                val = (c, s)
+            elif s is None:
+                val = (c, m)
+            else:
+                val = (c, s @ m)
+
+        elif type(op) is Transpose:
+            if val is None:
+                raise ValueError("Invalid Transpose operation.")
+            c, s = val
+            if s is not None:
+                val = (c, s.T)
+
+        elif type(op) is Sum:
+            n = op.count
+            if n <= 0:
+                raise ValueError("Sum must be of a non-zero number of matrices.")
+            if val is None:
+                raise ValueError("Invalid Sum operation.")
+            if len(stack) < n:
+                raise ValueError(
+                    f"Not enough matrices on the stack to Sum ({len(stack)} on stack,"
+                    f" but {n} should be summed)."
+                )
+            c, s = val
+            if s is not None:
+                s *= c
+
+            for _ in range(n):
+                k, m = stack.pop()
+
+                if s is not None and m is not None:
+                    s = s + k * m
+                elif s is None:
+                    if m is None:
+                        # Both are None
+                        c *= k
+                        s = None
+                    else:
+                        s = c * np.eye(m.shape[0]) + k * m
+                else:
+                    s = k * np.eye(s.shape[0]) + s
+
+            val = (1.0, s)
+
+        elif type(op) is Identity:
+            if val is None:
+                val = (1.0, None)
+
+        else:
+            raise TypeError("Unknown operation.")
+
+    if len(stack):
+        raise ValueError(f"{len(stack)} matrices still on the stack.")
+    if val is None:
+        return np.float64(1.0)
+    c, s = val
+    if s is None:
+        return np.float64(c)
+    return np.astype(c * s, np.float64, copy=False)

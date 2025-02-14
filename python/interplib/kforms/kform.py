@@ -380,6 +380,10 @@ class KInnerProduct(Term):
         """Multiply with a constant."""
         return self.__mul__(other)
 
+    def __neg__(self) -> KSum:
+        """Negate the inner product."""
+        return KSum((-1.0, self))
+
     @overload
     def __eq__(self, other: KProjection | KProjectionCombination, /) -> KEquaton: ...
 
@@ -439,17 +443,34 @@ class KSum(Term):
             return NotImplemented
 
     @overload
-    def __eq__(self, other: KProjection | KProjectionCombination, /) -> KEquaton: ...
+    def __eq__(
+        self, other: KProjection | KProjectionCombination | int, /
+    ) -> KEquaton: ...
 
     @overload
     def __eq__(self, other, /) -> bool: ...
 
-    def __eq__(self, other: KProjection | KProjectionCombination, /) -> KEquaton | bool:
+    def __eq__(
+        self, other: KProjection | KProjectionCombination | int, /
+    ) -> KEquaton | bool:
         """Check equality or form an equation."""
         if isinstance(other, KProjection):
             return KEquaton(self, KProjectionCombination(other.weight, (1.0, other)))
         if isinstance(other, KProjectionCombination):
             return KEquaton(self, other)
+        try:
+            if float(other) == 0:
+                _, ws, _ = _extract_forms(self.pairs[0][1].weight)
+                w = tuple(w for w in ws)[0]
+                return KEquaton(
+                    self,
+                    KProjectionCombination(
+                        w,
+                        (1.0, KElementProjection(w, None)),
+                    ),
+                )
+        except Exception:
+            pass
         return self is other
 
 

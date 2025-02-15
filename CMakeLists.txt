@@ -64,23 +64,35 @@ set(MIMETIC_HEADER_FILES
         src/mimetic/manifold2d.h
 )
 
+set(EVAL_SOURCE_FILES
+        src/eval/_module.c
+        src/eval/evaluation.c
+)
+set(EVAL_HEADER_FILES
+        src/eval/evaluation.h
+)
+
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
 Python_add_library(_mimetic MODULE ${MIMETIC_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
-install(TARGETS _interp _mimetic DESTINATION ${SKBUILD_PROJECT_NAME})
+Python_add_library(_eval MODULE ${EVAL_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
+install(TARGETS _interp _mimetic _eval DESTINATION ${SKBUILD_PROJECT_NAME})
 
 #if (CMAKE_BUILD_TYPE EQUAL Debug)
 target_compile_definitions(_interp PRIVATE INTERPLIB_ASSERTS)
 target_compile_definitions(_mimetic PRIVATE INTERPLIB_ASSERTS)
+target_compile_definitions(_eval PRIVATE INTERPLIB_ASSERTS)
 #endif()
 if ("${NumPy_INCLUDE_DIRS}" STREQUAL "")
     message(FATAL_ERROR "NumPy_INCLUDE_DIRS was empty.")
 endif ()
 target_include_directories(_interp PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
 target_include_directories(_mimetic PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
+target_include_directories(_eval PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
 
 if (CMAKE_C_COMPILER_ID EQUAL "GNU")
     target_compile_options(_interp PRIVATE -Wall -Wextra)
     target_compile_options(_mimetic PRIVATE -Wall -Wextra)
+    target_compile_options(_eval PRIVATE -Wall -Wextra)
 endif ()
 
 enable_testing()

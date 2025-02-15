@@ -171,6 +171,33 @@ class BasisCache:
         self._precomp_surf = mat
         return mat
 
+    @property
+    def c_serialization(
+        self,
+    ) -> tuple[
+        int,
+        int,
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+    ]:
+        """Serialize into form which C code understands."""
+        edge_pre_comp = self.mass_edge_precomp
+        m = self.basis_order * (self.basis_order + 1)
+        return (
+            self.basis_order,
+            self.integration_order + 1,
+            self.int_nodes_1d,
+            self.mass_node_precomp,
+            edge_pre_comp[0 * m : 1 * m, 0 * m : 1 * m, ...],
+            edge_pre_comp[0 * m : 1 * m, 1 * m : 2 * m, ...],
+            edge_pre_comp[1 * m : 2 * m, 1 * m : 2 * m, ...],
+            self.mass_surf_precomp,
+        )
+
 
 class Element2D:
     """Two dimensional square element.

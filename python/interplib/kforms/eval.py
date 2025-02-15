@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from enum import IntEnum
 
 from interplib.kforms.kform import (
     KFormDerivative,
@@ -447,3 +448,49 @@ def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
 def extract_mass_matrices(*ops: MatOp) -> set[MassMat]:
     """Extract mass matrices which will be needed."""
     return set(op for op in filter(lambda op: isinstance(op, MassMat), ops))  # type: ignore
+
+
+class MatOpCode(IntEnum):
+    """Operation codes."""
+
+    INVALID = 0
+    IDENTITY = 1
+    MASS = 2
+    INCIDENCE = 3
+    PUSH = 4
+    MATMUL = 5
+    SCALE = 6
+    TRANSPOSE = 7
+    SUM = 8
+
+
+def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
+    """Translate the operations into C-friendly values."""
+    out: list[MatOpCode | int | float] = list()
+    for op in ops:
+        if type(op) is Identity:
+            out.append(MatOpCode.IDENTITY)
+        elif type(op) is MassMat:
+            out.append(MatOpCode.MASS)
+            out.append(op.order)
+            out.append(int(op.inv))
+        elif type(op) is Incidence:
+            out.append(MatOpCode.INCIDENCE)
+            out.append(op.begin)
+            out.append(int(op.dual))
+        elif type(op) is Push:
+            out.append(MatOpCode.PUSH)
+        elif type(op) is Scale:
+            out.append(MatOpCode.SCALE)
+            out.append(op.k)
+        elif type(op) is Transpose:
+            out.append(MatOpCode.TRANSPOSE)
+        elif type(op) is Sum:
+            out.append(MatOpCode.SUM)
+            out.append(op.count)
+        elif type(op) is MatMul:
+            out.append(MatOpCode.MATMUL)
+        else:
+            raise TypeError("Unknown instruction")
+
+    return out

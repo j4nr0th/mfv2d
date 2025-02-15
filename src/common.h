@@ -28,6 +28,11 @@ static inline void *allocate(const allocator_callbacks *allocator, const size_t 
     return allocator->alloc(allocator->state, sz);
 }
 
+static inline void *reallocate(const allocator_callbacks *allocator, void *ptr, const size_t new_sz)
+{
+    return allocator->realloc(allocator->state, ptr, new_sz);
+}
+
 static inline void deallocate(const allocator_callbacks *allocator, void *ptr)
 {
     return allocator->free(allocator->state, ptr);

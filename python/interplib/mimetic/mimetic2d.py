@@ -467,6 +467,142 @@ class Element2D:
 
         return e
 
+    def apply_e10(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Apply the E10 matrix to the given input.
+
+        Calling this function is equivalent to left multiplying by E10.
+        """
+        assert other.ndim == 2
+        n_nodes = self.order + 1
+        n_lines = self.order
+        out = np.zeros((2 * self.order * (self.order + 1), other.shape[1]), np.float64)
+
+        for i_col in range(other.shape[1]):
+            for row in range(n_nodes):
+                for col in range(n_lines):
+                    row_e = row * n_lines + col
+                    col_e1 = n_nodes * row + col
+                    col_e2 = n_nodes * row + col + 1
+                    out[row_e, i_col] = other[col_e1, i_col] - other[col_e2, i_col]
+
+            for row in range(n_lines):
+                for col in range(n_nodes):
+                    row_e = n_nodes * n_lines + row * n_nodes + col
+                    col_e1 = n_nodes * (row + 1) + col
+                    col_e2 = n_nodes * row + col
+                    out[row_e, i_col] = other[col_e1, i_col] - other[col_e2, i_col]
+
+        return out
+
+    def apply_e10_t(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Apply the E10 transpose matrix to the given input.
+
+        Calling this function is equivalent to left multiplying by E10 transposed.
+        """
+        assert other.ndim == 2
+        n_nodes = self.order + 1
+        n_lines = self.order
+        out = np.zeros(((self.order + 1) ** 2, other.shape[1]), np.float64)
+
+        for i_col in range(other.shape[1]):
+            # Nodes with lines on their left
+            for row in range(n_nodes):
+                for col in range(n_nodes - 1):
+                    row_e = row * n_nodes + col
+                    col_e1 = n_lines * row + col
+                    out[row_e, i_col] += other[col_e1, i_col]
+
+            # Nodes with lines on their right
+            for row in range(n_nodes):
+                for col in range(n_nodes - 1):
+                    row_e = row * n_nodes + col + 1
+                    col_e1 = n_lines * row + col
+                    out[row_e, i_col] -= other[col_e1, i_col]
+
+            # Nodes with lines on their top
+            for row in range(n_nodes - 1):
+                for col in range(n_nodes):
+                    row_e = row * n_nodes + col
+                    col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
+                    out[row_e, i_col] -= other[col_e1, i_col]
+
+            # Nodes with lines on their bottom
+            for row in range(n_nodes - 1):
+                for col in range(n_nodes):
+                    row_e = (row + 1) * n_nodes + col
+                    col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
+                    out[row_e, i_col] += other[col_e1, i_col]
+
+        return out
+
+    def apply_e10_r(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Apply the right E10 matrix to the given input.
+
+        Calling this function is equivalent to right multiplying by E10.
+        """
+        assert other.ndim == 2
+        n_nodes = self.order + 1
+        n_lines = self.order
+        out = np.zeros((other.shape[0], (self.order + 1) ** 2), np.float64)
+
+        for i_row in range(other.shape[0]):
+            # Nodes with lines on their left
+            for row in range(n_nodes):
+                for col in range(n_nodes - 1):
+                    row_e = row * n_nodes + col
+                    col_e1 = n_lines * row + col
+                    out[i_row, row_e] += other[i_row, col_e1]
+
+            # Nodes with lines on their right
+            for row in range(n_nodes):
+                for col in range(n_nodes - 1):
+                    row_e = row * n_nodes + col + 1
+                    col_e1 = n_lines * row + col
+                    out[i_row, row_e] -= other[i_row, col_e1]
+
+            # Nodes with lines on their top
+            for row in range(n_nodes - 1):
+                for col in range(n_nodes):
+                    row_e = row * n_nodes + col
+                    col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
+                    out[i_row, row_e] -= other[i_row, col_e1]
+
+            # Nodes with lines on their bottom
+            for row in range(n_nodes - 1):
+                for col in range(n_nodes):
+                    row_e = (row + 1) * n_nodes + col
+                    col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
+                    out[i_row, row_e] += other[i_row, col_e1]
+
+        return out
+
+    def apply_e10_rt(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Apply the right transposed E10 matrix to the given input.
+
+        Calling this function is equivalent to right multiplying by E10 transposed.
+        """
+        assert other.ndim == 2
+        n_nodes = self.order + 1
+        n_lines = self.order
+        out = np.zeros((other.shape[0], 2 * self.order * (self.order + 1)), np.float64)
+
+        for i_row in range(other.shape[0]):
+            for row in range(n_nodes):
+                for col in range(n_lines):
+                    row_e = row * n_lines + col
+                    col_e1 = n_nodes * row + col
+                    col_e2 = n_nodes * row + col + 1
+                    out[i_row, row_e] = other[i_row, col_e1] - other[i_row, col_e2]
+
+            for row in range(n_lines):
+                for col in range(n_nodes):
+                    row_e = n_nodes * n_lines + row * n_nodes + col
+                    col_e1 = n_nodes * (row + 1) + col
+                    col_e2 = n_nodes * row + col
+                    out[i_row, row_e] = other[i_row, col_e1] - other[i_row, col_e2]
+
+        return out
+
     def incidence_21(self) -> npt.NDArray[np.float64]:
         r"""Incidence matrix from 1-forms to 2-forms.
 
@@ -504,6 +640,142 @@ class Element2D:
                 e[row * n_lines + col, n_nodes * n_lines + n_nodes * row + col + 1] = -1
 
         return e
+
+    def apply_e21(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Apply the E21 matrix to the given input.
+
+        Calling this function is equivalent to left multiplying by E21.
+        """
+        assert other.ndim == 2
+        n_nodes = self.order + 1
+        n_lines = self.order
+        out = np.zeros((self.order**2, other.shape[1]), np.float64)
+
+        for i_col in range(other.shape[1]):
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = row * n_lines + col
+                    col_e1 = n_lines * row + col  # +
+                    col_e2 = n_lines * (row + 1) + col  # -
+                    col_e3 = n_nodes * n_lines + n_nodes * row + col  # +
+                    col_e4 = n_nodes * n_lines + n_nodes * row + col + 1  # -
+                    out[row_e, i_col] = (
+                        other[col_e1, i_col]
+                        - other[col_e2, i_col]
+                        + other[col_e3, i_col]
+                        - other[col_e4, i_col]
+                    )
+
+        return out
+
+    def apply_e21_t(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Apply the E21 transposed matrix to the given input.
+
+        Calling this function is equivalent to left multiplying by E21 transposed.
+        """
+        assert other.ndim == 2
+        n_nodes = self.order + 1
+        n_lines = self.order
+        out = np.zeros(((2 * self.order * (self.order + 1)), other.shape[1]), np.float64)
+
+        for i_col in range(other.shape[1]):
+            # Lines with surfaces on the top
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = row * n_lines + col
+                    col_e1 = row * n_lines + col
+                    out[row_e, i_col] = other[col_e1, i_col]
+
+            # Lines with surfaces on the bottom
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = (row + 1) * n_lines + col
+                    col_e1 = row * n_lines + col
+                    out[row_e, i_col] -= other[col_e1, i_col]
+
+            # Lines with surfaces on the left
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = (self.order + 1) * self.order + row * n_nodes + col
+                    col_e1 = row * n_lines + col
+                    out[row_e, i_col] += other[col_e1, i_col]
+
+            # Lines with surfaces on the right
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = (self.order + 1) * self.order + row * n_nodes + col + 1
+                    col_e1 = row * n_lines + col
+                    out[row_e, i_col] -= other[col_e1, i_col]
+
+        return out
+
+    def apply_e21_r(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Apply the right E21 matrix to the given input.
+
+        Calling this function is equivalent to right multiplying by E21.
+        """
+        assert other.ndim == 2
+        n_nodes = self.order + 1
+        n_lines = self.order
+        out = np.zeros((other.shape[0], (self.order + 1) * self.order * 2), np.float64)
+
+        for i_row in range(other.shape[0]):
+            # Lines with surfaces on the top
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = row * n_lines + col
+                    col_e1 = row * n_lines + col
+                    out[i_row, row_e] = other[i_row, col_e1]
+
+            # Lines with surfaces on the bottom
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = (row + 1) * n_lines + col
+                    col_e1 = row * n_lines + col
+                    out[i_row, row_e] -= other[i_row, col_e1]
+
+            # Lines with surfaces on the left
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = (self.order + 1) * self.order + row * n_nodes + col
+                    col_e1 = row * n_lines + col
+                    out[i_row, row_e] += other[i_row, col_e1]
+
+            # Lines with surfaces on the right
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = (self.order + 1) * self.order + row * n_nodes + col + 1
+                    col_e1 = row * n_lines + col
+                    out[i_row, row_e] -= other[i_row, col_e1]
+
+        return out
+
+    def apply_e21_rt(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Apply the right transpose E21 matrix to the given input.
+
+        Calling this function is equivalent to right multiplying by E21 transposed.
+        """
+        assert other.ndim == 2
+        n_nodes = self.order + 1
+        n_lines = self.order
+        out = np.zeros((other.shape[0], self.order**2), np.float64)
+
+        for i_row in range(other.shape[0]):
+            for row in range(n_lines):
+                for col in range(n_lines):
+                    row_e = row * n_lines + col
+                    col_e1 = n_lines * row + col  # +
+                    col_e2 = n_lines * (row + 1) + col  # -
+                    col_e3 = n_nodes * n_lines + n_nodes * row + col  # +
+                    col_e4 = n_nodes * n_lines + n_nodes * row + col + 1  # -
+                    out[i_row, row_e] = (
+                        other[i_row, col_e1]
+                        - other[i_row, col_e2]
+                        + other[i_row, col_e3]
+                        - other[i_row, col_e4]
+                    )
+
+        return out
 
     @property
     def boundary_edge_bottom(self) -> npt.NDArray[np.uint32]:

@@ -24,249 +24,189 @@ static PyObject *test_method(PyObject *self, PyObject *args)
     return PyUnicode_FromString("Test successful!\n");
 }
 
-static int convert_bytecode(unsigned n, bytecode_t bytecode[restrict n], PyObject *items[static n])
+static void caches_array_destroy(unsigned n, basis_precomp_t array[static n])
 {
-    for (size_t i = 0; i < n; ++i)
+    for (unsigned i = n; i > 0; --i)
     {
-        const long val = PyLong_AsLong(items[i]);
-        if (PyErr_Occurred())
-        {
-            return 0;
-        }
-        if (val <= MATOP_INVALID || val >= MATOP_COUNT)
-        {
-            PyErr_Format(PyExc_ValueError, "Invalid operation code %ld at position %zu.", val, i);
-            return 0;
-        }
-
-        const matrix_op_t op = (matrix_op_t)val;
-        bytecode[i].op = op;
-
-        int out_of_bounds = 0, bad_value = 0;
-        switch (op)
-        {
-        case MATOP_IDENTITY:
-            break;
-
-        case MATOP_PUSH:
-            break;
-
-        case MATOP_TRANSPOSE:
-            break;
-
-        case MATOP_MATMUL:
-            break;
-
-        case MATOP_SCALE:
-            if (n - i < 1)
-            {
-                out_of_bounds = 1;
-            }
-            else
-            {
-                i += 1;
-                bytecode[i].f64 = PyFloat_AsDouble(items[i]);
-                if (PyErr_Occurred())
-                {
-                    bad_value = 1;
-                    break;
-                }
-            }
-            break;
-
-        case MATOP_SUM:
-            if (n - i < 1)
-            {
-                out_of_bounds = 1;
-            }
-            else
-            {
-                i += 1;
-                bytecode[i].u32 = PyLong_AsUnsignedLong(items[i]);
-                if (PyErr_Occurred())
-                {
-                    bad_value = 1;
-                    break;
-                }
-            }
-            break;
-
-        case MATOP_INCIDENCE:
-            if (n - i < 2)
-            {
-                out_of_bounds = 1;
-            }
-            else
-            {
-                i += 1;
-                bytecode[i].u32 = PyLong_AsLong(items[i]);
-                if (PyErr_Occurred())
-                {
-                    bad_value = 1;
-                    break;
-                }
-                i += 1;
-                bytecode[i].u32 = PyLong_AsLong(items[i]);
-                if (PyErr_Occurred())
-                {
-                    bad_value = 1;
-                    break;
-                }
-            }
-            break;
-
-        case MATOP_MASS:
-            if (n - i < 2)
-            {
-                out_of_bounds = 1;
-            }
-            else
-            {
-                i += 1;
-                bytecode[i].u32 = PyLong_AsLong(items[i]);
-                if (PyErr_Occurred())
-                {
-                    bad_value = 1;
-                    break;
-                }
-                i += 1;
-                bytecode[i].u32 = PyLong_AsLong(items[i]);
-                if (PyErr_Occurred())
-                {
-                    bad_value = 1;
-                    break;
-                }
-            }
-            break;
-
-        default:
-            PyErr_Format(PyExc_ValueError, "Invalid error code %u.", (unsigned)op);
-            return 0;
-        }
-
-        if (out_of_bounds)
-        {
-            PyErr_Format(PyExc_ValueError, "Out of bounds for the required item.");
-            return 0;
-        }
-
-        if (bad_value)
-        {
-            return 0;
-        }
+        basis_precomp_destroy(array + (i - 1));
     }
-
-    return 1;
 }
 
 static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject *args, PyObject *kwds)
 {
-    PyObject *in_expression;
+    PyObject *ret_val = NULL;
+    PyObject *in_form_orders;
+    PyObject *in_expressions;
     PyObject *pos_bl, *pos_br, *pos_tr, *pos_tl;
     PyObject *element_orders;
     PyObject *cache_contents;
-    if (!PyArg_ParseTupleAndKeywords(
-            args, kwds, "OOOOOOO",
-            (char *[8]){"expression", "pos_bl", "pos_br", "pos_tr", "pos_tl", "element_orders", "cache_contents", NULL},
-            &in_expression, &pos_bl, &pos_br, &pos_tr, &pos_tl, &element_orders))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOOOOOO",
+                                     (char *[9]){"form_orders", "expressions", "pos_bl", "pos_br", "pos_tr", "pos_tl",
+                                                 "element_orders", "cache_contents", NULL},
+                                     &in_form_orders, &in_expressions, &pos_bl, &pos_br, &pos_tr, &pos_tl,
+                                     &element_orders, &cache_contents))
     {
         return NULL;
     }
-    size_t n_expr;
-    bytecode_t *bytecode = NULL;
-    // Convert into bytecode
+
+    // Create the system template
+    system_template_t system_template;
+    if (!system_template_create(&system_template, in_form_orders, in_expressions, &SYSTEM_ALLOCATOR))
+        return NULL;
+
+    // Create caches
+    PyObject *cache_seq = PySequence_Fast(cache_contents, "BasisCaches must be a sequence of tuples.");
+    if (!cache_seq)
     {
-        PyObject *const expression = PySequence_Fast(in_expression, "Can not convert expression to sequence.");
-        if (!expression)
-            return NULL;
+        goto after_template;
+    }
+    const unsigned n_cache = PySequence_Fast_GET_SIZE(cache_seq);
 
-        n_expr = PySequence_Fast_GET_SIZE(expression);
-        PyObject **const p_exp = PySequence_Fast_ITEMS(expression);
-
-        bytecode = PyMem_RawMalloc(sizeof(*bytecode) * n_expr);
-        if (!bytecode)
-        {
-            Py_DECREF(expression);
-            return NULL;
-        }
-
-        if (!convert_bytecode(n_expr, bytecode, p_exp))
-        {
-            PyMem_RawFree(bytecode);
-            Py_DECREF(expression);
-            return NULL;
-        }
-        Py_DECREF(expression);
+    basis_precomp_t *cache_array = allocate(&SYSTEM_ALLOCATOR, sizeof *cache_array * n_cache);
+    if (!cache_array)
+    {
+        Py_DECREF(cache_seq);
+        goto after_template;
     }
 
-    // TODO: complete
+    for (unsigned i = 0; i < n_cache; ++i)
+    {
+        int failed = !basis_precomp_create(PySequence_Fast_GET_ITEM(cache_seq, i), cache_array + i);
+        if (!failed)
+        {
+            for (unsigned j = 0; j < i; ++j)
+            {
+                if (cache_array[i].order == cache_array[j].order)
+                {
+                    PyErr_Format(PyExc_ValueError,
+                                 "Cache contains the values for order as entries with indices %u and %u.", i, j);
+                    failed = 1;
+                    break;
+                }
+            }
+        }
 
-    PyMem_RawFree(bytecode);
+        if (failed)
+        {
+            caches_array_destroy(i, cache_array);
+            deallocate(&SYSTEM_ALLOCATOR, cache_array);
+            Py_DECREF(cache_seq);
+            goto after_template;
+        }
+    }
+    Py_DECREF(cache_seq);
 
-    return NULL;
+    // Convert coordinate arrays
+    PyArrayObject *const bl_array = (PyArrayObject *)PyArray_FromAny(pos_bl, PyArray_DescrFromType(NPY_DOUBLE), 2, 2,
+                                                                     NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
+    PyArrayObject *const br_array = (PyArrayObject *)PyArray_FromAny(pos_br, PyArray_DescrFromType(NPY_DOUBLE), 2, 2,
+                                                                     NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
+    PyArrayObject *const tr_array = (PyArrayObject *)PyArray_FromAny(pos_tr, PyArray_DescrFromType(NPY_DOUBLE), 2, 2,
+                                                                     NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
+    PyArrayObject *const tl_array = (PyArrayObject *)PyArray_FromAny(pos_tl, PyArray_DescrFromType(NPY_DOUBLE), 2, 2,
+                                                                     NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
+    PyArrayObject *const orders_array = (PyArrayObject *)PyArray_FromAny(
+        element_orders, PyArray_DescrFromType(NPY_UINT), 1, 1, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
+    if (!bl_array || !br_array || !tr_array || !tl_array || !orders_array)
+    {
+        Py_XDECREF(orders_array);
+        Py_XDECREF(tl_array);
+        Py_XDECREF(tr_array);
+        Py_XDECREF(br_array);
+        Py_XDECREF(bl_array);
+        goto after_cache;
+    }
+    size_t n_elements;
+    {
+        n_elements = PyArray_DIM(orders_array, 0);
+        const npy_intp *dims_bl = PyArray_DIMS(bl_array);
+        const npy_intp *dims_br = PyArray_DIMS(br_array);
+        const npy_intp *dims_tr = PyArray_DIMS(tr_array);
+        const npy_intp *dims_tl = PyArray_DIMS(tl_array);
+        if (dims_bl[0] != n_elements || (dims_bl[0] != dims_br[0] || dims_bl[1] != dims_br[1]) ||
+            (dims_bl[0] != dims_tr[0] || dims_bl[1] != dims_tr[1]) ||
+            (dims_bl[0] != dims_tl[0] || dims_bl[1] != dims_tl[1]) || dims_bl[1] != 2)
+        {
+            PyErr_SetString(PyExc_ValueError,
+                            "All coordinate input arrays must be have same number of 2 component vectors.");
+            goto after_arrays;
+        }
+    }
+
+    // Extract C pointers
+
+    const double *restrict const coord_bl = PyArray_DATA(bl_array);
+    const double *restrict const coord_br = PyArray_DATA(br_array);
+    const double *restrict const coord_tr = PyArray_DATA(tr_array);
+    const double *restrict const coord_tl = PyArray_DATA(tl_array);
+    const unsigned *restrict const orders = PyArray_DATA(orders_array);
+
+    // Prepare output arrays
+
+    ret_val = PyTuple_New((Py_ssize_t)n_elements);
+    if (!ret_val)
+    {
+        goto after_arrays;
+    }
+
+    for (unsigned i = 0; i < n_elements; ++i)
+    {
+        size_t element_size = 0;
+        for (unsigned j = 0; j < system_template.n_forms; ++j)
+        {
+            element_size += form_degrees_of_freedom_count(system_template.form_orders[j], orders[i]);
+        }
+        const npy_intp dims[2] = {(npy_intp)element_size, (npy_intp)element_size};
+        PyArrayObject *const a = (PyArrayObject *)PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+        if (!a)
+        {
+            Py_DECREF(ret_val);
+            ret_val = NULL;
+            goto after_arrays;
+        }
+    }
+
+    // Clean up the coordinate arrays
+after_arrays:
+    Py_DECREF(orders_array);
+    Py_DECREF(tl_array);
+    Py_DECREF(tr_array);
+    Py_DECREF(br_array);
+    Py_DECREF(bl_array);
+
+    // Clean up the basis caches
+after_cache:
+    caches_array_destroy(n_cache, cache_array);
+    deallocate(&SYSTEM_ALLOCATOR, cache_array);
+
+    // Clean up the template
+after_template:
+    system_template_destroy(&system_template, &SYSTEM_ALLOCATOR);
+
+    return ret_val;
 }
 
 static PyObject *element_matrices(PyObject *Py_UNUSED(module), PyObject *args, PyObject *kwds)
 {
     double x0, x1, x2, x3;
     double y0, y1, y2, y3;
-    int order, n_int;
-    PyObject *int_nodes, *node_precomp, *edge_00_precomp, *edge_01_precomp, *edge_11_precomp, *surface_precomp;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ddddddddiiOOOOOO",
-                                     (char *[17]){"x0", "x1", "x2", "x3", "y0", "y1", "y2", "y3", "order", "n_int",
-                                                  "int_nodes", "node_precomp", "edge_00_precomp", "edge_01_precomp",
-                                                  "edge_11_precomp", "surface_precomp", NULL},
-                                     &x0, &x1, &x2, &x3, &y0, &y1, &y2, &y3, &order, &n_int, &int_nodes, &node_precomp,
-                                     &edge_00_precomp, &edge_01_precomp, &edge_11_precomp, &surface_precomp))
+    PyObject *serialized;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ddddddddO",
+                                     (char *[10]){"x0", "x1", "x2", "x3", "y0", "y1", "y2", "y3", "serialized", NULL},
+                                     &x0, &x1, &x2, &x3, &y0, &y1, &y2, &y3, &serialized))
     {
         return NULL;
     }
 
-    PyArrayObject *const arr_int_nodes = (PyArrayObject *)PyArray_FromAny(
-        int_nodes, PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
-    PyArrayObject *const arr_node_precomp = (PyArrayObject *)PyArray_FromAny(
-        node_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
-    ASSERT(PyArray_DIM(arr_int_nodes, 0) == n_int, "Integration order mismatch is too low.");
-    PyArrayObject *const arr_edge_00_precomp = (PyArrayObject *)PyArray_FromAny(
-        edge_00_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
-    PyArrayObject *const arr_edge_01_precomp = (PyArrayObject *)PyArray_FromAny(
-        edge_01_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
-    PyArrayObject *const arr_edge_11_precomp = (PyArrayObject *)PyArray_FromAny(
-        edge_11_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
-    PyArrayObject *const arr_surface_precomp = (PyArrayObject *)PyArray_FromAny(
-        surface_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
-
-    if (!arr_int_nodes || !arr_node_precomp || !arr_edge_00_precomp || !arr_edge_01_precomp || !arr_edge_11_precomp ||
-        !arr_surface_precomp)
+    basis_precomp_t basis_precomp;
+    if (!basis_precomp_create(serialized, &basis_precomp))
     {
-        Py_XDECREF(arr_int_nodes);
-        Py_XDECREF(arr_node_precomp);
-        Py_XDECREF(arr_edge_00_precomp);
-        Py_XDECREF(arr_edge_01_precomp);
-        Py_XDECREF(arr_edge_11_precomp);
-        Py_XDECREF(arr_surface_precomp);
         return NULL;
     }
-
-    const basis_precomp_t basis_precomp = {
-        .order = order,
-        .n_int = n_int,
-        .nodes_int = PyArray_DATA(arr_int_nodes),
-        .mass_nodal = PyArray_DATA(arr_node_precomp),
-        .mass_edge_00 = PyArray_DATA(arr_edge_00_precomp),
-        .mass_edge_01 = PyArray_DATA(arr_edge_01_precomp),
-        .mass_edge_11 = PyArray_DATA(arr_edge_11_precomp),
-        .mass_surf = PyArray_DATA(arr_surface_precomp),
-    };
 
     precompute_t out;
     const int res = precompute_create(&basis_precomp, x0, x1, x2, x3, y0, y1, y2, y3, &out, &SYSTEM_ALLOCATOR);
-    Py_DECREF(arr_int_nodes);
-    Py_DECREF(arr_node_precomp);
-    Py_DECREF(arr_edge_00_precomp);
-    Py_DECREF(arr_edge_01_precomp);
-    Py_DECREF(arr_edge_11_precomp);
-    Py_DECREF(arr_surface_precomp);
+    basis_precomp_destroy(&basis_precomp);
 
     if (!res)
     {
@@ -291,7 +231,7 @@ static PyObject *element_matrices(PyObject *Py_UNUSED(module), PyObject *args, P
 static PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expression)
 {
     size_t n_expr;
-    bytecode_t *bytecode = NULL;
+    bytecode_val_t *bytecode = NULL;
     // Convert into bytecode
     {
         PyObject *const expression = PySequence_Fast(in_expression, "Can not convert expression to sequence.");
@@ -301,7 +241,7 @@ static PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expres
         n_expr = PySequence_Fast_GET_SIZE(expression);
         PyObject **const p_exp = PySequence_Fast_ITEMS(expression);
 
-        bytecode = PyMem_RawMalloc(sizeof(*bytecode) * n_expr);
+        bytecode = PyMem_RawMalloc(sizeof(*bytecode) * (n_expr + 1));
         if (!bytecode)
         {
             Py_DECREF(expression);
@@ -317,46 +257,46 @@ static PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expres
         Py_DECREF(expression);
     }
 
-    PyTupleObject *out_tuple = (PyTupleObject *)PyTuple_New(n_expr);
-    for (unsigned i = 0; i < n_expr; ++i)
+    PyTupleObject *out_tuple = (PyTupleObject *)PyTuple_New((Py_ssize_t)n_expr);
+    for (unsigned i = 1; i <= n_expr; ++i)
     {
         switch (bytecode[i].op)
         {
         case MATOP_IDENTITY:
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromLong(MATOP_IDENTITY));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_IDENTITY));
             break;
         case MATOP_TRANSPOSE:
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromLong(MATOP_TRANSPOSE));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_TRANSPOSE));
             break;
         case MATOP_MATMUL:
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromLong(MATOP_MATMUL));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_MATMUL));
             break;
         case MATOP_SCALE:
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromLong(MATOP_SCALE));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_SCALE));
             i += 1;
-            PyTuple_SET_ITEM(out_tuple, i, PyFloat_FromDouble(bytecode[i].f64));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyFloat_FromDouble(bytecode[i].f64));
             break;
         case MATOP_SUM:
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromLong(MATOP_SUM));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_SUM));
             i += 1;
-            PyTuple_SET_ITEM(out_tuple, i, PyFloat_FromDouble(bytecode[i].u32));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyFloat_FromDouble(bytecode[i].u32));
             break;
         case MATOP_INCIDENCE:
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromLong(MATOP_INCIDENCE));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_INCIDENCE));
             i += 1;
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromUnsignedLong(bytecode[i].u32));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromUnsignedLong(bytecode[i].u32));
             i += 1;
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromUnsignedLong(bytecode[i].u32));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromUnsignedLong(bytecode[i].u32));
             break;
         case MATOP_MASS:
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromLong(MATOP_MASS));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_MASS));
             i += 1;
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromUnsignedLong(bytecode[i].u32));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromUnsignedLong(bytecode[i].u32));
             i += 1;
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromUnsignedLong(bytecode[i].u32));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromUnsignedLong(bytecode[i].u32));
             break;
         case MATOP_PUSH:
-            PyTuple_SET_ITEM(out_tuple, i, PyLong_FromLong(MATOP_PUSH));
+            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_PUSH));
             break;
         default:
             ASSERT(0, "Invalid operation.");

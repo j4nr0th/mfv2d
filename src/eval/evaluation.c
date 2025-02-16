@@ -98,6 +98,295 @@ static void invert_matrix(const unsigned n, const double mat[static n * n], doub
     }
 }
 
+INTERPLIB_INTERNAL
+int convert_bytecode(const unsigned n, bytecode_val_t bytecode[restrict n + 1], PyObject *items[static n])
+{
+    bytecode[0].u32 = n;
+    for (size_t i = 0; i < n; ++i)
+    {
+        const long val = PyLong_AsLong(items[i]);
+        if (PyErr_Occurred())
+        {
+            return 0;
+        }
+        if (val <= MATOP_INVALID || val >= MATOP_COUNT)
+        {
+            PyErr_Format(PyExc_ValueError, "Invalid operation code %ld at position %zu.", val, i);
+            return 0;
+        }
+
+        const matrix_op_t op = (matrix_op_t)val;
+        bytecode[i + 1].op = op;
+
+        int out_of_bounds = 0, bad_value = 0;
+        switch (op)
+        {
+        case MATOP_IDENTITY:
+            break;
+
+        case MATOP_PUSH:
+            break;
+
+        case MATOP_TRANSPOSE:
+            break;
+
+        case MATOP_MATMUL:
+            break;
+
+        case MATOP_SCALE:
+            if (n - i < 1)
+            {
+                out_of_bounds = 1;
+            }
+            else
+            {
+                i += 1;
+                bytecode[i + 1].f64 = PyFloat_AsDouble(items[i]);
+                if (PyErr_Occurred())
+                {
+                    bad_value = 1;
+                    break;
+                }
+            }
+            break;
+
+        case MATOP_SUM:
+            if (n - i < 1)
+            {
+                out_of_bounds = 1;
+            }
+            else
+            {
+                i += 1;
+                bytecode[i + 1].u32 = PyLong_AsUnsignedLong(items[i]);
+                if (PyErr_Occurred())
+                {
+                    bad_value = 1;
+                    break;
+                }
+            }
+            break;
+
+        case MATOP_INCIDENCE:
+            if (n - i < 2)
+            {
+                out_of_bounds = 1;
+            }
+            else
+            {
+                i += 1;
+                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                if (PyErr_Occurred())
+                {
+                    bad_value = 1;
+                    break;
+                }
+                i += 1;
+                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                if (PyErr_Occurred())
+                {
+                    bad_value = 1;
+                    break;
+                }
+            }
+            break;
+
+        case MATOP_MASS:
+            if (n - i < 2)
+            {
+                out_of_bounds = 1;
+            }
+            else
+            {
+                i += 1;
+                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                if (PyErr_Occurred())
+                {
+                    bad_value = 1;
+                    break;
+                }
+                i += 1;
+                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                if (PyErr_Occurred())
+                {
+                    bad_value = 1;
+                    break;
+                }
+            }
+            break;
+
+        default:
+            PyErr_Format(PyExc_ValueError, "Invalid error code %u.", (unsigned)op);
+            return 0;
+        }
+
+        if (out_of_bounds)
+        {
+            PyErr_Format(PyExc_ValueError, "Out of bounds for the required item.");
+            return 0;
+        }
+
+        if (bad_value)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+INTERPLIB_INTERNAL
+int system_template_create(system_template_t *this, PyObject *orders, PyObject *expr_matrix,
+                           const allocator_callbacks *allocator)
+{
+    // Find number of forms
+    {
+        PyArrayObject *const order_array = (PyArrayObject *)PyArray_FromAny(
+            orders, PyArray_DescrFromType(NPY_UINT), 1, 1, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
+        if (!order_array)
+            return 0;
+
+        const unsigned n_forms = PyArray_DIM(order_array, 0);
+        this->n_forms = n_forms;
+        this->form_orders = allocate(allocator, sizeof(*this->form_orders) * n_forms);
+        const unsigned *restrict p_o = PyArray_DATA(order_array);
+        for (unsigned i = 0; i < n_forms; ++i)
+        {
+            const unsigned o = p_o[i];
+            if (o > 2)
+            {
+                PyErr_Format(PyExc_ValueError, "Form can not be of order higher than 2 (it was %u)", o);
+                Py_DECREF(order_array);
+                return 0;
+            }
+            this->form_orders[i] = o;
+        }
+        Py_DECREF(order_array);
+    }
+
+    // Now go though the rows
+    ssize_t row_count = PySequence_Size(expr_matrix);
+    if (row_count < 0)
+    {
+        deallocate(allocator, this->form_orders);
+        return 0;
+    }
+
+    if (row_count != this->n_forms)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Number of forms deduced from order array (%u) does not match the number of expression rows (%u).",
+                     this->n_forms, row_count);
+        deallocate(allocator, this->form_orders);
+        return 0;
+    }
+
+    this->bytecodes = allocate(allocator, sizeof(*this->bytecodes) * this->n_forms * this->n_forms);
+    if (!this->bytecodes)
+    {
+        deallocate(allocator, this->form_orders);
+        return 0;
+    }
+    memset(this->bytecodes, 0, sizeof(*this->bytecodes) * this->n_forms * this->n_forms);
+
+    for (unsigned row = 0; row < this->n_forms; ++row)
+    {
+        PyObject *row_expr = PySequence_GetItem(expr_matrix, row);
+        if (!row_expr)
+        {
+            goto failed_row;
+        }
+        row_count = PySequence_Size(row_expr);
+        if (row_count < 0)
+        {
+            goto failed_row;
+        }
+        if (row_count != this->n_forms)
+        {
+            PyErr_Format(
+                PyExc_ValueError,
+                "Number of forms deduced from order array (%u) does not match the number of expression in row %u (%u).",
+                this->n_forms, row, row_count);
+            goto failed_row;
+        }
+
+        for (unsigned col = 0; col < this->n_forms; ++col)
+        {
+            PyObject *expr = PySequence_GetItem(row_expr, col);
+            if (!expr)
+            {
+                goto failed_row;
+            }
+            if (Py_IsNone(expr))
+            {
+                Py_DECREF(expr);
+                continue;
+            }
+            PyObject *seq = PySequence_Fast(expr, "Bytecode must be a given as a sequence.");
+            if (!seq)
+            {
+                Py_DECREF(expr);
+                goto failed_row;
+            }
+            row_count = PySequence_Fast_GET_SIZE(seq);
+            if (row_count < 0)
+            {
+                Py_DECREF(expr);
+                goto failed_row;
+            }
+
+            bytecode_val_t *bc = allocate(allocator, sizeof(**this->bytecodes) * (row_count + 1));
+            if (!bc)
+            {
+                Py_DECREF(seq);
+                Py_DECREF(expr);
+                goto failed_row;
+            }
+            this->bytecodes[row * this->n_forms + col] = bc;
+            if (!convert_bytecode(row_count, bc, PySequence_Fast_ITEMS(seq)))
+            {
+                Py_DECREF(seq);
+                Py_DECREF(expr);
+                goto failed_row;
+            }
+            Py_DECREF(seq);
+            Py_DECREF(expr);
+        }
+
+        continue;
+
+    failed_row: {
+        Py_XDECREF(row_expr);
+        for (unsigned i = row; i > 0; --i)
+        {
+            for (unsigned j = this->n_forms; j > 0; --j)
+            {
+                deallocate(allocator, this->bytecodes[(i - 1) * this->n_forms + (j - 1)]);
+            }
+        }
+        deallocate(allocator, this->bytecodes);
+        deallocate(allocator, this->form_orders);
+        Py_DECREF(row_expr);
+        return 0;
+    }
+    }
+
+    return 1;
+}
+
+void system_template_destroy(system_template_t *this, const allocator_callbacks *allocator)
+{
+    deallocate(allocator, this->form_orders);
+    for (unsigned i = this->n_forms; i > 0; --i)
+    {
+        for (unsigned j = this->n_forms; j > 0; --j)
+        {
+            deallocate(allocator, this->bytecodes[(i - 1) * this->n_forms + (j - 1)]);
+        }
+    }
+    *this = (system_template_t){};
+}
+
 int precompute_create(const basis_precomp_t *basis, double x0, double x1, double x2, double x3, double y0, double y1,
                       double y2, double y3, precompute_t *out, allocator_callbacks *allocator)
 {
@@ -398,4 +687,137 @@ PyArrayObject *matrix_full_to_array(const matrix_full_t *mat)
     double *const restrict p_out = PyArray_DATA(out);
     memcpy(p_out, mat->data, sizeof(*p_out) * mat->base.rows * mat->base.cols);
     return out;
+}
+
+INTERPLIB_INTERNAL
+int basis_precomp_create(PyObject *serialized, basis_precomp_t *out)
+{
+    int order, n_int;
+    PyObject *int_nodes, *node_precomp, *edge_00_precomp, *edge_01_precomp, *edge_11_precomp, *surface_precomp;
+    if (!PyArg_ParseTuple(serialized, "iiOOOOOO", &order, &n_int, &int_nodes, &node_precomp, &edge_00_precomp,
+                          &edge_01_precomp, &edge_11_precomp, &surface_precomp))
+    {
+        return 0;
+    }
+
+    PyArrayObject *const arr_int_nodes = (PyArrayObject *)PyArray_FromAny(
+        int_nodes, PyArray_DescrFromType(NPY_DOUBLE), 1, 1, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+    PyArrayObject *const arr_node_precomp = (PyArrayObject *)PyArray_FromAny(
+        node_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+    PyArrayObject *const arr_edge_00_precomp = (PyArrayObject *)PyArray_FromAny(
+        edge_00_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+    PyArrayObject *const arr_edge_01_precomp = (PyArrayObject *)PyArray_FromAny(
+        edge_01_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+    PyArrayObject *const arr_edge_11_precomp = (PyArrayObject *)PyArray_FromAny(
+        edge_11_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+    PyArrayObject *const arr_surface_precomp = (PyArrayObject *)PyArray_FromAny(
+        surface_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+
+    if (!arr_int_nodes || !arr_node_precomp || !arr_edge_00_precomp || !arr_edge_01_precomp || !arr_edge_11_precomp ||
+        !arr_surface_precomp)
+    {
+        goto failed;
+    }
+
+    npy_intp sz;
+    //  Check sizes for integration nodes match
+    if ((sz = PyArray_DIM(arr_int_nodes, 0)) != n_int)
+    {
+        PyErr_Format(PyExc_ValueError, "Integration nodes don't have the size specified by n_int (%u vs %u).", sz,
+                     n_int);
+        goto failed;
+    }
+    // Check sizes for node precomp
+    const npy_intp *dims = PyArray_DIMS(arr_node_precomp);
+    if ((dims[0] != (order + 1) * (order + 1)) || (dims[1] != dims[0]) || (dims[2] != n_int) || dims[2] != dims[3])
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Shape of the nodal pre-computed array is not as expected (expected"
+                     " to get (%u, %u, %u, %u), but got (%u, %u, %u, %u)).",
+                     (order + 1) * (order + 1), (order + 1) * (order + 1), n_int, n_int, dims[0], dims[1], dims[2],
+                     dims[3]);
+        goto failed;
+    }
+    // Check sizes for edge 00 precomp
+    dims = PyArray_DIMS(arr_edge_00_precomp);
+    if ((dims[0] != (order + 1) * (order)) || (dims[1] != dims[0]) || (dims[2] != n_int) || dims[2] != dims[3])
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Shape of the edge 00 pre-computed array is not as expected (expected"
+                     " to get (%u, %u, %u, %u), but got (%u, %u, %u, %u)).",
+                     (order + 1) * (order), (order) * (order + 1), n_int, n_int, dims[0], dims[1], dims[2], dims[3]);
+        goto failed;
+    }
+    // Check sizes for edge 01 precomp
+    dims = PyArray_DIMS(arr_edge_01_precomp);
+    if ((dims[0] != (order + 1) * (order)) || (dims[1] != dims[0]) || (dims[2] != n_int) || dims[2] != dims[3])
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Shape of the edge 01 pre-computed array is not as expected (expected"
+                     " to get (%u, %u, %u, %u), but got (%u, %u, %u, %u)).",
+                     (order + 1) * (order), (order) * (order + 1), n_int, n_int, dims[0], dims[1], dims[2], dims[3]);
+        goto failed;
+    }
+    // Check sizes for edge 11 precomp
+    dims = PyArray_DIMS(arr_edge_11_precomp);
+    if ((dims[0] != (order + 1) * (order)) || (dims[1] != dims[0]) || (dims[2] != n_int) || dims[2] != dims[3])
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Shape of the edge 11 pre-computed array is not as expected (expected"
+                     " to get (%u, %u, %u, %u), but got (%u, %u, %u, %u)).",
+                     (order + 1) * (order), (order) * (order + 1), n_int, n_int, dims[0], dims[1], dims[2], dims[3]);
+        goto failed;
+    }
+
+    // Check sizes for surface precomp
+    dims = PyArray_DIMS(arr_surface_precomp);
+    if ((dims[0] != (order) * (order)) || (dims[1] != dims[0]) || (dims[2] != n_int) || dims[2] != dims[3])
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Shape of the nodal pre-computed array is not as expected (expected"
+                     " to get (%u, %u, %u, %u), but got (%u, %u, %u, %u)).",
+                     (order) * (order), (order) * (order), n_int, n_int, dims[0], dims[1], dims[2], dims[3]);
+        goto failed;
+    }
+
+    *out = (basis_precomp_t){
+        .order = order,
+        .n_int = n_int,
+        .nodes_int = PyArray_DATA(arr_int_nodes),
+        .arr_int_nodes = arr_int_nodes,
+        .mass_nodal = PyArray_DATA(arr_node_precomp),
+        .arr_node = arr_node_precomp,
+        .mass_edge_00 = PyArray_DATA(arr_edge_00_precomp),
+        .arr_edge_00 = arr_edge_00_precomp,
+        .mass_edge_01 = PyArray_DATA(arr_edge_01_precomp),
+        .arr_edge_01 = arr_edge_01_precomp,
+        .mass_edge_11 = PyArray_DATA(arr_edge_11_precomp),
+        .arr_edge_11 = arr_edge_11_precomp,
+        .mass_surf = PyArray_DATA(arr_surface_precomp),
+        .arr_surf = arr_surface_precomp,
+    };
+
+    return 1;
+
+failed:
+
+    Py_XDECREF(arr_int_nodes);
+    Py_XDECREF(arr_node_precomp);
+    Py_XDECREF(arr_edge_00_precomp);
+    Py_XDECREF(arr_edge_01_precomp);
+    Py_XDECREF(arr_edge_11_precomp);
+    Py_XDECREF(arr_surface_precomp);
+    return 0;
+}
+
+INTERPLIB_INTERNAL
+void basis_precomp_destroy(basis_precomp_t *this)
+{
+    Py_XDECREF(this->arr_int_nodes);
+    Py_XDECREF(this->arr_node);
+    Py_XDECREF(this->arr_edge_00);
+    Py_XDECREF(this->arr_edge_01);
+    Py_XDECREF(this->arr_edge_11);
+    Py_XDECREF(this->arr_surf);
+    *this = (basis_precomp_t){};
 }

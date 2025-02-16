@@ -193,7 +193,7 @@ class BasisCache:
             self.int_nodes_1d,
             self.mass_node_precomp,
             edge_pre_comp[0 * m : 1 * m, 0 * m : 1 * m, ...],
-            edge_pre_comp[0 * m : 1 * m, 1 * m : 2 * m, ...],
+            edge_pre_comp[1 * m : 2 * m, 0 * m : 1 * m, ...],
             edge_pre_comp[1 * m : 2 * m, 1 * m : 2 * m, ...],
             self.mass_surf_precomp,
         )

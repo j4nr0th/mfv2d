@@ -7,25 +7,26 @@ import numpy.typing as npt
 
 from interplib.kforms.eval import MatOpCode
 
+_SerializedBasisCache = tuple[
+    int,
+    int,
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+]
+
 def compute_element_matrices(
-    expression: list[MatOpCode | int | float],
+    form_orders: Sequence[int],
+    expressions: Sequence[Sequence[Sequence[MatOpCode | int | float] | None]],
     pos_bl: npt.NDArray[np.float64],
     pos_br: npt.NDArray[np.float64],
     pos_tr: npt.NDArray[np.float64],
     pos_tl: npt.NDArray[np.float64],
     element_orders: npt.NDArray[np.uint64],
-    cache_contents: Sequence[
-        tuple[
-            int,
-            int,
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-        ]
-    ],
+    serialized_caches: Sequence[_SerializedBasisCache],
 ) -> tuple[npt.NDArray[np.float64]]:
     """Compuate element matrices based on the given instructions."""
     ...
@@ -39,14 +40,7 @@ def element_matrices(
     y1: float,
     y2: float,
     y3: float,
-    order: int,
-    n_int: int,
-    int_nodes: npt.NDArray[np.float64],
-    node_precomp: npt.NDArray[np.float64],
-    edge_00_precomp: npt.NDArray[np.float64],
-    edge_01_precomp: npt.NDArray[np.float64],
-    edge_11_precomp: npt.NDArray[np.float64],
-    surface_precomp: npt.NDArray[np.float64],
+    serialized_cache: _SerializedBasisCache,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],

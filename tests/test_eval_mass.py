@@ -16,34 +16,7 @@ def test_straight(order: int):
     elm = Element2D(order, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
 
     mass_node, mass_edge, mass_surf, mass_node_i, mass_edge_i, mass_surf_i = (
-        element_matrices(
-            -1,
-            +1,
-            +1,
-            -1,
-            -1,
-            -1,
-            +1,
-            +1,
-            order,
-            cache.integration_order + 1,
-            cache.int_nodes_1d,
-            cache.mass_node_precomp,
-            cache.mass_edge_precomp[
-                0 : order * (order + 1), 0 : order * (order + 1), ...
-            ],
-            cache.mass_edge_precomp[
-                order * (order + 1) : 2 * order * (order + 1),
-                0 : order * (order + 1),
-                ...,
-            ],
-            cache.mass_edge_precomp[
-                order * (order + 1) : 2 * order * (order + 1),
-                order * (order + 1) : 2 * order * (order + 1),
-                ...,
-            ],
-            cache.mass_surf_precomp,
-        )
+        element_matrices(-1, +1, +1, -1, -1, -1, +1, +1, cache.c_serialization)
     )
 
     assert pytest.approx(mass_node) == elm.mass_matrix_node(cache)
@@ -70,34 +43,7 @@ def test_weird(order: int):
     elm = Element2D(order, (X0, Y0), (X1, Y1), (X2, Y2), (X3, Y3))
 
     mass_node, mass_edge, mass_surf, mass_node_i, mass_edge_i, mass_surf_i = (
-        element_matrices(
-            X0,
-            X1,
-            X2,
-            X3,
-            Y0,
-            Y1,
-            Y2,
-            Y3,
-            order,
-            cache.integration_order + 1,
-            cache.int_nodes_1d,
-            cache.mass_node_precomp,
-            cache.mass_edge_precomp[
-                0 : order * (order + 1), 0 : order * (order + 1), ...
-            ],
-            cache.mass_edge_precomp[
-                order * (order + 1) : 2 * order * (order + 1),
-                0 : order * (order + 1),
-                ...,
-            ],
-            cache.mass_edge_precomp[
-                order * (order + 1) : 2 * order * (order + 1),
-                order * (order + 1) : 2 * order * (order + 1),
-                ...,
-            ],
-            cache.mass_surf_precomp,
-        )
+        element_matrices(X0, X1, X2, X3, Y0, Y1, Y2, Y3, cache.c_serialization)
     )
 
     assert pytest.approx(mass_node) == elm.mass_matrix_node(cache)

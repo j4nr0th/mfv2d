@@ -12,15 +12,25 @@
 
 typedef enum
 {
+    // Error, this is not a valid operation
     MATOP_INVALID = 0,
+    // Identity operation, do nothing.
     MATOP_IDENTITY = 1,
+    // Mass matrix, next two values in bytecode are the order and if it should be inverted
     MATOP_MASS = 2,
+    // Incidence matrix, next two values in bytecode are the order and if it should be dual
     MATOP_INCIDENCE = 3,
+    // Push matrix on stack in order to prepare for multiplication or summation
     MATOP_PUSH = 4,
+    // Multiply with matrix currently on stack
     MATOP_MATMUL = 5,
+    // Scale by constant, which is the next bytecode value
     MATOP_SCALE = 6,
+    // Transpose the current matrix
     MATOP_TRANSPOSE = 7,
+    // Sum matrices with those on stack, the next bytecode value is says how many are to be popped from the stack.
     MATOP_SUM = 8,
+    // Not an instruction, used to count how many instructions there are.
     MATOP_COUNT,
 } matrix_op_t;
 
@@ -30,7 +40,7 @@ typedef union {
     matrix_op_t op;
     double f64;
     unsigned u32;
-} bytecode_t;
+} bytecode_val_t;
 
 typedef enum
 {
@@ -68,7 +78,7 @@ typedef enum
     INCIDENCE_TYPE_10 = 1,
     INCIDENCE_TYPE_10_T = 2,
     INCIDENCE_TYPE_21 = 3,
-    INCIDENCE_TYPE_21_T = 3,
+    INCIDENCE_TYPE_21_T = 4,
 } incidence_type_t;
 
 typedef struct
@@ -101,12 +111,65 @@ typedef struct
     const double *mass_edge_01;
     const double *mass_edge_11;
     const double *mass_surf;
+    PyArrayObject *arr_int_nodes;
+    PyArrayObject *arr_node;
+    PyArrayObject *arr_edge_00;
+    PyArrayObject *arr_edge_01;
+    PyArrayObject *arr_edge_11;
+    PyArrayObject *arr_surf;
 } basis_precomp_t;
 
 typedef struct
 {
     matrix_full_t mass_matrices[MASS_CNT];
 } precompute_t;
+
+typedef enum
+{
+    FORM_ORDER_UNKNOWN = 0,
+    FORM_ORDER_0 = 1,
+    FORM_ORDER_1 = 2,
+    FORM_ORDER_2 = 3,
+} form_order_t;
+
+typedef struct
+{
+    unsigned n_forms;
+    form_order_t *form_orders;
+    bytecode_val_t **bytecodes;
+} system_template_t;
+
+/**
+ * Convert Python objects into a bytecode representation. Note that the first element of the bytecode is its length.
+ *
+ * @param n Number of objects to convert.
+ * @param bytecode Output array for the bytecode. Must be of length n + 1.
+ * @param items Input array of length n.
+ */
+INTERPLIB_INTERNAL
+int convert_bytecode(const unsigned n, bytecode_val_t bytecode[restrict n + 1], PyObject *items[static n]);
+
+INTERPLIB_INTERNAL
+int system_template_create(system_template_t *this, PyObject *orders, PyObject *expr_matrix,
+                           const allocator_callbacks *allocator);
+
+INTERPLIB_INTERNAL
+void system_template_destroy(system_template_t *this, const allocator_callbacks *allocator);
+
+static unsigned form_degrees_of_freedom_count(const form_order_t form, const unsigned order)
+{
+    switch (form)
+    {
+    case FORM_ORDER_0:
+        return (order + 1) * (order + 1);
+    case FORM_ORDER_1:
+        return 2 * order * (order + 1);
+    case FORM_ORDER_2:
+        return order * order;
+    default:
+        return 0;
+    }
+}
 
 /**
  * Create a `precompute_t` object with all matrices. This function expects Python `BasisCache` data as input, so it is
@@ -134,6 +197,30 @@ INTERPLIB_INTERNAL
 int precompute_create(const basis_precomp_t *basis, double x0, double x1, double x2, double x3, double y0, double y1,
                       double y2, double y3, precompute_t *out, allocator_callbacks *allocator);
 
+/**
+ * Turn Python serialized data into C-friendly form.
+ *
+ * @param serialized Serialized BasisCache tuple obtained by calling `BasisCache.c_serializaton`.
+ * @param out Pointer to the struct which is filled out with arrays.
+ * @return Non-zero on success.
+ */
+INTERPLIB_INTERNAL
+int basis_precomp_create(PyObject *serialized, basis_precomp_t *out);
+
+/**
+ * Release the memory associated with the C-friendly precomputed data.
+ *
+ * @param this Basis precomputation to release.
+ */
+INTERPLIB_INTERNAL
+void basis_precomp_destroy(basis_precomp_t *this);
+
+/**
+ * Create a new PyArray with contents of the full array.
+ *
+ * @param mat Matrix to turn into a PyArrayObject.
+ * @return Pointer to the new array on success, NULL with Python error set on failure.
+ */
 INTERPLIB_INTERNAL
 PyArrayObject *matrix_full_to_array(const matrix_full_t *mat);
 

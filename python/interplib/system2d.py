@@ -10,9 +10,10 @@ from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
 from interplib import kforms as kform
+from interplib._eval import compute_element_matrices
 from interplib._interp import compute_gll
 from interplib._mimetic import GeoID, Surface
-from interplib.kforms.eval import translate_equation
+from interplib.kforms.eval import _ctranslate, translate_equation
 from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_system
 
 
@@ -145,16 +146,35 @@ def solve_system_2d(
     #             (cache[e.order] for e in elements),
     #         )
     #     )
-    bytecodes = (
-        [translate_equation(eq.left, simplify=True) for eq in system.equations]
-        if new_evaluation
-        else None
-    )
+    bytecodes = [translate_equation(eq.left, simplify=True) for eq in system.equations]
 
     element_outputs = tuple(
-        element_system(system, e, cache[e.order], bytecodes) for e in elements
+        element_system(system, e, cache[e.order], bytecodes if new_evaluation else None)
+        for e in elements
+    )
+    codes = []
+    for bite in bytecodes:
+        row: list[list | None] = []
+        for f in system.unknown_forms:
+            if f in bite:
+                row.append(_ctranslate(*bite[f]))
+            else:
+                row.append(None)
+        codes.append(row)
+
+    second_matrices = compute_element_matrices(
+        [f.order for f in system.unknown_forms],
+        codes,
+        np.array([e.bottom_left for e in elements]),
+        np.array([e.bottom_right for e in elements]),
+        np.array([e.top_right for e in elements]),
+        np.array([e.top_left for e in elements]),
+        np.array([e.order for e in elements], np.uint32),
+        [cache[o].c_serialization for o in cache],
     )
     element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
+    for m1, m2 in zip(element_matrix, second_matrices, strict=True):
+        assert m1.shape == m2.shape
     element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
 
     # Sanity check

@@ -259,7 +259,7 @@ int system_template_create(system_template_t *this, PyObject *orders, PyObject *
                 Py_DECREF(order_array);
                 return 0;
             }
-            this->form_orders[i] = o;
+            this->form_orders[i] = o + 1;
         }
         Py_DECREF(order_array);
     }

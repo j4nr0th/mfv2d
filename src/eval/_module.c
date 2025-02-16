@@ -164,6 +164,7 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
             ret_val = NULL;
             goto after_arrays;
         }
+        PyTuple_SET_ITEM(ret_val, i, a);
     }
 
     // Clean up the coordinate arrays

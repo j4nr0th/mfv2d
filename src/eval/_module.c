@@ -12,6 +12,7 @@
 #include <numpy/npy_no_deprecated_api.h>
 
 //  Internal headers
+#include "error.h"
 #include "evaluation.h"
 
 #define PRINT_EXPRESSION(expr, fmt) printf(#expr ": " fmt "\n", (expr))
@@ -142,10 +143,15 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
     const unsigned *restrict const orders = PyArray_DATA(orders_array);
 
     // Prepare output arrays
-
+    double **p_out = allocate(&SYSTEM_ALLOCATOR, sizeof(*p_out) * n_elements);
+    if (!p_out)
+    {
+        goto after_arrays;
+    }
     ret_val = PyTuple_New((Py_ssize_t)n_elements);
     if (!ret_val)
     {
+        deallocate(&SYSTEM_ALLOCATOR, p_out);
         goto after_arrays;
     }
 
@@ -162,10 +168,109 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
         {
             Py_DECREF(ret_val);
             ret_val = NULL;
+            deallocate(&SYSTEM_ALLOCATOR, p_out);
             goto after_arrays;
         }
         PyTuple_SET_ITEM(ret_val, i, a);
+        p_out[i] = PyArray_DATA(a);
     }
+    matrix_t *matrix_stack;
+    Py_BEGIN_ALLOW_THREADS
+
+        // Allocate the stack through system allocator
+        matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * system_template.max_stack);
+    eval_result_t res = EVAL_SUCCESS;
+    /* Heavy calculations here */
+    for (unsigned i_elem = 0; matrix_stack && i_elem < n_elements; ++i_elem)
+    {
+        const unsigned order = orders[i_elem];
+        size_t element_size = 0;
+        for (unsigned j = 0; j < system_template.n_forms; ++j)
+        {
+            element_size += form_degrees_of_freedom_count(system_template.form_orders[j], order);
+        }
+        precompute_t precomp;
+        unsigned i;
+        // Find cached values for the current order
+        for (i = 0; i < n_cache; ++i)
+        {
+            if (order == cache_array[i].order)
+            {
+                break;
+            }
+        }
+        if (i == n_cache)
+        {
+            // Failed, not in cache!
+            continue;
+        }
+        // Compute matrices for the element
+        if (!precompute_create(cache_array + i, coord_bl[2 * i_elem + 0], coord_bl[2 * i_elem + 1],
+                               coord_br[2 * i_elem + 0], coord_br[2 * i_elem + 1], coord_tr[2 * i_elem + 0],
+                               coord_tr[2 * i_elem + 1], coord_tl[2 * i_elem + 0], coord_tl[2 * i_elem + 1], &precomp,
+                               &SYSTEM_ALLOCATOR))
+        {
+            // Failed, could not compute precomp
+            continue;
+        }
+
+        double *restrict const output_mat = p_out[i_elem];
+
+        // Compute the individual entries
+        size_t row_offset = 0;
+        for (unsigned row = 0; row < system_template.n_forms && res == EVAL_SUCCESS; ++row)
+        {
+            const unsigned row_len = form_degrees_of_freedom_count(system_template.form_orders[row], order);
+            size_t col_offset = 0;
+            for (unsigned col = 0; col < system_template.n_forms /*&& res == EVAL_SUCCESS*/; ++col)
+            {
+                const unsigned col_len = form_degrees_of_freedom_count(system_template.form_orders[col], order);
+                const bytecode_val_t *bytecode = system_template.bytecodes[row * system_template.n_forms + col];
+                if (!bytecode)
+                {
+                    // Zero entry, we do nothing since arrays start zeroed out (I think).
+                    continue;
+                }
+                matrix_full_t mat;
+                res = evaluate_element_term(system_template.form_orders[row], order, bytecode, &precomp,
+                                            system_template.max_stack, matrix_stack, &SYSTEM_ALLOCATOR, &mat);
+                if (res != EVAL_SUCCESS)
+                {
+                    break;
+                }
+                if (row_len != mat.base.rows || col_len != mat.base.cols)
+                {
+                    res = EVAL_DIMS_MISMATCH;
+                    break;
+                }
+
+                for (unsigned i_out = 0; i_out < row_len; ++i_out)
+                {
+                    for (unsigned j_out = 0; j_out < row_len; ++j_out)
+                    {
+                        output_mat[(i_out + row_offset) * element_size + (j_out + col_offset)] =
+                            mat.data[i_out * mat.base.cols + j_out];
+                    }
+                }
+
+                SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, mat.data);
+                col_offset += col_len;
+            }
+            row_offset += row_len;
+        }
+    }
+
+    deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
+
+    Py_END_ALLOW_THREADS if (!matrix_stack)
+    {
+        // Failed allocation of matrix stack.
+        Py_DECREF(p_out);
+        p_out = NULL;
+    }
+
+    // Clean up the array of output pointers
+    deallocate(&SYSTEM_ALLOCATOR, p_out);
 
     // Clean up the coordinate arrays
 after_arrays:
@@ -248,8 +353,8 @@ static PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expres
             Py_DECREF(expression);
             return NULL;
         }
-
-        if (!convert_bytecode(n_expr, bytecode, p_exp))
+        unsigned unused;
+        if (!convert_bytecode(n_expr, bytecode, p_exp, &unused))
         {
             PyMem_RawFree(bytecode);
             Py_DECREF(expression);

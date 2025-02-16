@@ -505,14 +505,14 @@ class Element2D:
         out = np.zeros(((self.order + 1) ** 2, other.shape[1]), np.float64)
 
         for i_col in range(other.shape[1]):
-            # Nodes with lines on their left
+            # Nodes with lines on their right
             for row in range(n_nodes):
                 for col in range(n_nodes - 1):
                     row_e = row * n_nodes + col
                     col_e1 = n_lines * row + col
                     out[row_e, i_col] += other[col_e1, i_col]
 
-            # Nodes with lines on their right
+            # Nodes with lines on their left
             for row in range(n_nodes):
                 for col in range(n_nodes - 1):
                     row_e = row * n_nodes + col + 1
@@ -546,14 +546,14 @@ class Element2D:
         out = np.zeros((other.shape[0], (self.order + 1) ** 2), np.float64)
 
         for i_row in range(other.shape[0]):
-            # Nodes with lines on their left
+            # Nodes with lines on their right
             for row in range(n_nodes):
                 for col in range(n_nodes - 1):
                     row_e = row * n_nodes + col
                     col_e1 = n_lines * row + col
                     out[i_row, row_e] += other[i_row, col_e1]
 
-            # Nodes with lines on their right
+            # Nodes with lines on their left
             for row in range(n_nodes):
                 for col in range(n_nodes - 1):
                     row_e = row * n_nodes + col + 1

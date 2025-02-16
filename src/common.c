@@ -17,19 +17,19 @@ enum
 static void *allocate_system(void *state, size_t size)
 {
     ASSERT(state == (void *)SYSTEM_MAGIC, "Pointer value for system allocator did not match.");
-    return malloc(size);
+    return PyMem_RawMalloc(size);
 }
 
 static void *reallocate_system(void *state, void *ptr, size_t new_size)
 {
     ASSERT(state == (void *)SYSTEM_MAGIC, "Pointer value for system allocator did not match.");
-    return realloc(ptr, new_size);
+    return PyMem_RawRealloc(ptr, new_size);
 }
 
 static void free_system(void *state, void *ptr)
 {
     ASSERT(state == (void *)SYSTEM_MAGIC, "Pointer value for system allocator did not match.");
-    free(ptr);
+    PyMem_RawFree(ptr);
 }
 
 INTERPLIB_INTERNAL

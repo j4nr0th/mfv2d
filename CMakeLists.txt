@@ -67,9 +67,12 @@ set(MIMETIC_HEADER_FILES
 set(EVAL_SOURCE_FILES
         src/eval/_module.c
         src/eval/evaluation.c
+        src/eval/incidence.c
 )
 set(EVAL_HEADER_FILES
+        src/eval/error.h
         src/eval/evaluation.h
+        src/eval/incidence.h
 )
 
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!

@@ -34,7 +34,7 @@ typedef enum
     MATOP_COUNT,
 } matrix_op_t;
 
-const char *matrx_op_str(matrix_op_t op);
+const char *matrix_op_str(matrix_op_t op);
 
 typedef union {
     matrix_op_t op;
@@ -45,12 +45,12 @@ typedef union {
 typedef enum
 {
     MASS_0 = 0,
-    MASS_1 = 1,
-    MASS_2 = 2,
-    MASS_0_I = 3,
-    MASS_1_I = 4,
+    MASS_0_I = 1,
+    MASS_1 = 2,
+    MASS_1_I = 3,
+    MASS_2 = 4,
     MASS_2_I = 5,
-    MASS_CNT = 6,
+    MASS_CNT,
 } mass_mtx_indices_t;
 
 typedef enum
@@ -79,6 +79,7 @@ typedef enum
     INCIDENCE_TYPE_10_T = 2,
     INCIDENCE_TYPE_21 = 3,
     INCIDENCE_TYPE_21_T = 4,
+    INCIDENCE_TYPE_CNT,
 } incidence_type_t;
 
 typedef struct
@@ -93,12 +94,16 @@ typedef struct
     double *data;
 } matrix_full_t;
 
-typedef union {
-    matrix_type_t type;
-    matrix_base_t base;
-    matrix_identity_t identity;
-    matrix_incidence_t incidence;
-    matrix_full_t full;
+typedef struct
+{
+    union {
+        matrix_type_t type;
+        matrix_base_t base;
+        matrix_identity_t identity;
+        matrix_incidence_t incidence;
+        matrix_full_t full;
+    };
+    double coefficient;
 } matrix_t;
 
 typedef struct
@@ -134,20 +139,24 @@ typedef enum
 
 typedef struct
 {
+    unsigned max_stack;
     unsigned n_forms;
     form_order_t *form_orders;
     bytecode_val_t **bytecodes;
 } system_template_t;
 
 /**
- * Convert Python objects into a bytecode representation. Note that the first element of the bytecode is its length.
+ * Convert a Python sequence of MatOpCode, int, and float objects into the C-bytecode.
  *
- * @param n Number of objects to convert.
- * @param bytecode Output array for the bytecode. Must be of length n + 1.
- * @param items Input array of length n.
+ * @param n Number of elements in the sequence to convert.
+ * @param bytecode Buffer to fill with bytecode.
+ * @param items Python objects which are to be converted to instructions.
+ * @param p_max_stack Pointer which receives the maximum number of matrices on the argument stack.
+ * @return Non-zero on success.
  */
 INTERPLIB_INTERNAL
-int convert_bytecode(const unsigned n, bytecode_val_t bytecode[restrict n + 1], PyObject *items[static n]);
+int convert_bytecode(const unsigned n, bytecode_val_t bytecode[restrict n + 1], PyObject *items[static n],
+                     unsigned *p_max_stack);
 
 INTERPLIB_INTERNAL
 int system_template_create(system_template_t *this, PyObject *orders, PyObject *expr_matrix,
@@ -223,5 +232,10 @@ void basis_precomp_destroy(basis_precomp_t *this);
  */
 INTERPLIB_INTERNAL
 PyArrayObject *matrix_full_to_array(const matrix_full_t *mat);
+
+INTERPLIB_INTERNAL
+int evaluate_element_term(form_order_t form, unsigned order, const bytecode_val_t *code, precompute_t *precomp,
+                          unsigned n_stack, matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                          matrix_full_t *p_out);
 
 #endif // EVALUATION_H

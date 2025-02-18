@@ -7,6 +7,7 @@ endif ()
 project(${SKBUILD_PROJECT_NAME} LANGUAGES C)
 find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
 
+find_package(OpenMP)
 
 execute_process(
         COMMAND "${Python_EXECUTABLE}"
@@ -97,6 +98,12 @@ if (CMAKE_C_COMPILER_ID EQUAL "GNU")
     target_compile_options(_interp PRIVATE -Wall -Wextra)
     target_compile_options(_mimetic PRIVATE -Wall -Wextra)
     target_compile_options(_eval PRIVATE -Wall -Wextra)
+endif ()
+
+if (OPENMP_FOUND)
+    target_compile_options(_eval PRIVATE ${OpenMP_C_FLAGS})
+    target_include_directories(_eval PRIVATE ${OpenMP_C_INCLUDE_DIRS})
+    target_link_libraries(_eval PRIVATE ${OpenMP_C_LIBRARIES})
 endif ()
 
 enable_testing()

@@ -165,15 +165,20 @@ def solve_system_2d(
                 row.append(None)
         codes.append(row)
 
+    bl = np.array([e.bottom_left for e in elements])
+    br = np.array([e.bottom_right for e in elements])
+    tr = np.array([e.top_right for e in elements])
+    tl = np.array([e.top_left for e in elements])
+    orde = np.array([e.order for e in elements], np.uint32)
     t0 = perf_counter()
     second_matrices = compute_element_matrices(
         [f.order for f in system.unknown_forms],
         codes,
-        np.array([e.bottom_left for e in elements]),
-        np.array([e.bottom_right for e in elements]),
-        np.array([e.top_right for e in elements]),
-        np.array([e.top_left for e in elements]),
-        np.array([e.order for e in elements], np.uint32),
+        bl,
+        br,
+        tr,
+        tl,
+        orde,
         [cache[o].c_serialization for o in cache],
     )
     t1 = perf_counter()

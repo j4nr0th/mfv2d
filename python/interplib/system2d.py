@@ -1,6 +1,7 @@
 """Functionality related to creating a full system of equations."""
 
 from collections.abc import Sequence
+from time import perf_counter
 
 # from concurrent.futures import ThreadPoolExecutor
 # from functools import partial
@@ -53,7 +54,7 @@ def solve_system_2d(
     rec_order: int,
     boundaray_conditions: Sequence[kform.BoundaryCondition2DStrong] | None = None,
     # workers: int | None = None,
-    new_evaluation: bool = True,
+    # new_evaluation: bool = True,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -148,10 +149,12 @@ def solve_system_2d(
     #     )
     bytecodes = [translate_equation(eq.left, simplify=True) for eq in system.equations]
 
+    t0 = perf_counter()
     element_outputs = tuple(
-        element_system(system, e, cache[e.order], bytecodes if new_evaluation else None)
-        for e in elements
+        element_system(system, e, cache[e.order], None) for e in elements
     )
+    t1 = perf_counter()
+    print(f"Element matrices old way: {t1 - t0} seconds.")
     codes = []
     for bite in bytecodes:
         row: list[list | None] = []
@@ -162,6 +165,7 @@ def solve_system_2d(
                 row.append(None)
         codes.append(row)
 
+    t0 = perf_counter()
     second_matrices = compute_element_matrices(
         [f.order for f in system.unknown_forms],
         codes,
@@ -172,10 +176,34 @@ def solve_system_2d(
         np.array([e.order for e in elements], np.uint32),
         [cache[o].c_serialization for o in cache],
     )
+    t1 = perf_counter()
+    print(f"Element matrices new way: {t1 - t0} seconds.")
+
+    # from interplib._eval import element_matrices
     element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
-    for m1, m2 in zip(element_matrix, second_matrices, strict=True):
-        print(np.max(np.max(m1 - m2)))
-        assert m1.shape == m2.shape
+
+    for e, mat1, mat2 in zip(elements, element_matrix, second_matrices, strict=True):
+        # print(np.max(np.max(mat1 - mat2)))
+        # ce = cache[e.order]
+        # m0, m1, m2, i0, i1, i2 = element_matrices(
+        #     e.bottom_left[0],
+        #     e.bottom_right[0],
+        #     e.top_right[0],
+        #     e.top_left[0],
+        #     e.bottom_left[1],
+        #     e.bottom_right[1],
+        #     e.top_right[1],
+        #     e.top_left[1],
+        #     ce.c_serialization,
+        # )
+        # assert np.allclose(m0, e.mass_matrix_node(ce))
+        # assert np.allclose(m1, e.mass_matrix_edge(ce))
+        # assert np.allclose(m2, e.mass_matrix_surface(ce))
+        # assert np.allclose(i0, np.linalg.inv(e.mass_matrix_node(ce)))
+        # assert np.allclose(i1, np.linalg.inv(e.mass_matrix_edge(ce)))
+        # assert np.allclose(i2, np.linalg.inv(e.mass_matrix_surface(ce)))
+        assert mat1.shape == mat2.shape
+        assert np.allclose(mat2, element_system(system, e, cache[e.order], None)[0])
     element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
 
     # Sanity check

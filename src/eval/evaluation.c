@@ -1287,6 +1287,44 @@ static void clean_stack(matrix_t *stack, unsigned cnt, const allocator_callbacks
 }
 
 INTERPLIB_INTERNAL
+void matrix_print(const matrix_t *mtx)
+{
+    switch (mtx->type)
+    {
+    case MATRIX_TYPE_FULL: {
+        const matrix_full_t *this = &mtx->full;
+        printf("Full matrix (%u, %u):\n", this->base.rows, this->base.cols);
+        for (unsigned i = 0; i < this->base.rows; ++i)
+        {
+            printf("\t");
+            for (unsigned j = 0; j < this->base.cols; ++j)
+            {
+                printf("%g ", this->data[i * this->base.cols + j]);
+            }
+            printf("\n");
+        }
+    }
+    break;
+
+    case MATRIX_TYPE_INVALID:
+        printf("Invalid matrix\n");
+        break;
+
+    case MATRIX_TYPE_IDENTITY:
+        printf("Identity matrix\n");
+        break;
+
+    case MATRIX_TYPE_INCIDENCE: {
+        const matrix_incidence_t *this = &mtx->incidence;
+        const unsigned base =
+            this->incidence < INCIDENCE_TYPE_10_T ? this->incidence : this->incidence - (INCIDENCE_TYPE_10_T);
+        printf("Incidence matrix E(%u, %u)%s\n", base + 1, base, this->incidence >= INCIDENCE_TYPE_10_T ? "^T" : "");
+    }
+    break;
+    }
+}
+
+INTERPLIB_INTERNAL
 int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigned order, const bytecode_val_t *code,
                           precompute_t *precomp, unsigned n_stack, matrix_t stack[restrict n_stack],
                           const allocator_callbacks *allocator, matrix_full_t *p_out)
@@ -1363,13 +1401,13 @@ int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigne
                 matrix_full_t *const this = &current.full;
                 const unsigned n_row = this->base.rows;
                 const unsigned n_col = this->base.cols;
-                for (unsigned i = 0; i < n_row; ++i)
+                for (unsigned idx = 0; idx < n_row; ++idx)
                 {
-                    for (unsigned j = 0; j * (n_row - 1) < i * (n_col - 1); ++j)
+                    for (unsigned j = 0; j * (n_row - 1) < idx * (n_col - 1); ++j)
                     {
-                        const double tmp = this->data[i * n_col + j];
-                        this->data[i * n_col + j] = this->data[j * n_row + i];
-                        this->data[j * n_row + i] = tmp;
+                        const double tmp = this->data[idx * n_col + j];
+                        this->data[idx * n_col + j] = this->data[j * n_row + idx];
+                        this->data[j * n_row + idx] = tmp;
                     }
                 }
                 this->base.rows = n_col;
@@ -1518,6 +1556,8 @@ int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigne
                 }
                 matrix_t this = {.type = MATRIX_TYPE_FULL, .coefficient = 1.0};
                 this.full = precomp->mass_matrices[t];
+                // printf("Getting the matrix with id %s.\n", mass_mtx_indices_str(t));
+                // matrix_print(&this);
                 eval_result_t res;
                 switch (current.type)
                 {
@@ -1560,6 +1600,8 @@ int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigne
                     current.coefficient = 1.0;
                     break;
                 }
+                // printf("After operation the matrix is this:");
+                // matrix_print(&current);
                 // const eval_result_t res = matrix_multiply(order, &current, &this, &new_mat, allocator);
                 // matrix_cleanup(&current, allocator);
                 // if (res != EVAL_SUCCESS)
@@ -1690,4 +1732,17 @@ int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigne
     }
 
     return EVAL_SUCCESS;
+}
+
+static const char *mass_name[MASS_CNT] = {
+    [MASS_0] = "MASS_0",     [MASS_1] = "MASS_1",     [MASS_2] = "MASS_2",
+    [MASS_0_I] = "MASS_0_I", [MASS_1_I] = "MASS_1_I", [MASS_2_I] = "MASS_2_I",
+};
+
+INTERPLIB_INTERNAL
+const char *mass_mtx_indices_str(mass_mtx_indices_t v)
+{
+    if (v < MASS_0 || v >= MASS_CNT)
+        return "UNKNOWN";
+    return mass_name[v];
 }

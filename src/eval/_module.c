@@ -185,6 +185,7 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
         }
         PyTuple_SET_ITEM(ret_val, i, a);
         p_out[i] = PyArray_DATA(a);
+        memset(p_out[i], 0, sizeof(*p_out[i]) * dims[0] * dims[1]);
     }
     matrix_t *matrix_stack;
     Py_BEGIN_ALLOW_THREADS
@@ -217,9 +218,9 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
             continue;
         }
         // Compute matrices for the element
-        if (!precompute_create(cache_array + i, coord_bl[2 * i_elem + 0], coord_bl[2 * i_elem + 1],
-                               coord_br[2 * i_elem + 0], coord_br[2 * i_elem + 1], coord_tr[2 * i_elem + 0],
-                               coord_tr[2 * i_elem + 1], coord_tl[2 * i_elem + 0], coord_tl[2 * i_elem + 1], &precomp,
+        if (!precompute_create(cache_array + i, coord_bl[2 * i_elem + 0], coord_br[2 * i_elem + 0],
+                               coord_tr[2 * i_elem + 0], coord_tl[2 * i_elem + 0], coord_bl[2 * i_elem + 1],
+                               coord_br[2 * i_elem + 1], coord_tr[2 * i_elem + 1], coord_tl[2 * i_elem + 1], &precomp,
                                &SYSTEM_ALLOCATOR))
         {
             // Failed, could not compute precomp
@@ -241,6 +242,7 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
                 if (!bytecode)
                 {
                     // Zero entry, we do nothing since arrays start zeroed out (I think).
+                    col_offset += col_len;
                     continue;
                 }
                 matrix_full_t mat;
@@ -262,7 +264,7 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
 
                 for (unsigned i_out = 0; i_out < row_len; ++i_out)
                 {
-                    for (unsigned j_out = 0; j_out < row_len; ++j_out)
+                    for (unsigned j_out = 0; j_out < col_len; ++j_out)
                     {
                         output_mat[(i_out + row_offset) * element_size + (j_out + col_offset)] =
                             mat.data[i_out * mat.base.cols + j_out];
@@ -277,7 +279,6 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
     }
 
     deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
-    printf("Result returned was: %d\n.", (int)res);
 
     Py_END_ALLOW_THREADS if (!matrix_stack)
     {

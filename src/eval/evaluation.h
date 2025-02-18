@@ -56,6 +56,9 @@ typedef enum
     MASS_CNT,
 } mass_mtx_indices_t;
 
+INTERPLIB_INTERNAL
+const char *mass_mtx_indices_str(mass_mtx_indices_t v);
+
 typedef enum
 {
     MATRIX_TYPE_INVALID = 0,

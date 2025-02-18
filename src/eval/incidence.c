@@ -58,7 +58,7 @@ eval_result_t apply_e10_left(const unsigned order, const matrix_full_t *in, matr
     return res;
 }
 
-eval_result_t apply_e20_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+eval_result_t apply_e21_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
                              const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
@@ -160,7 +160,7 @@ eval_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, mat
     return res;
 }
 
-eval_result_t apply_e20t_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+eval_result_t apply_e21t_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
                               const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
@@ -291,7 +291,7 @@ eval_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, mat
     return res;
 }
 
-eval_result_t apply_e20_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+eval_result_t apply_e21_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
                               const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
@@ -403,7 +403,7 @@ eval_result_t apply_e10t_right(const unsigned order, const matrix_full_t *in, ma
     return res;
 }
 
-eval_result_t apply_e20t_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+eval_result_t apply_e21t_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
                                const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;

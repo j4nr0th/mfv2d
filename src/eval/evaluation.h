@@ -10,6 +10,8 @@
 #include <numpy/ndarrayobject.h>
 #include <numpy/npy_no_deprecated_api.h>
 
+#include "error.h"
+
 typedef enum
 {
     // Error, this is not a valid operation
@@ -34,6 +36,7 @@ typedef enum
     MATOP_COUNT,
 } matrix_op_t;
 
+INTERPLIB_INTERNAL
 const char *matrix_op_str(matrix_op_t op);
 
 typedef union {
@@ -45,10 +48,10 @@ typedef union {
 typedef enum
 {
     MASS_0 = 0,
-    MASS_0_I = 1,
-    MASS_1 = 2,
-    MASS_1_I = 3,
-    MASS_2 = 4,
+    MASS_1 = 1,
+    MASS_2 = 2,
+    MASS_0_I = 3,
+    MASS_1_I = 4,
     MASS_2_I = 5,
     MASS_CNT,
 } mass_mtx_indices_t;
@@ -74,11 +77,10 @@ typedef struct
 
 typedef enum
 {
-    INCIDENCE_TYPE_INVALID = 0,
-    INCIDENCE_TYPE_10 = 1,
+    INCIDENCE_TYPE_10 = 0,
+    INCIDENCE_TYPE_21 = 1,
     INCIDENCE_TYPE_10_T = 2,
-    INCIDENCE_TYPE_21 = 3,
-    INCIDENCE_TYPE_21_T = 4,
+    INCIDENCE_TYPE_21_T = 3,
     INCIDENCE_TYPE_CNT,
 } incidence_type_t;
 
@@ -234,8 +236,8 @@ INTERPLIB_INTERNAL
 PyArrayObject *matrix_full_to_array(const matrix_full_t *mat);
 
 INTERPLIB_INTERNAL
-int evaluate_element_term(form_order_t form, unsigned order, const bytecode_val_t *code, precompute_t *precomp,
-                          unsigned n_stack, matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
-                          matrix_full_t *p_out);
+int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigned order, const bytecode_val_t *code,
+                          precompute_t *precomp, unsigned n_stack, matrix_t stack[restrict n_stack],
+                          const allocator_callbacks *allocator, matrix_full_t *p_out);
 
 #endif // EVALUATION_H

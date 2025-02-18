@@ -155,6 +155,16 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
         goto after_arrays;
     }
 
+    // Create an error stack for reporting issues
+    error_stack_t *const err_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
+    if (!err_stack)
+    {
+        Py_DECREF(ret_val);
+        ret_val = NULL;
+        deallocate(&SYSTEM_ALLOCATOR, p_out);
+        goto after_arrays;
+    }
+
     for (unsigned i = 0; i < n_elements; ++i)
     {
         size_t element_size = 0;
@@ -232,14 +242,18 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
                     continue;
                 }
                 matrix_full_t mat;
-                res = evaluate_element_term(system_template.form_orders[row], order, bytecode, &precomp,
+                res = evaluate_element_term(err_stack, system_template.form_orders[row], order, bytecode, &precomp,
                                             system_template.max_stack, matrix_stack, &SYSTEM_ALLOCATOR, &mat);
                 if (res != EVAL_SUCCESS)
                 {
+                    EVAL_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
                     break;
                 }
                 if (row_len != mat.base.rows || col_len != mat.base.cols)
                 {
+                    EVAL_ERROR(err_stack, EVAL_DIMS_MISMATCH,
+                               "Output matrix arrays don't match expected dims (got %u x %u when needed %u x %u).",
+                               mat.base.rows, mat.base.cols, row_len, col_len);
                     res = EVAL_DIMS_MISMATCH;
                     break;
                 }
@@ -261,6 +275,7 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
     }
 
     deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
+    printf("Result returned was: %d\n.", (int)res);
 
     Py_END_ALLOW_THREADS if (!matrix_stack)
     {
@@ -268,6 +283,21 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
         Py_DECREF(p_out);
         p_out = NULL;
     }
+
+    // Clean error stack
+    if (err_stack->position != 0)
+    {
+        PySys_FormatStderr("Error stack caught %u errors.\n", err_stack->position);
+
+        for (unsigned i_e = 0; i_e < err_stack->position; ++i_e)
+        {
+            const error_message_t *msg = err_stack->messages + i_e;
+            PySys_FormatStderr("%s:%d in %s: (%s) - %s\n", msg->file, msg->line, msg->function,
+                               eval_result_str(msg->code), msg->message);
+            deallocate(err_stack->allocator, msg->message);
+        }
+    }
+    deallocate(err_stack->allocator, err_stack);
 
     // Clean up the array of output pointers
     deallocate(&SYSTEM_ALLOCATOR, p_out);

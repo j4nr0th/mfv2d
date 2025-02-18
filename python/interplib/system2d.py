@@ -174,6 +174,7 @@ def solve_system_2d(
     )
     element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
     for m1, m2 in zip(element_matrix, second_matrices, strict=True):
+        print(np.max(np.max(m1 - m2)))
         assert m1.shape == m2.shape
     element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
 

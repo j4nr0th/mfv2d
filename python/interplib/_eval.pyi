@@ -25,7 +25,7 @@ def compute_element_matrices(
     pos_br: npt.NDArray[np.float64],
     pos_tr: npt.NDArray[np.float64],
     pos_tl: npt.NDArray[np.float64],
-    element_orders: npt.NDArray[np.uint64],
+    element_orders: npt.NDArray[np.uint32],
     serialized_caches: Sequence[_SerializedBasisCache],
 ) -> tuple[npt.NDArray[np.float64]]:
     """Compuate element matrices based on the given instructions."""

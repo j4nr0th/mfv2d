@@ -66,6 +66,7 @@ set(MIMETIC_HEADER_FILES
 
 set(EVAL_SOURCE_FILES
         src/eval/_module.c
+        src/eval/error.c
         src/eval/evaluation.c
         src/eval/incidence.c
 )

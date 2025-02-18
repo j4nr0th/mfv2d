@@ -15,7 +15,7 @@ eval_result_t apply_e10_left(const unsigned order, const matrix_full_t *in, matr
                              const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 0, (order + 1) * (order + 1))) != EVAL_SUCCESS)
+    if ((res = check_dims(in, (order + 1) * (order + 1), 0)) != EVAL_SUCCESS)
         return res;
 
     const unsigned n_rows = 2 * order * (order + 1);
@@ -62,7 +62,7 @@ eval_result_t apply_e21_left(const unsigned order, const matrix_full_t *in, matr
                              const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 0, 2 * order * (order + 1))) != EVAL_SUCCESS)
+    if ((res = check_dims(in, 2 * order * (order + 1), 0)) != EVAL_SUCCESS)
         return res;
 
     const unsigned n_rows = order * order;
@@ -81,8 +81,8 @@ eval_result_t apply_e21_left(const unsigned order, const matrix_full_t *in, matr
                 const unsigned row_e = row * order + col;
                 const unsigned col_e1 = order * row + col;
                 const unsigned col_e2 = order * (row + 1) + col;
-                const unsigned col_e3 = order * (order + 1) + order * row + col;
-                const unsigned col_e4 = order * (order + 1) + order * row + col + 1;
+                const unsigned col_e3 = order * (order + 1) + (order + 1) * row + col;
+                const unsigned col_e4 = order * (order + 1) + (order + 1) * row + col + 1;
                 ptr[row_e * n_cols + i_col] =
                     in->data[col_e1 * in->base.cols + i_col] - in->data[col_e2 * in->base.cols + i_col] +
                     in->data[col_e3 * in->base.cols + i_col] - in->data[col_e4 * in->base.cols + i_col];
@@ -98,7 +98,7 @@ eval_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, mat
                               const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 0, 2 * (order + 1) * order)) != EVAL_SUCCESS)
+    if ((res = check_dims(in, 2 * (order + 1) * order, 0)) != EVAL_SUCCESS)
         return res;
 
     const unsigned n_rows = (order + 1) * (order + 1);
@@ -116,8 +116,8 @@ eval_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order; ++col)
             {
-                const unsigned row_e = row * order + col;
-                const unsigned col_e1 = (order + 1) * row + col;
+                const unsigned row_e = row * (order + 1) + col;
+                const unsigned col_e1 = order * row + col;
                 ptr[row_e * n_cols + i_col] += in->data[col_e1 * in->base.cols + i_col];
             }
         }
@@ -127,8 +127,8 @@ eval_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order; ++col)
             {
-                const unsigned row_e = row * order + col + 1;
-                const unsigned col_e1 = (order + 1) * row + col;
+                const unsigned row_e = row * (order + 1) + col + 1;
+                const unsigned col_e1 = order * row + col;
                 ptr[row_e * n_cols + i_col] -= in->data[col_e1 * in->base.cols + i_col];
             }
         }
@@ -138,7 +138,7 @@ eval_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order + 1; ++col)
             {
-                const unsigned row_e = row * order + col;
+                const unsigned row_e = row * (order + 1) + col;
                 const unsigned col_e1 = order * (order + 1) + (order + 1) * row + col;
                 ptr[row_e * n_cols + i_col] -= in->data[col_e1 * in->base.cols + i_col];
             }
@@ -149,7 +149,7 @@ eval_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order + 1; ++col)
             {
-                const unsigned row_e = (row + 1) * order + col;
+                const unsigned row_e = (row + 1) * (order + 1) + col;
                 const unsigned col_e1 = order * (order + 1) + (order + 1) * row + col;
                 ptr[row_e * n_cols + i_col] += in->data[col_e1 * in->base.cols + i_col];
             }
@@ -164,7 +164,7 @@ eval_result_t apply_e21t_left(const unsigned order, const matrix_full_t *in, mat
                               const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 0, order * order)) != EVAL_SUCCESS)
+    if ((res = check_dims(in, order * order, 0)) != EVAL_SUCCESS)
         return res;
 
     const unsigned n_rows = 2 * order * (order + 1);
@@ -173,7 +173,7 @@ eval_result_t apply_e21t_left(const unsigned order, const matrix_full_t *in, mat
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
         return EVAL_FAILED_ALLOC;
-
+    memset(ptr, 0, n_rows * n_cols * sizeof *ptr);
     for (unsigned i_col = 0; i_col < n_cols; ++i_col)
     {
         // Lines with surfaces above
@@ -203,7 +203,7 @@ eval_result_t apply_e21t_left(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order; ++col)
             {
-                const unsigned row_e = order * (order + 1) + row * order + col;
+                const unsigned row_e = order * (order + 1) + row * (order + 1) + col;
                 const unsigned col_e1 = order * row + col;
                 ptr[row_e * n_cols + i_col] += in->data[col_e1 * in->base.cols + i_col];
             }
@@ -214,7 +214,7 @@ eval_result_t apply_e21t_left(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order; ++col)
             {
-                const unsigned row_e = order * (order + 1) + row * order + col + 1;
+                const unsigned row_e = order * (order + 1) + row * (order + 1) + col + 1;
                 const unsigned col_e1 = order * row + col;
                 ptr[row_e * n_cols + i_col] -= in->data[col_e1 * in->base.cols + i_col];
             }
@@ -229,15 +229,16 @@ eval_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, mat
                               const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, order * order, 0)) != EVAL_SUCCESS)
+    if ((res = check_dims(in, 0, 2 * (order + 1) * order)) != EVAL_SUCCESS)
         return res;
 
     const unsigned n_rows = in->base.rows;
-    const unsigned n_cols = 2 * (order + 1) * order;
+    const unsigned n_cols = (order + 1) * (order + 1);
 
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
         return EVAL_FAILED_ALLOC;
+    memset(ptr, 0, n_rows * n_cols * sizeof *ptr);
     memset(ptr, 0, n_rows * n_cols * sizeof *ptr);
 
     for (unsigned i_row = 0; i_row < n_rows; ++i_row)
@@ -247,8 +248,8 @@ eval_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order; ++col)
             {
-                const unsigned row_e = row * order + col;
-                const unsigned col_e1 = (order + 1) * row + col;
+                const unsigned row_e = row * (order + 1) + col;
+                const unsigned col_e1 = order * row + col;
                 ptr[i_row * n_cols + row_e] += in->data[i_row * in->base.cols + col_e1];
             }
         }
@@ -258,8 +259,8 @@ eval_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order; ++col)
             {
-                const unsigned row_e = row * order + col + 1;
-                const unsigned col_e1 = (order + 1) * row + col;
+                const unsigned row_e = row * (order + 1) + col + 1;
+                const unsigned col_e1 = order * row + col;
                 ptr[i_row * n_cols + row_e] -= in->data[i_row * in->base.cols + col_e1];
             }
         }
@@ -269,7 +270,7 @@ eval_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order + 1; ++col)
             {
-                const unsigned row_e = row * order + col;
+                const unsigned row_e = row * (order + 1) + col;
                 const unsigned col_e1 = order * (order + 1) + (order + 1) * row + col;
                 ptr[i_row * n_cols + row_e] -= in->data[i_row * in->base.cols + col_e1];
             }
@@ -280,7 +281,7 @@ eval_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order + 1; ++col)
             {
-                const unsigned row_e = (row + 1) * order + col;
+                const unsigned row_e = (row + 1) * (order + 1) + col;
                 const unsigned col_e1 = order * (order + 1) + (order + 1) * row + col;
                 ptr[i_row * n_cols + row_e] += in->data[i_row * in->base.cols + col_e1];
             }
@@ -295,7 +296,7 @@ eval_result_t apply_e21_right(const unsigned order, const matrix_full_t *in, mat
                               const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, order * order, 0)) != EVAL_SUCCESS)
+    if ((res = check_dims(in, 0, order * order)) != EVAL_SUCCESS)
         return res;
 
     const unsigned n_rows = in->base.rows;
@@ -304,7 +305,7 @@ eval_result_t apply_e21_right(const unsigned order, const matrix_full_t *in, mat
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
         return EVAL_FAILED_ALLOC;
-
+    memset(ptr, 0, n_rows * n_cols * sizeof *ptr);
     for (unsigned i_row = 0; i_row < n_rows; ++i_row)
     {
         // Lines with surfaces above
@@ -334,7 +335,7 @@ eval_result_t apply_e21_right(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order; ++col)
             {
-                const unsigned row_e = order * (order + 1) + row * order + col;
+                const unsigned row_e = order * (order + 1) + row * (order + 1) + col;
                 const unsigned col_e1 = order * row + col;
                 ptr[i_row * n_cols + row_e] += in->data[i_row * in->base.cols + col_e1];
             }
@@ -345,7 +346,7 @@ eval_result_t apply_e21_right(const unsigned order, const matrix_full_t *in, mat
         {
             for (unsigned col = 0; col < order; ++col)
             {
-                const unsigned row_e = order * (order + 1) + row * order + col + 1;
+                const unsigned row_e = order * (order + 1) + row * (order + 1) + col + 1;
                 const unsigned col_e1 = order * row + col;
                 ptr[i_row * n_cols + row_e] -= in->data[i_row * in->base.cols + col_e1];
             }
@@ -360,7 +361,7 @@ eval_result_t apply_e10t_right(const unsigned order, const matrix_full_t *in, ma
                                const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, (order + 1) * (order + 1), 0)) != EVAL_SUCCESS)
+    if ((res = check_dims(in, 0, (order + 1) * (order + 1))) != EVAL_SUCCESS)
         return res;
 
     const unsigned n_rows = in->base.rows;
@@ -407,7 +408,7 @@ eval_result_t apply_e21t_right(const unsigned order, const matrix_full_t *in, ma
                                const allocator_callbacks *allocator)
 {
     eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 2 * order * (order + 1), 0)) != EVAL_SUCCESS)
+    if ((res = check_dims(in, 0, 2 * order * (order + 1))) != EVAL_SUCCESS)
         return res;
 
     const unsigned n_rows = in->base.rows;
@@ -417,7 +418,7 @@ eval_result_t apply_e21t_right(const unsigned order, const matrix_full_t *in, ma
     if (!ptr)
         return EVAL_FAILED_ALLOC;
 
-    for (unsigned i_col = 0; i_col < n_rows; ++i_col)
+    for (unsigned i_row = 0; i_row < n_rows; ++i_row)
     {
         for (unsigned row = 0; row < order; ++row)
         {
@@ -426,11 +427,11 @@ eval_result_t apply_e21t_right(const unsigned order, const matrix_full_t *in, ma
                 const unsigned row_e = row * order + col;
                 const unsigned col_e1 = order * row + col;
                 const unsigned col_e2 = order * (row + 1) + col;
-                const unsigned col_e3 = order * (order + 1) + order * row + col;
-                const unsigned col_e4 = order * (order + 1) + order * row + col + 1;
-                ptr[i_col * n_cols + row_e] =
-                    in->data[i_col * in->base.cols + col_e1] - in->data[i_col * in->base.cols + col_e2] +
-                    in->data[i_col * in->base.cols + col_e3] - in->data[i_col * in->base.cols + col_e4];
+                const unsigned col_e3 = order * (order + 1) + (order + 1) * row + col;
+                const unsigned col_e4 = order * (order + 1) + (order + 1) * row + col + 1;
+                ptr[i_row * n_cols + row_e] =
+                    in->data[i_row * in->base.cols + col_e1] - in->data[i_row * in->base.cols + col_e2] +
+                    in->data[i_row * in->base.cols + col_e3] - in->data[i_row * in->base.cols + col_e4];
             }
         }
     }

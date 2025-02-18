@@ -55,3 +55,9 @@ def element_matrices(
 def check_bytecode(expression: list[MatOpCode | int | float], /) -> list[int | float]:
     """Convert bytecode to C-values, then back to Python."""
     ...
+
+def check_incidence(
+    x: npt.ArrayLike, /, order: int, in_form: int, transpose: bool, right: bool
+) -> npt.NDArray[np.float64]:
+    """Apply the incidence matrix to the input matrix."""
+    ...

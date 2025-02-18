@@ -240,4 +240,12 @@ int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigne
                           precompute_t *precomp, unsigned n_stack, matrix_t stack[restrict n_stack],
                           const allocator_callbacks *allocator, matrix_full_t *p_out);
 
+INTERPLIB_INTERNAL
+eval_result_t apply_incidence_to_full_left(const incidence_type_t type, const unsigned order, const matrix_full_t *in,
+                                           matrix_full_t *p_out, const allocator_callbacks *allocator);
+
+INTERPLIB_INTERNAL
+eval_result_t apply_incidence_to_full_right(const incidence_type_t type, const unsigned order, const matrix_full_t *in,
+                                            matrix_full_t *p_out, const allocator_callbacks *allocator);
+
 #endif // EVALUATION_H

@@ -12,6 +12,8 @@
 #include <numpy/npy_no_deprecated_api.h>
 
 //  Internal headers
+#include <bits/types/sigevent_t.h>
+
 #include "error.h"
 #include "evaluation.h"
 
@@ -445,12 +447,60 @@ static PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expres
     return (PyObject *)out_tuple;
 }
 
+static PyObject *check_incidence(PyObject *Py_UNUSED(module), PyObject *args, PyObject *kwds)
+{
+    PyObject *in_x;
+    unsigned order, form;
+    int transpose, right;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OIIpp", (char *[6]){"", "order", "form", "transpose", "right", NULL},
+                                     &in_x, &order, &form, &transpose, &right))
+    {
+        return NULL;
+    }
+    if (form > 1)
+    {
+        PyErr_Format(PyExc_ValueError, "Form specified is too high (%u, but only up to 1 is allowed).", order);
+        return NULL;
+    }
+    const incidence_type_t t = ((incidence_type_t)form) + (transpose ? (INCIDENCE_TYPE_10_T - INCIDENCE_TYPE_10) : 0);
+    PyArrayObject *const x = (PyArrayObject *)PyArray_FromAny(in_x, PyArray_DescrFromType(NPY_DOUBLE), 2, 2,
+                                                              NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
+    if (!x)
+        return NULL;
+
+    const matrix_full_t in = {.base = {.type = MATRIX_TYPE_FULL, .rows = PyArray_DIM(x, 0), .cols = PyArray_DIM(x, 1)},
+                              .data = PyArray_DATA(x)};
+    matrix_full_t out;
+    eval_result_t res;
+    if (right)
+    {
+        res = apply_incidence_to_full_right(t, order, &in, &out, &SYSTEM_ALLOCATOR);
+    }
+    else
+    {
+        res = apply_incidence_to_full_left(t, order, &in, &out, &SYSTEM_ALLOCATOR);
+    }
+    Py_DECREF(x);
+    if (res != EVAL_SUCCESS)
+    {
+        PyErr_Format(PyExc_RuntimeError,
+                     "Could not apply the incidence matrix %u (order %u) to a %u by %u matrix, reason: %s.", t, order,
+                     in.base.rows, in.base.cols, eval_result_str(res));
+        return NULL;
+    }
+    PyArrayObject *const y = matrix_full_to_array(&out);
+    deallocate(&SYSTEM_ALLOCATOR, out.data);
+    return (PyObject *)y;
+}
+
 static PyMethodDef module_methods[] = {
     {"test", test_method, METH_NOARGS, "Test method that only returns a string."},
     {"compute_element_matrices", (void *)compute_element_matrices, METH_VARARGS | METH_KEYWORDS,
      "Compute element matrices."},
     {"element_matrices", (void *)element_matrices, METH_VARARGS | METH_KEYWORDS, "Compute element matrices."},
     {"check_bytecode", check_bytecode, METH_O, "Convert bytecode to C-values, then back to Python."},
+    {"check_incidence", (void *)check_incidence, METH_VARARGS | METH_KEYWORDS,
+     "Apply the incidence matrix to the input matrix."},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

@@ -14,6 +14,7 @@
 //  Internal headers
 #include <bits/types/sigevent_t.h>
 
+#include "allocator.h"
 #include "error.h"
 #include "evaluation.h"
 
@@ -43,13 +44,24 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
     PyObject *pos_bl, *pos_br, *pos_tr, *pos_tl;
     PyObject *element_orders;
     PyObject *cache_contents;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOOOOOO",
-                                     (char *[9]){"form_orders", "expressions", "pos_bl", "pos_br", "pos_tr", "pos_tl",
-                                                 "element_orders", "cache_contents", NULL},
+    Py_ssize_t thread_stack_size = (1 << 24);
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOOOOOO|n",
+                                     (char *[10]){"form_orders", "expressions", "pos_bl", "pos_br", "pos_tr", "pos_tl",
+                                                  "element_orders", "cache_contents", "thread_stack_size", NULL},
                                      &in_form_orders, &in_expressions, &pos_bl, &pos_br, &pos_tr, &pos_tl,
-                                     &element_orders, &cache_contents))
+                                     &element_orders, &cache_contents, &thread_stack_size))
     {
         return NULL;
+    }
+    if (thread_stack_size < 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Thread stack size can not be negative (%lld).",
+                     (long long int)thread_stack_size);
+        return NULL;
+    }
+    if ((thread_stack_size & 7) != 0)
+    {
+        thread_stack_size += 8 - (thread_stack_size & 7);
     }
 
     // Create the system template
@@ -183,21 +195,24 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
     eval_result_t common_res = EVAL_SUCCESS;
     Py_BEGIN_ALLOW_THREADS
 
-#pragma omp parallel default(none) shared(SYSTEM_ALLOCATOR, system_template, stderr, common_res, n_elements, orders,   \
-                                              cache_array, n_cache, coord_bl, coord_br, coord_tr, coord_tl, p_out)
+#pragma omp parallel default(none)                                                                                     \
+    shared(SYSTEM_ALLOCATOR, system_template, stderr, common_res, n_elements, orders, cache_array, n_cache, coord_bl,  \
+               coord_br, coord_tr, coord_tl, p_out, thread_stack_size)
     {
         error_stack_t *const err_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
         // Allocate the stack through system allocator
         matrix_t *matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * system_template.max_stack);
+        allocator_stack_t *const allocator_stack = allocator_stack_create(thread_stack_size, &SYSTEM_ALLOCATOR);
         eval_result_t res = matrix_stack && err_stack ? EVAL_SUCCESS : EVAL_FAILED_ALLOC;
         /* Heavy calculations here */
 #pragma omp for nowait
         for (unsigned i_elem = 0; i_elem < n_elements; ++i_elem)
         {
-            if (!(common_res == EVAL_SUCCESS && err_stack && matrix_stack))
+            if (!(common_res == EVAL_SUCCESS && err_stack && matrix_stack && allocator_stack))
             {
                 continue;
             }
+            allocator_stack_reset(allocator_stack);
             const unsigned order = orders[i_elem];
             size_t element_size = 0;
             for (unsigned j = 0; j < system_template.n_forms; ++j)
@@ -223,7 +238,7 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
             if (!precompute_create(cache_array + i, coord_bl[2 * i_elem + 0], coord_br[2 * i_elem + 0],
                                    coord_tr[2 * i_elem + 0], coord_tl[2 * i_elem + 0], coord_bl[2 * i_elem + 1],
                                    coord_br[2 * i_elem + 1], coord_tr[2 * i_elem + 1], coord_tl[2 * i_elem + 1],
-                                   &precomp, &SYSTEM_ALLOCATOR))
+                                   &precomp, &allocator_stack->base))
             {
                 // Failed, could not compute precomp
                 continue;
@@ -249,7 +264,7 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
                     }
                     matrix_full_t mat;
                     res = evaluate_element_term(err_stack, system_template.form_orders[row], order, bytecode, &precomp,
-                                                system_template.max_stack, matrix_stack, &SYSTEM_ALLOCATOR, &mat);
+                                                system_template.max_stack, matrix_stack, &allocator_stack->base, &mat);
                     if (res != EVAL_SUCCESS)
                     {
                         EVAL_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
@@ -273,7 +288,8 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
                         }
                     }
 
-                    SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, mat.data);
+                    deallocate(&allocator_stack->base, mat.data);
+                    // SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, mat.data);
                     col_offset += col_len;
                 }
                 row_offset += row_len;
@@ -297,6 +313,11 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
         }
         if (err_stack)
             deallocate(err_stack->allocator, err_stack);
+        if (allocator_stack)
+        {
+            deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
+            deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
+        }
 #pragma omp critical
         {
             if (res != EVAL_SUCCESS)

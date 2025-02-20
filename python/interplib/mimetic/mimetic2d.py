@@ -1190,7 +1190,7 @@ def _equation_2d(
             right = _equation_2d(ip, element, cache)
             if c != 1.0:
                 for f in right:
-                    right[f] *= c  # type: ignore
+                    right[f] *= c
 
             for k in right:
                 vr = right[k]

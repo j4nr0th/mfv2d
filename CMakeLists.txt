@@ -67,12 +67,14 @@ set(MIMETIC_HEADER_FILES
 
 set(EVAL_SOURCE_FILES
         src/eval/_module.c
+        src/eval/allocator.c
         src/eval/error.c
         src/eval/evaluation.c
         src/eval/incidence.c
 )
 set(EVAL_HEADER_FILES
         src/eval/error.h
+        src/eval/allocator.h
         src/eval/evaluation.h
         src/eval/incidence.h
 )

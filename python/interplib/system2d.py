@@ -568,7 +568,7 @@ def solve_system_2d(
             if w_form in strong_indices:
                 edges = np.astype(
                     np.setdiff1d(edges, strong_indices[w_form]),  # type: ignore
-                    dtype=np.int32,
+                    np.int32,
                     copy=False,
                 )
             if edges.size == 0:
@@ -607,7 +607,10 @@ def solve_system_2d(
 
                 else:
                     assert False
-
+                dofs = (
+                    dofs
+                    + offset_unknown[system.unknown_forms.index(w_form)][id_surf.index]
+                )
                 vals = c * np.sum(f_vals[..., None] * basis, axis=0)
                 element_vectors[id_surf.index][dofs] += vals
 

@@ -225,6 +225,42 @@ class KWeight(KForm):
         """Derivative of the form."""
         return KFormDerivative(self)
 
+    @overload  # type: ignore[override]
+    def __mul__(self, other: KForm, /) -> KInnerProduct: ...
+
+    @overload
+    def __mul__(self, other: Callable | Literal[0], /) -> KElementProjection: ...
+
+    def __mul__(
+        self, other: KForm | Callable | Literal[0], /
+    ) -> KInnerProduct | KElementProjection:
+        """Inner product with a weight."""
+        if isinstance(other, KForm):
+            return KInnerProduct(other, self)
+        if callable(other):
+            return KElementProjection(self, other)
+        if other == 0:
+            return KElementProjection(self, None)
+        return NotImplemented
+
+    @overload
+    def __rmul__(self, other: KForm, /) -> KInnerProduct: ...
+
+    @overload
+    def __rmul__(self, other: Callable | Literal[0], /) -> KElementProjection: ...
+
+    def __rmul__(
+        self, other: KForm | Callable | Literal[0], /
+    ) -> KInnerProduct | KElementProjection:
+        """Inner product with a weight."""
+        return self.__mul__(other)
+
+    def __xor__(self, other: Callable) -> KBoundaryProjection:
+        """Create boundary projection for the right hand side."""
+        if callable(other):
+            return KBoundaryProjection(self, other)
+        return NotImplemented
+
     def __matmul__(self, other: Callable | Literal[0], /) -> KElementProjection:
         """Create projection for the right hand side."""
         if isinstance(other, int) and other == 0:
@@ -659,7 +695,7 @@ class KProjectionCombination:
                 else:
                     pre = ""
 
-            s += pre + f"{a:g} * {name}"
+            s += pre + f"{abs(a):g} * {name}"
         if not s:
             return "0"
         return s

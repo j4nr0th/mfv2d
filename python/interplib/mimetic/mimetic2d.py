@@ -1396,6 +1396,7 @@ class Mesh2D:
     positions: npt.NDArray[np.float64]
     primal: Manifold2D
     dual: Manifold2D
+    boundary_indices: npt.NDArray[np.int32]
 
     def __init__(
         self,
@@ -1431,6 +1432,12 @@ class Mesh2D:
         self.positions = pos
         self.primal = man
         self.dual = man.compute_dual()
+        bnd: list[int] = []
+        for n_line in range(self.dual.n_lines):
+            ln = self.dual.get_line(n_line + 1)
+            if not ln.begin or not ln.end:
+                bnd.append(n_line)
+        self.boundary_indices = np.array(bnd, np.int32)
 
     @property
     def n_elements(self) -> int:

@@ -3,8 +3,6 @@
 from collections.abc import Sequence
 from time import perf_counter
 
-# from concurrent.futures import ThreadPoolExecutor
-# from functools import partial
 import numpy as np
 import numpy.typing as npt
 from scipy import sparse as sp
@@ -16,6 +14,32 @@ from interplib._interp import compute_gll
 from interplib._mimetic import GeoID, Surface
 from interplib.kforms.eval import _ctranslate, translate_equation
 from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_system
+
+
+def endpoints_from_line(
+    elm: Element2D, s: Surface, i: int
+) -> tuple[int, tuple[float, float], tuple[float, float]]:
+    """Get endpoints of the element boundary based on the line index.
+
+    Returns
+    -------
+    int
+        Direction of the normal. Positive means it contributes to gradient.
+    (float, float)
+        Beginning of the line corresponding to -1 on the reference element.
+
+    (float, float)
+        End of the line corresponding to +1 on the reference element.
+    """
+    if s[0].index == i:
+        return (+1, elm.bottom_left, elm.bottom_right)
+    if s[1].index == i:
+        return (-1, elm.bottom_right, elm.top_right)
+    if s[2].index == i:
+        return (-1, elm.top_right, elm.top_left)
+    if s[3].index == i:
+        return (+1, elm.top_left, elm.bottom_left)
+    raise ValueError("Line is not in the element.")
 
 
 def edge_dof_indices_from_line(
@@ -87,12 +111,15 @@ def solve_system_2d(
         where these reconstructions are computed is equal to ``(rec_order + 1) ** 2``.
     """
     # Check that inputs make sense.
+    strong_boundary_edges: dict[kform.KFormUnknown, list[npt.NDArray[np.uint64]]] = {}
     for primal in system.unknown_forms:
         if primal.order > 2:
             raise ValueError(
                 f"Can not solve the system on a 2D mesh, as it contains a {primal.order}"
                 "-form."
             )
+        strong_boundary_edges[primal] = []
+
     # Check boundary conditions are sensible
     if boundaray_conditions is not None:
         for bc in boundaray_conditions:
@@ -108,6 +135,15 @@ def solve_system_2d(
                     f"{np.max(bc.indices)}, but mesh has {mesh.primal.n_points}"
                     " lines)."
                 )
+            strong_boundary_edges[bc.form].append(bc.indices)
+
+    strong_indices = {
+        form: np.concatenate(strong_boundary_edges[form])
+        if len(strong_boundary_edges[form])
+        else np.array([])
+        for form in strong_boundary_edges
+    }
+    del strong_boundary_edges
 
     cont_indices_edges: list[int] = []
     cont_indices_nodes: list[int] = []
@@ -138,15 +174,6 @@ def solve_system_2d(
         if e.order in cache:
             continue
         cache[e.order] = BasisCache(e.order, 3 * e.order)
-    # with ThreadPoolExecutor(workers) as executor:
-    #     element_outputs = tuple(
-    #         v
-    #         for v in executor.map(
-    #             partial(element_system, system),
-    #             (e for e in elements),
-    #             (cache[e.order] for e in elements),
-    #         )
-    #     )
     bytecodes = [translate_equation(eq.left, simplify=True) for eq in system.equations]
 
     t0 = perf_counter()
@@ -182,6 +209,7 @@ def solve_system_2d(
         [cache[o].c_serialization for o in cache],
     )
     t1 = perf_counter()
+    del bl, br, tr, tl, orde
     print(f"Element matrices new way: {t1 - t0} seconds.")
 
     # from interplib._eval import element_matrices
@@ -526,6 +554,62 @@ def solve_system_2d(
 
         entries.extend(bc_entries)
         element_vectors.extend(bc_rhs)
+
+    from interplib.kforms.kform import KBoundaryProjection
+
+    # Weak boundary conditions
+    for eq in system.equations:
+        rhs = eq.right
+        for c, kp in rhs.pairs:
+            if not isinstance(kp, KBoundaryProjection) or kp.func is None or c == 0:
+                continue
+            w_form = kp.weight.base_form
+            edges = mesh.boundary_indices
+            if w_form in strong_indices:
+                edges = np.astype(
+                    np.setdiff1d(edges, strong_indices[w_form]),  # type: ignore
+                    dtype=np.int32,
+                    copy=False,
+                )
+            if edges.size == 0:
+                continue
+            for edge in edges:
+                dual_line = mesh.dual.get_line(edge + 1)
+                primal_line = mesh.primal.get_line(edge + 1)
+                if dual_line.begin:
+                    id_surf = dual_line.begin
+                elif dual_line.end:
+                    id_surf = dual_line.end
+                else:
+                    assert False
+                e = elements[id_surf.index]
+                basis_cache = cache[e.order]
+                primal_surface = mesh.primal.get_surface(id_surf)
+                ndir, p0, p1 = endpoints_from_line(e, primal_surface, edge)
+                dx = (p1[0] - p0[0]) / 2
+                xv = (p1[0] + p0[0]) / 2 + dx * basis_cache.int_nodes_1d
+                dy = (p1[1] - p0[1]) / 2
+                yv = (p1[1] + p0[1]) / 2 + dy * basis_cache.int_nodes_1d
+                f_vals = kp.func(xv, yv)
+                if w_form.order == 0:
+                    dofs = node_dof_indices_from_line(e, primal_surface, edge)
+                    # Tangental integral of function with the 0 basis
+                    basis = basis_cache.nodal_1d
+                    f_vals = (
+                        f_vals[..., 0] * dx + f_vals[..., 1] * dy
+                    ) * basis_cache.int_weights_1d
+
+                elif w_form.order:
+                    dofs = edge_dof_indices_from_line(e, primal_surface, edge)
+                    # Integral with the normal basis
+                    basis = basis_cache.edge_1d
+                    f_vals *= basis_cache.int_weights_1d * ndir  # * np.hypot(dx, dy)
+
+                else:
+                    assert False
+
+                vals = c * np.sum(f_vals[..., None] * basis, axis=0)
+                element_vectors[id_surf.index][dofs] += vals
 
     num_lagrange_coeffs = lagrange_idx - unknown_element_offset[-1]
     sys_mat = sp.block_diag(element_matrix)

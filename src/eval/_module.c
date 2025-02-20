@@ -17,6 +17,7 @@
 #include "allocator.h"
 #include "error.h"
 #include "evaluation.h"
+#include "incidence.h"
 
 #define PRINT_EXPRESSION(expr, fmt) printf(#expr ": " fmt "\n", (expr))
 
@@ -255,7 +256,7 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
                 for (unsigned col = 0; col < system_template.n_forms /*&& res == EVAL_SUCCESS*/; ++col)
                 {
                     const unsigned col_len = form_degrees_of_freedom_count(system_template.form_orders[col], order);
-                    const bytecode_val_t *bytecode = system_template.bytecodes[row * system_template.n_forms + col];
+                    const bytecode_t *bytecode = system_template.bytecodes[row * system_template.n_forms + col];
                     if (!bytecode)
                     {
                         // Zero entry, we do nothing since arrays start zeroed out (I think).
@@ -403,7 +404,7 @@ static PyObject *element_matrices(PyObject *Py_UNUSED(module), PyObject *args, P
 static PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expression)
 {
     size_t n_expr;
-    bytecode_val_t *bytecode = NULL;
+    bytecode_t *bytecode = NULL;
     // Convert into bytecode
     {
         PyObject *const expression = PySequence_Fast(in_expression, "Can not convert expression to sequence.");

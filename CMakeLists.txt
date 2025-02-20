@@ -71,12 +71,18 @@ set(EVAL_SOURCE_FILES
         src/eval/error.c
         src/eval/evaluation.c
         src/eval/incidence.c
+        src/eval/precomp.c
+        src/eval/bytecode.c
+        src/eval/matrix.c
 )
 set(EVAL_HEADER_FILES
         src/eval/error.h
         src/eval/allocator.h
         src/eval/evaluation.h
         src/eval/incidence.h
+        src/eval/precomp.h
+        src/eval/bytecode.h
+        src/eval/matrix.h
 )
 
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
@@ -99,7 +105,7 @@ target_include_directories(_eval PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_
 if (CMAKE_C_COMPILER_ID EQUAL "GNU")
     target_compile_options(_interp PRIVATE -Wall -Wextra)
     target_compile_options(_mimetic PRIVATE -Wall -Wextra)
-    target_compile_options(_eval PRIVATE -Wall -Wextra)
+    target_compile_options(_eval PRIVATE -Wall -Wextra -fwhole-program -flto=auto)
 endif ()
 
 if (OPENMP_FOUND)

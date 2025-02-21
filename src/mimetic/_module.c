@@ -23,6 +23,7 @@
 
 // Evaluation
 #include "eval/allocator.h"
+#include "eval/connectivity.h"
 #include "eval/evaluation.h"
 #include "eval/incidence.h"
 #include "eval/precomp.h"
@@ -851,8 +852,197 @@ static PyObject *check_incidence(PyObject *Py_UNUSED(module), PyObject *args, Py
     return (PyObject *)y;
 }
 
+static int check_input_array(const PyArrayObject *const arr, const unsigned n_dim, const npy_intp dims[static n_dim],
+                             const int dtype, const int flags)
+{
+    const int arr_flags = PyArray_FLAGS(arr);
+    if ((arr_flags & flags) != flags)
+    {
+        PyErr_Format(PyExc_ValueError, "Array flags %u don't contain required flags %u.", arr_flags, flags);
+        return -1;
+    }
+
+    if (PyArray_NDIM(arr) != n_dim)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Number of dimensions for the array does not match expected value (expected %u, got %u).", n_dim,
+                     (unsigned)PyArray_NDIM(arr));
+        return -1;
+    }
+
+    if (dtype >= 0 && PyArray_TYPE(arr) != dtype)
+    {
+        PyErr_Format(PyExc_ValueError, "Array does not have the expected type (expected %u, got %u).", dtype,
+                     PyArray_TYPE(arr));
+        return -1;
+    }
+
+    const npy_intp *const d = PyArray_DIMS(arr);
+    for (unsigned i_dim = 0; i_dim < n_dim; ++i_dim)
+    {
+        if (dims[i_dim] != 0 && d[i_dim] != dims[i_dim])
+        {
+            PyErr_Format(PyExc_ValueError, "Dimension %u of the did not match expected value (expected %u, got %u).",
+                         i_dim, dims[i_dim], d[i_dim]);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 static PyObject *continuity_equations(PyObject *Py_UNUSED(module), PyObject *args, PyObject *kwds)
 {
+    manifold2d_object_t *primal, *dual;
+    PyArrayObject *form_orders, *element_offsets, *dof_offsets, *element_orders;
+    PyTypeObject *const man_type = &manifold2d_type_object;
+
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwds, "O!O!O!O!O!O!",
+            (char *[7]){"primal", "dual", "form_orders", "element_offsets", "dof_offsets", "element_orders", NULL},
+            man_type, &primal, man_type, &dual, &PyArray_Type, &form_orders, &PyArray_Type, &element_offsets,
+            &PyArray_Type, &dof_offsets, &PyArray_Type, &element_orders))
+    {
+        return NULL;
+    }
+
+    // Check primal and dual match
+    if (primal->n_points != dual->n_surfaces || primal->n_lines != dual->n_lines ||
+        primal->n_surfaces != dual->n_points)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Primal and dual manifolds don't match in terms of geometrical objects (%R and %R).", primal,
+                     dual);
+        return NULL;
+    }
+
+    if (check_input_array(form_orders, 1, (const npy_intp[1]){0}, NPY_UINT,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED) < 0 ||
+        check_input_array(element_orders, 1, (const npy_intp[1]){0}, NPY_UINT,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED) < 0)
+    {
+        return NULL;
+    }
+
+    const npy_intp n_forms = PyArray_DIM(form_orders, 0);
+    const npy_intp n_elements = PyArray_DIM(element_orders, 0);
+
+    if (check_input_array(element_offsets, 1, (const npy_intp[1]){n_elements + 1}, NPY_UINT,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED) < 0 ||
+        check_input_array(dof_offsets, 2, (const npy_intp[2]){n_forms + 1, n_elements}, NPY_UINT,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED) < 0)
+    {
+        return NULL;
+    }
+
+    const unsigned *const p_element_offsets = PyArray_DATA(element_offsets);
+    const unsigned *const p_dof_offsets = PyArray_DATA(dof_offsets);
+    const form_order_t *const p_form_orders = PyArray_DATA(form_orders);
+    const unsigned *const p_element_order = PyArray_DATA(element_orders);
+
+    for (unsigned i_form = 0; i_form < n_forms; ++i_form)
+    {
+        if (p_form_orders[i_form] > FORM_ORDER_2 || p_form_orders[i_form] == FORM_ORDER_UNKNOWN)
+        {
+            PyErr_Format(PyExc_ValueError, "For order was of unknown value %u.", (unsigned)p_form_orders[i_form]);
+            return NULL;
+        }
+    }
+
+    for (unsigned i_elm = 0; i_elm < n_elements; ++i_elm)
+    {
+        if (p_element_offsets[i_elm] >= p_element_offsets[i_elm + 1])
+        {
+            PyErr_Format(PyExc_ValueError, "Offsets of elements %u and %u are not strictly increasing.", i_elm,
+                         i_elm + 1);
+            return NULL;
+        }
+
+        if (i_elm != 0 && p_element_order[i_elm - 1] != p_element_order[i_elm])
+        {
+            PyErr_Format(PyExc_ValueError, "Elements %u and %u don't have the same order, which is not (yet allowed).",
+                         i_elm, i_elm + 1);
+            return NULL;
+        }
+
+        for (unsigned i_form = 0; i_form < n_forms; ++i_form)
+        {
+            const unsigned d0 = p_dof_offsets[(n_elements)*i_form + i_elm];
+            const unsigned d1 = p_dof_offsets[(n_elements) * (i_form + 1) + i_elm];
+            if (d0 >= d1)
+            {
+                PyErr_Format(PyExc_ValueError,
+                             "Offsets of degrees of freedom %u and %u in the element %u are not strictly increasing "
+                             "(%u and %u).",
+                             i_form, i_form + 1, i_elm, d0, d1);
+                return NULL;
+            }
+        }
+    }
+
+    error_stack_t *error_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
+    if (!error_stack)
+    {
+        return NULL;
+    }
+    unsigned n_equations, *equation_offsets, *equation_indices;
+
+    const eval_result_t res = generate_connectivity_equations(
+        primal, dual, n_elements, n_forms, p_form_orders, p_element_order, p_element_offsets, p_dof_offsets,
+        &n_equations, &equation_offsets, &equation_indices, &SYSTEM_ALLOCATOR, error_stack);
+
+    if (error_stack->position != 0)
+    {
+        for (unsigned i = 0; i < error_stack->position; ++i)
+        {
+            const error_message_t *msg = error_stack->messages + i;
+            PySys_FormatStderr("%s:%d - %s: Error %s (%d): %s.\n", msg->file, msg->line, msg->function,
+                               eval_result_str(msg->code), msg->code, msg->message);
+            deallocate(&SYSTEM_ALLOCATOR, msg->message);
+        }
+    }
+    deallocate(&SYSTEM_ALLOCATOR, error_stack);
+
+    if (res != EVAL_SUCCESS)
+    {
+        PyErr_Format(PyExc_ValueError, "Could not generate connectivity equations %s (%d).", eval_result_str(res), res);
+        return NULL;
+    }
+    // else
+    // {
+    //     printf("%u equations:\n", n_equations);
+    //     unsigned offset = 0;
+    //     for (unsigned n = 0; n < n_equations; ++n)
+    //     {
+    //         const unsigned len = equation_offsets[n] - offset;
+    //         printf("Equation %u (len %u):", n, len);
+    //         for (unsigned i = 0; i < len; ++i)
+    //         {
+    //             printf(" %u", equation_indices[offset + i]);
+    //         }
+    //         printf("\n");
+    //         offset += len;
+    //     }
+    // }
+
+    PyArrayObject *const arr_offsets =
+        (PyArrayObject *)PyArray_SimpleNew(1, (const npy_intp[1]){n_equations}, NPY_UINT);
+    PyArrayObject *const arr_indices =
+        (PyArrayObject *)PyArray_SimpleNew(1, (const npy_intp[1]){equation_offsets[n_equations - 1]}, NPY_UINT);
+    if (!arr_offsets || !arr_indices)
+    {
+        Py_XDECREF(arr_offsets);
+        Py_XDECREF(arr_indices);
+        return NULL;
+    }
+
+    memcpy(PyArray_DATA(arr_offsets), equation_offsets, sizeof(*equation_offsets) * n_equations);
+    memcpy(PyArray_DATA(arr_indices), equation_indices, sizeof(*equation_indices) * equation_offsets[n_equations - 1]);
+
+    deallocate(&SYSTEM_ALLOCATOR, equation_offsets);
+    deallocate(&SYSTEM_ALLOCATOR, equation_indices);
+
+    return PyTuple_Pack(2, arr_offsets, arr_indices);
 }
 
 static PyMethodDef module_methods[] = {
@@ -864,6 +1054,8 @@ static PyMethodDef module_methods[] = {
     {"check_bytecode", check_bytecode, METH_O, "Convert bytecode to C-values, then back to Python."},
     {"check_incidence", (void *)check_incidence, METH_VARARGS | METH_KEYWORDS,
      "Apply the incidence matrix to the input matrix."},
+    {"continuity", (void *)continuity_equations, METH_VARARGS | METH_KEYWORDS,
+     "Create continuity equation for different forms."},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

@@ -15,6 +15,7 @@ from interplib._mimetic import (
     Surface,
     compute_element_matrices,
     compute_element_matrices_2,
+    continuity,
 )
 from interplib.kforms.eval import _ctranslate, translate_equation
 from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_system
@@ -284,23 +285,14 @@ def solve_system_2d(
             if not idx_self or not idx_neighbour:
                 continue
 
-            # print(f"Linking {idx_self.index} to {idx_neighbour.index}.")
-
             offset_self = unknown_element_offset[idx_self.index]
             offset_other = unknown_element_offset[idx_neighbour.index]
-            # d_offset_self = weight_element_offset[idx_self.index]
-            # d_offset_other = weight_element_offset[idx_neighbour.index]
             # For each variable which must be continuous, get locations in left and right
             for var_idx in cont_indices_edges:
                 # Left one is from the first DoF of that variable
                 self_var_offset = offset_unknown[var_idx][idx_self.index]
-                # d_self_var_offset = offset_weight[var_idx][idx_self.index]
-                # Right one is from the first DoF of that variable
                 other_var_offset = offset_unknown[var_idx][idx_neighbour.index]
-                # d_other_var_offset = offset_weight[var_idx][idx_neighbour.index]
 
-                # row_off_self = d_offset_self + d_self_var_offset
-                # row_off_other = d_offset_other + d_other_var_offset
                 col_off_self = offset_self + self_var_offset
                 col_off_other = offset_other + other_var_offset
 
@@ -441,6 +433,50 @@ def solve_system_2d(
                             np.array((1, -1)),
                         )
                     )
+
+    offsets, indices = continuity(
+        mesh.primal,
+        mesh.dual,
+        np.array([form.order + 1 for form in system.unknown_forms], np.uint32),
+        np.astype(unknown_element_offset, np.uint32),
+        np.array(offset_unknown, np.uint32),
+        np.astype(element_orders, np.uint32),
+    )
+
+    vr = np.concatenate([e[1] for e in entries])
+    mat1 = sp.coo_matrix(
+        (
+            np.concatenate([e[2] for e in entries]),
+            (
+                vr - np.min(vr),
+                np.concatenate([e[0] for e in entries]),
+            ),
+        )
+    )
+
+    mat2 = sp.coo_matrix(
+        (
+            np.tile((+1, -1), indices.size // 2),
+            (
+                np.repeat(
+                    np.arange(indices.size // 2), 2
+                ),  # np.max(vr - np.min(vr)) + 1), 2),
+                indices,
+            ),
+        )
+    )
+
+    from matplotlib import pyplot as plt
+
+    plt.figure()
+    plt.spy(mat1)
+
+    plt.figure()
+    plt.spy(mat2)
+    plt.show()
+
+    print(mat1 - mat2)
+    exit()
 
     num_lagrange_coeffs = lagrange_idx - unknown_element_offset[-1]
     if num_lagrange_coeffs > 0:
@@ -587,7 +623,7 @@ def solve_system_2d(
             edges = mesh.boundary_indices
             if w_form in strong_indices:
                 edges = np.astype(
-                    np.setdiff1d(edges, strong_indices[w_form]),  # type: ignore
+                    np.setdiff1d(edges, strong_indices[w_form]),
                     np.int32,
                     copy=False,
                 )

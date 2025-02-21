@@ -2,8 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._eval import check_bytecode, element_matrices
-from interplib._mimetic import Line, Manifold2D, Surface
+from interplib._mimetic import Line, Manifold2D, Surface, check_bytecode, element_matrices
 from interplib.kforms.eval import _ctranslate, translate_equation
 from interplib.kforms.kform import KFormUnknown
 from interplib.mimetic.mimetic2d import BasisCache, Element2D

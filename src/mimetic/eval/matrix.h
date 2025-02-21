@@ -5,7 +5,7 @@
 #ifndef MATRIX_H
 #define MATRIX_H
 
-#include "../common.h"
+#include "../../common.h"
 #include <numpy/ndarrayobject.h>
 #include <numpy/npy_no_deprecated_api.h>
 

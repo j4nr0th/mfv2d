@@ -5,8 +5,8 @@
 #ifndef PRECOMP_H
 #define PRECOMP_H
 
-#include "../common.h"
-#include "../common_defines.h"
+#include "../../common.h"
+#include "../../common_defines.h"
 
 #include "matrix.h"
 

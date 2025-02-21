@@ -5,7 +5,7 @@
 #ifndef BYTECODE_H
 #define BYTECODE_H
 
-#include "../common.h"
+#include "../../common.h"
 
 typedef enum
 {

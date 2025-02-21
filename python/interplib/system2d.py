@@ -9,9 +9,13 @@ from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
 from interplib import kforms as kform
-from interplib._eval import compute_element_matrices, compute_element_matrices_2
 from interplib._interp import compute_gll
-from interplib._mimetic import GeoID, Surface
+from interplib._mimetic import (
+    GeoID,
+    Surface,
+    compute_element_matrices,
+    compute_element_matrices_2,
+)
 from interplib.kforms.eval import _ctranslate, translate_equation
 from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_system
 

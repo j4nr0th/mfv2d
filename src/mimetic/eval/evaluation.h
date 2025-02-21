@@ -5,8 +5,8 @@
 #ifndef EVALUATION_H
 #define EVALUATION_H
 
-#include "../common.h"
-#include "../common_defines.h"
+#include "../../common.h"
+#include "../../common_defines.h"
 #include <numpy/ndarrayobject.h>
 #include <numpy/npy_no_deprecated_api.h>
 

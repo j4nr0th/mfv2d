@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._eval import check_incidence
+from interplib._mimetic import check_incidence
 from interplib.mimetic.mimetic2d import Element2D
 
 

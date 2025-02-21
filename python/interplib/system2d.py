@@ -9,7 +9,7 @@ from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
 from interplib import kforms as kform
-from interplib._eval import compute_element_matrices
+from interplib._eval import compute_element_matrices, compute_element_matrices_2
 from interplib._interp import compute_gll
 from interplib._mimetic import GeoID, Surface
 from interplib.kforms.eval import _ctranslate, translate_equation
@@ -209,13 +209,28 @@ def solve_system_2d(
         [cache[o].c_serialization for o in cache],
     )
     t1 = perf_counter()
-    del bl, br, tr, tl, orde
     print(f"Element matrices new way: {t1 - t0} seconds.")
+    t0 = perf_counter()
+    third_matrices = compute_element_matrices_2(
+        [f.order for f in system.unknown_forms],
+        codes,
+        bl,
+        br,
+        tr,
+        tl,
+        orde,
+        [cache[o].c_serialization for o in cache],
+    )
+    t1 = perf_counter()
+    print(f"Element matrices newer way: {t1 - t0} seconds.")
+    del bl, br, tr, tl, orde
 
     # from interplib._eval import element_matrices
     element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
 
-    for e, mat1, mat2 in zip(elements, element_matrix, second_matrices, strict=True):
+    for e, mat1, mat2, mat3 in zip(
+        elements, element_matrix, second_matrices, third_matrices, strict=True
+    ):
         # print(np.max(np.max(mat1 - mat2)))
         # ce = cache[e.order]
         # m0, m1, m2, i0, i1, i2 = element_matrices(
@@ -237,6 +252,7 @@ def solve_system_2d(
         # assert np.allclose(i2, np.linalg.inv(e.mass_matrix_surface(ce)))
         assert mat1.shape == mat2.shape
         assert np.allclose(mat2, element_system(system, e, cache[e.order], None)[0])
+        assert np.allclose(mat2, mat3)
     element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
 
     # Sanity check

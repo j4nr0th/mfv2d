@@ -167,16 +167,459 @@ void system_template_destroy(system_template_t *this, const allocator_callbacks 
 
 static void clean_stack(matrix_t *stack, unsigned cnt, const allocator_callbacks *allocator)
 {
-    for (unsigned i = cnt; i > 0; ++i)
+    for (unsigned i = cnt; i > 0; --i)
     {
         matrix_cleanup(stack + i - 1, allocator);
     }
 }
 
+static eval_result_t matrix_as_full(error_stack_t *error_stack, const matrix_t *this, unsigned order, form_order_t form,
+                                    matrix_full_t *p_out, const allocator_callbacks *allocator)
+{
+
+    switch (this->type)
+    {
+    case MATRIX_TYPE_IDENTITY: {
+        const unsigned n = form_degrees_of_freedom_count(form, order);
+        double *const restrict ptr = allocate(allocator, sizeof *ptr * n * n);
+        if (!ptr)
+        {
+            EVAL_ERROR(error_stack, EVAL_FAILED_ALLOC, "Could not allocate memory for output identity matrix.");
+            return EVAL_FAILED_ALLOC;
+        }
+        memset(ptr, 0, sizeof *ptr * n * n);
+        for (unsigned i = 0; i < n; ++i)
+        {
+            ptr[i * n + i] = this->coefficient;
+        }
+        *p_out = (matrix_full_t){.base = {.type = MATRIX_TYPE_FULL, .rows = n, .cols = n}, .data = ptr};
+    }
+    break;
+
+    case MATRIX_TYPE_FULL:
+        matrix_multiply_inplace(&this->full, this->coefficient);
+        *p_out = this->full;
+        break;
+
+    case MATRIX_TYPE_INCIDENCE:
+        const eval_result_t res = incidence_to_full(this->incidence.incidence, order, p_out, allocator);
+        if (res != EVAL_SUCCESS)
+            return res;
+        matrix_multiply_inplace(p_out, this->coefficient);
+        break;
+
+    default:
+        EVAL_ERROR(error_stack, EVAL_BAD_ENUM, "Invalid matrix type for the output matrix %u.", this->type);
+        return EVAL_BAD_ENUM;
+    }
+
+    return EVAL_SUCCESS;
+}
+
+typedef eval_result_t (*const bytecode_operation)(const void *operations[static MATOP_COUNT],
+                                                  error_stack_t *error_stack, unsigned order, unsigned remaining,
+                                                  const bytecode_t code[static remaining], precompute_t *precomp,
+                                                  unsigned n_stack, unsigned stack_pos,
+                                                  matrix_t stack[restrict n_stack],
+                                                  const allocator_callbacks *allocator, matrix_t *current);
+
+static eval_result_t execute_next(const bytecode_operation operations[static MATOP_COUNT], error_stack_t *error_stack,
+                                  unsigned order, unsigned remaining, const bytecode_t code[static remaining],
+                                  precompute_t *precomp, unsigned n_stack, unsigned stack_pos,
+                                  matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                  matrix_t *current)
+{
+    if (remaining == 0)
+    {
+        return EVAL_SUCCESS;
+    }
+    const matrix_op_t op = code->op;
+    if (op <= MATOP_INVALID || op >= MATOP_COUNT)
+    {
+        EVAL_ERROR(error_stack, EVAL_BAD_ENUM, "Invalid bytecode instruction %u.", (unsigned)op);
+        return EVAL_BAD_ENUM;
+    }
+    const bytecode_operation fn = operations[op];
+
+    return fn((void *)operations, error_stack, order, remaining - 1, code + 1, precomp, n_stack, stack_pos, stack,
+              allocator, current);
+}
+
+static eval_result_t operation_identity(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
+                                        unsigned order, unsigned remaining, const bytecode_t code[static remaining],
+                                        precompute_t *precomp, unsigned n_stack, unsigned stack_pos,
+                                        matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                        matrix_t *current)
+{
+    if (current->type == MATRIX_TYPE_INVALID)
+    {
+        current->type = MATRIX_TYPE_IDENTITY;
+        current->coefficient = 1.0;
+    }
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining, code, precomp, n_stack,
+                        stack_pos, stack, allocator, current);
+}
+
+static eval_result_t operation_scale(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
+                                     unsigned order, unsigned remaining, const bytecode_t code[static remaining],
+                                     precompute_t *precomp, unsigned n_stack, unsigned stack_pos,
+                                     matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                     matrix_t *current)
+{
+    if (remaining < 1)
+    {
+        EVAL_ERROR(error_stack, EVAL_OUT_OF_INSTRUCTIONS, "Scale instruction with no instructions remaining.");
+        return EVAL_OUT_OF_INSTRUCTIONS;
+    }
+    if (current->type == MATRIX_TYPE_INVALID)
+    {
+        current->type = MATRIX_TYPE_IDENTITY;
+        current->coefficient = code->f64;
+    }
+    else
+    {
+        current->coefficient *= code->f64;
+    }
+    code += 1;
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 1, code, precomp,
+                        n_stack, stack_pos, stack, allocator, current);
+}
+
+static eval_result_t operation_transpose(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
+                                         unsigned order, unsigned remaining, const bytecode_t code[static remaining],
+                                         precompute_t *precomp, unsigned n_stack, unsigned stack_pos,
+                                         matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                         matrix_t *current)
+{
+    const unsigned tmp = current->base.rows;
+    current->base.rows = current->base.cols;
+    current->base.cols = tmp;
+
+    switch (current->type)
+    {
+    case MATRIX_TYPE_INCIDENCE: {
+        incidence_type_t t = current->incidence.incidence;
+        if (t < INCIDENCE_TYPE_10 || t >= INCIDENCE_TYPE_CNT)
+        {
+            EVAL_ERROR(error_stack, EVAL_BAD_ENUM,
+                       "Incidence type specified by current matrix is %u which is not valid.", t);
+            // clean_stack(stack, stack_pos, allocator);
+            // matrix_cleanup(current, allocator);
+            return EVAL_BAD_ENUM;
+        }
+
+        t += (INCIDENCE_TYPE_10_T - INCIDENCE_TYPE_10);
+        current->incidence.incidence = t;
+    }
+    break;
+
+    case MATRIX_TYPE_FULL: {
+        matrix_full_t *const this = &current->full;
+        const unsigned n_row = this->base.rows;
+        const unsigned n_col = this->base.cols;
+        for (unsigned idx = 0; idx < n_row; ++idx)
+        {
+            for (unsigned j = 0; j * (n_row - 1) < idx * (n_col - 1); ++j)
+            {
+                const double tmp = this->data[idx * n_col + j];
+                this->data[idx * n_col + j] = this->data[j * n_row + idx];
+                this->data[j * n_row + idx] = tmp;
+            }
+        }
+        this->base.rows = n_col;
+        this->base.cols = n_row;
+    }
+    break;
+
+    case MATRIX_TYPE_IDENTITY:
+        /*NO-OP*/
+        break;
+
+    default:
+        EVAL_ERROR(error_stack, EVAL_BAD_ENUM, "Current matrix type is %u which is not valid.", current->type);
+        return EVAL_BAD_ENUM;
+    }
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining, code, precomp, n_stack,
+                        stack_pos, stack, allocator, current);
+}
+
+static eval_result_t operation_push(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
+                                    unsigned order, unsigned remaining, const bytecode_t code[static remaining],
+                                    precompute_t *precomp, unsigned n_stack, unsigned stack_pos,
+                                    matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                    matrix_t *current)
+{
+    if (stack_pos == n_stack)
+    {
+        EVAL_ERROR(error_stack, EVAL_STACK_OVERFLOW, "Stack is full.");
+        return EVAL_STACK_OVERFLOW;
+    }
+    stack[stack_pos] = *current;
+    stack_pos += 1;
+    *current = (matrix_t){
+        .type = MATRIX_TYPE_INVALID,
+        .coefficient = 0.0,
+    };
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining, code, precomp, n_stack,
+                        stack_pos, stack, allocator, current);
+}
+
+static eval_result_t operation_incidence(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
+                                         unsigned order, unsigned remaining, const bytecode_t code[static remaining],
+                                         precompute_t *precomp, unsigned n_stack, unsigned stack_pos,
+                                         matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                         matrix_t *current)
+{
+    if (remaining < 2)
+    {
+        EVAL_ERROR(error_stack, EVAL_OUT_OF_INSTRUCTIONS,
+                   "Incidence matrix instruction with less than 2 instructions remaining.");
+        return EVAL_OUT_OF_INSTRUCTIONS;
+    }
+
+    incidence_type_t t = code->u32;
+    code += 1;
+    const unsigned dual = code->u32;
+    code += 1;
+    if (t < INCIDENCE_TYPE_10 || t >= INCIDENCE_TYPE_CNT)
+    {
+        EVAL_ERROR(error_stack, EVAL_BAD_ENUM, "Incidence type specified by current matrix is %u which is not valid.",
+                   t);
+        return EVAL_BAD_ENUM;
+    }
+    if (dual)
+    {
+        t = ((t - 1) ^ 1) + 1;
+    }
+
+    switch (current->type)
+    {
+    case MATRIX_TYPE_INVALID:
+        *current = (matrix_t){.incidence = {.base.type = MATRIX_TYPE_INCIDENCE, .incidence = t}, .coefficient = 1.0};
+        break;
+    case MATRIX_TYPE_IDENTITY:
+        *current = (matrix_t){.incidence = {.base.type = MATRIX_TYPE_INCIDENCE, .incidence = t},
+                              .coefficient = current->coefficient};
+        break;
+
+        matrix_t new_mat;
+        eval_result_t res;
+
+    case MATRIX_TYPE_INCIDENCE:
+        res = incidence_to_full(current->type, order, &current->full, allocator);
+        if (res != EVAL_SUCCESS)
+        {
+            EVAL_ERROR(error_stack, res, "Could not create the incidence matrix.");
+            return res;
+        }
+        // FALLTHROUGH
+
+    case MATRIX_TYPE_FULL:
+        res = apply_incidence_to_full_left(t, order, &current->full, &new_mat.full, allocator);
+        if (res != EVAL_SUCCESS)
+        {
+            EVAL_ERROR(error_stack, res, "Could apply an incidence matrix to a full matrix.");
+            return res;
+        }
+        new_mat.coefficient = current->coefficient;
+        matrix_cleanup(current, allocator);
+        *current = new_mat;
+        break;
+    default:
+        EVAL_ERROR(error_stack, EVAL_BAD_ENUM, "Current matrix has an unknown type %u.", current->type);
+        return EVAL_BAD_ENUM;
+    }
+    if (dual)
+    {
+        current->coefficient *= -1;
+    }
+
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 2, code, precomp,
+                        n_stack, stack_pos, stack, allocator, current);
+}
+
+static eval_result_t operation_mass(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
+                                    unsigned order, unsigned remaining, const bytecode_t code[static remaining],
+                                    precompute_t *precomp, unsigned n_stack, unsigned stack_pos,
+                                    matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                    matrix_t *current)
+{
+    if (remaining < 2)
+    {
+        EVAL_ERROR(error_stack, EVAL_OUT_OF_INSTRUCTIONS,
+                   "Mass matrix instruction with less than 2 instructions remaining.");
+        return EVAL_OUT_OF_INSTRUCTIONS;
+    }
+
+    mass_mtx_indices_t t = code->u32;
+    code += 1;
+    const unsigned inverse = code->u32;
+    code += 1;
+    if (t < MASS_0 || t > MASS_2)
+    {
+        EVAL_ERROR(error_stack, EVAL_BAD_ENUM, "Mass type specified by current matrix is %u which is not valid.", t);
+        return EVAL_BAD_ENUM;
+    }
+    if (inverse)
+    {
+        t += (MASS_0_I - MASS_0);
+    }
+
+    matrix_t this = {.type = MATRIX_TYPE_FULL, .coefficient = 1.0};
+    this.full = precomp->mass_matrices[t];
+    eval_result_t res;
+    switch (current->type)
+    {
+    case MATRIX_TYPE_INVALID:
+        current->coefficient = 1.0;
+        // FALLTHROUGH
+    case MATRIX_TYPE_IDENTITY:
+        res = matrix_full_copy(&this.full, &current->full, allocator);
+        if (res != EVAL_SUCCESS)
+        {
+            EVAL_ERROR(error_stack, res, "Could not copy the mass matrix.");
+            return res;
+        }
+        break;
+    case MATRIX_TYPE_INCIDENCE:
+
+        res = apply_incidence_to_full_right(current->incidence.incidence, order, &this.full, &current->full, allocator);
+        if (res != EVAL_SUCCESS)
+        {
+            EVAL_ERROR(error_stack, res, "Could right-apply incidence matrix to the mass matrix.");
+            return res;
+        }
+        break;
+    case MATRIX_TYPE_FULL:
+        matrix_t new_mat = {};
+        res = matrix_full_multiply(&this.full, &current->full, &new_mat.full, allocator);
+        if (res != EVAL_SUCCESS)
+        {
+            EVAL_ERROR(error_stack, res, "Could multiply two full matrices.");
+            return res;
+        }
+        matrix_cleanup(current, allocator);
+        *current = new_mat;
+        current->coefficient = 1.0;
+        break;
+    }
+
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 2, code, precomp,
+                        n_stack, stack_pos, stack, allocator, current);
+}
+
+static eval_result_t operation_matmul(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
+                                      unsigned order, unsigned remaining, const bytecode_t code[static remaining],
+                                      precompute_t *precomp, unsigned n_stack, unsigned stack_pos,
+                                      matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                      matrix_t *current)
+{
+    if (stack_pos == 0)
+    {
+        EVAL_ERROR(error_stack, EVAL_STACK_UNDERFLOW, "Matrix multiply operation with nothing on the stack.");
+        return EVAL_STACK_UNDERFLOW;
+    }
+    stack_pos -= 1;
+
+    matrix_t right = stack[stack_pos];
+    stack[stack_pos] = (matrix_t){.type = MATRIX_TYPE_INVALID};
+    matrix_t new_mat;
+    const eval_result_t res = matrix_multiply(error_stack, order, &right, current, &new_mat, allocator);
+    matrix_cleanup(stack + stack_pos, allocator);
+    matrix_cleanup(current, allocator);
+    if (res != EVAL_SUCCESS)
+    {
+        EVAL_ERROR(error_stack, res, "Failed multiplying two matrices (%u x %u and %u).", right.base.rows,
+                   right.base.cols, current->type);
+        return res;
+    }
+    *current = new_mat;
+
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining, code, precomp, n_stack,
+                        stack_pos, stack, allocator, current);
+}
+
+static eval_result_t operation_sum(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
+                                   unsigned order, unsigned remaining, const bytecode_t code[static remaining],
+                                   precompute_t *precomp, unsigned n_stack, unsigned stack_pos,
+                                   matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                   matrix_t *current)
+{
+    if (remaining < 1)
+    {
+        EVAL_ERROR(error_stack, EVAL_OUT_OF_INSTRUCTIONS, "Sum instruction with no more bytecode units.");
+        return EVAL_OUT_OF_INSTRUCTIONS;
+    }
+
+    const unsigned count = code->u32;
+    code += 1;
+    if (count > stack_pos)
+    {
+        EVAL_ERROR(error_stack, EVAL_STACK_UNDERFLOW, "Sum for %u matrices specified, but only %u are on stack.", count,
+                   stack_pos);
+        return EVAL_STACK_UNDERFLOW;
+    }
+    for (unsigned j = 0; j < count; ++j)
+    {
+        matrix_t new;
+        stack_pos -= 1;
+        matrix_t *left = stack + stack_pos;
+        const eval_result_t res = matrix_add(order, current, left, &new, allocator);
+        matrix_cleanup(current, allocator);
+        matrix_cleanup(left, allocator);
+        if (res != EVAL_SUCCESS)
+        {
+            EVAL_ERROR(error_stack, res, "Could not add two matrices.");
+            return res;
+        }
+        *current = new;
+    }
+
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 1, code, precomp,
+                        n_stack, stack_pos, stack, allocator, current);
+}
+
 INTERPLIB_INTERNAL
-int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigned order, const bytecode_t *code,
-                          precompute_t *precomp, unsigned n_stack, matrix_t stack[restrict n_stack],
-                          const allocator_callbacks *allocator, matrix_full_t *p_out)
+eval_result_t evaluate_element_term_sibling(error_stack_t *error_stack, form_order_t form, unsigned order,
+                                            const bytecode_t *code, precompute_t *precomp, unsigned n_stack,
+                                            matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                            matrix_full_t *p_out)
+{
+    const unsigned n_ops = code[0].u32;
+    code += 1;
+
+    unsigned stack_pos = 0;
+    matrix_t current = {
+        .type = MATRIX_TYPE_INVALID,
+        .coefficient = 0.0,
+    };
+
+    const bytecode_operation operations[MATOP_COUNT] = {
+        [MATOP_INVALID] = NULL,          [MATOP_IDENTITY] = operation_identity,
+        [MATOP_MASS] = operation_mass,   [MATOP_INCIDENCE] = operation_incidence,
+        [MATOP_PUSH] = operation_push,   [MATOP_MATMUL] = operation_matmul,
+        [MATOP_SCALE] = operation_scale, [MATOP_TRANSPOSE] = operation_transpose,
+        [MATOP_SUM] = operation_sum,
+    };
+
+    matrix_op_t op;
+    eval_result_t res =
+        execute_next(operations, error_stack, order, n_ops, code, precomp, n_stack, 0, stack, allocator, &current);
+    clean_stack(stack, n_stack, allocator);
+    if (res != EVAL_SUCCESS)
+    {
+        matrix_cleanup(&current, allocator);
+        return res;
+    }
+
+    return matrix_as_full(error_stack, &current, order, form, p_out, allocator);
+}
+
+INTERPLIB_INTERNAL
+eval_result_t evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigned order,
+                                    const bytecode_t *code, precompute_t *precomp, unsigned n_stack,
+                                    matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
+                                    matrix_full_t *p_out)
 {
     const unsigned n_ops = code[0].u32;
     code += 1;
@@ -536,6 +979,7 @@ int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigne
         // printf(" Resulting matrix type %u (%u x %u), stack at %u.\n", current.type, current.base.rows,
         // current.base.cols, stack_pos);
     }
+
     clean_stack(stack, stack_pos, allocator);
     if (stack_pos != 0)
     {
@@ -544,41 +988,5 @@ int evaluate_element_term(error_stack_t *error_stack, form_order_t form, unsigne
         return EVAL_STACK_NOT_EMPTY;
     }
 
-    switch (current.type)
-    {
-    case MATRIX_TYPE_IDENTITY: {
-        const unsigned n = form_degrees_of_freedom_count(form, order);
-        double *const restrict ptr = allocate(allocator, sizeof *ptr * n * n);
-        if (!ptr)
-        {
-            EVAL_ERROR(error_stack, EVAL_FAILED_ALLOC, "Could not allocate memory for output identity matrix.");
-            return EVAL_FAILED_ALLOC;
-        }
-        memset(ptr, 0, sizeof *ptr * n * n);
-        for (unsigned i = 0; i < n; ++i)
-        {
-            ptr[i * n + i] = current.coefficient;
-        }
-        *p_out = (matrix_full_t){.base = {.type = MATRIX_TYPE_FULL, .rows = n, .cols = n}, .data = ptr};
-    }
-    break;
-
-    case MATRIX_TYPE_FULL:
-        matrix_multiply_inplace(&current.full, current.coefficient);
-        *p_out = current.full;
-        break;
-
-    case MATRIX_TYPE_INCIDENCE:
-        const eval_result_t res = incidence_to_full(current.incidence.incidence, order, p_out, allocator);
-        if (res != EVAL_SUCCESS)
-            return res;
-        matrix_multiply_inplace(p_out, current.coefficient);
-        break;
-
-    default:
-        EVAL_ERROR(error_stack, EVAL_BAD_ENUM, "Invalid matrix type for the output matrix %u.", current.type);
-        return EVAL_BAD_ENUM;
-    }
-
-    return EVAL_SUCCESS;
+    return matrix_as_full(error_stack, &current, order, form, p_out, allocator);
 }

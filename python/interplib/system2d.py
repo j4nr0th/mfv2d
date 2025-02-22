@@ -1,6 +1,8 @@
 """Functionality related to creating a full system of equations."""
 
 from collections.abc import Sequence
+from functools import cache
+from itertools import accumulate
 from time import perf_counter
 
 import numpy as np
@@ -9,16 +11,68 @@ from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
 from interplib import kforms as kform
-from interplib._interp import compute_gll
+from interplib._interp import compute_gll, lagrange1d
 from interplib._mimetic import (
     GeoID,
     Surface,
     compute_element_matrices,
     compute_element_matrices_2,
-    continuity,
+    #     continuity,
 )
 from interplib.kforms.eval import _ctranslate, translate_equation
+from interplib.kforms.kform import KBoundaryProjection
 from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_system
+
+
+@cache
+def continuity_matrices(
+    n1: int, n2: int
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute continuity equation coefficients for 0 and 1 forms between elements.
+
+    Parameters
+    ----------
+    n1 : int
+        Higher order.
+    n2 : int
+        Lower order.
+
+    Returns
+    -------
+    (n1 + 1, n2 + 1) array
+        Array of coefficients for 0-form continuity.
+
+    (n1, n2) array
+        Array of coefficients for 1-form continuity.
+    """
+    assert n1 > n2
+    nodes_n1, _ = compute_gll(n1)
+    nodes_n2, _ = compute_gll(n2)
+
+    # Axis 0: xi_j
+    # Axis 1: psi_i
+    nodal_basis = lagrange1d(nodes_n2, nodes_n1)
+
+    # Axis 0: [xi_{j + 1}, xi_j]
+    # Axis 1: psi_i
+    coeffs_1_form = np.zeros((n1, n2), np.float64)
+    for j in range(n1):
+        coeffs_1_form[j, 0] = nodal_basis[j, 0] - nodal_basis[j + 1, 0]
+        for i in range(1, n2):
+            coeffs_1_form[j, i] = coeffs_1_form[j, i - 1] + (
+                nodal_basis[j, i] - nodal_basis[j + 1, i]
+            )
+
+    diffs = nodal_basis[:-1, :] - nodal_basis[+1:, :]
+    coeffs_1_fast = np.stack(
+        [x for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))],
+        axis=-1,
+        dtype=np.float64,
+    )
+
+    assert np.allclose(coeffs_1_fast, coeffs_1_form)
+
+    return np.astype(nodal_basis, np.float64, copy=False), coeffs_1_form
 
 
 def endpoints_from_line(
@@ -165,7 +219,7 @@ def solve_system_2d(
 
     # Obtain system information
     n_elem = mesh.n_elements
-    element_orders = np.full(n_elem, mesh.order)
+    element_orders = np.array(mesh.orders)
     sizes_weight, sizes_unknown = system.shape_2d(element_orders)
     offset_weight, offset_unknown = system.offsets_2d(element_orders)
     del sizes_weight, offset_weight
@@ -236,25 +290,6 @@ def solve_system_2d(
     for e, mat1, mat2, mat3 in zip(
         elements, element_matrix, second_matrices, third_matrices, strict=True
     ):
-        # print(np.max(np.max(mat1 - mat2)))
-        # ce = cache[e.order]
-        # m0, m1, m2, i0, i1, i2 = element_matrices(
-        #     e.bottom_left[0],
-        #     e.bottom_right[0],
-        #     e.top_right[0],
-        #     e.top_left[0],
-        #     e.bottom_left[1],
-        #     e.bottom_right[1],
-        #     e.top_right[1],
-        #     e.top_left[1],
-        #     ce.c_serialization,
-        # )
-        # assert np.allclose(m0, e.mass_matrix_node(ce))
-        # assert np.allclose(m1, e.mass_matrix_edge(ce))
-        # assert np.allclose(m2, e.mass_matrix_surface(ce))
-        # assert np.allclose(i0, np.linalg.inv(e.mass_matrix_node(ce)))
-        # assert np.allclose(i1, np.linalg.inv(e.mass_matrix_edge(ce)))
-        # assert np.allclose(i2, np.linalg.inv(e.mass_matrix_surface(ce)))
         assert mat1.shape == mat2.shape
         assert np.allclose(mat2, element_system(system, e, cache[e.order], None)[0])
         assert np.allclose(mat2, mat3)
@@ -271,7 +306,7 @@ def solve_system_2d(
         ]
     ] = list()
 
-    lagrange_idx = unknown_element_offset[-1]  # current_h
+    lagrange_idx = int(unknown_element_offset[-1])  # current_h
     # Loop over dual lines
     # NOTE: assuming you can make extending lists and incrementing the index atomic, this
     # loop can be parallelized.
@@ -302,26 +337,64 @@ def solve_system_2d(
                 s_self = mesh.primal.get_surface(idx_self)
                 e_self = elements[idx_self.index]
 
-                dofs_other = np.flip(edge_dof_indices_from_line(e_other, s_other, il))
-                ds = edge_dof_indices_from_line(e_self, s_self, il)
-                assert dofs_other.size == ds.size
-                n_lag = ds.size
-
-                # If this is atomic, this works in parallel
-                begin_idx = lagrange_idx
-                lagrange_idx += n_lag
-                # End atomic
-
-                entries.append(
-                    (
-                        np.concatenate((col_off_self + ds, col_off_other + dofs_other)),
-                        np.tile(np.arange(n_lag) + begin_idx, 2),
-                        np.concatenate((np.ones(n_lag), -np.ones(n_lag))),
-                    )
+                dofs_other = (
+                    np.flip(edge_dof_indices_from_line(e_other, s_other, il))
+                    + col_off_other
                 )
+                ds = edge_dof_indices_from_line(e_self, s_self, il) + col_off_self
+
+                order_self = element_orders[idx_self.index]
+                order_other = element_orders[idx_neighbour.index]
+
+                if order_self == order_other:
+                    assert dofs_other.size == ds.size
+                    n_lag = ds.size
+
+                    # If this is atomic, this works in parallel
+                    begin_idx = int(lagrange_idx)
+                    lagrange_idx += n_lag
+                    # End atomic
+
+                    entries.append(
+                        (
+                            np.concatenate((ds, dofs_other)),
+                            np.tile(np.arange(n_lag, dtype=int) + begin_idx, 2),
+                            np.concatenate((np.ones(n_lag), -np.ones(n_lag))),
+                        )
+                    )
+
+                else:
+                    if order_self > order_other:
+                        order_high = int(order_self)
+                        order_low = int(order_other)
+                        dofs_high = ds
+                        dofs_low = dofs_other
+                    else:
+                        order_low = int(order_self)
+                        order_high = int(order_other)
+                        dofs_high = dofs_other
+                        dofs_low = ds
+
+                    _, coeffs_1 = continuity_matrices(order_high, order_low)
+
+                    for i_h, v_h in zip(range(order_high), dofs_high, strict=True):
+                        coefficients = coeffs_1[i_h, ...]
+                        n_lag = lagrange_idx
+                        lagrange_idx += 1
+                        # print(
+                        #     f"Connecting 1-form DoF {v_h} to {dofs_low} with"
+                        #     f" coefficients {coefficients}."
+                        # )
+                        entries.append(
+                            (
+                                np.concatenate(((v_h,), dofs_low)),
+                                np.full(1 + order_low, n_lag),
+                                np.concatenate(((-1,), coefficients)),
+                            )
+                        )
 
     # Continuity of 0-forms on the non-corner DoFs
-    if cont_indices_nodes and mesh.order > 1:
+    if cont_indices_nodes and np.any(element_orders > 1):
         for il in range(mesh.dual.n_lines):
             dual_line = mesh.dual.get_line(il + 1)
             idx_neighbour = dual_line.begin
@@ -329,8 +402,6 @@ def solve_system_2d(
 
             if not idx_neighbour or not idx_self:
                 continue
-
-            # print(f"Linking {idx_self.index} to {idx_neighbour.index}.")
 
             offset_self = unknown_element_offset[idx_self.index]
             offset_other = unknown_element_offset[idx_neighbour.index]
@@ -350,25 +421,63 @@ def solve_system_2d(
                 s_self = mesh.primal.get_surface(idx_self)
                 e_self = elements[idx_self.index]
 
-                dofs_other = np.flip(
-                    node_dof_indices_from_line(e_other, s_other, il)[1:-1]
+                dofs_other = (
+                    np.flip(node_dof_indices_from_line(e_other, s_other, il))
+                    + col_off_other
                 )
-                ds = node_dof_indices_from_line(e_self, s_self, il)[1:-1]
-                assert dofs_other.size == ds.size
-                n_lag = ds.size
+                ds = node_dof_indices_from_line(e_self, s_self, il) + col_off_self
+                order_self = element_orders[idx_self.index]
+                order_other = element_orders[idx_neighbour.index]
+                if order_self == order_other:
+                    dofs_other = dofs_other[1:-1]
+                    ds = ds[1:-1]
+                    assert dofs_other.size == ds.size
+                    n_lag = ds.size
 
-                # If this is atomic, this works in parallel
-                begin_idx = lagrange_idx
-                lagrange_idx += n_lag
-                # End atomic
+                    # If this is atomic, this works in parallel
+                    begin_idx = int(lagrange_idx)
+                    lagrange_idx += n_lag
+                    # End atomic
 
-                entries.append(
-                    (
-                        np.concatenate((col_off_self + ds, col_off_other + dofs_other)),
-                        np.tile(np.arange(n_lag) + begin_idx, 2),
-                        np.concatenate((np.ones(n_lag), -np.ones(n_lag))),
+                    entries.append(
+                        (
+                            np.concatenate((ds, dofs_other)),
+                            np.tile(np.arange(n_lag, dtype=int) + begin_idx, 2),
+                            np.concatenate((np.ones(n_lag), -np.ones(n_lag))),
+                        )
                     )
-                )
+
+                else:
+                    if order_self > order_other:
+                        order_high = int(order_self)
+                        order_low = int(order_other)
+                        dofs_high = ds
+                        dofs_low = dofs_other
+                    else:
+                        order_low = int(order_self)
+                        order_high = int(order_other)
+                        dofs_high = dofs_other
+                        dofs_low = ds
+
+                    dofs_high = dofs_high[1:-1]
+
+                    coeffs_0, _ = continuity_matrices(order_high, order_low)
+
+                    for i_h, v_h in zip(range(order_high - 1), dofs_high, strict=True):
+                        coefficients = coeffs_0[i_h + 1, ...]
+                        n_lag = lagrange_idx
+                        lagrange_idx += 1
+                        # print(
+                        #     f"Connecting 0-form DoF {v_h} to {dofs_low} "
+                        #     f"with coefficients {coefficients}."
+                        # )
+                        entries.append(
+                            (
+                                np.concatenate(((v_h,), dofs_low)),
+                                np.full(2 + order_low, n_lag),
+                                np.concatenate(((-1,), coefficients)),
+                            )
+                        )
 
     # Continuity of 0-forms on the corner DoFs
     if cont_indices_nodes:
@@ -422,7 +531,7 @@ def solve_system_2d(
                     ds = node_dof_indices_from_line(e_self, s_self, id_line.index)[0]
 
                     # If this is atomic, this works in parallel
-                    begin_idx = lagrange_idx
+                    begin_idx = int(lagrange_idx)
                     lagrange_idx += 1
                     # End atomic
 
@@ -434,49 +543,49 @@ def solve_system_2d(
                         )
                     )
 
-    offsets, indices = continuity(
-        mesh.primal,
-        mesh.dual,
-        np.array([form.order + 1 for form in system.unknown_forms], np.uint32),
-        np.astype(unknown_element_offset, np.uint32),
-        np.array(offset_unknown, np.uint32),
-        np.astype(element_orders, np.uint32),
-    )
+    # offsets, indices = continuity(
+    #     mesh.primal,
+    #     mesh.dual,
+    #     np.array([form.order + 1 for form in system.unknown_forms], np.uint32),
+    #     np.astype(unknown_element_offset, np.uint32),
+    #     np.array(offset_unknown, np.uint32),
+    #     np.astype(element_orders, np.uint32),
+    # )
 
-    vr = np.concatenate([e[1] for e in entries])
-    mat1 = sp.coo_matrix(
-        (
-            np.concatenate([e[2] for e in entries]),
-            (
-                vr - np.min(vr),
-                np.concatenate([e[0] for e in entries]),
-            ),
-        )
-    )
+    # vr = np.concatenate([e[1] for e in entries])
+    # mat1 = sp.coo_matrix(
+    #     (
+    #         np.concatenate([e[2] for e in entries]),
+    #         (
+    #             vr - np.min(vr),
+    #             np.concatenate([e[0] for e in entries]),
+    #         ),
+    #     )
+    # )
 
-    mat2 = sp.coo_matrix(
-        (
-            np.tile((+1, -1), indices.size // 2),
-            (
-                np.repeat(
-                    np.arange(indices.size // 2), 2
-                ),  # np.max(vr - np.min(vr)) + 1), 2),
-                indices,
-            ),
-        )
-    )
+    # mat2 = sp.coo_matrix(
+    #     (
+    #         np.tile((+1, -1), indices.size // 2),
+    #         (
+    #             np.repeat(
+    #                 np.arange(indices.size // 2), 2
+    #             ),  # np.max(vr - np.min(vr)) + 1), 2),
+    #             indices,
+    #         ),
+    #     )
+    # )
 
-    from matplotlib import pyplot as plt
+    # from matplotlib import pyplot as plt
 
-    plt.figure()
-    plt.spy(mat1)
+    # plt.figure()
+    # plt.spy(mat1)  # type: ignore
 
-    plt.figure()
-    plt.spy(mat2)
-    plt.show()
+    # # plt.figure()
+    # # plt.spy(mat2)
+    # plt.show()
 
-    print(mat1 - mat2)
-    exit()
+    # # print(mat1 - mat2)
+    # exit()
 
     num_lagrange_coeffs = lagrange_idx - unknown_element_offset[-1]
     if num_lagrange_coeffs > 0:
@@ -602,7 +711,7 @@ def solve_system_2d(
                 n_lag = vals.size
                 assert n_lag == dof_offsets.size
                 if n_lag:
-                    rows = np.arange(n_lag) + lagrange_idx
+                    rows = np.arange(n_lag, dtype=int) + lagrange_idx
                     lagrange_idx += n_lag
 
                     bc_entries.append((rows, dof_offsets, np.ones_like(dof_offsets)))
@@ -610,8 +719,6 @@ def solve_system_2d(
 
         entries.extend(bc_entries)
         element_vectors.extend(bc_rhs)
-
-    from interplib.kforms.kform import KBoundaryProjection
 
     # Weak boundary conditions
     for eq in system.equations:
@@ -623,7 +730,7 @@ def solve_system_2d(
             edges = mesh.boundary_indices
             if w_form in strong_indices:
                 edges = np.astype(
-                    np.setdiff1d(edges, strong_indices[w_form]),
+                    np.setdiff1d(edges, strong_indices[w_form]),  # type: ignore
                     np.int32,
                     copy=False,
                 )
@@ -679,8 +786,8 @@ def solve_system_2d(
         l1 = [e[1] for e in entries]
         l2 = [e[0] for e in entries]
         l3 = [e[2] for e in entries]
-        mat_rows = np.concatenate(l1 + l2)
-        mat_cols = np.concatenate(l2 + l1)
+        mat_rows = np.concatenate(l1 + l2, dtype=int)
+        mat_cols = np.concatenate(l2 + l1, dtype=int)
         mat_vals = np.concatenate(l3 + l3)
 
         lagrange = sp.coo_array((mat_vals, (mat_rows, mat_cols)), dtype=np.float64)

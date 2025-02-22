@@ -1392,7 +1392,7 @@ def element_system(
 class Mesh2D:
     """Two dimensional manifold with associated geometry."""
 
-    order: int
+    orders: npt.NDArray[np.uint32]
     positions: npt.NDArray[np.float64]
     primal: Manifold2D
     dual: Manifold2D
@@ -1400,7 +1400,7 @@ class Mesh2D:
 
     def __init__(
         self,
-        order: int,
+        order: int | Sequence[int | np.integer],
         positions: Sequence[tuple[float, float, float]]
         | Sequence[Sequence[float]]
         | Sequence[npt.ArrayLike]
@@ -1415,10 +1415,6 @@ class Mesh2D:
         | npt.ArrayLike,
     ) -> None:
         """Create new mesh from given geometry."""
-        self.order = int(order)
-        if order < 1:
-            raise ValueError("Order can not be lower than 1.")
-
         pos = np.array(positions, np.float64, copy=True, ndmin=2)
         if pos.ndim != 2 or pos.shape[1] != 2:
             raise ValueError("Positions must be a (N, 2) array.")
@@ -1426,6 +1422,21 @@ class Mesh2D:
         surf = np.array(surfaces, np.int32, copy=None)
         if surf.ndim != 2 or surf.shape[1] != 4:
             raise ValueError("Surfaces should be a (M, 4) array of integers")
+
+        orders_array = np.array(order, dtype=np.uint32)
+        if orders_array.ndim == 0:
+            orders_array = np.full(surf.shape[0], orders_array)
+        else:
+            if orders_array.ndim != 1 or orders_array.size != surf.shape[0]:
+                raise ValueError(
+                    "Orders must be 1D sequence with as many elements as the elements."
+                )
+
+        if np.any(orders_array < 1):
+            raise ValueError("Order can not be lower than 1.")
+
+        self.orders = orders_array
+
         lns = np.array(lines, np.int32, copy=None)
         man = Manifold2D.from_regular(pos.shape[0], lns, surf)
 
@@ -1453,7 +1464,7 @@ class Mesh2D:
             line = self.primal.get_line(s[i])
             indices[i] = line.begin.index
         return Element2D(
-            self.order,
+            int(self.orders[idx]),
             tuple(self.positions[indices[0], :]),  # type: ignore
             tuple(self.positions[indices[1], :]),  # type: ignore
             tuple(self.positions[indices[2], :]),  # type: ignore

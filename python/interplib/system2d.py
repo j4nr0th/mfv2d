@@ -7,6 +7,7 @@ from time import perf_counter
 
 import numpy as np
 import numpy.typing as npt
+import pyvista as pv
 from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
@@ -134,7 +135,7 @@ def node_dof_indices_from_line(
 def solve_system_2d(
     system: kform.KFormSystem,
     mesh: Mesh2D,
-    rec_order: int,
+    # rec_order: int,
     boundaray_conditions: Sequence[kform.BoundaryCondition2DStrong] | None = None,
     # workers: int | None = None,
     # new_evaluation: bool = True,
@@ -142,6 +143,7 @@ def solve_system_2d(
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
     dict[kform.KFormUnknown, npt.NDArray[np.float64]],
+    pv.UnstructuredGrid,
 ]:
     """Solve the system on the specified mesh.
 
@@ -311,6 +313,7 @@ def solve_system_2d(
     # NOTE: assuming you can make extending lists and incrementing the index atomic, this
     # loop can be parallelized.
 
+    t0 = perf_counter()
     # Continuity of 1-forms
     if cont_indices_edges:
         for il in range(mesh.dual.n_lines):
@@ -392,7 +395,10 @@ def solve_system_2d(
                                 np.concatenate(((-1,), coefficients)),
                             )
                         )
+    t1 = perf_counter()
+    print(f"Continuity of 1-forms: {t1 - t0} seconds.")
 
+    t0 = perf_counter()
     # Continuity of 0-forms on the non-corner DoFs
     if cont_indices_nodes and np.any(element_orders > 1):
         for il in range(mesh.dual.n_lines):
@@ -542,7 +548,8 @@ def solve_system_2d(
                             np.array((1, -1)),
                         )
                     )
-
+    t1 = perf_counter()
+    print(f"Continuity of 0-forms: {t1 - t0} seconds.")
     # offsets, indices = continuity(
     #     mesh.primal,
     #     mesh.dual,
@@ -815,7 +822,7 @@ def solve_system_2d(
     # print(matrix.toarray())
     solution = sla.spsolve(matrix, vector)
 
-    recon_nodes_1d = np.linspace(-1, +1, rec_order + 1)
+    # recon_nodes_1d = np.linspace(-1, +1, rec_order + 1)
 
     xvals: list[npt.NDArray[np.float64]] = list()
     yvals: list[npt.NDArray[np.float64]] = list()
@@ -825,12 +832,18 @@ def solve_system_2d(
         form: [] for form in system.unknown_forms
     }
 
+    node_array: list[npt.NDArray[np.int32]] = list()
+    offset_nodes = 0
     # Loop over element
     for ie, elm in enumerate(elements):
         # Extract element DoFs
         element_dofs = solution[
             unknown_element_offset[ie] : unknown_element_offset[ie + 1]
         ]
+        recon_nodes_1d = cache[elm.order].nodes_1d
+        ordering = Element2D.vtk_lagrange_ordering(elm.order) + offset_nodes
+        node_array.append(np.concatenate(((ordering.size,), ordering)))
+        offset_nodes += ordering.size
 
         ex = elm.poly_x(recon_nodes_1d[None, :], recon_nodes_1d[:, None])
         ey = elm.poly_y(recon_nodes_1d[None, :], recon_nodes_1d[:, None])
@@ -863,12 +876,19 @@ def solve_system_2d(
 
     out: dict[kform.KFormUnknown, npt.NDArray[np.float64]] = dict()
 
-    # Build the output splines
-    for form in build:
-        out[form] = np.stack(build[form], dtype=np.float64)
+    x = np.concatenate(xvals)
+    y = np.concatenate(yvals)
 
-    return (
-        np.stack(xvals, dtype=np.float64),
-        np.stack(yvals, dtype=np.float64),
-        out,
+    grid = pv.UnstructuredGrid(
+        np.concatenate(node_array),
+        np.full(len(node_array), pv.CellType.LAGRANGE_QUADRILATERAL),
+        np.stack((x, y, np.zeros_like(x)), axis=-1),
     )
+
+    # Build the outputs
+    for form in build:
+        vf = np.concatenate(build[form], axis=0, dtype=np.float64)
+        out[form] = vf
+        grid.point_data[form.label] = vf
+
+    return (x, y, out, grid)

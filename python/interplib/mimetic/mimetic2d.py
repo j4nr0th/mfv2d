@@ -956,6 +956,51 @@ class Element2D:
 
         return np.array(out, np.float64, copy=None)
 
+    @staticmethod
+    def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.int32]:
+        """Ordering for vtkLagrangeQuadrilateral.
+
+        VTK has an option to create cells of type LagrangeQuadrilateral. These
+        allow for arbitrary order of interpolation with nodal basis. Due to
+        backwards compatibility the ordering of the nodes in these is done in
+        an unique way. As such, either the positions or ordering of the nodes
+        must be adjusted.
+
+        This function returns the correct order which can be used for either
+        given a specific polynomial order.
+
+        Parameters
+        ----------
+        order : int
+            Order of the element.
+
+        Returns
+        -------
+        array
+            Array of indices which correctly order nodes on an element of
+            the specified order.
+        """
+        n = int(order) + 1
+        v = np.arange(n)
+        return (
+            np.concatenate(
+                (
+                    (0, n - 1, n**2 - 1, n * (n - 1)),  # corners
+                    v[1:-1],  # bottom edge
+                    n - 1 + n * v[1:-1],  # right edge
+                    n * (n - 1) + v[1:-1],  # top edge
+                    n * v[1:-1],  # left edge
+                    np.concatenate([v[1:-1] + n * k for k in v[1:-1]]),
+                )
+            )
+            if order > 1
+            else np.concatenate(
+                (
+                    (0, n - 1, n**2 - 1, n * (n - 1)),  # corners
+                )
+            )
+        )
+
 
 def rhs_2d_element_projection(
     right: KElementProjection, element: Element2D
@@ -1400,7 +1445,7 @@ class Mesh2D:
 
     def __init__(
         self,
-        order: int | Sequence[int | np.integer],
+        order: int | Sequence[int] | npt.ArrayLike,
         positions: Sequence[tuple[float, float, float]]
         | Sequence[Sequence[float]]
         | Sequence[npt.ArrayLike]

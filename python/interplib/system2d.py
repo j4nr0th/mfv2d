@@ -1,6 +1,7 @@
 """Functionality related to creating a full system of equations."""
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import cache
 from itertools import accumulate
 from time import perf_counter
@@ -23,6 +24,35 @@ from interplib._mimetic import (
 from interplib.kforms.eval import _ctranslate, translate_equation
 from interplib.kforms.kform import KBoundaryProjection
 from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_system
+
+
+@dataclass(init=False, frozen=True)
+class ConstraintEquation:
+    """Equation which represents a constraint enforced by a Lagrange multiplier.
+
+    Parameters
+    ----------
+    indices : array_like
+        Indices of of the degrees of freedom.
+    values : array_like
+        Values of the coefficients of the degrees of freedom in the equation.
+    rhs : float
+        Value of the constraint.
+    """
+
+    indices: npt.NDArray[np.uint32]
+    values: npt.NDArray[np.float64]
+    rhs: np.float64
+
+    def __init__(self, indices: npt.ArrayLike, values: npt.ArrayLike, rhs: float) -> None:
+        i = np.array(indices, dtype=np.uint32)
+        v = np.array(values, dtype=np.float64)
+        r = np.float64(rhs)
+        if v.ndim != 1 or i.shape != v.shape:
+            raise ValueError("Indices and values must be 1D arrays of equal length")
+        object.__setattr__(self, "indices", i)
+        object.__setattr__(self, "values", v)
+        object.__setattr__(self, "rhs", r)
 
 
 @cache
@@ -297,18 +327,9 @@ def solve_system_2d(
         assert np.allclose(mat2, mat3)
     element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
 
-    # Sanity check
     # Apply lagrange multipliers for continuity
+    equations: list[ConstraintEquation] = list()
 
-    entries: list[
-        tuple[
-            npt.NDArray[np.integer],
-            npt.NDArray[np.integer],
-            npt.NDArray[np.integer | np.floating],
-        ]
-    ] = list()
-
-    lagrange_idx = int(unknown_element_offset[-1])  # current_h
     # Loop over dual lines
     # NOTE: assuming you can make extending lists and incrementing the index atomic, this
     # loop can be parallelized.
@@ -351,20 +372,9 @@ def solve_system_2d(
 
                 if order_self == order_other:
                     assert dofs_other.size == ds.size
-                    n_lag = ds.size
 
-                    # If this is atomic, this works in parallel
-                    begin_idx = int(lagrange_idx)
-                    lagrange_idx += n_lag
-                    # End atomic
-
-                    entries.append(
-                        (
-                            np.concatenate((ds, dofs_other)),
-                            np.tile(np.arange(n_lag, dtype=int) + begin_idx, 2),
-                            np.concatenate((np.ones(n_lag), -np.ones(n_lag))),
-                        )
-                    )
+                    for v1, v2 in zip(ds, dofs_other, strict=True):
+                        equations.append(ConstraintEquation((v1, v2), (+1, -1), 0.0))
 
                 else:
                     if order_self > order_other:
@@ -382,17 +392,12 @@ def solve_system_2d(
 
                     for i_h, v_h in zip(range(order_high), dofs_high, strict=True):
                         coefficients = coeffs_1[i_h, ...]
-                        n_lag = lagrange_idx
-                        lagrange_idx += 1
-                        # print(
-                        #     f"Connecting 1-form DoF {v_h} to {dofs_low} with"
-                        #     f" coefficients {coefficients}."
-                        # )
-                        entries.append(
-                            (
+
+                        equations.append(
+                            ConstraintEquation(
                                 np.concatenate(((v_h,), dofs_low)),
-                                np.full(1 + order_low, n_lag),
                                 np.concatenate(((-1,), coefficients)),
+                                0.0,
                             )
                         )
     t1 = perf_counter()
@@ -438,20 +443,9 @@ def solve_system_2d(
                     dofs_other = dofs_other[1:-1]
                     ds = ds[1:-1]
                     assert dofs_other.size == ds.size
-                    n_lag = ds.size
 
-                    # If this is atomic, this works in parallel
-                    begin_idx = int(lagrange_idx)
-                    lagrange_idx += n_lag
-                    # End atomic
-
-                    entries.append(
-                        (
-                            np.concatenate((ds, dofs_other)),
-                            np.tile(np.arange(n_lag, dtype=int) + begin_idx, 2),
-                            np.concatenate((np.ones(n_lag), -np.ones(n_lag))),
-                        )
-                    )
+                    for v1, v2 in zip(ds, dofs_other, strict=True):
+                        equations.append(ConstraintEquation((v1, v2), (+1, -1), 0.0))
 
                 else:
                     if order_self > order_other:
@@ -471,17 +465,11 @@ def solve_system_2d(
 
                     for i_h, v_h in zip(range(order_high - 1), dofs_high, strict=True):
                         coefficients = coeffs_0[i_h + 1, ...]
-                        n_lag = lagrange_idx
-                        lagrange_idx += 1
-                        # print(
-                        #     f"Connecting 0-form DoF {v_h} to {dofs_low} "
-                        #     f"with coefficients {coefficients}."
-                        # )
-                        entries.append(
-                            (
+                        equations.append(
+                            ConstraintEquation(
                                 np.concatenate(((v_h,), dofs_low)),
-                                np.full(2 + order_low, n_lag),
                                 np.concatenate(((-1,), coefficients)),
+                                0.0,
                             )
                         )
 
@@ -536,78 +524,17 @@ def solve_system_2d(
                     )[-1]
                     ds = node_dof_indices_from_line(e_self, s_self, id_line.index)[0]
 
-                    # If this is atomic, this works in parallel
-                    begin_idx = int(lagrange_idx)
-                    lagrange_idx += 1
-                    # End atomic
-
-                    entries.append(
-                        (
-                            np.array((col_off_self + ds, col_off_other + dofs_other)),
-                            np.array((begin_idx, begin_idx)),
-                            np.array((1, -1)),
+                    equations.append(
+                        ConstraintEquation(
+                            (col_off_self + ds, col_off_other + dofs_other), (+1, -1), 0.0
                         )
                     )
+
     t1 = perf_counter()
     print(f"Continuity of 0-forms: {t1 - t0} seconds.")
-    # offsets, indices = continuity(
-    #     mesh.primal,
-    #     mesh.dual,
-    #     np.array([form.order + 1 for form in system.unknown_forms], np.uint32),
-    #     np.astype(unknown_element_offset, np.uint32),
-    #     np.array(offset_unknown, np.uint32),
-    #     np.astype(element_orders, np.uint32),
-    # )
-
-    # vr = np.concatenate([e[1] for e in entries])
-    # mat1 = sp.coo_matrix(
-    #     (
-    #         np.concatenate([e[2] for e in entries]),
-    #         (
-    #             vr - np.min(vr),
-    #             np.concatenate([e[0] for e in entries]),
-    #         ),
-    #     )
-    # )
-
-    # mat2 = sp.coo_matrix(
-    #     (
-    #         np.tile((+1, -1), indices.size // 2),
-    #         (
-    #             np.repeat(
-    #                 np.arange(indices.size // 2), 2
-    #             ),  # np.max(vr - np.min(vr)) + 1), 2),
-    #             indices,
-    #         ),
-    #     )
-    # )
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.spy(mat1)  # type: ignore
-
-    # # plt.figure()
-    # # plt.spy(mat2)
-    # plt.show()
-
-    # # print(mat1 - mat2)
-    # exit()
-
-    num_lagrange_coeffs = lagrange_idx - unknown_element_offset[-1]
-    if num_lagrange_coeffs > 0:
-        element_vectors.append(np.zeros(num_lagrange_coeffs))
 
     # Strong boundary conditions
     if boundaray_conditions is not None:
-        bc_entries: list[
-            tuple[
-                npt.NDArray[np.integer],
-                npt.NDArray[np.integer],
-                npt.NDArray[np.integer | np.floating],
-            ]
-        ] = list()
-        bc_rhs: list[npt.NDArray[np.float64]] = []
         set_nodes: set[int] = set()
         for bc in boundaray_conditions:
             self_var_offset = offset_unknown[system.unknown_forms.index(bc.form)]
@@ -715,17 +642,9 @@ def solve_system_2d(
                 else:
                     assert False
 
-                n_lag = vals.size
-                assert n_lag == dof_offsets.size
-                if n_lag:
-                    rows = np.arange(n_lag, dtype=int) + lagrange_idx
-                    lagrange_idx += n_lag
-
-                    bc_entries.append((rows, dof_offsets, np.ones_like(dof_offsets)))
-                    bc_rhs.append(vals)
-
-        entries.extend(bc_entries)
-        element_vectors.extend(bc_rhs)
+                assert vals.size == dof_offsets.size
+                for r, v in zip(dof_offsets, vals, strict=True):
+                    equations.append(ConstraintEquation((r,), (1,), v))
 
     # Weak boundary conditions
     for eq in system.equations:
@@ -784,20 +703,25 @@ def solve_system_2d(
                 vals = c * np.sum(f_vals[..., None] * basis, axis=0)
                 element_vectors[id_surf.index][dofs] += vals
 
-    num_lagrange_coeffs = lagrange_idx - unknown_element_offset[-1]
     sys_mat = sp.block_diag(element_matrix)
-    if entries:
-        # element_vectors.append(np.zeros(num_lagrange_coeffs))
+    if equations:
+        lag_rows: list[npt.NDArray[np.uint32]] = list()
+        lag_cols: list[npt.NDArray[np.uint32]] = list()
+        lag_vals: list[npt.NDArray[np.float64]] = list()
+        lag_rhs: list[np.float64] = list()
 
-        # Transpose
-        l1 = [e[1] for e in entries]
-        l2 = [e[0] for e in entries]
-        l3 = [e[2] for e in entries]
-        mat_rows = np.concatenate(l1 + l2, dtype=int)
-        mat_cols = np.concatenate(l2 + l1, dtype=int)
-        mat_vals = np.concatenate(l3 + l3)
+        for i, lag_eq in enumerate(equations):
+            lag_rows.append(np.full_like(lag_eq.indices, i + unknown_element_offset[-1]))
+            lag_cols.append(lag_eq.indices)
+            lag_vals.append(lag_eq.values)
+            lag_rhs.append(lag_eq.rhs)
+
+        mat_rows = np.concatenate(lag_rows + lag_cols, dtype=int)
+        mat_cols = np.concatenate(lag_cols + lag_rows, dtype=int)
+        mat_vals = np.concatenate(lag_vals + lag_vals)
 
         lagrange = sp.coo_array((mat_vals, (mat_rows, mat_cols)), dtype=np.float64)
+        element_vectors.append(np.array(lag_rhs, np.float64))
         # Make the big matrix
         sys_mat.resize(lagrange.shape)
 
@@ -868,11 +792,11 @@ def solve_system_2d(
                     assert False
                 form_dofs = np.linalg.solve(mass, form_dofs)
             # Reconstruct unknown
-            v = elm.reconstruct(
+            recon_v = elm.reconstruct(
                 form.order, form_dofs, recon_nodes_1d[None, :], recon_nodes_1d[:, None]
             )
             shape = (-1, 2) if form.order == 1 else (-1,)
-            build[form].append(np.reshape(v, shape))
+            build[form].append(np.reshape(recon_v, shape))
 
     out: dict[kform.KFormUnknown, npt.NDArray[np.float64]] = dict()
 
@@ -884,6 +808,8 @@ def solve_system_2d(
         np.full(len(node_array), pv.CellType.LAGRANGE_QUADRILATERAL),
         np.stack((x, y, np.zeros_like(x)), axis=-1),
     )
+
+    grid.cell_data["order"] = mesh.orders
 
     # Build the outputs
     for form in build:

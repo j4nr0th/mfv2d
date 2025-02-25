@@ -1,5 +1,7 @@
 """Functionality related to creating a full system of equations."""
 
+from __future__ import annotations
+
 from collections.abc import Callable, Generator, Sequence
 from dataclasses import dataclass
 from functools import cache
@@ -54,6 +56,17 @@ class ConstraintEquation:
         object.__setattr__(self, "indices", i)
         object.__setattr__(self, "values", v)
         object.__setattr__(self, "rhs", r)
+
+    def __eq__(self, other, /) -> bool:
+        """Check if two equations are identical."""
+        if not isinstance(other, ConstraintEquation):
+            return NotImplemented
+        return bool(
+            self.rhs == other.rhs
+            and (self.indices.size == other.indices.size)
+            and np.all(self.indices == other.indices)
+            and np.all(self.values == other.values)
+        )
 
 
 @dataclass(init=False)
@@ -321,36 +334,6 @@ def endpoints_from_line(
     raise ValueError("Line is not in the element.")
 
 
-# def edge_dof_indices_from_line(
-#     elm: Element2D, s: Surface, i: int
-# ) -> npt.NDArray[np.uint32]:
-#     """Find degree of freedom indices based on the line."""
-#     if s[0].index == i:
-#         return elm.boundary_edge_bottom
-#     if s[1].index == i:
-#         return elm.boundary_edge_right
-#     if s[2].index == i:
-#         return elm.boundary_edge_top
-#     if s[3].index == i:
-#         return elm.boundary_edge_left
-#     raise ValueError("Line is not in the element.")
-
-
-# def node_dof_indices_from_line(
-#     elm: Element2D, s: Surface, i: int
-# ) -> npt.NDArray[np.uint32]:
-#     """Find degree of freedom indices based on the line."""
-#     if s[0].index == i:
-#         return elm.boundary_nodes_bottom
-#     if s[1].index == i:
-#         return elm.boundary_nodes_right
-#     if s[2].index == i:
-#         return elm.boundary_nodes_top
-#     if s[3].index == i:
-#         return elm.boundary_nodes_left
-#     raise ValueError("Line is not in the element.")
-
-
 def find_boundary_id(s: Surface, i: int) -> Literal[0, 1, 2, 3]:
     """Find what boundary the line with a given index is in the surface."""
     if s[0].index == i:
@@ -546,69 +529,20 @@ def solve_system_2d(
             if not idx_self or not idx_neighbour:
                 continue
 
-            offset_self = element_tree.element_offsets[idx_self.index]
-            offset_other = element_tree.element_offsets[idx_neighbour.index]
             # For each variable which must be continuous, get locations in left and right
-            for var_idx in cont_indices_edges:
-                # Left one is from the first DoF of that variable
-                self_var_offset = element_tree.dof_offsets[var_idx][idx_self.index]
-                other_var_offset = element_tree.dof_offsets[var_idx][idx_neighbour.index]
+            s_other = mesh.primal.get_surface(idx_neighbour)
+            s_self = mesh.primal.get_surface(idx_self)
 
-                col_off_self = offset_self + self_var_offset
-                col_off_other = offset_other + other_var_offset
-
-                s_other = mesh.primal.get_surface(idx_neighbour)
-
-                s_self = mesh.primal.get_surface(idx_self)
-
-                dofs_other = (
-                    np.flip(
-                        element_tree.element_edge_dofs(
-                            idx_neighbour.index, find_boundary_id(s_other, il)
-                        )
-                    )
-                    + col_off_other
+            equations.extend(
+                continuity_element_1_forms(
+                    element_tree,
+                    cont_indices_edges,
+                    idx_neighbour.index,
+                    idx_self.index,
+                    find_boundary_id(s_other, il),
+                    find_boundary_id(s_self, il),
                 )
-                ds = (
-                    element_tree.element_edge_dofs(
-                        idx_self.index, find_boundary_id(s_self, il)
-                    )
-                    + col_off_self
-                )
-
-                order_self = element_tree.orders[idx_self.index]
-                order_other = element_tree.orders[idx_neighbour.index]
-
-                if order_self == order_other:
-                    assert dofs_other.size == ds.size
-
-                    for v1, v2 in zip(ds, dofs_other, strict=True):
-                        equations.append(ConstraintEquation((v1, v2), (+1, -1), 0.0))
-
-                else:
-                    if order_self > order_other:
-                        order_high = int(order_self)
-                        order_low = int(order_other)
-                        dofs_high = ds
-                        dofs_low = dofs_other
-                    else:
-                        order_low = int(order_self)
-                        order_high = int(order_other)
-                        dofs_high = dofs_other
-                        dofs_low = ds
-
-                    _, coeffs_1 = continuity_matrices(order_high, order_low)
-
-                    for i_h, v_h in zip(range(order_high), dofs_high, strict=True):
-                        coefficients = coeffs_1[i_h, ...]
-
-                        equations.append(
-                            ConstraintEquation(
-                                np.concatenate(((v_h,), dofs_low)),
-                                np.concatenate(((-1,), coefficients)),
-                                0.0,
-                            )
-                        )
+            )
     t1 = perf_counter()
     print(f"Continuity of 1-forms: {t1 - t0} seconds.")
 
@@ -623,71 +557,19 @@ def solve_system_2d(
             if not idx_neighbour or not idx_self:
                 continue
 
-            offset_self = element_tree.element_offsets[idx_self.index]
-            offset_other = element_tree.element_offsets[idx_neighbour.index]
-            # For each variable which must be continuous, get locations in left and right
-            for var_idx in cont_indices_nodes:
-                # Left one is from the first DoF of that variable
-                self_var_offset = element_tree.dof_offsets[var_idx][idx_self.index]
-                # Right one is from the first DoF of that variable
-                other_var_offset = element_tree.dof_offsets[var_idx][idx_neighbour.index]
+            s_other = mesh.primal.get_surface(idx_neighbour)
+            s_self = mesh.primal.get_surface(idx_self)
 
-                col_off_self = offset_self + self_var_offset
-                col_off_other = offset_other + other_var_offset
-
-                s_other = mesh.primal.get_surface(idx_neighbour)
-
-                s_self = mesh.primal.get_surface(idx_self)
-
-                dofs_other = (
-                    np.flip(
-                        element_tree.element_node_dofs(
-                            idx_neighbour.index, find_boundary_id(s_other, il)
-                        )
-                    )
-                    + col_off_other
+            equations.extend(
+                continuity_0_forms_inner(
+                    element_tree,
+                    cont_indices_nodes,
+                    find_boundary_id(s_other, il),
+                    find_boundary_id(s_self, il),
+                    idx_neighbour.index,
+                    idx_self.index,
                 )
-                ds = (
-                    element_tree.element_node_dofs(
-                        idx_self.index, find_boundary_id(s_self, il)
-                    )
-                    + col_off_self
-                )
-                order_self = element_tree.orders[idx_self.index]
-                order_other = element_tree.orders[idx_neighbour.index]
-                if order_self == order_other:
-                    dofs_other = dofs_other[1:-1]
-                    ds = ds[1:-1]
-                    assert dofs_other.size == ds.size
-
-                    for v1, v2 in zip(ds, dofs_other, strict=True):
-                        equations.append(ConstraintEquation((v1, v2), (+1, -1), 0.0))
-
-                else:
-                    if order_self > order_other:
-                        order_high = int(order_self)
-                        order_low = int(order_other)
-                        dofs_high = ds
-                        dofs_low = dofs_other
-                    else:
-                        order_low = int(order_self)
-                        order_high = int(order_other)
-                        dofs_high = dofs_other
-                        dofs_low = ds
-
-                    dofs_high = dofs_high[1:-1]
-
-                    coeffs_0, _ = continuity_matrices(order_high, order_low)
-
-                    for i_h, v_h in zip(range(order_high - 1), dofs_high, strict=True):
-                        coefficients = coeffs_0[i_h + 1, ...]
-                        equations.append(
-                            ConstraintEquation(
-                                np.concatenate(((v_h,), dofs_low)),
-                                np.concatenate(((-1,), coefficients)),
-                                0.0,
-                            )
-                        )
+            )
 
     # Continuity of 0-forms on the corner DoFs
     if cont_indices_nodes:
@@ -779,36 +661,22 @@ def solve_system_2d(
 
                 for i_side in range(4):
                     if primal_surface[i_side].index == idx:
+                        if bc.form.order == 0:
+                            dof_offsets = element_tree.element_node_dofs(
+                                surf_id.index, i_side
+                            )
+                        else:
+                            dof_offsets = element_tree.element_edge_dofs(
+                                surf_id.index, i_side
+                            )
                         break
                 assert i_side != 4
-                elm = leaf_elements[surf_id.index]
-                if i_side == 0:
-                    if bc.form.order == 0:
-                        dof_offsets = elm.boundary_nodes_bottom
-                    else:
-                        dof_offsets = elm.boundary_edge_bottom
-                elif i_side == 1:
-                    if bc.form.order == 0:
-                        dof_offsets = elm.boundary_nodes_right
-                    else:
-                        dof_offsets = elm.boundary_edge_right
-                elif i_side == 2:
-                    if bc.form.order == 0:
-                        dof_offsets = elm.boundary_nodes_top
-                    else:
-                        dof_offsets = elm.boundary_edge_top
-                elif i_side == 3:
-                    if bc.form.order == 0:
-                        dof_offsets = elm.boundary_nodes_left
-                    else:
-                        dof_offsets = elm.boundary_edge_left
-                else:
-                    assert False
                 assert dof_offsets is not None
                 assert surf_id is not None
 
-                dof_offsets += np.astype(
-                    self_var_offset[surf_id.index]
+                dof_offsets = np.astype(
+                    dof_offsets
+                    + self_var_offset[surf_id.index]
                     + element_tree.element_offsets[surf_id.index],
                     np.uint32,
                 )
@@ -818,7 +686,8 @@ def solve_system_2d(
                 x0, y0 = mesh.positions[primal_line.begin.index, :]
                 x1, y1 = mesh.positions[primal_line.end.index, :]
 
-                comp_nodes = elm.nodes_1d
+                elem_cache = cache[element_tree.orders[surf_id.index]]
+                comp_nodes = elem_cache.nodes_1d
                 xv = (x1 + x0) / 2 + (x1 - x0) / 2 * comp_nodes
                 yv = (y1 + y0) / 2 + (y1 - y0) / 2 * comp_nodes
 
@@ -840,7 +709,8 @@ def solve_system_2d(
 
                 elif bc.form.order == 1:
                     # TODO: this might be more efficiently done as some sort of projection
-                    lnds, wnds = compute_gll(2 * elm.order)
+                    lnds = elem_cache.int_nodes_1d
+                    wnds = elem_cache.int_weights_1d
                     for i in range(bc.form.order):
                         xc = (xv[i + 1] + xv[i]) / 2 + (xv[i + 1] - xv[i]) / 2 * lnds
                         yc = (yv[i + 1] + yv[i]) / 2 + (yv[i + 1] - yv[i]) / 2 * lnds
@@ -1034,3 +904,169 @@ def solve_system_2d(
         grid.point_data[form.label] = vf
 
     return (x, y, out, grid)
+
+
+def continuity_0_forms_inner(
+    element_tree: ElementTree,
+    cont_indices_nodes: list[int],
+    side_other: int,
+    side_self: int,
+    i_other: int,
+    i_self: int,
+):
+    """Generate equations for 0-form continuity between elements with no corners.
+
+    Parameters
+    ----------
+    element_tree : ElementTree
+        Element structure for which to generate these equations.
+    cont_indices : list[int]
+        List of indices of forms for which this continuity should be applied for.
+    i_other : int
+        Index of the second element which to connect.
+    i_self : int
+        Index of the first element to connect.
+    side_other : int
+        Index of the side of the second element which is connected.
+    side_self : int
+        Index of the side of the first element which is connected.
+
+    Returns
+    -------
+    list of ConstraintEquation
+        List of constraint equations, which enforce continuity of 1 forms.
+    """
+    equations: list[ConstraintEquation] = list()
+    offset_self = element_tree.element_offsets[i_self]
+    offset_other = element_tree.element_offsets[i_other]
+    base_other_dofs = np.flip(element_tree.element_node_dofs(i_other, side_other))
+    base_self_dofs = element_tree.element_node_dofs(i_self, side_self)
+    order_self = element_tree.orders[i_self]
+    order_other = element_tree.orders[i_other]
+
+    for var_idx in cont_indices_nodes:
+        self_var_offset = element_tree.dof_offsets[var_idx][i_self]
+        other_var_offset = element_tree.dof_offsets[var_idx][i_other]
+
+        col_off_self = offset_self + self_var_offset
+        col_off_other = offset_other + other_var_offset
+
+        dofs_other = base_other_dofs + col_off_other
+
+        ds = base_self_dofs + col_off_self
+        if order_self == order_other:
+            dofs_other = dofs_other[1:-1]
+            ds = ds[1:-1]
+            assert dofs_other.size == ds.size
+
+            for v1, v2 in zip(ds, dofs_other, strict=True):
+                equations.append(ConstraintEquation((v1, v2), (+1, -1), 0.0))
+
+        else:
+            if order_self > order_other:
+                order_high = int(order_self)
+                order_low = int(order_other)
+                dofs_high = ds
+                dofs_low = dofs_other
+            else:
+                order_low = int(order_self)
+                order_high = int(order_other)
+                dofs_high = dofs_other
+                dofs_low = ds
+
+            dofs_high = dofs_high[1:-1]
+
+            coeffs_0, _ = continuity_matrices(order_high, order_low)
+
+            for i_h, v_h in zip(range(order_high - 1), dofs_high, strict=True):
+                coefficients = coeffs_0[i_h + 1, ...]
+                equations.append(
+                    ConstraintEquation(
+                        np.concatenate(((v_h,), dofs_low)),
+                        np.concatenate(((-1,), coefficients)),
+                        0.0,
+                    )
+                )
+
+    return equations
+
+
+def continuity_element_1_forms(
+    element_tree: ElementTree,
+    cont_indices: list[int],
+    i_other: int,
+    i_self: int,
+    side_other: int,
+    side_self: int,
+) -> list[ConstraintEquation]:
+    """Generate equations for 1-form continuity between elements.
+
+    Parameters
+    ----------
+    element_tree : ElementTree
+        Element structure for which to generate these equations.
+    cont_indices : list[int]
+        List of indices of forms for which this continuity should be applied for.
+    i_other : int
+        Index of the second element which to connect.
+    i_self : int
+        Index of the first element to connect.
+    side_other : int
+        Index of the side of the second element which is connected.
+    side_self : int
+        Index of the side of the first element which is connected.
+
+    Returns
+    -------
+    list of ConstraintEquation
+        List of constraint equations, which enforce continuity of 1 forms.
+    """
+    equations: list[ConstraintEquation] = list()
+    offset_self = element_tree.element_offsets[i_self]
+    offset_other = element_tree.element_offsets[i_other]
+    base_other_dofs = np.flip(element_tree.element_edge_dofs(i_other, side_other))
+    base_self_dofs = element_tree.element_edge_dofs(i_self, side_self)
+    order_self = element_tree.orders[i_self]
+    order_other = element_tree.orders[i_other]
+
+    for var_idx in cont_indices:
+        self_var_offset = element_tree.dof_offsets[var_idx][i_self]
+        other_var_offset = element_tree.dof_offsets[var_idx][i_other]
+
+        col_off_self = offset_self + self_var_offset
+        col_off_other = offset_other + other_var_offset
+
+        dofs_other = base_other_dofs + col_off_other
+        ds = base_self_dofs + col_off_self
+
+        if order_self == order_other:
+            assert base_other_dofs.size == base_self_dofs.size
+            for v1, v2 in zip(ds, dofs_other, strict=True):
+                equations.append(ConstraintEquation((v1, v2), (+1, -1), 0.0))
+
+        else:
+            if order_self > order_other:
+                order_high = int(order_self)
+                order_low = int(order_other)
+                dofs_high = ds
+                dofs_low = dofs_other
+            else:
+                order_low = int(order_self)
+                order_high = int(order_other)
+                dofs_high = dofs_other
+                dofs_low = ds
+
+            _, coeffs_1 = continuity_matrices(order_high, order_low)
+
+            for i_h, v_h in zip(range(order_high), dofs_high, strict=True):
+                coefficients = coeffs_1[i_h, ...]
+
+                equations.append(
+                    ConstraintEquation(
+                        np.concatenate(((v_h,), dofs_low)),
+                        np.concatenate(((-1,), coefficients)),
+                        0.0,
+                    )
+                )
+
+    return equations

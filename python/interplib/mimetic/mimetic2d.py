@@ -1,5 +1,7 @@
 """Implementation of the 2D mimetic meshes and manifolds."""
 
+from __future__ import annotations
+
 from collections.abc import Iterable, Sequence
 from itertools import accumulate
 
@@ -1000,6 +1002,53 @@ class Element2D:
                 )
             )
         )
+
+    def divide(self) -> tuple[tuple[Element2D, Element2D], tuple[Element2D, Element2D]]:
+        """Divide the element into four child elements of the same order.
+
+        Returns
+        -------
+        (2, 2) tuple of Element2D
+            Child elements of the same order as the element itself. Indexing the
+            tuple will give bottom/top for the first axis and left/right for the
+            second.
+        """
+        bottom_mid = (np.array(self.bottom_left) + np.array(self.bottom_right)) / 2
+        left_mid = (np.array(self.bottom_left) + np.array(self.top_left)) / 2
+        right_mid = (np.array(self.bottom_right) + np.array(self.top_right)) / 2
+        top_mid = (np.array(self.top_left) + np.array(self.top_right)) / 2
+        center_mid = (
+            np.array(self.bottom_left)
+            + np.array(self.bottom_right)
+            + np.array(self.top_left)
+            + np.array(self.top_right)
+        ) / 4
+
+        btm_l = Element2D(
+            self.order,
+            self.bottom_left,
+            tuple(bottom_mid),
+            tuple(center_mid),
+            tuple(left_mid),
+        )
+        btm_r = Element2D(
+            self.order,
+            tuple(bottom_mid),
+            self.bottom_right,
+            tuple(right_mid),
+            tuple(center_mid),
+        )
+        top_r = Element2D(
+            self.order,
+            tuple(center_mid),
+            tuple(right_mid),
+            self.top_right,
+            tuple(top_mid),
+        )
+        top_l = Element2D(
+            self.order, tuple(left_mid), tuple(center_mid), tuple(top_mid), self.top_left
+        )
+        return ((btm_l, btm_r), (top_l, top_r))
 
 
 def rhs_2d_element_projection(

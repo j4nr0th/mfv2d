@@ -1,10 +1,11 @@
 """Functionality related to creating a full system of equations."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Generator, Sequence
 from dataclasses import dataclass
 from functools import cache
 from itertools import accumulate
 from time import perf_counter
+from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -53,6 +54,194 @@ class ConstraintEquation:
         object.__setattr__(self, "indices", i)
         object.__setattr__(self, "values", v)
         object.__setattr__(self, "rhs", r)
+
+
+@dataclass(init=False)
+class ElementTree:
+    """Container for mesh elements."""
+
+    # Tuple of all elements in the tree.
+    elements: tuple[Element2D, ...]
+    # Order of the elements
+    orders: npt.NDArray[np.uint32]
+    # If true, then element with the same index has 4 children.
+    children: npt.NDArray[np.bool]
+    # How many elements are in each level.
+    sizes: tuple[int, ...]
+    # Offset of the first DoF within an element
+    element_offsets: npt.NDArray[np.uint32]
+    # Offset of the first DoF of a variable within an element
+    dof_offsets: tuple[npt.NDArray[np.uint32], ...]
+
+    def __init__(
+        self,
+        elements: Sequence[Element2D],
+        predicate: None | Callable[[Element2D, int], bool],
+        max_levels: int,
+        unknowns: Sequence[kform.KFormUnknown],
+    ) -> None:
+        # Divide the elements as long as predicate is true.
+        children: list[npt.NDArray[np.bool]] = list()
+        sizes: list[int] = list()
+        all_elems: list[Element2D] = list()
+        for i in range(max_levels):
+            v: list[bool] = list()
+            new_elem: list[Element2D] = list()
+
+            sz = 0
+            for e in elements:
+                b = predicate(e, i) if predicate is not None else False
+                v.append(b)
+                all_elems.append(e)
+                sz += 1
+                if b:
+                    raise NotImplementedError("Not dividing the elements up (yet)!")
+                    (ebl, ebr), (etl, etr) = e.divide()
+                    new_elem.extend((ebl, ebr, etl, etr))
+
+            children.append(np.array(v, np.bool))
+            sizes.append(sz)
+            if len(new_elem) == 0:
+                break
+
+            elements = new_elem
+
+        # if i == max_levels:
+        #     raise RuntimeError(
+        #         f"Maximum number of refinement levels ({max_levels}) has been exceeded."
+        #     )
+
+        self.sizes = tuple(sizes)
+        self.elements = tuple(all_elems)
+        self.children = np.concatenate(children, dtype=np.bool)
+        del all_elems, sizes, children
+
+        # Number the elements. First are the leaves, then all the others
+        n_total = len(self.elements)
+        n_leaves = n_total - np.count_nonzero(self.children)
+        indices = np.empty(n_total, dtype=np.uint32)
+        indices[~self.children] = np.arange(n_leaves)
+        indices[self.children] = np.arange(n_leaves, n_total)
+
+        self.orders = np.array([e.order for e in self.elements], dtype=np.uint32)
+        dof_sizes: list[npt.NDArray[np.uint32]] = list()
+        # Compute DoF offsets within elements
+        for form in unknowns:
+            n = np.zeros_like(self.orders, np.uint32)
+            if form.order == 0:
+                n[self.children] = 4 * self.orders[self.children]
+                n[~self.children] = (self.orders[~self.children] + 1) ** 2
+            elif form.order == 1:
+                n[self.children] = 4 * self.orders[self.children]
+                n[~self.children] = (
+                    (self.orders[~self.children] + 1) * self.orders[~self.children] * 2
+                )
+            elif form.order == 2:
+                n[self.children] = 0
+                n[~self.children] = (self.orders[~self.children]) ** 2
+            else:
+                assert False
+            dof_sizes.append(n)
+        self.dof_offsets = (np.zeros_like(self.orders, np.uint32), *accumulate(dof_sizes))
+        self.element_offsets = np.pad(
+            np.cumsum(self.dof_offsets[-1][indices])[indices], (1, 0)
+        )
+
+    def iter_leaves(self) -> Generator[Element2D]:
+        """Iterate over leaves."""
+        c: np.bool
+        for e, c in zip(self.elements, self.children):
+            if c:
+                continue
+            yield e
+
+    def element_edge_dofs(self, index: int, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
+        """Get non-offset indices of edge DoFs on the boundary of an element."""
+        n = self.orders[index]
+        if self.children[index]:
+            if bnd_idx == 0:
+                return np.arange(n, dtype=np.uint32)
+
+            elif bnd_idx == 1:
+                return np.arange(n, 2 * n, dtype=np.uint32)
+
+            elif bnd_idx == 2:
+                return np.arange(2 * n, 3 * n, dtype=np.uint32)
+
+            elif bnd_idx == 3:
+                return np.arange(3 * n, 4 * n, dtype=np.uint32)
+
+            raise ValueError("Only boundary ID of up to 3 is allowed.")
+
+        if bnd_idx == 0:
+            return np.arange(0, n, dtype=np.uint32)
+
+        elif bnd_idx == 1:
+            return np.astype(
+                (n * (n + 1)) + n + np.arange(0, n, dtype=np.uint32) * (n + 1),
+                np.uint32,
+                copy=False,
+            )
+
+        elif bnd_idx == 2:
+            return np.astype(
+                np.flip(n * n + np.arange(0, n, dtype=np.uint32)),
+                np.uint32,
+                copy=False,
+            )
+
+        elif bnd_idx == 3:
+            return np.astype(
+                np.flip((n * (n + 1)) + np.arange(0, n, dtype=np.uint32) * (n + 1)),
+                np.uint32,
+                copy=False,
+            )
+
+        raise ValueError("Only boundary ID of up to 3 is allowed.")
+
+    def element_node_dofs(self, index: int, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
+        """Get non-offset indices of nodal DoFs on the boundary of an element."""
+        n = self.orders[index]
+        if self.children[index]:
+            if bnd_idx == 0:
+                return np.arange(n + 1, dtype=np.uint32)
+
+            elif bnd_idx == 1:
+                return np.arange(n + 1, 2 * (n + 1), dtype=np.uint32)
+
+            elif bnd_idx == 2:
+                return np.arange(2 * (n + 1), 3 * (n + 1), dtype=np.uint32)
+
+            elif bnd_idx == 3:
+                return np.arange(3 * (n + 1), 4 * (n + 1), dtype=np.uint32)
+
+            raise ValueError("Only boundary ID of up to 3 is allowed.")
+
+        if bnd_idx == 0:
+            return np.arange(0, n + 1, dtype=np.uint32)
+
+        elif bnd_idx == 1:
+            return np.astype(
+                n + np.arange(0, n + 1, dtype=np.uint32) * (n + 1),
+                np.uint32,
+                copy=False,
+            )
+
+        elif bnd_idx == 2:
+            return np.astype(
+                np.flip((n + 1) * n + np.arange(0, n + 1, dtype=np.uint32)),
+                np.uint32,
+                copy=False,
+            )
+
+        elif bnd_idx == 3:
+            return np.astype(
+                np.flip(np.arange(0, n + 1, dtype=np.uint32) * (n + 1)),
+                np.uint32,
+                copy=False,
+            )
+
+        raise ValueError("Only boundary ID of up to 3 is allowed.")
 
 
 @cache
@@ -132,43 +321,54 @@ def endpoints_from_line(
     raise ValueError("Line is not in the element.")
 
 
-def edge_dof_indices_from_line(
-    elm: Element2D, s: Surface, i: int
-) -> npt.NDArray[np.uint32]:
-    """Find degree of freedom indices based on the line."""
-    if s[0].index == i:
-        return elm.boundary_edge_bottom
-    if s[1].index == i:
-        return elm.boundary_edge_right
-    if s[2].index == i:
-        return elm.boundary_edge_top
-    if s[3].index == i:
-        return elm.boundary_edge_left
-    raise ValueError("Line is not in the element.")
+# def edge_dof_indices_from_line(
+#     elm: Element2D, s: Surface, i: int
+# ) -> npt.NDArray[np.uint32]:
+#     """Find degree of freedom indices based on the line."""
+#     if s[0].index == i:
+#         return elm.boundary_edge_bottom
+#     if s[1].index == i:
+#         return elm.boundary_edge_right
+#     if s[2].index == i:
+#         return elm.boundary_edge_top
+#     if s[3].index == i:
+#         return elm.boundary_edge_left
+#     raise ValueError("Line is not in the element.")
 
 
-def node_dof_indices_from_line(
-    elm: Element2D, s: Surface, i: int
-) -> npt.NDArray[np.uint32]:
-    """Find degree of freedom indices based on the line."""
+# def node_dof_indices_from_line(
+#     elm: Element2D, s: Surface, i: int
+# ) -> npt.NDArray[np.uint32]:
+#     """Find degree of freedom indices based on the line."""
+#     if s[0].index == i:
+#         return elm.boundary_nodes_bottom
+#     if s[1].index == i:
+#         return elm.boundary_nodes_right
+#     if s[2].index == i:
+#         return elm.boundary_nodes_top
+#     if s[3].index == i:
+#         return elm.boundary_nodes_left
+#     raise ValueError("Line is not in the element.")
+
+
+def find_boundary_id(s: Surface, i: int) -> Literal[0, 1, 2, 3]:
+    """Find what boundary the line with a given index is in the surface."""
     if s[0].index == i:
-        return elm.boundary_nodes_bottom
+        return 0
     if s[1].index == i:
-        return elm.boundary_nodes_right
+        return 1
     if s[2].index == i:
-        return elm.boundary_nodes_top
+        return 2
     if s[3].index == i:
-        return elm.boundary_nodes_left
-    raise ValueError("Line is not in the element.")
+        return 3
+    raise ValueError(f"Line with index {i} is not in the surface {s}.")
 
 
 def solve_system_2d(
     system: kform.KFormSystem,
     mesh: Mesh2D,
-    # rec_order: int,
     boundaray_conditions: Sequence[kform.BoundaryCondition2DStrong] | None = None,
-    # workers: int | None = None,
-    # new_evaluation: bool = True,
+    div_predicate: Callable[[Element2D, int], bool] | None = None,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -187,9 +387,8 @@ def solve_system_2d(
         Order of reconstruction returned.
     boundary_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
         Sequence of boundary conditions to be applied to the system.
-    new_evaluation: bool, default: True
-        Use newer evaluation based on a virtual stack machine. This can then be
-        ported to C.
+    div_predicate : Callable (Element2D) -> bool
+        Callable used to determine if an element should be divided further.
 
     Returns
     -------
@@ -199,7 +398,10 @@ def solve_system_2d(
         Array of y positions where the reconstructed values were computed.
     reconstructions : dict of kforms.KFormUnknown to array
         Reconstructed solution for unknowns. The number of points on the element
-        where these reconstructions are computed is equal to ``(rec_order + 1) ** 2``.
+        where these reconstructions are computed depends on the degree of the element.
+    grid : pyvista.UnstructuredGrid
+        Reconstructed solution as an unstructured grid of VTK's "lagrange quadrilateral"
+        cells.
     """
     # Check that inputs make sense.
     strong_boundary_edges: dict[kform.KFormUnknown, list[npt.NDArray[np.uint64]]] = {}
@@ -249,19 +451,19 @@ def solve_system_2d(
         else:
             assert False
 
-    # Obtain system information
-    n_elem = mesh.n_elements
-    element_orders = np.array(mesh.orders)
-    sizes_weight, sizes_unknown = system.shape_2d(element_orders)
-    offset_weight, offset_unknown = system.offsets_2d(element_orders)
-    del sizes_weight, offset_weight
-    unknown_element_offset = np.pad(np.cumsum(sizes_unknown), (1, 0))
-    # weight_element_offset = np.pad(np.cumsum(sizes_weight), (1, 0))
+    # Make elements into a rectree
+    element_tree = ElementTree(
+        list(mesh.get_element(ie) for ie in range(mesh.n_elements)),
+        div_predicate,
+        3,
+        system.unknown_forms,
+    )
+
+    leaf_elements: list[Element2D] = list(element_tree.iter_leaves())
 
     # Make element matrices and vectors
-    elements = tuple(mesh.get_element(ie) for ie in range(n_elem))
     cache: dict[int, BasisCache] = dict()
-    for e in elements:
+    for e in leaf_elements:
         if e.order in cache:
             continue
         cache[e.order] = BasisCache(e.order, 3 * e.order)
@@ -269,7 +471,7 @@ def solve_system_2d(
 
     t0 = perf_counter()
     element_outputs = tuple(
-        element_system(system, e, cache[e.order], None) for e in elements
+        element_system(system, e, cache[e.order], None) for e in leaf_elements
     )
     t1 = perf_counter()
     print(f"Element matrices old way: {t1 - t0} seconds.")
@@ -283,11 +485,11 @@ def solve_system_2d(
                 row.append(None)
         codes.append(row)
 
-    bl = np.array([e.bottom_left for e in elements])
-    br = np.array([e.bottom_right for e in elements])
-    tr = np.array([e.top_right for e in elements])
-    tl = np.array([e.top_left for e in elements])
-    orde = np.array([e.order for e in elements], np.uint32)
+    bl = np.array([e.bottom_left for e in leaf_elements])
+    br = np.array([e.bottom_right for e in leaf_elements])
+    tr = np.array([e.top_right for e in leaf_elements])
+    tl = np.array([e.top_left for e in leaf_elements])
+    orde = np.array([e.order for e in leaf_elements], np.uint32)
     t0 = perf_counter()
     second_matrices = compute_element_matrices(
         [f.order for f in system.unknown_forms],
@@ -320,7 +522,7 @@ def solve_system_2d(
     element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
 
     for e, mat1, mat2, mat3 in zip(
-        elements, element_matrix, second_matrices, third_matrices, strict=True
+        leaf_elements, element_matrix, second_matrices, third_matrices, strict=True
     ):
         assert mat1.shape == mat2.shape
         assert np.allclose(mat2, element_system(system, e, cache[e.order], None)[0])
@@ -330,9 +532,9 @@ def solve_system_2d(
     # Apply lagrange multipliers for continuity
     equations: list[ConstraintEquation] = list()
 
-    # Loop over dual lines
-    # NOTE: assuming you can make extending lists and incrementing the index atomic, this
-    # loop can be parallelized.
+    # TODO:
+    #
+    # Connect children to boundaries of their parents.
 
     t0 = perf_counter()
     # Continuity of 1-forms
@@ -344,31 +546,38 @@ def solve_system_2d(
             if not idx_self or not idx_neighbour:
                 continue
 
-            offset_self = unknown_element_offset[idx_self.index]
-            offset_other = unknown_element_offset[idx_neighbour.index]
+            offset_self = element_tree.element_offsets[idx_self.index]
+            offset_other = element_tree.element_offsets[idx_neighbour.index]
             # For each variable which must be continuous, get locations in left and right
             for var_idx in cont_indices_edges:
                 # Left one is from the first DoF of that variable
-                self_var_offset = offset_unknown[var_idx][idx_self.index]
-                other_var_offset = offset_unknown[var_idx][idx_neighbour.index]
+                self_var_offset = element_tree.dof_offsets[var_idx][idx_self.index]
+                other_var_offset = element_tree.dof_offsets[var_idx][idx_neighbour.index]
 
                 col_off_self = offset_self + self_var_offset
                 col_off_other = offset_other + other_var_offset
 
                 s_other = mesh.primal.get_surface(idx_neighbour)
-                e_other = elements[idx_neighbour.index]
 
                 s_self = mesh.primal.get_surface(idx_self)
-                e_self = elements[idx_self.index]
 
                 dofs_other = (
-                    np.flip(edge_dof_indices_from_line(e_other, s_other, il))
+                    np.flip(
+                        element_tree.element_edge_dofs(
+                            idx_neighbour.index, find_boundary_id(s_other, il)
+                        )
+                    )
                     + col_off_other
                 )
-                ds = edge_dof_indices_from_line(e_self, s_self, il) + col_off_self
+                ds = (
+                    element_tree.element_edge_dofs(
+                        idx_self.index, find_boundary_id(s_self, il)
+                    )
+                    + col_off_self
+                )
 
-                order_self = element_orders[idx_self.index]
-                order_other = element_orders[idx_neighbour.index]
+                order_self = element_tree.orders[idx_self.index]
+                order_other = element_tree.orders[idx_neighbour.index]
 
                 if order_self == order_other:
                     assert dofs_other.size == ds.size
@@ -405,7 +614,7 @@ def solve_system_2d(
 
     t0 = perf_counter()
     # Continuity of 0-forms on the non-corner DoFs
-    if cont_indices_nodes and np.any(element_orders > 1):
+    if cont_indices_nodes and np.any(element_tree.orders > 1):
         for il in range(mesh.dual.n_lines):
             dual_line = mesh.dual.get_line(il + 1)
             idx_neighbour = dual_line.begin
@@ -414,31 +623,38 @@ def solve_system_2d(
             if not idx_neighbour or not idx_self:
                 continue
 
-            offset_self = unknown_element_offset[idx_self.index]
-            offset_other = unknown_element_offset[idx_neighbour.index]
+            offset_self = element_tree.element_offsets[idx_self.index]
+            offset_other = element_tree.element_offsets[idx_neighbour.index]
             # For each variable which must be continuous, get locations in left and right
             for var_idx in cont_indices_nodes:
                 # Left one is from the first DoF of that variable
-                self_var_offset = offset_unknown[var_idx][idx_self.index]
+                self_var_offset = element_tree.dof_offsets[var_idx][idx_self.index]
                 # Right one is from the first DoF of that variable
-                other_var_offset = offset_unknown[var_idx][idx_neighbour.index]
+                other_var_offset = element_tree.dof_offsets[var_idx][idx_neighbour.index]
 
                 col_off_self = offset_self + self_var_offset
                 col_off_other = offset_other + other_var_offset
 
                 s_other = mesh.primal.get_surface(idx_neighbour)
-                e_other = elements[idx_neighbour.index]
 
                 s_self = mesh.primal.get_surface(idx_self)
-                e_self = elements[idx_self.index]
 
                 dofs_other = (
-                    np.flip(node_dof_indices_from_line(e_other, s_other, il))
+                    np.flip(
+                        element_tree.element_node_dofs(
+                            idx_neighbour.index, find_boundary_id(s_other, il)
+                        )
+                    )
                     + col_off_other
                 )
-                ds = node_dof_indices_from_line(e_self, s_self, il) + col_off_self
-                order_self = element_orders[idx_self.index]
-                order_other = element_orders[idx_neighbour.index]
+                ds = (
+                    element_tree.element_node_dofs(
+                        idx_self.index, find_boundary_id(s_self, il)
+                    )
+                    + col_off_self
+                )
+                order_self = element_tree.orders[idx_self.index]
+                order_other = element_tree.orders[idx_neighbour.index]
                 if order_self == order_other:
                     dofs_other = dofs_other[1:-1]
                     ds = ds[1:-1]
@@ -501,28 +717,30 @@ def solve_system_2d(
                 if not idx_neighbour or not idx_self:
                     continue
 
-                offset_self = unknown_element_offset[idx_self.index]
-                offset_other = unknown_element_offset[idx_neighbour.index]
+                offset_self = element_tree.element_offsets[idx_self.index]
+                offset_other = element_tree.element_offsets[idx_neighbour.index]
 
                 for var_idx in cont_indices_nodes:
                     # Left one is from the first DoF of that variable
-                    self_var_offset = offset_unknown[var_idx][idx_self.index]
+                    self_var_offset = element_tree.dof_offsets[var_idx][idx_self.index]
                     # Right one is from the first DoF of that variable
-                    other_var_offset = offset_unknown[var_idx][idx_neighbour.index]
+                    other_var_offset = element_tree.dof_offsets[var_idx][
+                        idx_neighbour.index
+                    ]
 
                     col_off_self = offset_self + self_var_offset
                     col_off_other = offset_other + other_var_offset
 
                     s_other = mesh.primal.get_surface(idx_neighbour)
-                    e_other = elements[idx_neighbour.index]
 
                     s_self = mesh.primal.get_surface(idx_self)
-                    e_self = elements[idx_self.index]
 
-                    dofs_other = node_dof_indices_from_line(
-                        e_other, s_other, id_line.index
+                    dofs_other = element_tree.element_node_dofs(
+                        idx_neighbour.index, find_boundary_id(s_other, id_line.index)
                     )[-1]
-                    ds = node_dof_indices_from_line(e_self, s_self, id_line.index)[0]
+                    ds = element_tree.element_node_dofs(
+                        idx_self.index, find_boundary_id(s_self, id_line.index)
+                    )[0]
 
                     equations.append(
                         ConstraintEquation(
@@ -537,7 +755,9 @@ def solve_system_2d(
     if boundaray_conditions is not None:
         set_nodes: set[int] = set()
         for bc in boundaray_conditions:
-            self_var_offset = offset_unknown[system.unknown_forms.index(bc.form)]
+            self_var_offset = element_tree.dof_offsets[
+                system.unknown_forms.index(bc.form)
+            ]
 
             for idx in bc.indices:
                 dof_offsets: npt.NDArray[np.integer] | None = None
@@ -561,7 +781,7 @@ def solve_system_2d(
                     if primal_surface[i_side].index == idx:
                         break
                 assert i_side != 4
-                elm = elements[surf_id.index]
+                elm = leaf_elements[surf_id.index]
                 if i_side == 0:
                     if bc.form.order == 0:
                         dof_offsets = elm.boundary_nodes_bottom
@@ -589,7 +809,7 @@ def solve_system_2d(
 
                 dof_offsets += np.astype(
                     self_var_offset[surf_id.index]
-                    + unknown_element_offset[surf_id.index],
+                    + element_tree.element_offsets[surf_id.index],
                     np.uint32,
                 )
                 assert dof_offsets is not None
@@ -671,7 +891,7 @@ def solve_system_2d(
                     id_surf = dual_line.end
                 else:
                     assert False
-                e = elements[id_surf.index]
+                e = leaf_elements[id_surf.index]
                 basis_cache = cache[e.order]
                 primal_surface = mesh.primal.get_surface(id_surf)
                 ndir, p0, p1 = endpoints_from_line(e, primal_surface, edge)
@@ -681,7 +901,10 @@ def solve_system_2d(
                 yv = (p1[1] + p0[1]) / 2 + dy * basis_cache.int_nodes_1d
                 f_vals = kp.func(xv, yv)
                 if w_form.order == 0:
-                    dofs = node_dof_indices_from_line(e, primal_surface, edge)
+                    # dofs = node_dof_indices_from_line(e, primal_surface, edge)
+                    dofs = element_tree.element_node_dofs(
+                        id_surf.index, find_boundary_id(primal_surface, edge)
+                    )
                     # Tangental integral of function with the 0 basis
                     basis = basis_cache.nodal_1d
                     f_vals = (
@@ -689,7 +912,10 @@ def solve_system_2d(
                     ) * basis_cache.int_weights_1d
 
                 elif w_form.order:
-                    dofs = edge_dof_indices_from_line(e, primal_surface, edge)
+                    # dofs = edge_dof_indices_from_line(e, primal_surface, edge)
+                    dofs = element_tree.element_edge_dofs(
+                        id_surf.index, find_boundary_id(primal_surface, edge)
+                    )
                     # Integral with the normal basis
                     basis = basis_cache.edge_1d
                     f_vals *= basis_cache.int_weights_1d * ndir  # * np.hypot(dx, dy)
@@ -698,7 +924,9 @@ def solve_system_2d(
                     assert False
                 dofs = (
                     dofs
-                    + offset_unknown[system.unknown_forms.index(w_form)][id_surf.index]
+                    + element_tree.dof_offsets[system.unknown_forms.index(w_form)][
+                        id_surf.index
+                    ]
                 )
                 vals = c * np.sum(f_vals[..., None] * basis, axis=0)
                 element_vectors[id_surf.index][dofs] += vals
@@ -711,7 +939,9 @@ def solve_system_2d(
         lag_rhs: list[np.float64] = list()
 
         for i, lag_eq in enumerate(equations):
-            lag_rows.append(np.full_like(lag_eq.indices, i + unknown_element_offset[-1]))
+            lag_rows.append(
+                np.full_like(lag_eq.indices, i + element_tree.element_offsets[-1])
+            )
             lag_cols.append(lag_eq.indices)
             lag_vals.append(lag_eq.values)
             lag_rhs.append(lag_eq.rhs)
@@ -731,22 +961,8 @@ def solve_system_2d(
         matrix = sp.csr_array(sys_mat)
     vector = np.concatenate(element_vectors, dtype=np.float64)
 
-    # from matplotlib import pyplot as plt
-
-    # plt.spy(matrix)
-    # plt.show()
-    # with open("my_mat.dat", "w") as f_out:
-    #     np.savetxt(f_out, sys_mat.toarray())
-    # from matplotlib import pyplot as plt
-    # plt.figure()
-    # plt.spy(matrix)
-    # plt.show()
-
     # Solve the system
-    # print(matrix.toarray())
     solution = sla.spsolve(matrix, vector)
-
-    # recon_nodes_1d = np.linspace(-1, +1, rec_order + 1)
 
     xvals: list[npt.NDArray[np.float64]] = list()
     yvals: list[npt.NDArray[np.float64]] = list()
@@ -759,10 +975,10 @@ def solve_system_2d(
     node_array: list[npt.NDArray[np.int32]] = list()
     offset_nodes = 0
     # Loop over element
-    for ie, elm in enumerate(elements):
+    for ie, elm in enumerate(leaf_elements):
         # Extract element DoFs
         element_dofs = solution[
-            unknown_element_offset[ie] : unknown_element_offset[ie + 1]
+            element_tree.element_offsets[ie] : element_tree.element_offsets[ie + 1]
         ]
         recon_nodes_1d = cache[elm.order].nodes_1d
         ordering = Element2D.vtk_lagrange_ordering(elm.order) + offset_nodes
@@ -777,8 +993,8 @@ def solve_system_2d(
 
         # Loop over each of the primal forms
         for idx, form in enumerate(system.unknown_forms):
-            form_offset = offset_unknown[idx][ie]
-            form_offset_end = offset_unknown[idx + 1][ie]
+            form_offset = element_tree.dof_offsets[idx][ie]
+            form_offset_end = element_tree.dof_offsets[idx + 1][ie]
             form_dofs = element_dofs[form_offset:form_offset_end]
             if not form.is_primal:
                 mass: npt.NDArray[np.float64]

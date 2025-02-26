@@ -907,8 +907,15 @@ class Element2D:
             )
         )
 
-    def divide(self) -> tuple[tuple[Element2D, Element2D], tuple[Element2D, Element2D]]:
-        """Divide the element into four child elements of the same order.
+    def divide(
+        self, order: int
+    ) -> tuple[tuple[Element2D, Element2D], tuple[Element2D, Element2D]]:
+        """Divide the element into four child elements of the specified order.
+
+        Parameters
+        ----------
+        order : int
+            Order of the child elements.
 
         Returns
         -------
@@ -927,30 +934,29 @@ class Element2D:
             + np.array(self.top_left)
             + np.array(self.top_right)
         ) / 4
-
         btm_l = Element2D(
-            self.order,
+            order,
             self.bottom_left,
             tuple(bottom_mid),
             tuple(center_mid),
             tuple(left_mid),
         )
         btm_r = Element2D(
-            self.order,
+            order,
             tuple(bottom_mid),
             self.bottom_right,
             tuple(right_mid),
             tuple(center_mid),
         )
         top_r = Element2D(
-            self.order,
+            order,
             tuple(center_mid),
             tuple(right_mid),
             self.top_right,
             tuple(top_mid),
         )
         top_l = Element2D(
-            self.order, tuple(left_mid), tuple(center_mid), tuple(top_mid), self.top_left
+            order, tuple(left_mid), tuple(center_mid), tuple(top_mid), self.top_left
         )
         return ((btm_l, btm_r), (top_l, top_r))
 

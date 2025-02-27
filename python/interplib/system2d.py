@@ -433,6 +433,7 @@ def solve_system_2d(
     system: kform.KFormSystem,
     mesh: Mesh2D,
     boundaray_conditions: Sequence[kform.BoundaryCondition2DStrong] | None = None,
+    refinement_levels: int = 0,
     div_predicate: Callable[[Element2D, int], bool] | None = None,
 ) -> tuple[
     npt.NDArray[np.float64],
@@ -452,6 +453,9 @@ def solve_system_2d(
         Order of reconstruction returned.
     boundary_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
         Sequence of boundary conditions to be applied to the system.
+    refinement_levels : int, default: 0
+        Number of mesh refinement levels which can be done. When zero
+        (default value) no refinement is done.
     div_predicate : Callable (Element2D) -> bool
         Callable used to determine if an element should be divided further.
 
@@ -466,7 +470,7 @@ def solve_system_2d(
         where these reconstructions are computed depends on the degree of the element.
     grid : pyvista.UnstructuredGrid
         Reconstructed solution as an unstructured grid of VTK's "lagrange quadrilateral"
-        cells.
+        cells. This reconstruction is done on the nodal basis for all unknowns.
     """
     # Check that inputs make sense.
     strong_boundary_edges: dict[kform.KFormUnknown, list[npt.NDArray[np.uint64]]] = {}
@@ -477,6 +481,12 @@ def solve_system_2d(
                 "-form."
             )
         strong_boundary_edges[primal] = []
+
+    refinement_levels = int(refinement_levels)
+    if refinement_levels < 0:
+        raise ValueError(
+            f"Can not have less than 0 refinement levels ({refinement_levels} was given)."
+        )
 
     # Check boundary conditions are sensible
     if boundaray_conditions is not None:
@@ -520,7 +530,7 @@ def solve_system_2d(
     element_tree = ElementTree(
         list(mesh.get_element(ie) for ie in range(mesh.n_elements)),
         div_predicate,
-        1,
+        refinement_levels,
         system.unknown_forms,
     )
 
@@ -528,7 +538,7 @@ def solve_system_2d(
 
     # Make element matrices and vectors
     cache: dict[int, BasisCache] = dict()
-    for order in np.unique(element_tree.orders):
+    for order in np.unique(element_tree.orders[~element_tree.children]):
         cache[int(order)] = BasisCache(int(order), 3 * int(order))
     bytecodes = [translate_equation(eq.left, simplify=True) for eq in system.equations]
 
@@ -997,6 +1007,7 @@ def solve_system_2d(
 
     sys_mat = sp.block_diag(element_matrix)
     if continuity_equations:
+        t0 = perf_counter()
         lag_rows: list[npt.NDArray[np.uint32]] = list()
         lag_cols: list[npt.NDArray[np.uint32]] = list()
         lag_vals: list[npt.NDArray[np.float64]] = list()
@@ -1022,18 +1033,16 @@ def solve_system_2d(
 
         # Create the system matrix and vector
         matrix = sp.csr_array(sys_mat + lagrange)
+        t1 = perf_counter()
+        print(
+            f"Adding Lagrange {len(continuity_equations)} multipliers to the system took"
+            f" {t1 - t0:g} seconds."
+        )
     else:
         matrix = sp.csr_array(sys_mat)
     vector = np.concatenate(element_vectors, dtype=np.float64)
 
     # from matplotlib import pyplot as plt
-
-    # vals, vecs = np.linalg.eig(matrix.toarray())
-    # i = np.argmin(np.abs(vals))
-    # print(vals, vals[i])
-    # plt.figure()
-    # plt.plot(vecs[i])
-    # plt.show()
 
     # plt.figure()
     # plt.spy(matrix)

@@ -538,7 +538,7 @@ def solve_system_2d(
 
     # Make element matrices and vectors
     cache: dict[int, BasisCache] = dict()
-    for order in np.unique(element_tree.orders[~element_tree.children]):
+    for order in np.unique(element_tree.orders):
         cache[int(order)] = BasisCache(int(order), 3 * int(order))
     bytecodes = [translate_equation(eq.left, simplify=True) for eq in system.equations]
 
@@ -572,7 +572,10 @@ def solve_system_2d(
         tr,
         tl,
         orde,
-        [cache[o].c_serialization for o in cache],
+        [
+            cache[o].c_serialization
+            for o in np.unique(element_tree.orders[~element_tree.children])
+        ],
     )
     t1 = perf_counter()
     print(f"Element matrices new way: {t1 - t0} seconds.")
@@ -585,7 +588,10 @@ def solve_system_2d(
         tr,
         tl,
         orde,
-        [cache[o].c_serialization for o in cache],
+        [
+            cache[o].c_serialization
+            for o in np.unique(element_tree.orders[~element_tree.children])
+        ],
     )
     t1 = perf_counter()
     print(f"Element matrices newer way: {t1 - t0} seconds.")

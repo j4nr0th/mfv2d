@@ -232,111 +232,15 @@ void basis_precomp_destroy(basis_precomp_t *this)
 int precompute_create(const basis_precomp_t *basis, double x0, double x1, double x2, double x3, double y0, double y1,
                       double y2, double y3, precompute_t *out, allocator_callbacks *allocator)
 {
-    *out = (precompute_t){};
+    *out = (precompute_t){.basis = basis};
 
     const unsigned n_int = basis->n_int;
 
-    // Allocate nodal mass matrix
-    matrix_full_t mtx_nodal = {
-        .base = {.type = MATRIX_TYPE_FULL,
-                 .rows = (basis->order + 1) * (basis->order + 1),
-                 .cols = (basis->order + 1) * (basis->order + 1)},
-    };
-    mtx_nodal.data = allocate(allocator, sizeof *mtx_nodal.data * mtx_nodal.base.rows * mtx_nodal.base.cols);
-    if (!mtx_nodal.data)
-    {
-        return 0;
-    }
-
-    // Allocate edge mass matrix
-    matrix_full_t mtx_edge = {
-        .base = {.type = MATRIX_TYPE_FULL,
-                 .rows = 2 * basis->order * (basis->order + 1),
-                 .cols = 2 * basis->order * (basis->order + 1)},
-    };
-    mtx_edge.data = allocate(allocator, sizeof *mtx_edge.data * mtx_edge.base.rows * mtx_edge.base.cols);
-    if (!mtx_edge.data)
-    {
-        deallocate(allocator, mtx_nodal.data);
-        return 0;
-    }
-
-    // Allocate surface mass matrix
-    matrix_full_t mtx_surf = {
-        .base = {.type = MATRIX_TYPE_FULL, .rows = basis->order * basis->order, .cols = basis->order * basis->order},
-    };
-    mtx_surf.data = allocate(allocator, sizeof *mtx_surf.data * mtx_surf.base.rows * mtx_surf.base.cols);
-    if (!mtx_surf.data)
-    {
-        deallocate(allocator, mtx_edge.data);
-        deallocate(allocator, mtx_nodal.data);
-        return 0;
-    }
-
-    // Allocate inverse nodal mass matrix
-    matrix_full_t mtx_inv_nodal = {
-        .base = {.type = MATRIX_TYPE_FULL,
-                 .rows = (basis->order + 1) * (basis->order + 1),
-                 .cols = (basis->order + 1) * (basis->order + 1)},
-    };
-    mtx_inv_nodal.data =
-        allocate(allocator, sizeof *mtx_inv_nodal.data * mtx_inv_nodal.base.rows * mtx_inv_nodal.base.cols);
-    if (!mtx_inv_nodal.data)
-    {
-        deallocate(allocator, mtx_surf.data);
-        deallocate(allocator, mtx_edge.data);
-        deallocate(allocator, mtx_nodal.data);
-        return 0;
-    }
-
-    // Allocate edge mass matrix
-    matrix_full_t mtx_inv_edge = {
-        .base = {.type = MATRIX_TYPE_FULL,
-                 .rows = 2 * basis->order * (basis->order + 1),
-                 .cols = 2 * basis->order * (basis->order + 1)},
-    };
-    mtx_inv_edge.data =
-        allocate(allocator, sizeof *mtx_inv_edge.data * mtx_inv_edge.base.rows * mtx_inv_edge.base.cols);
-    if (!mtx_inv_edge.data)
-    {
-        deallocate(allocator, mtx_inv_nodal.data);
-        deallocate(allocator, mtx_surf.data);
-        deallocate(allocator, mtx_edge.data);
-        deallocate(allocator, mtx_nodal.data);
-        return 0;
-    }
-
-    // Allocate surface mass matrix
-    matrix_full_t mtx_inv_surf = {
-        .base = {.type = MATRIX_TYPE_FULL, .rows = basis->order * basis->order, .cols = basis->order * basis->order},
-    };
-    mtx_inv_surf.data =
-        allocate(allocator, sizeof *mtx_inv_surf.data * mtx_inv_surf.base.rows * mtx_inv_surf.base.cols);
-    if (!mtx_inv_surf.data)
-    {
-        deallocate(allocator, mtx_inv_edge.data);
-        deallocate(allocator, mtx_inv_nodal.data);
-        deallocate(allocator, mtx_surf.data);
-        deallocate(allocator, mtx_edge.data);
-        deallocate(allocator, mtx_nodal.data);
-        return 0;
-    }
-
-    struct
-    {
-        double j00, j01, j10, j11, det;
-    } *restrict p_jac;
+    jacobian_t *restrict p_jac;
     const size_t sz_jac = sizeof *p_jac * (n_int * n_int);
     p_jac = allocate(allocator, sz_jac);
     if (!p_jac)
     {
-        deallocate(allocator, mtx_inv_surf.data);
-        deallocate(allocator, mtx_inv_edge.data);
-        deallocate(allocator, mtx_inv_nodal.data);
-        deallocate(allocator, mtx_surf.data);
-        deallocate(allocator, mtx_edge.data);
-        deallocate(allocator, mtx_nodal.data);
-
         return 0;
     }
 
@@ -359,6 +263,27 @@ int precompute_create(const basis_precomp_t *basis, double x0, double x1, double
             p_jac[row * n_int + col].det = det;
         }
     }
+    out->jacobian = p_jac;
+
+    return 1;
+}
+
+static int create_m0(precompute_t *this, const allocator_callbacks *allocator)
+{
+    const basis_precomp_t *basis = this->basis;
+    // Allocate nodal mass matrix
+    matrix_full_t mtx_nodal = {
+        .base = {.type = MATRIX_TYPE_FULL,
+                 .rows = (basis->order + 1) * (basis->order + 1),
+                 .cols = (basis->order + 1) * (basis->order + 1)},
+    };
+    mtx_nodal.data = allocate(allocator, sizeof *mtx_nodal.data * mtx_nodal.base.rows * mtx_nodal.base.cols);
+    if (!mtx_nodal.data)
+    {
+        return 0;
+    }
+    const unsigned n_int = basis->n_int;
+    const jacobian_t *p_jac = this->jacobian;
 
     // Compute nodal mass matrix
     for (unsigned row = 0; row < mtx_nodal.base.rows; ++row)
@@ -379,6 +304,27 @@ int precompute_create(const basis_precomp_t *basis, double x0, double x1, double
             mtx_nodal.data[col * mtx_nodal.base.cols + row] = val;
         }
     }
+    this->mass_matrices[MASS_0] = mtx_nodal;
+    return 1;
+}
+
+static int create_m1(precompute_t *this, const allocator_callbacks *allocator)
+{
+    const basis_precomp_t *basis = this->basis;
+
+    // Allocate edge mass matrix
+    matrix_full_t mtx_edge = {
+        .base = {.type = MATRIX_TYPE_FULL,
+                 .rows = 2 * basis->order * (basis->order + 1),
+                 .cols = 2 * basis->order * (basis->order + 1)},
+    };
+    mtx_edge.data = allocate(allocator, sizeof *mtx_edge.data * mtx_edge.base.rows * mtx_edge.base.cols);
+    if (!mtx_edge.data)
+    {
+        return 0;
+    }
+    const unsigned n_int = basis->n_int;
+    const jacobian_t *p_jac = this->jacobian;
 
     // Compute edge mass matrix (00) part
     const unsigned n_edge = basis->order * (basis->order + 1);
@@ -447,6 +393,27 @@ int precompute_create(const basis_precomp_t *basis, double x0, double x1, double
         }
     }
 
+    this->mass_matrices[MASS_1] = mtx_edge;
+    return 1;
+}
+
+static int create_m2(precompute_t *this, const allocator_callbacks *allocator)
+{
+    const basis_precomp_t *basis = this->basis;
+
+    // Allocate surface mass matrix
+    matrix_full_t mtx_surf = {
+        .base = {.type = MATRIX_TYPE_FULL, .rows = basis->order * basis->order, .cols = basis->order * basis->order},
+    };
+    mtx_surf.data = allocate(allocator, sizeof *mtx_surf.data * mtx_surf.base.rows * mtx_surf.base.cols);
+    if (!mtx_surf.data)
+    {
+        return 0;
+    }
+
+    const unsigned n_int = basis->n_int;
+    const jacobian_t *p_jac = this->jacobian;
+
     // Compute surface mass matrix
     for (unsigned row = 0; row < mtx_surf.base.rows; ++row)
     {
@@ -468,53 +435,129 @@ int precompute_create(const basis_precomp_t *basis, double x0, double x1, double
         }
     }
 
-    size_t sz_inv;
-    if (mtx_nodal.base.rows > mtx_edge.base.rows)
-    {
-        if (mtx_nodal.base.rows > mtx_surf.base.rows)
-        {
-            sz_inv = mtx_nodal.base.rows;
-        }
-        else
-        {
-            sz_inv = mtx_surf.base.rows;
-        }
-    }
-    else if (mtx_surf.base.rows > mtx_edge.base.rows)
-    {
-        sz_inv = mtx_surf.base.rows;
-    }
-    else
-    {
-        sz_inv = mtx_edge.base.rows;
-    }
-    sz_inv = sz_inv * sz_inv * sizeof(*mtx_nodal.data);
-    if (sz_jac < sz_inv)
-    {
-        deallocate(allocator, p_jac);
-        p_jac = allocate(allocator, sz_inv);
-        if (!p_jac)
-        {
-            deallocate(allocator, mtx_inv_surf.data);
-            deallocate(allocator, mtx_inv_edge.data);
-            deallocate(allocator, mtx_inv_nodal.data);
-            deallocate(allocator, mtx_surf.data);
-            deallocate(allocator, mtx_edge.data);
-            deallocate(allocator, mtx_nodal.data);
-            return 0;
-        }
-    }
-
-    invert_matrix(mtx_nodal.base.rows, mtx_nodal.data, (double *)p_jac, mtx_inv_nodal.data);
-    invert_matrix(mtx_edge.base.rows, mtx_edge.data, (double *)p_jac, mtx_inv_edge.data);
-    invert_matrix(mtx_surf.base.rows, mtx_surf.data, (double *)p_jac, mtx_inv_surf.data);
-
-    out->mass_matrices[MASS_0] = mtx_nodal;
-    out->mass_matrices[MASS_1] = mtx_edge;
-    out->mass_matrices[MASS_2] = mtx_surf;
-    out->mass_matrices[MASS_0_I] = mtx_inv_nodal;
-    out->mass_matrices[MASS_1_I] = mtx_inv_edge;
-    out->mass_matrices[MASS_2_I] = mtx_inv_surf;
-
+    this->mass_matrices[MASS_2] = mtx_surf;
     return 1;
+}
+
+static int create_im0(precompute_t *this, const allocator_callbacks *allocator)
+{
+    if (this->mass_matrices[MASS_0].data == NULL && !create_m0(this, allocator))
+    {
+        return 0;
+    }
+    const basis_precomp_t *basis = this->basis;
+
+    // Allocate inverse nodal mass matrix
+    matrix_full_t mtx_inv_nodal = {
+        .base = {.type = MATRIX_TYPE_FULL,
+                 .rows = (basis->order + 1) * (basis->order + 1),
+                 .cols = (basis->order + 1) * (basis->order + 1)},
+    };
+    mtx_inv_nodal.data =
+        allocate(allocator, sizeof *mtx_inv_nodal.data * mtx_inv_nodal.base.rows * mtx_inv_nodal.base.cols);
+    if (!mtx_inv_nodal.data)
+    {
+        return 0;
+    }
+
+    double *const restrict buffer =
+        allocate(allocator, sizeof *mtx_inv_nodal.data * mtx_inv_nodal.base.rows * mtx_inv_nodal.base.cols);
+    if (!buffer)
+    {
+        deallocate(allocator, mtx_inv_nodal.data);
+        return 0;
+    }
+
+    invert_matrix(this->mass_matrices[MASS_0].base.rows, this->mass_matrices[MASS_0].data, buffer, mtx_inv_nodal.data);
+    deallocate(allocator, buffer);
+
+    this->mass_matrices[MASS_0_I] = mtx_inv_nodal;
+    return 1;
+}
+
+static int create_im1(precompute_t *this, const allocator_callbacks *allocator)
+{
+    if (this->mass_matrices[MASS_1].data == NULL && !create_m1(this, allocator))
+    {
+        return 0;
+    }
+    const basis_precomp_t *basis = this->basis;
+
+    // Allocate edge mass matrix
+    matrix_full_t mtx_inv_edge = {
+        .base = {.type = MATRIX_TYPE_FULL,
+                 .rows = 2 * basis->order * (basis->order + 1),
+                 .cols = 2 * basis->order * (basis->order + 1)},
+    };
+    mtx_inv_edge.data =
+        allocate(allocator, sizeof *mtx_inv_edge.data * mtx_inv_edge.base.rows * mtx_inv_edge.base.cols);
+    if (!mtx_inv_edge.data)
+    {
+        return 0;
+    }
+
+    double *const restrict buffer =
+        allocate(allocator, sizeof *mtx_inv_edge.data * mtx_inv_edge.base.rows * mtx_inv_edge.base.cols);
+    if (!buffer)
+    {
+        deallocate(allocator, mtx_inv_edge.data);
+        return 0;
+    }
+
+    invert_matrix(this->mass_matrices[MASS_1].base.rows, this->mass_matrices[MASS_1].data, buffer, mtx_inv_edge.data);
+    deallocate(allocator, buffer);
+
+    this->mass_matrices[MASS_1_I] = mtx_inv_edge;
+    return 1;
+}
+
+static int create_im2(precompute_t *this, const allocator_callbacks *allocator)
+{
+    if (this->mass_matrices[MASS_2].data == NULL && !create_m2(this, allocator))
+    {
+        return 0;
+    }
+    const basis_precomp_t *basis = this->basis;
+
+    // Allocate surface mass matrix
+    matrix_full_t mtx_inv_surf = {
+        .base = {.type = MATRIX_TYPE_FULL, .rows = basis->order * basis->order, .cols = basis->order * basis->order},
+    };
+    mtx_inv_surf.data =
+        allocate(allocator, sizeof *mtx_inv_surf.data * mtx_inv_surf.base.rows * mtx_inv_surf.base.cols);
+    if (!mtx_inv_surf.data)
+    {
+        return 0;
+    }
+
+    double *const restrict buffer =
+        allocate(allocator, sizeof *mtx_inv_surf.data * mtx_inv_surf.base.rows * mtx_inv_surf.base.cols);
+    if (!buffer)
+    {
+        deallocate(allocator, mtx_inv_surf.data);
+        return 0;
+    }
+
+    invert_matrix(this->mass_matrices[MASS_2].base.rows, this->mass_matrices[MASS_2].data, buffer, mtx_inv_surf.data);
+    deallocate(allocator, buffer);
+
+    this->mass_matrices[MASS_2_I] = mtx_inv_surf;
+    return 1;
+}
+
+const matrix_full_t *precompute_get_matrix(precompute_t *this, mass_mtx_indices_t idx,
+                                           const allocator_callbacks *allocator)
+{
+    matrix_full_t *const p = this->mass_matrices + idx;
+    if (p->data == NULL)
+    {
+        static const int (*const callbacks[MASS_CNT])(precompute_t *this, const allocator_callbacks *allocator) = {
+            [MASS_0] = create_m0,    [MASS_1] = create_m1,    [MASS_2] = create_m2,
+            [MASS_0_I] = create_im0, [MASS_1_I] = create_im1, [MASS_2_I] = create_im2,
+        };
+        if (!callbacks[idx](this, allocator))
+            return NULL;
+    }
+
+    return p;
 }

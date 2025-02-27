@@ -466,7 +466,15 @@ static eval_result_t operation_mass(const void *operations[static MATOP_COUNT], 
     }
 
     matrix_t this = {.type = MATRIX_TYPE_FULL, .coefficient = 1.0};
-    this.full = precomp->mass_matrices[t];
+    {
+        const matrix_full_t *p_mass = precompute_get_matrix(precomp, t, allocator);
+        if (!p_mass)
+        {
+            EVAL_ERROR(error_stack, EVAL_FAILED_ALLOC, "Failed allocating and computing a mass matrix.");
+            return EVAL_FAILED_ALLOC;
+        }
+        this.full = *p_mass;
+    }
     eval_result_t res;
     switch (current->type)
     {
@@ -847,7 +855,15 @@ eval_result_t evaluate_element_term(error_stack_t *error_stack, form_order_t for
                     t += (MASS_0_I - MASS_0);
                 }
                 matrix_t this = {.type = MATRIX_TYPE_FULL, .coefficient = 1.0};
-                this.full = precomp->mass_matrices[t];
+                {
+                    const matrix_full_t *mass = precompute_get_matrix(precomp, t, allocator);
+                    if (!mass)
+                    {
+                        EVAL_ERROR(error_stack, EVAL_FAILED_ALLOC, "Failed allocating and computing a mass matrix.");
+                        return EVAL_FAILED_ALLOC;
+                    }
+                    this.full = *mass;
+                }
                 // printf("Getting the matrix with id %s.\n", mass_mtx_indices_str(t));
                 // matrix_print(&this);
                 eval_result_t res;

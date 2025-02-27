@@ -47,6 +47,13 @@ typedef struct
 
 typedef struct
 {
+    double j00, j01, j10, j11, det;
+} jacobian_t;
+
+typedef struct
+{
+    const basis_precomp_t *basis;
+    jacobian_t *jacobian;
     matrix_full_t mass_matrices[MASS_CNT];
 } precompute_t;
 
@@ -75,6 +82,9 @@ typedef struct
 INTERPLIB_INTERNAL
 int precompute_create(const basis_precomp_t *basis, double x0, double x1, double x2, double x3, double y0, double y1,
                       double y2, double y3, precompute_t *out, allocator_callbacks *allocator);
+
+const matrix_full_t *precompute_get_matrix(precompute_t *this, mass_mtx_indices_t idx,
+                                           const allocator_callbacks *allocator);
 
 /**
  * Turn Python serialized data into C-friendly form.

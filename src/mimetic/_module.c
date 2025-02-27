@@ -703,18 +703,34 @@ static PyObject *element_matrices(PyObject *Py_UNUSED(module), PyObject *args, P
 
     precompute_t out;
     const int res = precompute_create(&basis_precomp, x0, x1, x2, x3, y0, y1, y2, y3, &out, &SYSTEM_ALLOCATOR);
-    basis_precomp_destroy(&basis_precomp);
 
     if (!res)
     {
         return NULL;
     }
+    int failed = 0;
+    for (mass_mtx_indices_t t = MASS_0; t < MASS_CNT; ++t)
+    {
+        const matrix_full_t *m = precompute_get_matrix(&out, t, &SYSTEM_ALLOCATOR);
+        if (!m)
+        {
+            failed = 1;
+            PyErr_Format(PyExc_ValueError, "Failed allocating and crating the mass matrix %u.", (unsigned)t);
+            break;
+        }
+    }
 
-    PyObject *ret_val = PyTuple_Pack(
-        6, matrix_full_to_array(out.mass_matrices + MASS_0), matrix_full_to_array(out.mass_matrices + MASS_1),
-        matrix_full_to_array(out.mass_matrices + MASS_2), matrix_full_to_array(out.mass_matrices + MASS_0_I),
-        matrix_full_to_array(out.mass_matrices + MASS_1_I), matrix_full_to_array(out.mass_matrices + MASS_2_I));
+    PyObject *ret_val = NULL;
 
+    if (!failed)
+    {
+        ret_val = PyTuple_Pack(
+            6, matrix_full_to_array(out.mass_matrices + MASS_0), matrix_full_to_array(out.mass_matrices + MASS_1),
+            matrix_full_to_array(out.mass_matrices + MASS_2), matrix_full_to_array(out.mass_matrices + MASS_0_I),
+            matrix_full_to_array(out.mass_matrices + MASS_1_I), matrix_full_to_array(out.mass_matrices + MASS_2_I));
+    }
+
+    SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, out.jacobian);
     SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, out.mass_matrices[MASS_0].data);
     SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, out.mass_matrices[MASS_1].data);
     SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, out.mass_matrices[MASS_2].data);
@@ -722,6 +738,7 @@ static PyObject *element_matrices(PyObject *Py_UNUSED(module), PyObject *args, P
     SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, out.mass_matrices[MASS_1_I].data);
     SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, out.mass_matrices[MASS_2_I].data);
 
+    basis_precomp_destroy(&basis_precomp);
     return ret_val;
 }
 

@@ -6,7 +6,6 @@ from collections.abc import Callable, Generator, Sequence
 from dataclasses import dataclass
 from functools import cache
 from itertools import accumulate
-from time import perf_counter
 from typing import Literal
 
 import numpy as np
@@ -20,13 +19,14 @@ from interplib._interp import compute_gll, lagrange1d
 from interplib._mimetic import (
     GeoID,
     Surface,
-    compute_element_matrices,
+    # compute_element_matrices,
     compute_element_matrices_2,
     #     continuity,
 )
 from interplib.kforms.eval import _ctranslate, translate_equation
 from interplib.kforms.kform import KBoundaryProjection
-from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_system
+from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_rhs
+from interplib.prof import PerfTimer
 
 
 @dataclass(init=False, frozen=True)
@@ -127,7 +127,10 @@ class ElementTree:
                         e.top_left,
                     )
                 all_elems.append(e)
-
+            # print(
+            #     f"Refinement of {len(elements)} in level {i} lead to {len(new_elem)}"
+            #     " children."
+            # )
             children.append(np.array(v, np.bool))
             sizes.append(sz)
             if len(new_elem) == 0:
@@ -287,6 +290,18 @@ class ElementTree:
         return len(self.sizes)
 
 
+@dataclass(frozen=True)
+class SolutionStatistics:
+    """Information about the solution."""
+
+    element_orders: dict[int, int]
+    n_total_dofs: int
+    n_leaf_dofs: int
+    n_lagrange: int
+    n_elems: int
+    n_leaves: int
+
+
 @cache
 def continuity_matrices(
     n1: int, n2: int
@@ -435,11 +450,14 @@ def solve_system_2d(
     boundaray_conditions: Sequence[kform.BoundaryCondition2DStrong] | None = None,
     refinement_levels: int = 0,
     div_predicate: Callable[[Element2D, int], bool] | None = None,
+    *,
+    timed: bool = False,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
     dict[kform.KFormUnknown, npt.NDArray[np.float64]],
     pv.UnstructuredGrid,
+    SolutionStatistics,
 ]:
     """Solve the system on the specified mesh.
 
@@ -458,6 +476,8 @@ def solve_system_2d(
         (default value) no refinement is done.
     div_predicate : Callable (Element2D) -> bool
         Callable used to determine if an element should be divided further.
+    timed : bool, default: False
+        Report time taken for different parts of the code.
 
     Returns
     -------
@@ -471,7 +491,10 @@ def solve_system_2d(
     grid : pyvista.UnstructuredGrid
         Reconstructed solution as an unstructured grid of VTK's "lagrange quadrilateral"
         cells. This reconstruction is done on the nodal basis for all unknowns.
+    stats : SolutionStatistics
+        Statistics about the solution. This can be used for convergence tests or timing.
     """
+    base_timer = PerfTimer()
     # Check that inputs make sense.
     strong_boundary_edges: dict[kform.KFormUnknown, list[npt.NDArray[np.uint64]]] = {}
     for primal in system.unknown_forms:
@@ -533,6 +556,9 @@ def solve_system_2d(
         refinement_levels,
         system.unknown_forms,
     )
+    if timed:
+        base_timer.stop("Creating element tree took {} seconds.")
+        base_timer.set()
 
     leaf_elements: list[Element2D] = list(element_tree.iter_leaves())
 
@@ -542,12 +568,6 @@ def solve_system_2d(
         cache[int(order)] = BasisCache(int(order), 3 * int(order))
     bytecodes = [translate_equation(eq.left, simplify=True) for eq in system.equations]
 
-    t0 = perf_counter()
-    element_outputs = tuple(
-        element_system(system, e, cache[e.order], None) for e in leaf_elements
-    )
-    t1 = perf_counter()
-    print(f"Element matrices old way: {t1 - t0} seconds.")
     codes = []
     for bite in bytecodes:
         row: list[list | None] = []
@@ -563,56 +583,49 @@ def solve_system_2d(
     tr = np.array([e.top_right for e in leaf_elements])
     tl = np.array([e.top_left for e in leaf_elements])
     orde = np.array([e.order for e in leaf_elements], np.uint32)
-    t0 = perf_counter()
-    second_matrices = compute_element_matrices(
-        [f.order for f in system.unknown_forms],
-        codes,
-        bl,
-        br,
-        tr,
-        tl,
-        orde,
-        [
-            cache[o].c_serialization
-            for o in np.unique(element_tree.orders[~element_tree.children])
-        ],
-    )
-    t1 = perf_counter()
-    print(f"Element matrices new way: {t1 - t0} seconds.")
-    t0 = perf_counter()
-    third_matrices = compute_element_matrices_2(
-        [f.order for f in system.unknown_forms],
-        codes,
-        bl,
-        br,
-        tr,
-        tl,
-        orde,
-        [
-            cache[o].c_serialization
-            for o in np.unique(element_tree.orders[~element_tree.children])
-        ],
-    )
-    t1 = perf_counter()
-    print(f"Element matrices newer way: {t1 - t0} seconds.")
-    del bl, br, tr, tl, orde
+    c_ser: list[
+        tuple[
+            int,
+            int,
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+            npt.NDArray[np.float64],
+        ]
+    ] = list()
 
-    # from interplib._eval import element_matrices
-    element_matrix: list[npt.NDArray[np.float64]] = [e[0] for e in element_outputs]
+    # Release cache element memory. If they will be needed in the future,
+    # they will be recomputed, but they consume LOTS of memory
+    for o in np.unique(element_tree.orders[~element_tree.children]):
+        c_ser.append(cache[o].c_serialization())
+        cache[o].clean()
 
-    for e, mat1, mat2, mat3 in zip(
-        leaf_elements, element_matrix, second_matrices, third_matrices, strict=True
-    ):
-        assert mat1.shape == mat2.shape
-        assert np.allclose(mat2, element_system(system, e, cache[e.order], None)[0])
-        assert np.allclose(mat2, mat3)
-    element_vectors: list[npt.NDArray[np.float64]] = [e[1] for e in element_outputs]
+    if timed:
+        base_timer.stop("Pre-processing inputs for the C code took {} seconds.")
+        base_timer.set()
+
+    element_matrix = compute_element_matrices_2(
+        [f.order for f in system.unknown_forms], codes, bl, br, tr, tl, orde, c_ser
+    )
+    del bl, br, tr, tl, orde, c_ser
+
+    if timed:
+        base_timer.stop("Computing element matrices took {} seconds.")
+        base_timer.set()
+
+    element_vectors: list[npt.NDArray[np.float64]] = [
+        element_rhs(system, e, cache[e.order]) for e in leaf_elements
+    ]
+
+    if timed:
+        base_timer.stop("Computing the RHS took {} seconds.")
+        base_timer.set()
 
     # Apply lagrange multipliers for continuity
     continuity_equations: list[ConstraintEquation] = list()
 
-    # TODO:
-    #
     # Connect children to boundaries of their parents.
     level_offsets = [0] + list(accumulate(element_tree.sizes))[:-1]
     for i_level in reversed(range(element_tree.n_levels - 1)):
@@ -746,7 +759,10 @@ def solve_system_2d(
             continuity_equations.extend(child_child)
             continuity_equations.extend(parent_child)
 
-    t0 = perf_counter()
+    if timed:
+        base_timer.stop("Parent-child continuity took {} seconds.")
+        base_timer.set()
+
     # Continuity of 1-forms
     if cont_indices_edges:
         for il in range(mesh.dual.n_lines):
@@ -770,10 +786,11 @@ def solve_system_2d(
                     find_boundary_id(s_self, il),
                 )
             )
-    t1 = perf_counter()
-    print(f"Continuity of 1-forms: {t1 - t0} seconds.")
 
-    t0 = perf_counter()
+    if timed:
+        base_timer.stop("Continuity of 1-forms took {} seconds.")
+        base_timer.set()
+
     # Continuity of 0-forms on the non-corner DoFs
     if cont_indices_nodes and np.any(element_tree.orders > 1):
         for il in range(mesh.dual.n_lines):
@@ -840,8 +857,9 @@ def solve_system_2d(
                     )
                 )
 
-    t1 = perf_counter()
-    print(f"Continuity of 0-forms: {t1 - t0} seconds.")
+    if timed:
+        base_timer.stop("Continuity of 0-forms took {} seconds.")
+        base_timer.set()
 
     # Strong boundary conditions
     if boundaray_conditions is not None:
@@ -1011,9 +1029,14 @@ def solve_system_2d(
                 vals = c * np.sum(f_vals[..., None] * basis, axis=0)
                 element_vectors[id_surf.index][dofs] += vals
 
+    if timed:
+        base_timer.stop("Boundary conditions took {} seconds.")
+        base_timer.set()
+
     sys_mat = sp.block_diag(element_matrix)
+    del element_matrix
+    n_lagrange_eq = len(continuity_equations)
     if continuity_equations:
-        t0 = perf_counter()
         lag_rows: list[npt.NDArray[np.uint32]] = list()
         lag_cols: list[npt.NDArray[np.uint32]] = list()
         lag_vals: list[npt.NDArray[np.float64]] = list()
@@ -1039,13 +1062,16 @@ def solve_system_2d(
 
         # Create the system matrix and vector
         matrix = sp.csr_array(sys_mat + lagrange)
-        t1 = perf_counter()
-        print(
-            f"Adding Lagrange {len(continuity_equations)} multipliers to the system took"
-            f" {t1 - t0:g} seconds."
-        )
+
+        if timed:
+            base_timer.stop(
+                f"Adding {n_lagrange_eq} lagrange multipliers" + " took {} seconds."
+            )
+            base_timer.set()
+        del continuity_equations
     else:
         matrix = sp.csr_array(sys_mat)
+    del sys_mat
     vector = np.concatenate(element_vectors, dtype=np.float64)
 
     # from matplotlib import pyplot as plt
@@ -1056,7 +1082,17 @@ def solve_system_2d(
 
     # exit()
     # Solve the system
+    if timed:
+        base_timer.stop("Preparing the system took {} seconds.")
+        base_timer.set()
+
     solution = sla.spsolve(matrix, vector)
+    del matrix, vector
+
+    if timed:
+        base_timer.stop("Solving took {} seconds.")
+        base_timer.set()
+
     # print(solution)
 
     xvals: list[npt.NDArray[np.float64]] = list()
@@ -1102,7 +1138,11 @@ def solve_system_2d(
                 form_dofs = np.linalg.solve(mass, form_dofs)
             # Reconstruct unknown
             recon_v = elm.reconstruct(
-                form.order, form_dofs, recon_nodes_1d[None, :], recon_nodes_1d[:, None]
+                form.order,
+                form_dofs,
+                recon_nodes_1d[None, :],
+                recon_nodes_1d[:, None],
+                cache[elm.order],
             )
             shape = (-1, 2) if form.order == 1 else (-1,)
             build[form].append(np.reshape(recon_v, shape))
@@ -1126,7 +1166,24 @@ def solve_system_2d(
         out[form] = vf
         grid.point_data[form.label] = vf
 
-    return (x, y, out, grid)
+    orders_cnt = np.unique_counts(element_tree.orders)
+
+    if timed:
+        base_timer.stop("Reconstruction took {} seconds.")
+        base_timer.set()
+
+    stats = SolutionStatistics(
+        element_orders={
+            int(i1): i2 for i1, i2 in zip(orders_cnt.values, orders_cnt.counts)
+        },
+        n_total_dofs=element_tree.n_dof,
+        n_lagrange=n_lagrange_eq,
+        n_elems=len(element_tree.elements),
+        n_leaves=len(leaf_elements),
+        n_leaf_dofs=element_tree.n_dof_leaves,
+    )
+
+    return (x, y, out, grid, stats)
 
 
 def continuity_0_form_corner(

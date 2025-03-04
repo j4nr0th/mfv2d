@@ -119,6 +119,7 @@ class ElementTree:
                     (ebl, ebr), (etl, etr) = e.divide(e.order)
                     new_elem.extend((ebl, ebr, etl, etr))
                     # Double the element's order
+                    # TODO: make this configurable
                     e = Element2D(
                         e.order * 2,
                         e.bottom_left,

@@ -605,10 +605,14 @@ def solve_system_2d(
 
     element_offsets = np.zeros(element_tree.n_elements + 1, np.uint32)
     i = 0
-    mat = sp.coo_array((0, 0), np.float64)
+    mat_in: tuple[
+        list[npt.NDArray[np.float64]],
+        list[npt.NDArray[np.uint32]],
+        list[npt.NDArray[np.uint32]],
+    ] = (list(), list(), list())
     vec: list[npt.NDArray[np.float64]] = list()
     while i < element_tree.n_elements:
-        dn, mat = add_element_matrix(
+        dn = add_element_matrix(
             cont_indices_edges,
             cont_indices_nodes,
             element_tree,
@@ -617,11 +621,18 @@ def solve_system_2d(
             reverse_vectors,
             element_offsets,
             element_tree.dof_offsets[-1],
-            mat,
+            mat_in,
             vec,
         )
         i += dn
-        print(f"{i=} / {element_tree.n_elements}")
+        # print(f"{i=} / {element_tree.n_elements}")
+
+    mat = sp.coo_array(
+        (
+            np.concatenate(mat_in[0]),
+            (np.concatenate(mat_in[1]), np.concatenate(mat_in[2])),
+        )
+    )
 
     if timed:
         base_timer.stop("Assembling the main matrix took {} seconds.")
@@ -1068,9 +1079,13 @@ def add_element_matrix(
     element_vecs: list[npt.NDArray[np.float64]],
     element_offsets: npt.NDArray[np.uint32],
     element_sizes: npt.NDArray[np.uint32],
-    mat: sp.coo_array,
+    mat: tuple[
+        list[npt.NDArray[np.float64]],
+        list[npt.NDArray[np.uint32]],
+        list[npt.NDArray[np.uint32]],
+    ],
     vec: list[npt.NDArray[np.float64]],
-) -> tuple[int, sp.coo_array]:
+) -> int:
     """Add element matrix of the element with index to the matrix."""
     offset = element_offsets[i]
     # Add offset for the next element
@@ -1088,17 +1103,20 @@ def add_element_matrix(
         v = element_vecs.pop()
         assert m.shape[0] == m.shape[1] and m.shape[0] == size
         idx = offset + np.arange(size)
-        mat.resize(idx[-1] + 1, idx[-1] + 1)
-        mat += sp.coo_array((m.flatten(), (np.repeat(idx, size), np.tile(idx, size))))
+        # mat.resize(idx[-1] + 1, idx[-1] + 1)
+        # mat += sp.coo_array((m.flatten(), (np.repeat(idx, size), np.tile(idx, size))))
+        mat[0].append(m.flatten())
+        mat[1].append(np.repeat(idx, size))
+        mat[2].append(np.tile(idx, size))
         vec.append(v)
-        return 1, mat
+        return 1
 
     # A non-leaf element, meaning its four children must be found
     n = 1
     vec.append(np.zeros(size))
     # Add the bottom left
     i_bl = i + n
-    dn, mat = add_element_matrix(
+    dn = add_element_matrix(
         cont_indices_edges,
         cont_indices_nodes,
         element_tree,
@@ -1113,7 +1131,7 @@ def add_element_matrix(
     n += dn
     # Add the bottom right
     i_br = i + n
-    dn, mat = add_element_matrix(
+    dn = add_element_matrix(
         cont_indices_edges,
         cont_indices_nodes,
         element_tree,
@@ -1128,7 +1146,7 @@ def add_element_matrix(
     n += dn
     # Add the top left
     i_tl = i + n
-    dn, mat = add_element_matrix(
+    dn = add_element_matrix(
         cont_indices_edges,
         cont_indices_nodes,
         element_tree,
@@ -1143,7 +1161,7 @@ def add_element_matrix(
     n += dn
     # Add the top right
     i_tr = i + n
-    dn, mat = add_element_matrix(
+    dn = add_element_matrix(
         cont_indices_edges,
         cont_indices_nodes,
         element_tree,
@@ -1172,7 +1190,7 @@ def add_element_matrix(
 
     lag_mult = element_offsets[i + n]
 
-    mat.resize(mat.shape[0] + n_cont, mat.shape[1] + n_cont)
+    # mat.resize(mat.shape[0] + n_cont, mat.shape[1] + n_cont)
     vals: list[npt.NDArray[np.float64]] = list()
     rows: list[npt.NDArray[np.uint32]] = list()
     cols: list[npt.NDArray[np.uint32]] = list()
@@ -1187,13 +1205,16 @@ def add_element_matrix(
     rv = np.concatenate(rows + cols)
     cv = np.concatenate(cols + rows)
 
-    mat += sp.coo_array((vv, (rv, cv)))
+    # mat += sp.coo_array((vv, (rv, cv)))
+    mat[0].append(vv)
+    mat[1].append(rv)
+    mat[2].append(cv)
     vec.append(np.array(rhs, np.float64))
 
     # Next element is further offset due to Lagrange multipliers
     element_offsets[i + n] += n_cont
 
-    return n, mat
+    return n
 
 
 def parent_child_equations(

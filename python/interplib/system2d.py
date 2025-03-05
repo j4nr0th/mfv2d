@@ -75,20 +75,18 @@ class ElementTree:
 
     # Tuple of all elements in the tree.
     elements: tuple[Element2D, ...]
-    # Order of the elements
+    # Orders of each element
     orders: npt.NDArray[np.uint32]
-    # If true, then element with the same index has 4 children.
+    # True if the element is not a leaf, otherwise false
     children: npt.NDArray[np.bool]
-    # How many elements are in each level.
-    sizes: tuple[int, ...]
-    # Offset of the first DoF within an element
-    element_offsets: npt.NDArray[np.uint32]
     # Offset of the first DoF of a variable within an element
     dof_offsets: tuple[npt.NDArray[np.uint32], ...]
     # Total number of degrees of freedom
     n_dof: int
     # Total number of degrees of freedom in the leaf nodes
     n_dof_leaves: int
+    # Indices of elements on the highest level
+    top_indices: npt.NDArray[np.intp]
 
     def __init__(
         self,
@@ -98,64 +96,42 @@ class ElementTree:
         unknowns: Sequence[kform.KFormUnknown],
     ) -> None:
         # Divide the elements as long as predicate is true.
-        children: list[npt.NDArray[np.bool]] = list()
-        sizes: list[int] = list()
         all_elems: list[Element2D] = list()
-        for i in range(max_levels + 1):
-            v: list[bool] = list()
-            new_elem: list[Element2D] = list()
+        levels: npt.NDArray[np.uint32]
 
-            sz = 0
-            for e in elements:
-                b = (
-                    predicate(e, i)
-                    if predicate is not None and i != max_levels
-                    else False
-                )
-                v.append(b)
-                sz += 1
-                if b:
-                    # raise NotImplementedError("Not dividing the elements up (yet)!")
-                    (ebl, ebr), (etl, etr) = e.divide(e.order)
-                    new_elem.extend((ebl, ebr, etl, etr))
-                    # Double the element's order
-                    # TODO: make this configurable
-                    e = Element2D(
-                        e.order * 2,
-                        e.bottom_left,
-                        e.bottom_right,
-                        e.top_right,
-                        e.top_left,
-                    )
-                all_elems.append(e)
-            # print(
-            #     f"Refinement of {len(elements)} in level {i} lead to {len(new_elem)}"
-            #     " children."
-            # )
-            children.append(np.array(v, np.bool))
-            sizes.append(sz)
-            if len(new_elem) == 0:
-                break
+        def check_refinement(
+            pred: Callable[[Element2D, int], bool] | None,
+            e: Element2D,
+            level: int,
+            max_level: int,
+        ) -> list[Element2D]:
+            """Return element and potentially its children."""
+            out = [e]
 
-            elements = new_elem
+            if level < max_level and pred is not None and pred(e, level):
+                # TODO: have to configure how orders change
+                (ebl, ebr), (etl, etr) = e.divide(e.order)
+                e.order *= 2
+                out += check_refinement(pred, ebl, level + 1, max_level)
+                out += check_refinement(pred, ebr, level + 1, max_level)
+                out += check_refinement(pred, etl, level + 1, max_level)
+                out += check_refinement(pred, etr, level + 1, max_level)
 
-        # if i == max_levels:
-        #     raise RuntimeError(
-        #         f"Maximum number of refinement levels ({max_levels}) has been exceeded."
-        #     )
+            return out
 
-        self.sizes = tuple(sizes)
+        # Depth-first refinement
+        for e in elements:
+            all_elems += check_refinement(predicate, e, 0, max_levels)
+
+        levels = np.array([e.level for e in all_elems], np.uint32)
+
         self.elements = tuple(all_elems)
-        self.children = np.concatenate(children, dtype=np.bool)
-        del all_elems, sizes, children
+        del all_elems
 
-        # Number the elements. First are the leaves, then all the others
+        # Check if elements have children
         n_total = len(self.elements)
-        n_leaves = n_total - np.count_nonzero(self.children)
-        indices = np.empty(n_total, dtype=np.uint32)
-        indices[~self.children] = np.arange(n_leaves)
-        indices[self.children] = np.arange(n_leaves, n_total)
-        rindices = np.argsort(indices)
+        self.children = np.zeros(n_total, np.bool)
+        self.children[:-1] = levels[1:] > levels[:-1]
 
         self.orders = np.array([e.order for e in self.elements], dtype=np.uint32)
         dof_sizes: list[npt.NDArray[np.uint32]] = list()
@@ -177,10 +153,11 @@ class ElementTree:
                 assert False
             dof_sizes.append(n)
         self.dof_offsets = (np.zeros_like(self.orders, np.uint32), *accumulate(dof_sizes))
-        off = np.pad(np.cumsum(self.dof_offsets[-1][rindices]), (1, 0))
-        self.element_offsets = off[indices]
-        self.n_dof_leaves = int(off[n_leaves])
-        self.n_dof = int(off[-1])
+        # off = np.pad(np.cumsum(self.dof_offsets[-1][rindices]), (1, 0))
+        # self.element_offsets = off[indices]
+        self.n_dof_leaves = int(np.sum(self.dof_offsets[-1][~self.children]))
+        self.n_dof = int(np.sum(self.dof_offsets[-1]))
+        self.top_indices = np.flatnonzero(levels == 0)
 
     def iter_leaves(self) -> Generator[Element2D]:
         """Iterate over leaves."""
@@ -281,14 +258,14 @@ class ElementTree:
         raise ValueError("Only boundary ID of up to 3 is allowed.")
 
     @property
-    def leave_indices(self) -> npt.NDArray[np.uint32]:
+    def leaf_indices(self) -> npt.NDArray[np.uint32]:
         """Indices of leaf elements."""
         return np.astype(np.nonzero(~self.children)[0], np.uint32)
 
     @property
-    def n_levels(self) -> int:
-        """Number of levels in the tree."""
-        return len(self.sizes)
+    def n_elements(self) -> int:
+        """Number of elements in the ElementTree."""
+        return len(self.elements)
 
 
 @dataclass(frozen=True)
@@ -616,155 +593,44 @@ def solve_system_2d(
         base_timer.stop("Computing element matrices took {} seconds.")
         base_timer.set()
 
-    element_vectors: list[npt.NDArray[np.float64]] = [
+    element_vectors: list[npt.NDArray[np.float64]] = list(
         element_rhs(system, e, cache[e.order]) for e in leaf_elements
-    ]
+    )
+    reverse_matrices = list(reversed(element_matrix))
+    reverse_vectors = list(reversed(element_vectors))
 
     if timed:
         base_timer.stop("Computing the RHS took {} seconds.")
         base_timer.set()
 
+    element_offsets = np.zeros(element_tree.n_elements + 1, np.uint32)
+    i = 0
+    mat = sp.coo_array((0, 0), np.float64)
+    vec: list[npt.NDArray[np.float64]] = list()
+    while i < element_tree.n_elements:
+        dn, mat = add_element_matrix(
+            cont_indices_edges,
+            cont_indices_nodes,
+            element_tree,
+            i,
+            reverse_matrices,
+            reverse_vectors,
+            element_offsets,
+            element_tree.dof_offsets[-1],
+            mat,
+            vec,
+        )
+        i += dn
+        print(f"{i=} / {element_tree.n_elements}")
+
+    if timed:
+        base_timer.stop("Assembling the main matrix took {} seconds.")
+        base_timer.set()
+    assert len(reverse_matrices) == 0 and len(reverse_vectors) == 0
     # Apply lagrange multipliers for continuity
     continuity_equations: list[ConstraintEquation] = list()
 
-    # Connect children to boundaries of their parents.
-    level_offsets = [0] + list(accumulate(element_tree.sizes))[:-1]
-    for i_level in reversed(range(element_tree.n_levels - 1)):
-        i1 = 0
-        i2 = 0
-        l1 = element_tree.sizes[i_level]
-        l2 = element_tree.sizes[i_level + 1]
-        offset_parent = level_offsets[i_level]
-        offset_children = level_offsets[i_level + 1]
-        assert (l2 & 3) == 0, "Length of lower levels must be divisible by 4"
-        while i1 < l1 and i2 < l2:
-            idx_parent = i1 + offset_parent
-            i1 += 1
-            if not element_tree.children[idx_parent]:
-                continue
-            idx_00 = i2 + offset_children + 0
-            idx_01 = i2 + offset_children + 1
-            idx_10 = i2 + offset_children + 2
-            idx_11 = i2 + offset_children + 3
-            i2 += 4
-
-            # Glue children to each other
-            child_child: list[ConstraintEquation] = list()
-            parent_child: list[ConstraintEquation] = list()
-            if cont_indices_edges:
-                # Glue 1-form edges
-                child_child += continuity_element_1_forms(
-                    element_tree, cont_indices_edges, idx_01, idx_00, 3, 1
-                )
-                child_child += continuity_element_1_forms(
-                    element_tree, cont_indices_edges, idx_11, idx_01, 0, 2
-                )
-                child_child += continuity_element_1_forms(
-                    element_tree, cont_indices_edges, idx_10, idx_11, 1, 3
-                )
-                child_child += continuity_element_1_forms(
-                    element_tree, cont_indices_edges, idx_00, idx_10, 2, 0
-                )
-
-                parent_child += continuity_parent_child_edges(
-                    element_tree, cont_indices_edges, idx_parent, idx_00, 0, False
-                )
-                parent_child += continuity_parent_child_edges(
-                    element_tree, cont_indices_edges, idx_parent, idx_01, 0, True
-                )
-                parent_child += continuity_parent_child_edges(
-                    element_tree, cont_indices_edges, idx_parent, idx_01, 1, False
-                )
-                parent_child += continuity_parent_child_edges(
-                    element_tree, cont_indices_edges, idx_parent, idx_11, 1, True
-                )
-                parent_child += continuity_parent_child_edges(
-                    element_tree, cont_indices_edges, idx_parent, idx_11, 2, False
-                )
-                parent_child += continuity_parent_child_edges(
-                    element_tree, cont_indices_edges, idx_parent, idx_10, 2, True
-                )
-                parent_child += continuity_parent_child_edges(
-                    element_tree, cont_indices_edges, idx_parent, idx_10, 3, False
-                )
-                parent_child += continuity_parent_child_edges(
-                    element_tree, cont_indices_edges, idx_parent, idx_00, 3, True
-                )
-
-            if cont_indices_nodes:
-                # Glue 0-form edges
-                child_child += continuity_0_forms_inner(
-                    element_tree, cont_indices_nodes, 3, 1, idx_01, idx_00
-                )
-                child_child += continuity_0_forms_inner(
-                    element_tree, cont_indices_nodes, 0, 2, idx_11, idx_01
-                )
-                child_child += continuity_0_forms_inner(
-                    element_tree, cont_indices_nodes, 1, 3, idx_10, idx_11
-                )
-                child_child += continuity_0_forms_inner(
-                    element_tree, cont_indices_nodes, 2, 0, idx_00, idx_10
-                )
-                # Glue the corner they all share
-                child_child += continuity_0_form_corner(
-                    element_tree, cont_indices_nodes, 1, 3, idx_00, idx_01
-                )
-                child_child += continuity_0_form_corner(
-                    element_tree, cont_indices_nodes, 2, 0, idx_01, idx_11
-                )
-                child_child += continuity_0_form_corner(
-                    element_tree, cont_indices_nodes, 3, 1, idx_11, idx_10
-                )
-
-                # Glue the child corners too
-                child_child += continuity_0_form_corner(
-                    element_tree, cont_indices_nodes, 3, 1, idx_01, idx_00
-                )
-                child_child += continuity_0_form_corner(
-                    element_tree, cont_indices_nodes, 0, 2, idx_11, idx_01
-                )
-                child_child += continuity_0_form_corner(
-                    element_tree, cont_indices_nodes, 1, 3, idx_10, idx_11
-                )
-                child_child += continuity_0_form_corner(
-                    element_tree, cont_indices_nodes, 2, 0, idx_00, idx_10
-                )
-
-                # Don't add the fourth equation!
-
-                parent_child += continuity_parent_child_nodes(
-                    element_tree, cont_indices_nodes, idx_parent, idx_00, 0, False
-                )
-                parent_child += continuity_parent_child_nodes(
-                    element_tree, cont_indices_nodes, idx_parent, idx_01, 0, True
-                )
-                parent_child += continuity_parent_child_nodes(
-                    element_tree, cont_indices_nodes, idx_parent, idx_01, 1, False
-                )
-                parent_child += continuity_parent_child_nodes(
-                    element_tree, cont_indices_nodes, idx_parent, idx_11, 1, True
-                )
-                parent_child += continuity_parent_child_nodes(
-                    element_tree, cont_indices_nodes, idx_parent, idx_11, 2, False
-                )
-                parent_child += continuity_parent_child_nodes(
-                    element_tree, cont_indices_nodes, idx_parent, idx_10, 2, True
-                )
-                parent_child += continuity_parent_child_nodes(
-                    element_tree, cont_indices_nodes, idx_parent, idx_10, 3, False
-                )
-                parent_child += continuity_parent_child_nodes(
-                    element_tree, cont_indices_nodes, idx_parent, idx_00, 3, True
-                )
-
-            continuity_equations.extend(child_child)
-            continuity_equations.extend(parent_child)
-
-    if timed:
-        base_timer.stop("Parent-child continuity took {} seconds.")
-        base_timer.set()
-
-    # Continuity of 1-forms
+    # Continuity of 1-forms on top level
     if cont_indices_edges:
         for il in range(mesh.dual.n_lines):
             dual_line = mesh.dual.get_line(il + 1)
@@ -780,9 +646,10 @@ def solve_system_2d(
             continuity_equations.extend(
                 continuity_element_1_forms(
                     element_tree,
+                    element_offsets,
                     cont_indices_edges,
-                    idx_neighbour.index,
-                    idx_self.index,
+                    element_tree.top_indices[idx_neighbour.index],
+                    element_tree.top_indices[idx_self.index],
                     find_boundary_id(s_other, il),
                     find_boundary_id(s_self, il),
                 )
@@ -808,11 +675,12 @@ def solve_system_2d(
             continuity_equations.extend(
                 continuity_0_forms_inner(
                     element_tree,
+                    element_offsets,
                     cont_indices_nodes,
                     find_boundary_id(s_other, il),
                     find_boundary_id(s_self, il),
-                    idx_neighbour.index,
-                    idx_self.index,
+                    element_tree.top_indices[idx_neighbour.index],
+                    element_tree.top_indices[idx_self.index],
                 )
             )
 
@@ -850,11 +718,12 @@ def solve_system_2d(
                 continuity_equations.extend(
                     continuity_0_form_corner(
                         element_tree,
+                        element_offsets,
                         cont_indices_nodes,
                         find_boundary_id(s_other, id_line.index),
                         find_boundary_id(s_self, id_line.index),
-                        idx_neighbour.index,
-                        idx_self.index,
+                        element_tree.top_indices[idx_neighbour.index],
+                        element_tree.top_indices[idx_self.index],
                     )
                 )
 
@@ -887,16 +756,17 @@ def solve_system_2d(
                 surf_id = dual_line.begin if dual_line.begin else dual_line.end
                 primal_surface = mesh.primal.get_surface(surf_id)
                 assert len(primal_surface) == 4
+                i_element = element_tree.top_indices[surf_id.index]
 
                 for i_side in range(4):
                     if primal_surface[i_side].index == idx:
                         if bc.form.order == 0:
                             dof_offsets = element_tree.element_node_dofs(
-                                surf_id.index, i_side
+                                i_element, i_side
                             )
                         else:
                             dof_offsets = element_tree.element_edge_dofs(
-                                surf_id.index, i_side
+                                i_element, i_side
                             )
                         break
                 assert i_side != 4
@@ -904,9 +774,7 @@ def solve_system_2d(
                 assert surf_id is not None
 
                 dof_offsets = np.astype(
-                    dof_offsets
-                    + self_var_offset[surf_id.index]
-                    + element_tree.element_offsets[surf_id.index],
+                    dof_offsets + self_var_offset[i_element] + element_offsets[i_element],
                     np.uint32,
                 )
                 assert dof_offsets is not None
@@ -915,7 +783,7 @@ def solve_system_2d(
                 x0, y0 = mesh.positions[primal_line.begin.index, :]
                 x1, y1 = mesh.positions[primal_line.end.index, :]
 
-                elem_cache = cache[element_tree.orders[surf_id.index]]
+                elem_cache = cache[int(element_tree.orders[i_element])]
                 comp_nodes = elem_cache.nodes_1d
                 xv = (x1 + x0) / 2 + (x1 - x0) / 2 * comp_nodes
                 yv = (y1 + y0) / 2 + (y1 - y0) / 2 * comp_nodes
@@ -990,7 +858,8 @@ def solve_system_2d(
                     id_surf = dual_line.end
                 else:
                     assert False
-                e = leaf_elements[id_surf.index]
+                i_element = element_tree.top_indices[id_surf.index]
+                e = leaf_elements[i_element]
                 basis_cache = cache[e.order]
                 primal_surface = mesh.primal.get_surface(id_surf)
                 ndir, p0, p1 = endpoints_from_line(e, primal_surface, edge)
@@ -1002,7 +871,7 @@ def solve_system_2d(
                 if w_form.order == 0:
                     # dofs = node_dof_indices_from_line(e, primal_surface, edge)
                     dofs = element_tree.element_node_dofs(
-                        id_surf.index, find_boundary_id(primal_surface, edge)
+                        i_element, find_boundary_id(primal_surface, edge)
                     )
                     # Tangental integral of function with the 0 basis
                     basis = basis_cache.nodal_1d
@@ -1013,7 +882,7 @@ def solve_system_2d(
                 elif w_form.order:
                     # dofs = edge_dof_indices_from_line(e, primal_surface, edge)
                     dofs = element_tree.element_edge_dofs(
-                        id_surf.index, find_boundary_id(primal_surface, edge)
+                        i_element, find_boundary_id(primal_surface, edge)
                     )
                     # Integral with the normal basis
                     basis = basis_cache.edge_1d
@@ -1024,28 +893,31 @@ def solve_system_2d(
                 dofs = (
                     dofs
                     + element_tree.dof_offsets[system.unknown_forms.index(w_form)][
-                        id_surf.index
+                        i_element
                     ]
                 )
                 vals = c * np.sum(f_vals[..., None] * basis, axis=0)
-                element_vectors[id_surf.index][dofs] += vals
+                # Works because of this having references to the same vector as is
+                # used for the RHS
+                element_vectors[i_element][dofs] += vals
 
     if timed:
         base_timer.stop("Boundary conditions took {} seconds.")
         base_timer.set()
 
-    sys_mat = sp.block_diag(element_matrix)
-    del element_matrix
+    # TODO: Assemble the system matrix
+
     n_lagrange_eq = len(continuity_equations)
     if continuity_equations:
         lag_rows: list[npt.NDArray[np.uint32]] = list()
         lag_cols: list[npt.NDArray[np.uint32]] = list()
         lag_vals: list[npt.NDArray[np.float64]] = list()
         lag_rhs: list[np.float64] = list()
-        element_vectors.append(np.zeros(element_tree.n_dof - element_tree.n_dof_leaves))
+        n_current: int
+        n_current = int(mat.shape[0])
 
         for i, lag_eq in enumerate(continuity_equations):
-            ieq = i + element_tree.n_dof
+            ieq = i + n_current
             # print(f"Lagrange equation {ieq}:", lag_eq)
             lag_rows.append(np.full_like(lag_eq.indices, ieq))
             lag_cols.append(lag_eq.indices)
@@ -1057,12 +929,12 @@ def solve_system_2d(
         mat_vals = np.concatenate(lag_vals + lag_vals)
 
         lagrange = sp.coo_array((mat_vals, (mat_rows, mat_cols)), dtype=np.float64)
-        element_vectors.append(np.array(lag_rhs, np.float64))
+        vec.append(np.array(lag_rhs, np.float64))
         # Make the big matrix
-        sys_mat.resize(lagrange.shape)
+        mat.resize(lagrange.shape)
 
         # Create the system matrix and vector
-        matrix = sp.csr_array(sys_mat + lagrange)
+        matrix = sp.csr_array(mat + lagrange)
 
         if timed:
             base_timer.stop(
@@ -1071,9 +943,9 @@ def solve_system_2d(
             base_timer.set()
         del continuity_equations
     else:
-        matrix = sp.csr_array(sys_mat)
-    del sys_mat
-    vector = np.concatenate(element_vectors, dtype=np.float64)
+        matrix = sp.csr_array(mat)
+    vector = np.concatenate(vec, dtype=np.float64)
+    del mat, vec
 
     # from matplotlib import pyplot as plt
 
@@ -1107,9 +979,9 @@ def solve_system_2d(
     node_array: list[npt.NDArray[np.int32]] = list()
     offset_nodes = 0
     # Loop over element
-    for ie, elm in zip(element_tree.leave_indices, leaf_elements):
+    for ie, elm in zip(element_tree.leaf_indices, leaf_elements):
         # Extract element DoFs
-        element_dofs = solution[element_tree.element_offsets[ie] :]
+        element_dofs = solution[element_offsets[ie] :]
         recon_nodes_1d = cache[elm.order].nodes_1d
         ordering = Element2D.vtk_lagrange_ordering(elm.order) + offset_nodes
         node_array.append(np.concatenate(((ordering.size,), ordering)))
@@ -1187,8 +1059,344 @@ def solve_system_2d(
     return (x, y, out, grid, stats)
 
 
+def add_element_matrix(
+    cont_indices_edges: list[int],
+    cont_indices_nodes: list[int],
+    element_tree: ElementTree,
+    i: int,
+    element_matrices: list[npt.NDArray[np.float64]],
+    element_vecs: list[npt.NDArray[np.float64]],
+    element_offsets: npt.NDArray[np.uint32],
+    element_sizes: npt.NDArray[np.uint32],
+    mat: sp.coo_array,
+    vec: list[npt.NDArray[np.float64]],
+) -> tuple[int, sp.coo_array]:
+    """Add element matrix of the element with index to the matrix."""
+    offset = element_offsets[i]
+    # Add offset for the next element
+    size = element_sizes[i]
+    element_offsets[i + 1] = offset + size
+
+    # Check if leaf element
+    if (
+        i + 1 == element_tree.n_elements
+        or element_tree.elements[i].level >= element_tree.elements[i + 1].level
+    ):
+        # Leaf element, meaning only the element matrix is added
+        assert len(element_matrices) and len(element_matrices) == len(element_vecs)
+        m = element_matrices.pop()
+        v = element_vecs.pop()
+        assert m.shape[0] == m.shape[1] and m.shape[0] == size
+        idx = offset + np.arange(size)
+        mat.resize(idx[-1] + 1, idx[-1] + 1)
+        mat += sp.coo_array((m.flatten(), (np.repeat(idx, size), np.tile(idx, size))))
+        vec.append(v)
+        return 1, mat
+
+    # A non-leaf element, meaning its four children must be found
+    n = 1
+    vec.append(np.zeros(size))
+    # Add the bottom left
+    i_bl = i + n
+    dn, mat = add_element_matrix(
+        cont_indices_edges,
+        cont_indices_nodes,
+        element_tree,
+        i_bl,
+        element_matrices,
+        element_vecs,
+        element_offsets,
+        element_sizes,
+        mat,
+        vec,
+    )
+    n += dn
+    # Add the bottom right
+    i_br = i + n
+    dn, mat = add_element_matrix(
+        cont_indices_edges,
+        cont_indices_nodes,
+        element_tree,
+        i_br,
+        element_matrices,
+        element_vecs,
+        element_offsets,
+        element_sizes,
+        mat,
+        vec,
+    )
+    n += dn
+    # Add the top left
+    i_tl = i + n
+    dn, mat = add_element_matrix(
+        cont_indices_edges,
+        cont_indices_nodes,
+        element_tree,
+        i_tl,
+        element_matrices,
+        element_vecs,
+        element_offsets,
+        element_sizes,
+        mat,
+        vec,
+    )
+    n += dn
+    # Add the top right
+    i_tr = i + n
+    dn, mat = add_element_matrix(
+        cont_indices_edges,
+        cont_indices_nodes,
+        element_tree,
+        i_tr,
+        element_matrices,
+        element_vecs,
+        element_offsets,
+        element_sizes,
+        mat,
+        vec,
+    )
+    n += dn
+    # Get the continuity equations
+    cont = parent_child_equations(
+        cont_indices_edges,
+        cont_indices_nodes,
+        element_offsets,
+        element_tree,
+        i,
+        i_bl,
+        i_br,
+        i_tl,
+        i_tr,
+    )
+    n_cont = len(cont)
+
+    lag_mult = element_offsets[i + n]
+
+    mat.resize(mat.shape[0] + n_cont, mat.shape[1] + n_cont)
+    vals: list[npt.NDArray[np.float64]] = list()
+    rows: list[npt.NDArray[np.uint32]] = list()
+    cols: list[npt.NDArray[np.uint32]] = list()
+    rhs: list[np.float64] = list()
+    for j, eq in enumerate(cont):
+        vals.append(eq.values)
+        cols.append(eq.indices)
+        rows.append(np.full_like(eq.indices, lag_mult + j))
+        rhs.append(eq.rhs)
+
+    vv = np.concatenate(vals + vals)
+    rv = np.concatenate(rows + cols)
+    cv = np.concatenate(cols + rows)
+
+    mat += sp.coo_array((vv, (rv, cv)))
+    vec.append(np.array(rhs, np.float64))
+
+    # Next element is further offset due to Lagrange multipliers
+    element_offsets[i + n] += n_cont
+
+    return n, mat
+
+
+def parent_child_equations(
+    cont_indices_edges: list[int],
+    cont_indices_nodes: list[int],
+    element_offsets: npt.NDArray[np.uint32],
+    element_tree: ElementTree,
+    idx_parent: int,
+    idx_00: int,
+    idx_01: int,
+    idx_10: int,
+    idx_11: int,
+) -> list[ConstraintEquation]:
+    """Create constraint equations for the parent-child and child-child continuity.
+
+    Parameters
+    ----------
+    const_indices_edges : list of int
+        List of 1-form indices for which continuity must be ensured.
+    const_indices_nodes : list of int
+        List of 0-form indices for which continuity must be ensured.
+    element_offsets : array
+        Array of offsets of element DoFs.
+    element_tree : ElementTree
+        Element tree in which the elements are defined.
+    idx_parent : int
+        Index of the parent element.
+    idx_00 : int
+        Index of the bottom left child element
+    idx_01 : int
+        Index of the bottom right child element.
+    idx_10 : int
+        Index of the top left child element
+    idx_11 : int
+        Index of the top right child element.
+
+    Returns
+    -------
+    list of ConstraintEquation
+        List of the constraint equations which ensure continuity between these elements.
+    """
+    child_child: list[ConstraintEquation] = list()
+    parent_child: list[ConstraintEquation] = list()
+    if cont_indices_edges:
+        # Glue 1-form edges
+        child_child += continuity_element_1_forms(
+            element_tree, element_offsets, cont_indices_edges, idx_01, idx_00, 3, 1
+        )
+        child_child += continuity_element_1_forms(
+            element_tree, element_offsets, cont_indices_edges, idx_11, idx_01, 0, 2
+        )
+        child_child += continuity_element_1_forms(
+            element_tree, element_offsets, cont_indices_edges, idx_10, idx_11, 1, 3
+        )
+        child_child += continuity_element_1_forms(
+            element_tree, element_offsets, cont_indices_edges, idx_00, idx_10, 2, 0
+        )
+
+        parent_child += continuity_parent_child_edges(
+            element_tree,
+            element_offsets,
+            cont_indices_edges,
+            idx_parent,
+            idx_00,
+            0,
+            False,
+        )
+        parent_child += continuity_parent_child_edges(
+            element_tree, element_offsets, cont_indices_edges, idx_parent, idx_01, 0, True
+        )
+        parent_child += continuity_parent_child_edges(
+            element_tree,
+            element_offsets,
+            cont_indices_edges,
+            idx_parent,
+            idx_01,
+            1,
+            False,
+        )
+        parent_child += continuity_parent_child_edges(
+            element_tree, element_offsets, cont_indices_edges, idx_parent, idx_11, 1, True
+        )
+        parent_child += continuity_parent_child_edges(
+            element_tree,
+            element_offsets,
+            cont_indices_edges,
+            idx_parent,
+            idx_11,
+            2,
+            False,
+        )
+        parent_child += continuity_parent_child_edges(
+            element_tree, element_offsets, cont_indices_edges, idx_parent, idx_10, 2, True
+        )
+        parent_child += continuity_parent_child_edges(
+            element_tree,
+            element_offsets,
+            cont_indices_edges,
+            idx_parent,
+            idx_10,
+            3,
+            False,
+        )
+        parent_child += continuity_parent_child_edges(
+            element_tree, element_offsets, cont_indices_edges, idx_parent, idx_00, 3, True
+        )
+
+    if cont_indices_nodes:
+        # Glue 0-form edges
+        child_child += continuity_0_forms_inner(
+            element_tree, element_offsets, cont_indices_nodes, 3, 1, idx_01, idx_00
+        )
+        child_child += continuity_0_forms_inner(
+            element_tree, element_offsets, cont_indices_nodes, 0, 2, idx_11, idx_01
+        )
+        child_child += continuity_0_forms_inner(
+            element_tree, element_offsets, cont_indices_nodes, 1, 3, idx_10, idx_11
+        )
+        child_child += continuity_0_forms_inner(
+            element_tree, element_offsets, cont_indices_nodes, 2, 0, idx_00, idx_10
+        )
+        # Glue the corner they all share
+        child_child += continuity_0_form_corner(
+            element_tree, element_offsets, cont_indices_nodes, 1, 3, idx_00, idx_01
+        )
+        child_child += continuity_0_form_corner(
+            element_tree, element_offsets, cont_indices_nodes, 2, 0, idx_01, idx_11
+        )
+        child_child += continuity_0_form_corner(
+            element_tree, element_offsets, cont_indices_nodes, 3, 1, idx_11, idx_10
+        )
+
+        # Glue the child corners too
+        child_child += continuity_0_form_corner(
+            element_tree, element_offsets, cont_indices_nodes, 3, 1, idx_01, idx_00
+        )
+        child_child += continuity_0_form_corner(
+            element_tree, element_offsets, cont_indices_nodes, 0, 2, idx_11, idx_01
+        )
+        child_child += continuity_0_form_corner(
+            element_tree, element_offsets, cont_indices_nodes, 1, 3, idx_10, idx_11
+        )
+        child_child += continuity_0_form_corner(
+            element_tree, element_offsets, cont_indices_nodes, 2, 0, idx_00, idx_10
+        )
+
+        # Don't add the fourth equation!
+
+        parent_child += continuity_parent_child_nodes(
+            element_tree,
+            element_offsets,
+            cont_indices_nodes,
+            idx_parent,
+            idx_00,
+            0,
+            False,
+        )
+        parent_child += continuity_parent_child_nodes(
+            element_tree, element_offsets, cont_indices_nodes, idx_parent, idx_01, 0, True
+        )
+        parent_child += continuity_parent_child_nodes(
+            element_tree,
+            element_offsets,
+            cont_indices_nodes,
+            idx_parent,
+            idx_01,
+            1,
+            False,
+        )
+        parent_child += continuity_parent_child_nodes(
+            element_tree, element_offsets, cont_indices_nodes, idx_parent, idx_11, 1, True
+        )
+        parent_child += continuity_parent_child_nodes(
+            element_tree,
+            element_offsets,
+            cont_indices_nodes,
+            idx_parent,
+            idx_11,
+            2,
+            False,
+        )
+        parent_child += continuity_parent_child_nodes(
+            element_tree, element_offsets, cont_indices_nodes, idx_parent, idx_10, 2, True
+        )
+        parent_child += continuity_parent_child_nodes(
+            element_tree,
+            element_offsets,
+            cont_indices_nodes,
+            idx_parent,
+            idx_10,
+            3,
+            False,
+        )
+        parent_child += continuity_parent_child_nodes(
+            element_tree, element_offsets, cont_indices_nodes, idx_parent, idx_00, 3, True
+        )
+
+    return child_child + parent_child
+
+
 def continuity_0_form_corner(
     element_tree: ElementTree,
+    element_offsets: npt.NDArray[np.uint32],
     cont_indices: list[int],
     side_other: int,
     side_self: int,
@@ -1201,6 +1409,8 @@ def continuity_0_form_corner(
     ----------
     element_tree : ElementTree
         Element structure for which to generate these equations.
+    element_offsets : array
+        Array of offsets of element DoFs.
     cont_indices : list[int]
         List of indices of forms for which this continuity should be applied for.
     i_other : int
@@ -1218,8 +1428,8 @@ def continuity_0_form_corner(
         List of constraint equations, which enforce continuity of 0 forms at a corner.
     """
     equations: list[ConstraintEquation] = list()
-    offset_self = element_tree.element_offsets[i_self]
-    offset_other = element_tree.element_offsets[i_other]
+    offset_self = element_offsets[i_self]
+    offset_other = element_offsets[i_other]
     dofs_other = element_tree.element_node_dofs(i_other, side_other)[-1]
     ds = element_tree.element_node_dofs(i_self, side_self)[0]
 
@@ -1242,6 +1452,7 @@ def continuity_0_form_corner(
 
 def continuity_0_forms_inner(
     element_tree: ElementTree,
+    element_offsets: npt.NDArray[np.uint32],
     cont_indices_nodes: list[int],
     side_other: int,
     side_self: int,
@@ -1254,6 +1465,8 @@ def continuity_0_forms_inner(
     ----------
     element_tree : ElementTree
         Element structure for which to generate these equations.
+    element_offsets : array
+        Array of offsets of element DoFs.
     cont_indices : list[int]
         List of indices of forms for which this continuity should be applied for.
     i_other : int
@@ -1272,8 +1485,8 @@ def continuity_0_forms_inner(
         corner.
     """
     equations: list[ConstraintEquation] = list()
-    offset_self = element_tree.element_offsets[i_self]
-    offset_other = element_tree.element_offsets[i_other]
+    offset_self = element_offsets[i_self]
+    offset_other = element_offsets[i_other]
     base_other_dofs = np.flip(element_tree.element_node_dofs(i_other, side_other))
     base_self_dofs = element_tree.element_node_dofs(i_self, side_self)
     order_self = element_tree.orders[i_self]
@@ -1328,6 +1541,7 @@ def continuity_0_forms_inner(
 
 def continuity_element_1_forms(
     element_tree: ElementTree,
+    element_offsets: npt.NDArray[np.uint32],
     cont_indices: list[int],
     i_other: int,
     i_self: int,
@@ -1340,6 +1554,8 @@ def continuity_element_1_forms(
     ----------
     element_tree : ElementTree
         Element structure for which to generate these equations.
+    element_offsets : array
+        Array of offsets of element DoFs.
     cont_indices : list[int]
         List of indices of forms for which this continuity should be applied for.
     i_other : int
@@ -1357,8 +1573,8 @@ def continuity_element_1_forms(
         List of constraint equations, which enforce continuity of 1 forms.
     """
     equations: list[ConstraintEquation] = list()
-    offset_self = element_tree.element_offsets[i_self]
-    offset_other = element_tree.element_offsets[i_other]
+    offset_self = element_offsets[i_self]
+    offset_other = element_offsets[i_other]
     base_other_dofs = np.flip(element_tree.element_edge_dofs(i_other, side_other))
     base_self_dofs = element_tree.element_edge_dofs(i_self, side_self)
     order_self = element_tree.orders[i_self]
@@ -1409,6 +1625,7 @@ def continuity_element_1_forms(
 
 def continuity_parent_child_nodes(
     element_tree: ElementTree,
+    element_offsets: npt.NDArray[np.uint32],
     cont_indices: list[int],
     i_parent: int,
     i_child: int,
@@ -1421,6 +1638,8 @@ def continuity_parent_child_nodes(
     ----------
     element_tree : ElementTree
         Element tree for which these equations should be generated.
+    element_offsets : array
+        Array of offsets of element DoFs.
     cont_indices : list[int]
         Indices of all 0-forms for which this should be applied.
     i_parent : int
@@ -1440,12 +1659,10 @@ def continuity_parent_child_nodes(
         a child.
     """
     dofs_parent = (
-        element_tree.element_node_dofs(i_parent, i_boundary)
-        + element_tree.element_offsets[i_parent]
+        element_tree.element_node_dofs(i_parent, i_boundary) + element_offsets[i_parent]
     )
     dofs_child = (
-        element_tree.element_node_dofs(i_child, i_boundary)
-        + element_tree.element_offsets[i_child]
+        element_tree.element_node_dofs(i_child, i_boundary) + element_offsets[i_child]
     )
     coeff_0, _ = continuity_child_matrices(
         element_tree.orders[i_child], element_tree.orders[i_parent]
@@ -1479,6 +1696,7 @@ def continuity_parent_child_nodes(
 
 def continuity_parent_child_edges(
     element_tree: ElementTree,
+    element_offsets: npt.NDArray[np.uint32],
     cont_indices: list[int],
     i_parent: int,
     i_child: int,
@@ -1491,6 +1709,8 @@ def continuity_parent_child_edges(
     ----------
     element_tree : ElementTree
         Element tree for which these equations should be generated.
+    element_offsets : array
+        Array of offsets of element DoFs.
     cont_indices : list[int]
         Indices of all 1-forms for which this should be applied.
     i_parent : int
@@ -1510,12 +1730,10 @@ def continuity_parent_child_edges(
         a child.
     """
     dofs_parent = (
-        element_tree.element_edge_dofs(i_parent, i_boundary)
-        + element_tree.element_offsets[i_parent]
+        element_tree.element_edge_dofs(i_parent, i_boundary) + element_offsets[i_parent]
     )
     dofs_child = (
-        element_tree.element_edge_dofs(i_child, i_boundary)
-        + element_tree.element_offsets[i_child]
+        element_tree.element_edge_dofs(i_child, i_boundary) + element_offsets[i_child]
     )
     _, coeff_1 = continuity_child_matrices(
         element_tree.orders[i_child], element_tree.orders[i_parent]

@@ -219,6 +219,7 @@ class Element2D:
         Coordinates of the top left corner.
     """
 
+    level: int
     order: int
 
     bottom_left: tuple[float, float]
@@ -232,12 +233,14 @@ class Element2D:
 
     def __init__(
         self,
+        level: int,
         p: int,
         bl: tuple[float, float],
         br: tuple[float, float],
         tr: tuple[float, float],
         tl: tuple[float, float],
     ) -> None:
+        self.level = int(level)
         self.order = int(p)
         self.bottom_left = bl
         self.bottom_right = br
@@ -938,6 +941,7 @@ class Element2D:
             + np.array(self.top_right)
         ) / 4
         btm_l = Element2D(
+            self.level + 1,
             order,
             self.bottom_left,
             tuple(bottom_mid),
@@ -945,6 +949,7 @@ class Element2D:
             tuple(left_mid),
         )
         btm_r = Element2D(
+            self.level + 1,
             order,
             tuple(bottom_mid),
             self.bottom_right,
@@ -952,6 +957,7 @@ class Element2D:
             tuple(center_mid),
         )
         top_r = Element2D(
+            self.level + 1,
             order,
             tuple(center_mid),
             tuple(right_mid),
@@ -959,9 +965,21 @@ class Element2D:
             tuple(top_mid),
         )
         top_l = Element2D(
-            order, tuple(left_mid), tuple(center_mid), tuple(top_mid), self.top_left
+            self.level + 1,
+            order,
+            tuple(left_mid),
+            tuple(center_mid),
+            tuple(top_mid),
+            self.top_left,
         )
         return ((btm_l, btm_r), (top_l, top_r))
+
+    def __repr__(self) -> str:
+        """Return string representation of the Element."""
+        return (
+            f"Element2D({self.level}, {self.order}, {self.bottom_left}, "
+            f"{self.bottom_right}, {self.top_right}, {self.top_left})"
+        )
 
 
 def rhs_2d_element_projection(
@@ -1280,6 +1298,7 @@ class Mesh2D:
             line = self.primal.get_line(s[i])
             indices[i] = line.begin.index
         return Element2D(
+            0,
             int(self.orders[idx]),
             tuple(self.positions[indices[0], :]),  # type: ignore
             tuple(self.positions[indices[1], :]),  # type: ignore

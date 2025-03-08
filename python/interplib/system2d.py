@@ -85,6 +85,8 @@ class ElementTree:
     n_dof: int
     # Total number of degrees of freedom in the leaf nodes
     n_dof_leaves: int
+    # Total number of level-zero elements
+    n_base_elements: int
     # Indices of elements on the highest level
     top_indices: npt.NDArray[np.intp]
     # Level of the elements
@@ -100,6 +102,7 @@ class ElementTree:
         # Divide the elements as long as predicate is true.
         all_elems: list[Element2D] = list()
         levels: npt.NDArray[np.uint32]
+        self.n_base_elements = len(elements)
 
         def check_refinement(
             pred: Callable[[Element2D, int], bool] | None,
@@ -604,60 +607,65 @@ def solve_system_2d(
         base_timer.stop("Pre-processing inputs for the C code took {} seconds.")
         base_timer.set()
 
-    element_matrix = compute_element_matrices_2(
-        [f.order for f in system.unknown_forms], codes, bl, br, tr, tl, orde, c_ser
-    )
+    element_matrices = {
+        int(ileaf): m
+        for ileaf, m in zip(
+            element_tree.leaf_indices,
+            compute_element_matrices_2(
+                [f.order for f in system.unknown_forms],
+                codes,
+                bl,
+                br,
+                tr,
+                tl,
+                orde,
+                c_ser,
+            ),
+            strict=True,
+        )
+    }
     del bl, br, tr, tl, orde, c_ser
 
     if timed:
         base_timer.stop("Computing element matrices took {} seconds.")
         base_timer.set()
 
-    element_vectors: list[npt.NDArray[np.float64]] = list(
-        element_rhs(system, e, cache[e.order]) for e in leaf_elements
-    )
-    reverse_matrices = list(reversed(element_matrix))
-    reverse_vectors = list(reversed(element_vectors))
+    element_vectors: dict[int, npt.NDArray[np.float64]] = {
+        int(ileaf): element_rhs(system, e, cache[e.order])
+        for ileaf, e in zip(element_tree.leaf_indices, leaf_elements, strict=True)
+    }
 
     if timed:
         base_timer.stop("Computing the RHS took {} seconds.")
         base_timer.set()
 
-    element_offsets = np.zeros(element_tree.n_elements + 1, np.uint32)
-    i = 0
-    mat_in: tuple[
-        list[npt.NDArray[np.float64]],
-        list[npt.NDArray[np.uint32]],
-        list[npt.NDArray[np.uint32]],
-    ] = (list(), list(), list())
+    base_element_offsets = np.zeros(element_tree.n_base_elements + 1, np.uint32)
+    matrices: list[npt.NDArray[np.float64] | sp.coo_array] = list()
     vec: list[npt.NDArray[np.float64]] = list()
-    while i < element_tree.n_elements:
-        dn = add_element_matrix(
+    element_begin = np.zeros(element_tree.n_elements + 1, np.uint32)
+    for i, itop in enumerate(element_tree.top_indices):
+        bvals, em, ev = element_matrix(
             cont_indices_edges,
             cont_indices_nodes,
             element_tree,
-            i,
-            reverse_matrices,
-            reverse_vectors,
-            element_offsets,
+            itop,
+            element_matrices,
+            element_vectors,
             element_tree.dof_offsets[-1],
-            mat_in,
-            vec,
         )
-        i += dn
-        # print(f"{i=} / {element_tree.n_elements}")
+        matrices.append(em)
+        vec.append(ev)
+        n_bvals = len(bvals)
+        element_begin[itop + 1 : itop + n_bvals + 1] = element_begin[itop] + bvals
+        base_element_offsets[i + 1] = base_element_offsets[i] + ev.size
 
-    mat = sp.coo_array(
-        (
-            np.concatenate(mat_in[0]),
-            (np.concatenate(mat_in[1]), np.concatenate(mat_in[2])),
-        )
-    )
+    mat = sp.block_diag(matrices)
+    del matrices
 
     if timed:
         base_timer.stop("Assembling the main matrix took {} seconds.")
         base_timer.set()
-    assert len(reverse_matrices) == 0 and len(reverse_vectors) == 0
+
     # Apply lagrange multipliers for continuity
     continuity_equations: list[ConstraintEquation] = list()
 
@@ -684,8 +692,8 @@ def solve_system_2d(
                     i_self,
                     find_boundary_id(s_other, il),
                     find_boundary_id(s_self, il),
-                    element_offsets[i_other],
-                    element_offsets[i_self],
+                    base_element_offsets[idx_neighbour.index],
+                    base_element_offsets[idx_self.index],
                 )
             )
 
@@ -716,8 +724,8 @@ def solve_system_2d(
                     find_boundary_id(s_self, il),
                     i_other,
                     i_self,
-                    element_offsets[i_other],
-                    element_offsets[i_self],
+                    base_element_offsets[idx_neighbour.index],
+                    base_element_offsets[idx_self.index],
                 )
             )
 
@@ -762,8 +770,8 @@ def solve_system_2d(
                         find_boundary_id(s_self, id_line.index),
                         i_other,
                         i_self,
-                        element_offsets[i_other],
-                        element_offsets[i_self],
+                        base_element_offsets[idx_neighbour.index],
+                        base_element_offsets[idx_self.index],
                     )
                 )
 
@@ -814,7 +822,9 @@ def solve_system_2d(
                 assert surf_id is not None
 
                 dof_offsets = np.astype(
-                    dof_offsets + self_var_offset[i_element] + element_offsets[i_element],
+                    dof_offsets
+                    + self_var_offset[i_element]
+                    + base_element_offsets[surf_id.index],
                     np.uint32,
                 )
                 assert dof_offsets is not None
@@ -994,6 +1004,8 @@ def solve_system_2d(
     # plt.show()
 
     # exit()
+
+    # np.savetxt("test_mat.dat", matrix.toarray())
     # Solve the system
     if timed:
         base_timer.stop("Preparing the system took {} seconds.")
@@ -1021,7 +1033,7 @@ def solve_system_2d(
     # Loop over element
     for ie, elm in zip(element_tree.leaf_indices, leaf_elements):
         # Extract element DoFs
-        element_dofs = solution[element_offsets[ie] :]
+        element_dofs = solution[element_begin[ie] : element_begin[ie + 1]]
         recon_nodes_1d = cache[elm.order].nodes_1d
         ordering = Element2D.vtk_lagrange_ordering(elm.order) + offset_nodes
         node_array.append(np.concatenate(((ordering.size,), ordering)))
@@ -1107,10 +1119,15 @@ def element_matrix(
     element_matrices: dict[int, npt.NDArray[np.float64]],
     element_vecs: dict[int, npt.NDArray[np.float64]],
     element_sizes: npt.NDArray[np.uint32],
-) -> tuple[npt.NDArray[np.float64] | sp.coo_array, npt.NDArray[np.float64]]:
+) -> tuple[
+    npt.NDArray[np.uint32],
+    npt.NDArray[np.float64] | sp.coo_array,
+    npt.NDArray[np.float64],
+]:
     """Add element matrix of the element with the specified index."""
     # Add offset for the next element
     size = element_sizes[i]
+    curr_size = np.array([size], np.uint32)
 
     # Check if leaf element
     if (
@@ -1122,7 +1139,8 @@ def element_matrix(
         m = element_matrices[i]
         v = element_vecs[i]
         assert m.shape[0] == m.shape[1] and m.shape[0] == size
-        return (m, v)
+        assert m.shape[0] == v.size
+        return (curr_size, m, v)
 
     vec: list[npt.NDArray[np.float64]] = list()
     # A non-leaf element, meaning its four children must be found
@@ -1144,7 +1162,7 @@ def element_matrix(
         npt.NDArray[np.float64],
     ]
 
-    mats, vecs = zip(
+    sizes, mats, vecs = zip(
         *(
             element_matrix(
                 cont_indices_edges,
@@ -1158,7 +1176,12 @@ def element_matrix(
             for c_idx in child_indices
         )
     )
-    offsets = np.pad(np.cumsum([v.size for v in vecs]), (1, 0))[:-1] + size
+
+    for m, v in zip(mats, vecs):
+        assert m.shape[0] == m.shape[1] and m.shape[0] and v.size
+
+    vec.extend(vecs)
+    offsets = np.pad(np.cumsum([size] + [v.size for v in vecs]), (1, 0))
 
     # Get the continuity equations
     cont = parent_child_equations(
@@ -1167,8 +1190,7 @@ def element_matrix(
         element_tree,
         i,
         *child_indices,
-        0,
-        *offsets,
+        *offsets[:-1],
     )
     # n_cont = len(cont)
 
@@ -1190,6 +1212,7 @@ def element_matrix(
     cv = np.concatenate(cols)
 
     lag_mat = sp.coo_array((vv, (rv, cv)))
+    lag_mat.resize((len(cont), offsets[-1]))
     combined = sp.block_diag([np.zeros((size, size)), *mats])
 
     resulting = sp.block_array([[combined, lag_mat.T], [lag_mat, None]])
@@ -1197,7 +1220,12 @@ def element_matrix(
 
     vec.append(np.array(rhs, np.float64))
 
-    return resulting, np.concatenate(vecs)
+    size_list = [curr_size]
+    for s in sizes:
+        size_list.append(s + size_list[-1][-1])
+    size_list[-1][-1] += len(cont)
+
+    return np.concatenate(size_list), resulting, np.concatenate(vec)
 
 
 def add_element_matrix(

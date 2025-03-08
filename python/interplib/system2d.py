@@ -453,6 +453,7 @@ def solve_system_2d(
     div_predicate: Callable[[Element2D, int], bool] | None = None,
     *,
     timed: bool = False,
+    recon_order: int | None = None,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -479,6 +480,9 @@ def solve_system_2d(
         Callable used to determine if an element should be divided further.
     timed : bool, default: False
         Report time taken for different parts of the code.
+    recon_order : int, optional
+        When specified, all elements will be reconstructed using this polynomial order.
+        Otherwise, they are reconstructed with their own order.
 
     Returns
     -------
@@ -566,7 +570,11 @@ def solve_system_2d(
     # Make element matrices and vectors
     cache: dict[int, BasisCache] = dict()
     for order in np.unique(element_tree.orders):
-        cache[int(order)] = BasisCache(int(order), 3 * int(order))
+        cache[int(order)] = BasisCache(int(order), int(order) + 2)
+
+    if recon_order is not None and recon_order not in cache:
+        cache[int(recon_order)] = BasisCache(int(recon_order), int(recon_order))
+
     bytecodes = [translate_equation(eq.left, simplify=True) for eq in system.equations]
 
     codes = []
@@ -642,7 +650,9 @@ def solve_system_2d(
     base_element_offsets = np.zeros(element_tree.n_base_elements + 1, np.uint32)
     matrices: list[npt.NDArray[np.float64] | sp.coo_array] = list()
     vec: list[npt.NDArray[np.float64]] = list()
-    element_begin = np.zeros(element_tree.n_elements + 1, np.uint32)
+    element_begin = np.zeros(
+        element_tree.n_elements + 1, np.uint32
+    )  # Element beginning offsets
     for i, itop in enumerate(element_tree.top_indices):
         bvals, em, ev = element_matrix(
             cont_indices_edges,
@@ -659,8 +669,9 @@ def solve_system_2d(
         element_begin[itop + 1 : itop + n_bvals + 1] = element_begin[itop] + bvals
         base_element_offsets[i + 1] = base_element_offsets[i] + ev.size
 
-    mat = sp.block_diag(matrices)
-    del matrices
+    main_mat = sp.block_diag(matrices, format="csc")
+    main_vec = np.concatenate(vec)
+    del matrices, vec, element_matrices, element_vectors
 
     if timed:
         base_timer.stop("Assembling the main matrix took {} seconds.")
@@ -947,9 +958,10 @@ def solve_system_2d(
                     ]
                 )
                 vals = c * np.sum(f_vals[..., None] * basis, axis=0)
-                # Works because of this having references to the same vector as is
-                # used for the RHS
-                element_vectors[i_element][dofs] += vals
+                # element_vectors[i_element][dofs] += vals
+                main_vec[element_begin[i_element] : element_begin[i_element + 1]][
+                    dofs
+                ] += vals
 
     if timed:
         base_timer.stop("Boundary conditions took {} seconds.")
@@ -958,44 +970,38 @@ def solve_system_2d(
     # TODO: Assemble the system matrix
 
     n_lagrange_eq = len(continuity_equations)
+
     if continuity_equations:
         lag_rows: list[npt.NDArray[np.uint32]] = list()
         lag_cols: list[npt.NDArray[np.uint32]] = list()
         lag_vals: list[npt.NDArray[np.float64]] = list()
         lag_rhs: list[np.float64] = list()
-        n_current: int
-        n_current = int(mat.shape[0])
 
-        for i, lag_eq in enumerate(continuity_equations):
-            ieq = i + n_current
-            # print(f"Lagrange equation {ieq}:", lag_eq)
+        for ieq, lag_eq in enumerate(continuity_equations):
             lag_rows.append(np.full_like(lag_eq.indices, ieq))
             lag_cols.append(lag_eq.indices)
             lag_vals.append(lag_eq.values)
             lag_rhs.append(lag_eq.rhs)
 
-        mat_rows = np.concatenate(lag_rows + lag_cols, dtype=int)
-        mat_cols = np.concatenate(lag_cols + lag_rows, dtype=int)
-        mat_vals = np.concatenate(lag_vals + lag_vals)
+        mat_rows = np.concatenate(lag_rows, dtype=int)
+        mat_cols = np.concatenate(lag_cols, dtype=int)
+        mat_vals = np.concatenate(lag_vals)
 
-        lagrange = sp.coo_array((mat_vals, (mat_rows, mat_cols)), dtype=np.float64)
-        vec.append(np.array(lag_rhs, np.float64))
-        # Make the big matrix
-        mat.resize(lagrange.shape)
-
-        # Create the system matrix and vector
-        matrix = sp.csr_array(mat + lagrange)
-
+        lagrange_mat = sp.csc_array((mat_vals, (mat_rows, mat_cols)), dtype=np.float64)
+        lagrange_mat.resize(n_lagrange_eq, element_begin[-1])
+        del mat_rows, mat_cols, mat_vals
+        main_mat = sp.block_array(
+            [[main_mat, lagrange_mat.T], [lagrange_mat, None]], format="csc"
+        )
+        del lagrange_mat
         if timed:
-            base_timer.stop(
-                f"Adding {n_lagrange_eq} lagrange multipliers" + " took {} seconds."
-            )
+            base_timer.stop("Preparing the system took {} seconds.")
             base_timer.set()
-        del continuity_equations
-    else:
-        matrix = sp.csr_array(mat)
-    vector = np.concatenate(vec, dtype=np.float64)
-    del mat, vec
+        main_vec = np.concatenate((main_vec, lag_rhs))
+
+    solution = sla.spsolve(main_mat, main_vec)
+
+    del main_mat, main_vec, continuity_equations
 
     # from matplotlib import pyplot as plt
 
@@ -1007,12 +1013,6 @@ def solve_system_2d(
 
     # np.savetxt("test_mat.dat", matrix.toarray())
     # Solve the system
-    if timed:
-        base_timer.stop("Preparing the system took {} seconds.")
-        base_timer.set()
-
-    solution = sla.spsolve(matrix, vector)
-    del matrix, vector
 
     if timed:
         base_timer.stop("Solving took {} seconds.")
@@ -1034,8 +1034,9 @@ def solve_system_2d(
     for ie, elm in zip(element_tree.leaf_indices, leaf_elements):
         # Extract element DoFs
         element_dofs = solution[element_begin[ie] : element_begin[ie + 1]]
-        recon_nodes_1d = cache[elm.order].nodes_1d
-        ordering = Element2D.vtk_lagrange_ordering(elm.order) + offset_nodes
+        element_order = elm.order if recon_order is None else int(recon_order)
+        recon_nodes_1d = cache[element_order].nodes_1d
+        ordering = Element2D.vtk_lagrange_ordering(element_order) + offset_nodes
         node_array.append(np.concatenate(((ordering.size,), ordering)))
         offset_nodes += ordering.size
 

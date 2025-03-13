@@ -740,23 +740,26 @@ def evaluate_element_matrix(
 
 
 def compute_element_matrices(
-    expr_mat: Sequence[Sequence[None | Sequence[MatOp]]],
-    order: int,
-    form_sizes: Sequence[int],
     bl: jax.Array,
     br: jax.Array,
     tr: jax.Array,
     tl: jax.Array,
+    order: int,
+    form_orders: Sequence[int],
+    expr_mat: Sequence[Sequence[None | Sequence[MatOp]]],
     caches: dict[int, BasisCache],
 ) -> jax.Array:
     """Comnpute element matrices."""
+    print(f"Evaluating function for order {order}")
     # Compute mass matrices
     cache = caches[order]
+    int_nodes_1d = jax.device_put(cache.int_nodes_1d)
     (j00, j01), (j10, j11), det = compute_jacobian(
-        bl, br, tr, tl, cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None]
+        bl, br, tr, tl, int_nodes_1d[None, :], int_nodes_1d[:, None]
     )
-    mat_mass_0 = jnp.sum(cache.mass_node_precomp * det, axis=(-2, -1))
-    precomp_edge = cache.mass_edge_precomp
+    mass_node_precomp = jax.device_put(cache.mass_node_precomp)
+    mat_mass_0 = jnp.sum(mass_node_precomp * det, axis=(-2, -1))
+    precomp_edge = jax.device_put(cache.mass_edge_precomp)
     nb = precomp_edge.shape[0] // 2
 
     khh = j11**2 + j10**2
@@ -778,8 +781,21 @@ def compute_element_matrices(
         [[mat_mass_1_00, mat_mass_1_01], [mat_mass_1_01.T, mat_mass_1_11]]
     )
     del mat_mass_1_01, mat_mass_1_00, mat_mass_1_11
-    mat_mass_2 = jnp.sum(cache.mass_surf_precomp / det, axis=(-2, -1))
+    mass_surf_precomp = jax.device_put(cache.mass_surf_precomp)
+    mat_mass_2 = jnp.sum(mass_surf_precomp / det, axis=(-2, -1))
 
+    form_sz: list[int] = list()
+    for f_order in form_orders:
+        if f_order == 0:
+            form_sz.append((order + 1) ** 2)
+        elif f_order == 1:
+            form_sz.append((order + 1) * order * 2)
+        elif f_order == 2:
+            form_sz.append(order**2)
+        else:
+            raise ValueError(f"Can not have a form of order {f_order}.")
+
+    form_sizes = np.array(form_sz)
     n_form = len(form_sizes)
     blocks: list[list[jax.Array]] = list()
     for iform in range(n_form):
@@ -815,52 +831,66 @@ def compute_element_matrices(
     return jnp.block(blocks)
 
 
-# if __name__ == "__main__":
-#     jax.config.update("jax_enable_x64", True)
+if __name__ == "__main__":
+    jax.config.update("jax_enable_x64", True)
 
-#     np.random.seed(0)
+    np.random.seed(0)
 
-#     instructions: tuple[tuple[None | tuple[MatOp, ...], ...], ...] = (
-#         ((Identity(),), (Incidence(1, 0), MassMat(2, False), Transpose())),
-#         ((Incidence(1, 0), MassMat(2, False)), None),
-#     )
-#     order = 1
+    instructions: tuple[tuple[None | tuple[MatOp, ...], ...], ...] = (
+        ((MassMat(1, False),), (Incidence(1, 0), MassMat(2, False), Transpose())),
+        ((Incidence(1, 0), MassMat(2, False)), None),
+    )
 
-#     caches = {o: BasisCache(o, 2 * o) for o in range(1, 5)}
+    caches = {o: BasisCache(o, 2 * o) for o in range(1, 10)}
 
-#     res = compute_element_matrices(
-#         instructions,
-#         order,
-#         [order * (order + 1) * 2, order**2],
-#         np.array((0, 0)),
-#         np.array((1, 0)),
-#         np.array((1, 1)),
-#         np.array((0, 1)),
-#         caches,
-#     )
+    order = 1
 
-#     from functools import partial
+    # res = compute_element_matrices(
+    #     np.array((0, 0)),
+    #     np.array((1, 0)),
+    #     np.array((1, 1)),
+    #     np.array((0, 1)),
+    #     order,
+    #     [1, 2],
+    #     instructions,
+    #     caches,
+    # )
 
-#     partial_func = partial(compute_element_matrices, caches=caches)
-#     compiled_func = partial(
-#         jax.jit(partial_func, static_argnames=("expr_mat", "order", "form_sizes")),
-#         expr_mat=instructions,
-#     )
+    from functools import partial
 
-#     NE = 3
-#     blvs = np.full((NE, 2), (0, 0))
-#     brvs = np.full((NE, 2), (1, 0))
-#     trvs = np.full((NE, 2), (1, 1))
-#     tlvs = np.full((NE, 2), (0, 1))
-#     orders = np.array((1, 2, 3))
+    partial_func = partial(
+        compute_element_matrices, caches=caches, expr_mat=instructions, form_orders=(1, 2)
+    )
+    compiled_func = jax.jit(
+        partial_func, static_argnames=("expr_mat", "order", "form_orders")
+    )
 
-#     for i in range(NE):
-#         v = compiled_func(
-#             order=orders[i],
-#             form_sizes=(orders[i] * (order + 1) * 2, order**2),
-#             bl=blvs[i],
-#             br=brvs[i],
-#             tr=trvs[i],
-#             tl=tlvs[i],
-#         )
-#         print(v)
+    NE = 100000
+    blvs = np.full((NE, 2), np.array((0, 0)))
+    brvs = np.full((NE, 2), np.array((1, 0)))
+    trvs = np.full((NE, 2), np.array((1, 1)))
+    tlvs = np.full((NE, 2), np.array((0, 1)))
+    np.random.seed(0)
+    orders = np.random.randint(1, 4, NE)
+    orders[0] = 2
+
+    res: list[jax.Array] = []
+
+    # Run the operations to be profiled
+    from time import perf_counter
+
+    t0 = perf_counter()
+    for i in range(NE):
+        v = compiled_func(
+            order=orders[i],
+            bl=jax.device_put(blvs[i, :]),
+            br=jax.device_put(brvs[i, :]),
+            tr=jax.device_put(trvs[i, :]),
+            tl=jax.device_put(tlvs[i, :]),
+        )
+        # print(f"Did element {i}: {orders[i]}")
+        res.append(v)
+    for v in res:
+        v.block_until_ready()
+    t1 = perf_counter()
+    print(f"{NE} elements took {t1 - t0:g} seconds")

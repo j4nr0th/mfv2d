@@ -648,7 +648,7 @@ def solve_system_2d(
         base_timer.set()
 
     base_element_offsets = np.zeros(element_tree.n_base_elements + 1, np.uint32)
-    matrices: list[npt.NDArray[np.float64] | sp.coo_array] = list()
+    matrices: list[sp.coo_array] = list()
     vec: list[npt.NDArray[np.float64]] = list()
     element_begin = np.zeros(
         element_tree.n_elements + 1, np.uint32
@@ -669,7 +669,7 @@ def solve_system_2d(
         element_begin[itop + 1 : itop + n_bvals + 1] = element_begin[itop] + bvals
         base_element_offsets[i + 1] = base_element_offsets[i] + ev.size
 
-    main_mat = sp.block_diag(matrices, format="csc")
+    main_mat = sp.block_diag(matrices)
     main_vec = np.concatenate(vec)
     del matrices, vec, element_matrices, element_vectors
 
@@ -990,15 +990,14 @@ def solve_system_2d(
         lagrange_mat = sp.csc_array((mat_vals, (mat_rows, mat_cols)), dtype=np.float64)
         lagrange_mat.resize(n_lagrange_eq, element_begin[-1])
         del mat_rows, mat_cols, mat_vals
-        main_mat = sp.block_array(
-            [[main_mat, lagrange_mat.T], [lagrange_mat, None]], format="csc"
-        )
+        main_mat = sp.block_array([[main_mat, lagrange_mat.T], [lagrange_mat, None]])
         del lagrange_mat
         if timed:
             base_timer.stop("Preparing the system took {} seconds.")
             base_timer.set()
         main_vec = np.concatenate((main_vec, lag_rhs))
 
+    main_mat = sp.csc_array(main_mat)
     solution = sla.spsolve(main_mat, main_vec)
 
     del main_mat, main_vec, continuity_equations
@@ -1122,7 +1121,7 @@ def element_matrix(
     element_sizes: npt.NDArray[np.uint32],
 ) -> tuple[
     npt.NDArray[np.uint32],
-    npt.NDArray[np.float64] | sp.coo_array,
+    sp.coo_array,
     npt.NDArray[np.float64],
 ]:
     """Add element matrix of the element with the specified index."""
@@ -1141,7 +1140,7 @@ def element_matrix(
         v = element_vecs[i]
         assert m.shape[0] == m.shape[1] and m.shape[0] == size
         assert m.shape[0] == v.size
-        return (curr_size, m, v)
+        return (curr_size, sp.coo_array(m), v)
 
     vec: list[npt.NDArray[np.float64]] = list()
     # A non-leaf element, meaning its four children must be found
@@ -1214,7 +1213,7 @@ def element_matrix(
 
     lag_mat = sp.coo_array((vv, (rv, cv)))
     lag_mat.resize((len(cont), offsets[-1]))
-    combined = sp.block_diag([np.zeros((size, size)), *mats])
+    combined = sp.block_diag([sp.coo_array((size, size)), *mats])
 
     resulting = sp.block_array([[combined, lag_mat.T], [lag_mat, None]])
     assert isinstance(resulting, sp.coo_array)

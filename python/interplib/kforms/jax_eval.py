@@ -1,10 +1,9 @@
 """JAX-friendly evaluation of element matrices."""
 
-from collections.abc import Callable
 from dataclasses import dataclass, replace
 from enum import IntEnum
-from functools import partial
-from time import perf_counter
+
+# from time import perf_counter
 from typing import Sequence
 
 import jax
@@ -639,10 +638,6 @@ def compute_element_matrices(
     br: jax.Array,
     tr: jax.Array,
     tl: jax.Array,
-    int_nodes_1d: npt.NDArray,
-    mass_node_precomp: npt.NDArray,
-    mass_edge_precomp: npt.NDArray,
-    mass_surf_precomp: npt.NDArray,
     order: int,
     form_orders: Sequence[int],
     expr_mat: Sequence[Sequence[None | Sequence[MatOp]]],
@@ -664,14 +659,6 @@ def compute_element_matrices(
         Coordinates of the top left corner.
     tr : (float, float)
         Coordinates of the top right corner.
-    int_nodes_1d (N,) array
-        Array of 1D integration nodes used for the pre-computed arrays.
-    mass_node_precomp (M_0, M_0, N, N) array
-        Array from which the node  mass matrix can be pre-computed.
-    mass_edge_precomp (M_1, M_1, N, N) array
-        Array from which the edge mass matrix can be pre-computed.
-    mass_surf_precomp (M_2, M_2, N, N) array
-        Array from which the surface mass matrix can be pre-computed.
     order : int
         Order of the element.
     form_orders : Sequence[int]
@@ -684,9 +671,15 @@ def compute_element_matrices(
     array
         Element matrix for this element.
     """
-    print(f"Evaluating function for order {order}")
-    t0 = perf_counter()
+    # print(f"Evaluating function for order {order}")
+    # t0 = perf_counter()
     # Compute mass matrices
+    c = BasisCache(order, 2 * order)
+    int_nodes_1d = c.int_nodes_1d
+    mass_node_precomp = c.mass_node_precomp
+    mass_edge_precomp = c.mass_edge_precomp
+    mass_surf_precomp = c.mass_surf_precomp
+    del c
     (j00, j01), (j10, j11), det = compute_jacobian(
         bl, br, tr, tl, int_nodes_1d[None, :], int_nodes_1d[:, None]
     )
@@ -757,8 +750,8 @@ def compute_element_matrices(
                     jnp.zeros((form_sizes[iform], form_sizes[jform]), jnp.float64)
                 )
         blocks.append(row_blocks)
-    t1 = perf_counter()
-    print(f"Compiling order {order} function took {t1 - t0:g} seconds.")
+    # t1 = perf_counter()
+    # print(f"Compiling order {order} function took {t1 - t0:g} seconds.")
     return jnp.block(blocks)
 
 
@@ -790,8 +783,15 @@ class ElementMatrixResults:
         group_offset = np.flatnonzero(self._group_indices[group_index] == element)
         assert len(group_offset) == 1
         return jnp.reshape(
-            group_array[group_offset, :, :], (group_array.shape[1], group_array.shape[2])
+            group_array[group_offset[0], :, :],
+            (group_array.shape[1], group_array.shape[2]),
         )
+
+
+compiled_element_function = jax.jit(compute_element_matrices, static_argnums=(4, 5, 6))
+mapped_element_function = jax.vmap(
+    compiled_element_function, in_axes=(0, 0, 0, 0, None, None, None)
+)
 
 
 def compute_element_matrices_3(
@@ -802,7 +802,6 @@ def compute_element_matrices_3(
     pos_tr: npt.NDArray[np.float64],
     pos_tl: npt.NDArray[np.float64],
     element_orders: npt.NDArray[np.uint32],
-    caches: dict[int, BasisCache],
 ) -> ElementMatrixResults:
     """Evaluate element matrices using JAX.
 
@@ -829,54 +828,38 @@ def compute_element_matrices_3(
     element_orders : (N,) array
         Orders of the elements.
 
-    caches : dict of int -> BasisCache
-        Caches to be used for each of the element orders.
-
     Returns
     -------
     ElementMatrixResults
 
     """
-    funcs: dict[int, Callable] = dict()
-    for order in caches:
-        c = caches[order]
-
-        partial_func = partial(
-            compute_element_matrices,
-            expr_mat=expressions,
-            form_orders=form_orders,
-            order=order,
-            int_nodes_1d=c.int_nodes_1d,
-            mass_node_precomp=c.mass_node_precomp,
-            mass_edge_precomp=c.mass_edge_precomp,
-            mass_surf_precomp=c.mass_surf_precomp,
-        )
-
-        compiled_func = jax.jit(partial_func)
-        c.clean()
-        del c
-        fn = jax.vmap(
-            compiled_func,
-            in_axes=(0, 0, 0, 0),
-            out_axes=0,
-        )
-        funcs[order] = fn
-        del fn, compiled_func, partial_func
+    unique_orders = np.unique(element_orders)
+    # compiled_func = jax.jit(
+    #     compute_element_matrices, static_argnums=(4, 5, 6)
+    # )
+    # fn = jax.vmap(
+    #     compiled_func,
+    #     in_axes=(0, 0, 0, 0, None, None, None),
+    #     out_axes=0,
+    # )
+    fn = mapped_element_function
 
     base_indices: dict[int, int] = dict()
     contents: list[npt.NDArray[np.intp]] = list()
     results: list[jax.Array] = list()
-    for ifun, order in enumerate(funcs):
-        fn = funcs[order]
+    for ifun, order in enumerate(unique_orders):
         mask = np.flatnonzero(element_orders == order)
         contents.append(mask)
-        base_indices[order] = ifun
+        base_indices[int(order)] = int(ifun)
         results.append(
             fn(
                 jax.device_put(pos_bl[mask, :]),
                 jax.device_put(pos_br[mask, :]),
                 jax.device_put(pos_tr[mask, :]),
                 jax.device_put(pos_tl[mask, :]),
+                order,
+                tuple(form_orders),
+                expressions,
             )
         )
 

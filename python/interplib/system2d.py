@@ -490,6 +490,13 @@ def solve_system_2d(
         Compute element matrices one the GPU using Jax. This improves performance, but
         might yield worse rounding.
 
+    Note
+    ----
+
+    When running on the GPU, ``jax`` defaults to using ``f32`` for its calculations. This
+    causes a loss of accuracy, so in that case, make sure you use
+    ``jax.config.update("jax_enable_x64", True)`` to force it to use 64-bit floats.
+
     Returns
     -------
     x : array
@@ -617,16 +624,12 @@ def solve_system_2d(
     element_matrices: dict[int, npt.NDArray[np.float64] | jax.Array]
 
     if gpu:
+        prev_value = jax.config.jax_enable_x64
+        jax.config.update("jax_enable_x64", True)
         matrices_2 = compute_element_matrices_3(
-            [f.order for f in system.unknown_forms],
-            expr_mat,
-            bl,
-            br,
-            tr,
-            tl,
-            orde,
-            {order: cache[order] for order in unique_child_orders},
+            [f.order for f in system.unknown_forms], expr_mat, bl, br, tr, tl, orde
         )
+        jax.config.update("jax_enable_x64", prev_value)
         element_matrices = {
             int(ileaf): matrices_2.element_matrix(ielem)
             for ielem, ileaf in enumerate(element_tree.leaf_indices)

@@ -8,6 +8,7 @@ from functools import cache
 from itertools import accumulate
 from typing import Literal
 
+import jax
 import numpy as np
 import numpy.typing as npt
 import pyvista as pv
@@ -23,7 +24,8 @@ from interplib._mimetic import (
     compute_element_matrices_2,
     #     continuity,
 )
-from interplib.kforms.eval import _ctranslate, translate_equation
+from interplib.kforms.eval import MatOp, MatOpCode, _ctranslate, translate_equation
+from interplib.kforms.jax_eval import compute_element_matrices_3
 from interplib.kforms.kform import KBoundaryProjection
 from interplib.mimetic.mimetic2d import BasisCache, Element2D, Mesh2D, element_rhs
 from interplib.prof import PerfTimer
@@ -454,6 +456,7 @@ def solve_system_2d(
     *,
     timed: bool = False,
     recon_order: int | None = None,
+    gpu: bool = False,
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -483,6 +486,9 @@ def solve_system_2d(
     recon_order : int, optional
         When specified, all elements will be reconstructed using this polynomial order.
         Otherwise, they are reconstructed with their own order.
+    gpu : bool, default: False
+        Compute element matrices one the GPU using Jax. This improves performance, but
+        might yield worse rounding.
 
     Returns
     -------
@@ -577,62 +583,92 @@ def solve_system_2d(
 
     bytecodes = [translate_equation(eq.left, simplify=True) for eq in system.equations]
 
-    codes = []
+    codes: list[list[None | list[MatOpCode | float | int]]] = list()
+    expr_array: list[tuple[None | tuple[MatOp, ...], ...]] = list()
     for bite in bytecodes:
-        row: list[list | None] = []
+        row: list[list[MatOpCode | float | int] | None] = list()
+        expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
                 row.append(_ctranslate(*bite[f]))
+                expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
+                expr_row.append(None)
+
         codes.append(row)
+        expr_array.append(tuple(expr_row))
+    expr_mat = tuple(expr_array)
+    del expr_array
 
     bl = np.array([e.bottom_left for e in leaf_elements])
     br = np.array([e.bottom_right for e in leaf_elements])
     tr = np.array([e.top_right for e in leaf_elements])
     tl = np.array([e.top_left for e in leaf_elements])
     orde = np.array([e.order for e in leaf_elements], np.uint32)
-    c_ser: list[
-        tuple[
-            int,
-            int,
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-            npt.NDArray[np.float64],
-        ]
-    ] = list()
 
     # Release cache element memory. If they will be needed in the future,
     # they will be recomputed, but they consume LOTS of memory
-    for o in np.unique(element_tree.orders[~element_tree.children]):
-        c_ser.append(cache[o].c_serialization())
-        cache[o].clean()
+    unique_child_orders = np.unique(element_tree.orders[~element_tree.children])
 
     if timed:
-        base_timer.stop("Pre-processing inputs for the C code took {} seconds.")
+        base_timer.stop("Pre-processing inputs took {} seconds.")
         base_timer.set()
+    element_matrices: dict[int, npt.NDArray[np.float64] | jax.Array]
 
-    element_matrices = {
-        int(ileaf): m
-        for ileaf, m in zip(
-            element_tree.leaf_indices,
-            compute_element_matrices_2(
-                [f.order for f in system.unknown_forms],
-                codes,
-                bl,
-                br,
-                tr,
-                tl,
-                orde,
-                c_ser,
-            ),
-            strict=True,
+    if gpu:
+        matrices_2 = compute_element_matrices_3(
+            [f.order for f in system.unknown_forms],
+            expr_mat,
+            bl,
+            br,
+            tr,
+            tl,
+            orde,
+            {order: cache[order] for order in unique_child_orders},
         )
-    }
-    del bl, br, tr, tl, orde, c_ser
+        element_matrices = {
+            int(ileaf): matrices_2.element_matrix(ielem)
+            for ielem, ileaf in enumerate(element_tree.leaf_indices)
+        }
+        del matrices_2
+    else:
+        c_ser: list[
+            tuple[
+                int,
+                int,
+                npt.NDArray[np.float64],
+                npt.NDArray[np.float64],
+                npt.NDArray[np.float64],
+                npt.NDArray[np.float64],
+                npt.NDArray[np.float64],
+                npt.NDArray[np.float64],
+            ]
+        ] = list()
+
+        for o in unique_child_orders:
+            c_ser.append(cache[o].c_serialization())
+            cache[o].clean()
+
+        element_matrices = {
+            int(ileaf): m
+            for ileaf, m in zip(
+                element_tree.leaf_indices,
+                compute_element_matrices_2(
+                    [f.order for f in system.unknown_forms],
+                    codes,
+                    bl,
+                    br,
+                    tr,
+                    tl,
+                    orde,
+                    c_ser,
+                ),
+                strict=True,
+            )
+        }
+        del c_ser
+    del bl, br, tr, tl, orde, unique_child_orders
 
     if timed:
         base_timer.stop("Computing element matrices took {} seconds.")
@@ -1116,7 +1152,7 @@ def element_matrix(
     cont_indices_nodes: list[int],
     element_tree: ElementTree,
     i: int,
-    element_matrices: dict[int, npt.NDArray[np.float64]],
+    element_matrices: dict[int, npt.NDArray[np.float64] | jax.Array],
     element_vecs: dict[int, npt.NDArray[np.float64]],
     element_sizes: npt.NDArray[np.uint32],
 ) -> tuple[

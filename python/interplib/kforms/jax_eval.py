@@ -1,7 +1,9 @@
 """JAX-friendly evaluation of element matrices."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from enum import IntEnum
+from functools import partial
 from time import perf_counter
 from typing import Sequence
 
@@ -614,7 +616,7 @@ def evaluate_element_matrix(
 
     if len(stack):
         raise ValueError(f"{len(stack)} matrices still on the stack.")
-    # TODO: return a full matrix
+
     if val is None:
         raise ValueError("No current state.")
     if len(stack):
@@ -637,15 +639,51 @@ def compute_element_matrices(
     br: jax.Array,
     tr: jax.Array,
     tl: jax.Array,
-    int_nodes_1d: jax.Array,
-    mass_node_precomp: jax.Array,
-    mass_edge_precomp: jax.Array,
-    mass_surf_precomp: jax.Array,
+    int_nodes_1d: npt.NDArray,
+    mass_node_precomp: npt.NDArray,
+    mass_edge_precomp: npt.NDArray,
+    mass_surf_precomp: npt.NDArray,
     order: int,
     form_orders: Sequence[int],
     expr_mat: Sequence[Sequence[None | Sequence[MatOp]]],
 ) -> jax.Array:
-    """Comnpute element matrices."""
+    """Comnpute element matrices using JAX.
+
+    By using :func:`functools.partial`, it is possible to fix all arguments except the
+    first four. This makes the function able to be re-used for different elements of the
+    same order. This partial function can then also be used with `jax.jit` and `jax.vmap`
+    in order to vectorize it and JIT compile it.
+
+    Parameters
+    ----------
+    bl : (float, float)
+        Coordinates of the bottom left corner.
+    br : (float, float)
+        Coordinates of the bottom right corner.
+    tl : (float, float)
+        Coordinates of the top left corner.
+    tr : (float, float)
+        Coordinates of the top right corner.
+    int_nodes_1d (N,) array
+        Array of 1D integration nodes used for the pre-computed arrays.
+    mass_node_precomp (M_0, M_0, N, N) array
+        Array from which the node  mass matrix can be pre-computed.
+    mass_edge_precomp (M_1, M_1, N, N) array
+        Array from which the edge mass matrix can be pre-computed.
+    mass_surf_precomp (M_2, M_2, N, N) array
+        Array from which the surface mass matrix can be pre-computed.
+    order : int
+        Order of the element.
+    form_orders : Sequence[int]
+        Orders of the differential forms.
+    expr_mat : (M, M) array of None or Sequence of MatOp
+        Expression which needs to be evaluated for each block of the element matrix.
+
+    Returns
+    -------
+    array
+        Element matrix for this element.
+    """
     print(f"Evaluating function for order {order}")
     t0 = perf_counter()
     # Compute mass matrices
@@ -724,119 +762,193 @@ def compute_element_matrices(
     return jnp.block(blocks)
 
 
-if __name__ == "__main__":
-    jax.config.update("jax_enable_x64", True)
+class ElementMatrixResults:
+    """Type used to manage element matrices computed using JAX."""
 
-    # order = 2
-    # np.random.seed(0)
-    # apply_e10_t(order, np.eye(((order + 1) * order * 2)))
-    # apply_e10(order, np.random.random_sample(((order + 1) ** 2, (order + 1) * 2 - 1)))
-    # apply_e10_t(
-    #     order, np.random.random_sample(((order + 1) * order * 2, (order + 1) * 2 - 1))
-    # )
-    # apply_e21(order, np.eye(((order + 1) * order * 2)))
-    # apply_e21(
-    #     order, np.random.random_sample(((order + 1) * order * 2, (order + 1) * 2 - 1))
-    # )
-    # apply_e21_t(order, np.eye((order**2)))
-    # apply_e21_t(order, np.random.random_sample((order**2, (order + 1) * 2 - 1)))
-    # apply_e10_r(order, np.eye(order * (order + 1) * 2))
-    # apply_e10_r(
-    #     order,
-    #     np.random.random_sample((order**2 - 2 * order + 3, order * (order + 1) * 2)),
-    # )
-    # apply_e10_rt(order, np.eye((order + 1) ** 2))
-    # apply_e10_rt(
-    #     order, np.random.random_sample((order**2 - 2 * order + 3, (order + 1) ** 2))
-    # )
-    # apply_e21_r(order, np.eye(order**2))
-    # apply_e21_r(order, np.random.random_sample((order**2 - 2 * order + 3, order**2)))
-    # apply_e21_rt(order, np.eye((order + 1) * order * 2))
-    # apply_e21_rt(
-    #     order,
-    #     np.random.random_sample((order**2 - 2 * order + 3, order * (order + 1) * 2)),
-    # )
+    _group_arrays: tuple[jax.Array, ...]
+    _group_indices: tuple[npt.NDArray[np.intp], ...]
+    _order_map: dict[int, int]
+    _orders: npt.NDArray[np.uint32]
 
-    # exit()
+    def __init__(
+        self,
+        group_arrays: Sequence[jax.Array],
+        group_indices: Sequence[npt.NDArray[np.intp]],
+        order_map: dict[int, int],
+        orders: npt.ArrayLike,
+    ) -> None:
+        self._group_arrays = tuple(group_arrays)
+        self._group_indices = tuple(group_indices)
+        self._order_map = dict(order_map)
+        self._orders = np.array(orders, np.uint32)
 
-    np.random.seed(0)
+    def element_matrix(self, element: int, /) -> jax.Array:
+        """Get the element matrix for the specified element."""
+        element_order = int(self._orders[element])
+        group_index = self._order_map[element_order]
+        group_array = self._group_arrays[group_index]
+        group_offset = np.flatnonzero(self._group_indices[group_index] == element)
+        assert len(group_offset) == 1
+        return jnp.reshape(
+            group_array[group_offset, :, :], (group_array.shape[1], group_array.shape[2])
+        )
 
-    instructions: tuple[tuple[None | tuple[MatOp, ...], ...], ...] = (
-        ((MassMat(1, False),), (Incidence(1, 0), MassMat(2, False), Transpose())),
-        ((Incidence(1, 0), MassMat(2, False)), None),
-    )
 
-    # res = compute_element_matrices(
-    #     np.array((0, 0)),
-    #     np.array((1, 0)),
-    #     np.array((1, 1)),
-    #     np.array((0, 1)),
-    #     order,
-    #     [1, 2],
-    #     instructions,
-    #     caches,
-    # )
+def compute_element_matrices_3(
+    form_orders: Sequence[int],
+    expressions: Sequence[Sequence[Sequence[MatOp] | None]],
+    pos_bl: npt.NDArray[np.float64],
+    pos_br: npt.NDArray[np.float64],
+    pos_tr: npt.NDArray[np.float64],
+    pos_tl: npt.NDArray[np.float64],
+    element_orders: npt.NDArray[np.uint32],
+    caches: dict[int, BasisCache],
+) -> ElementMatrixResults:
+    """Evaluate element matrices using JAX.
 
-    from collections.abc import Callable
-    from functools import partial
+    Parameters
+    ----------
+    form_orders : Sequence of int
+        Orders of differential forms in the element.
 
+    expressions: (N, N) array of None or Sequence of MatOp
+        Expressions or None corresponding to the element matrix blocks.
+
+    pos_bl : (N, 2) array
+        Positions of the element bottom left corners.
+
+    pos_br : (N, 2) array
+        Positions of the element bottom right corners.
+
+    pos_tr : (N, 2) array
+        Positions of the element top right corners.
+
+    pos_tl : (N, 2) array
+        Positions of the element top left corners.
+
+    element_orders : (N,) array
+        Orders of the elements.
+
+    caches : dict of int -> BasisCache
+        Caches to be used for each of the element orders.
+
+    Returns
+    -------
+    ElementMatrixResults
+
+    """
     funcs: dict[int, Callable] = dict()
-
-    NE = 10000
-    blvs = np.full((NE, 2), np.array((0, 0)))
-    brvs = np.full((NE, 2), np.array((1, 0)))
-    trvs = np.full((NE, 2), np.array((1, 1)))
-    tlvs = np.full((NE, 2), np.array((0, 1)))
-    np.random.seed(0)
-    orders = np.random.randint(1, 10, NE)
-    unique_orders = np.unique(orders)
-    caches: dict[int, BasisCache] = dict()
-    for order in unique_orders:
-        c = BasisCache(order, 2 * order)
-        caches[order] = c
+    for order in caches:
+        c = caches[order]
 
         partial_func = partial(
             compute_element_matrices,
-            expr_mat=instructions,
-            form_orders=(1, 2),
+            expr_mat=expressions,
+            form_orders=form_orders,
             order=order,
+            int_nodes_1d=c.int_nodes_1d,
+            mass_node_precomp=c.mass_node_precomp,
+            mass_edge_precomp=c.mass_edge_precomp,
+            mass_surf_precomp=c.mass_surf_precomp,
         )
 
         compiled_func = jax.jit(partial_func)
-
+        c.clean()
         del c
         fn = jax.vmap(
             compiled_func,
-            in_axes=(0, 0, 0, 0, None, None, None, None),
+            in_axes=(0, 0, 0, 0),
             out_axes=0,
         )
-
         funcs[order] = fn
+        del fn, compiled_func, partial_func
 
-    res: list[jax.Array] = []
-
-    # Run the operations to be profiled
-
-    t0 = perf_counter()
-    for order in unique_orders:
-        c = caches[order]
-        pos = np.where(orders == order)[0]
-        t0 = perf_counter()
-        v = funcs[order](
-            jax.device_put(blvs[pos, :]),
-            jax.device_put(brvs[pos, :]),
-            jax.device_put(trvs[pos, :]),
-            jax.device_put(tlvs[pos, :]),
-            jax.device_put(c.int_nodes_1d),
-            jax.device_put(c.mass_node_precomp),
-            jax.device_put(c.mass_edge_precomp),
-            jax.device_put(c.mass_surf_precomp),
+    base_indices: dict[int, int] = dict()
+    contents: list[npt.NDArray[np.intp]] = list()
+    results: list[jax.Array] = list()
+    for ifun, order in enumerate(funcs):
+        fn = funcs[order]
+        mask = np.flatnonzero(element_orders == order)
+        contents.append(mask)
+        base_indices[order] = ifun
+        results.append(
+            fn(
+                jax.device_put(pos_bl[mask, :]),
+                jax.device_put(pos_br[mask, :]),
+                jax.device_put(pos_tr[mask, :]),
+                jax.device_put(pos_tl[mask, :]),
+            )
         )
-        t1 = perf_counter()
 
-        print(f"Did {len(pos)} elements of order {order} in {t1 - t0:g} seconds.")
-        res.append(v)
-    for v in res:
-        v.block_until_ready()
-    t1 = perf_counter()
-    print(f"{NE} elements took {t1 - t0:g} seconds")
+    return ElementMatrixResults(results, contents, base_indices, element_orders)
+
+
+# if __name__ == "__main__":
+#     jax.config.update("jax_enable_x64", True)
+
+#     np.random.seed(0)
+
+#     instructions: tuple[tuple[None | tuple[MatOp, ...], ...], ...] = (
+#         ((MassMat(1, False),), (Incidence(1, 0), MassMat(2, False), Transpose())),
+#         ((Incidence(1, 0), MassMat(2, False)), None),
+#     )
+
+#     from collections.abc import Callable
+#     from functools import partial
+
+#     NE = 10000
+#     blvs = np.full((NE, 2), np.array((0, 0)))
+#     brvs = np.full((NE, 2), np.array((1, 0)))
+#     trvs = np.full((NE, 2), np.array((1, 1)))
+#     tlvs = np.full((NE, 2), np.array((0, 1)))
+#     np.random.seed(0)
+#     orders = np.random.randint(1, 10, NE)
+#     unique_orders = np.unique(orders)
+#     funcs: dict[int, Callable] = dict()
+#     for order in unique_orders:
+#         c = BasisCache(order, 2 * order)
+
+#         partial_func = partial(
+#             compute_element_matrices,
+#             expr_mat=instructions,
+#             form_orders=(1, 2),
+#             order=order,
+#             int_nodes_1d=c.int_nodes_1d,
+#             mass_node_precomp=c.mass_node_precomp,
+#             mass_edge_precomp=c.mass_edge_precomp,
+#             mass_surf_precomp=c.mass_surf_precomp,
+#         )
+
+#         compiled_func = jax.jit(partial_func)
+
+#         del c
+#         fn = jax.vmap(
+#             compiled_func,
+#             in_axes=(0, 0, 0, 0),
+#             out_axes=0,
+#         )
+
+#         funcs[order] = fn
+
+#     res: list[jax.Array] = []
+
+#     # Run the operations to be profiled
+
+#     t0 = perf_counter()
+#     for order in unique_orders:
+#         pos = np.where(orders == order)[0]
+#         t0 = perf_counter()
+#         v = funcs[order](
+#             jax.device_put(blvs[pos, :]),
+#             jax.device_put(brvs[pos, :]),
+#             jax.device_put(trvs[pos, :]),
+#             jax.device_put(tlvs[pos, :]),
+#         )
+#         t1 = perf_counter()
+
+#         print(f"Did {len(pos)} elements of order {order} in {t1 - t0:g} seconds.")
+#         res.append(v)
+#     for v in res:
+#         v.block_until_ready()
+#     t1 = perf_counter()
+#     print(f"{NE} elements took {t1 - t0:g} seconds")

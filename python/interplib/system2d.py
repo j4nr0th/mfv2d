@@ -959,7 +959,7 @@ def solve_system_2d(
                 else:
                     assert False
                 i_element = element_tree.top_indices[id_surf.index]
-                e = leaf_elements[i_element]
+                e = element_tree.elements[i_element]
                 basis_cache = cache[e.order]
                 primal_surface = mesh.primal.get_surface(id_surf)
                 ndir, p0, p1 = endpoints_from_line(e, primal_surface, edge)

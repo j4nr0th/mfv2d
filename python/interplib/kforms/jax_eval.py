@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, replace
 from enum import IntEnum
+from time import perf_counter
 from typing import Sequence
 
 import jax
@@ -103,6 +104,7 @@ class MatrixFull(MatrixBase):
 AnyMatrix = MatrixBase | MatrixFull | MatrixIncidence
 
 
+# TODO: use vectorized setting and getting
 def full_e10(order: int) -> jax.Array:
     """Full E10 matrix."""
     n_nodes = order + 1
@@ -124,6 +126,7 @@ def full_e10(order: int) -> jax.Array:
     return e
 
 
+# TODO: use vectorized setting and getting
 def full_e21(order: int) -> jax.Array:
     """Full E21 matrix."""
     n_nodes = order + 1
@@ -147,30 +150,19 @@ def apply_e10(order: int, other: jax.Array) -> jax.Array:
 
     Calling this function is equivalent to left multiplying by E10.
     """
-    n_nodes = order + 1
-    n_lines = order
-    out = jnp.zeros((2 * order * (order + 1), other.shape[1]), np.float64)
+    mat = jnp.reshape(other, (order + 1, order + 1, other.shape[-1]))
 
-    for i_col in range(other.shape[1]):
-        for row in range(n_nodes):
-            for col in range(n_lines):
-                row_e = row * n_lines + col
-                col_e1 = n_nodes * row + col
-                col_e2 = n_nodes * row + col + 1
-                out = out.at[row_e, i_col].set(
-                    other[col_e1, i_col] - other[col_e2, i_col]
-                )
+    out_h = mat[:, :-1, :] - mat[:, +1:, :]
+    out_v = mat[+1:, :, :] - mat[:-1, :, :]
+    result = jnp.concatenate(
+        (
+            jnp.reshape(out_h, (order * (order + 1), other.shape[-1])),
+            jnp.reshape(out_v, (order * (order + 1), other.shape[-1])),
+        ),
+        axis=0,
+    )
 
-        for row in range(n_lines):
-            for col in range(n_nodes):
-                row_e = n_nodes * n_lines + row * n_nodes + col
-                col_e1 = n_nodes * (row + 1) + col
-                col_e2 = n_nodes * row + col
-                out = out.at[row_e, i_col].set(
-                    other[col_e1, i_col] - other[col_e2, i_col]
-                )
-
-    return out
+    return result
 
 
 def apply_e10_t(order: int, other: jax.Array) -> jax.Array:
@@ -179,40 +171,22 @@ def apply_e10_t(order: int, other: jax.Array) -> jax.Array:
     Calling this function is equivalent to left multiplying by E10 transposed.
     """
     assert other.ndim == 2
-    n_nodes = order + 1
-    n_lines = order
-    out = jnp.zeros(((order + 1) ** 2, other.shape[1]), np.float64)
+    mat_h = jnp.reshape(
+        other[: order * (order + 1), :], (order + 1, order, other.shape[-1])
+    )
+    mat_v = jnp.reshape(
+        other[order * (order + 1) :, :], (order, order + 1, other.shape[-1])
+    )
+    result = jnp.zeros(((order + 1), (order + 1), other.shape[-1]), np.float64)
 
-    for i_col in range(other.shape[1]):
-        # Nodes with lines on their right
-        for row in range(n_nodes):
-            for col in range(n_nodes - 1):
-                row_e = row * n_nodes + col
-                col_e1 = n_lines * row + col
-                out = out.at[row_e, i_col].set(out[row_e, i_col] + other[col_e1, i_col])
+    result = result.at[+1:, :, :].set(result[+1:, :, :] + mat_v)
+    result = result.at[:-1, :, :].set(result[:-1, :, :] - mat_v)
+    result = result.at[:, :-1, :].set(result[:, :-1, :] + mat_h)
+    result = result.at[:, +1:, :].set(result[:, +1:, :] - mat_h)
 
-        # Nodes with lines on their left
-        for row in range(n_nodes):
-            for col in range(n_nodes - 1):
-                row_e = row * n_nodes + col + 1
-                col_e1 = n_lines * row + col
-                out = out.at[row_e, i_col].set(out[row_e, i_col] - other[col_e1, i_col])
+    result = jnp.reshape(result, ((order + 1) ** 2, other.shape[-1]))
 
-        # Nodes with lines on their top
-        for row in range(n_nodes - 1):
-            for col in range(n_nodes):
-                row_e = row * n_nodes + col
-                col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
-                out = out.at[row_e, i_col].set(out[row_e, i_col] - other[col_e1, i_col])
-
-        # Nodes with lines on their bottom
-        for row in range(n_nodes - 1):
-            for col in range(n_nodes):
-                row_e = (row + 1) * n_nodes + col
-                col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
-                out = out.at[row_e, i_col].set(out[row_e, i_col] + other[col_e1, i_col])
-
-    return out
+    return result
 
 
 def apply_e21(order: int, other: jax.Array) -> jax.Array:
@@ -221,26 +195,17 @@ def apply_e21(order: int, other: jax.Array) -> jax.Array:
     Calling this function is equivalent to left multiplying by E21.
     """
     assert other.ndim == 2
-    n_nodes = order + 1
-    n_lines = order
-    out = jnp.zeros((order**2, other.shape[1]), np.float64)
-
-    for i_col in range(other.shape[1]):
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = row * n_lines + col
-                col_e1 = n_lines * row + col  # +
-                col_e2 = n_lines * (row + 1) + col  # -
-                col_e3 = n_nodes * n_lines + n_nodes * row + col  # +
-                col_e4 = n_nodes * n_lines + n_nodes * row + col + 1  # -
-                out = out.at[row_e, i_col].set(
-                    other[col_e1, i_col]
-                    - other[col_e2, i_col]
-                    + other[col_e3, i_col]
-                    - other[col_e4, i_col]
-                )
-
-    return out
+    mat_h = jnp.reshape(
+        other[: order * (order + 1), :], (order + 1, order, other.shape[-1])
+    )
+    mat_v = jnp.reshape(
+        other[order * (order + 1) :, :], (order, order + 1, other.shape[-1])
+    )
+    result = jnp.reshape(
+        (mat_h[:-1, :, :] - mat_h[+1:, :, :]) - (mat_v[:, +1:, :] - mat_v[:, :-1, :]),
+        (order**2, other.shape[-1]),
+    )
+    return result
 
 
 def apply_e21_t(order: int, other: jax.Array) -> jax.Array:
@@ -249,40 +214,24 @@ def apply_e21_t(order: int, other: jax.Array) -> jax.Array:
     Calling this function is equivalent to left multiplying by E21 transposed.
     """
     assert other.ndim == 2
-    n_nodes = order + 1
-    n_lines = order
-    out = jnp.zeros(((2 * order * (order + 1)), other.shape[1]), np.float64)
+    mat = jnp.reshape(other, (order, order, other.shape[-1]))
+    out_h = jnp.zeros((order + 1, order, other.shape[-1]))
+    out_v = jnp.zeros((order, order + 1, other.shape[-1]))
 
-    for i_col in range(other.shape[1]):
-        # Lines with surfaces on the top
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = row * n_lines + col
-                col_e1 = row * n_lines + col
-                out = out.at[row_e, i_col].set(out[row_e, i_col] + other[col_e1, i_col])
+    out_h = out_h.at[:-1, :, :].set(out_h[:-1, :, :] + mat)
+    out_h = out_h.at[+1:, :, :].set(out_h[+1:, :, :] - mat)
+    out_v = out_v.at[:, :-1, :].set(out_v[:, :-1, :] + mat)
+    out_v = out_v.at[:, +1:, :].set(out_v[:, +1:, :] - mat)
 
-        # Lines with surfaces on the bottom
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = (row + 1) * n_lines + col
-                col_e1 = row * n_lines + col
-                out = out.at[row_e, i_col].set(out[row_e, i_col] - other[col_e1, i_col])
+    result = jnp.concatenate(
+        (
+            jnp.reshape(out_h, (order * (order + 1), other.shape[-1])),
+            jnp.reshape(out_v, (order * (order + 1), other.shape[-1])),
+        ),
+        axis=0,
+    )
 
-        # Lines with surfaces on the left
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = (order + 1) * order + row * n_nodes + col
-                col_e1 = row * n_lines + col
-                out = out.at[row_e, i_col].set(out[row_e, i_col] + other[col_e1, i_col])
-
-        # Lines with surfaces on the right
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = (order + 1) * order + row * n_nodes + col + 1
-                col_e1 = row * n_lines + col
-                out = out.at[row_e, i_col].set(out[row_e, i_col] - other[col_e1, i_col])
-
-    return out
+    return result
 
 
 def incidence_matrix_as_full(order: int, m: MatrixIncidence) -> MatrixFull:
@@ -356,40 +305,21 @@ def apply_e10_r(order: int, other: jax.Array) -> jax.Array:
     Calling this function is equivalent to right multiplying by E10.
     """
     assert other.ndim == 2
-    n_nodes = order + 1
-    n_lines = order
-    out = jnp.zeros((other.shape[0], (order + 1) ** 2), np.float64)
+    mat_h = jnp.reshape(
+        other[:, : order * (order + 1)], (other.shape[0], order + 1, order)
+    )
+    mat_v = jnp.reshape(
+        other[:, order * (order + 1) :], (other.shape[0], order, order + 1)
+    )
+    result = jnp.zeros((other.shape[0], (order + 1), (order + 1)), np.float64)
 
-    for i_row in range(other.shape[0]):
-        # Nodes with lines on their right
-        for row in range(n_nodes):
-            for col in range(n_nodes - 1):
-                row_e = row * n_nodes + col
-                col_e1 = n_lines * row + col
-                out = out.at[i_row, row_e].set(out[i_row, row_e] + other[i_row, col_e1])
+    result = result.at[:, +1:, :].set(result[:, +1:, :] + mat_v)
+    result = result.at[:, :-1, :].set(result[:, :-1, :] - mat_v)
+    result = result.at[:, :, :-1].set(result[:, :, :-1] + mat_h)
+    result = result.at[:, :, +1:].set(result[:, :, +1:] - mat_h)
 
-        # Nodes with lines on their left
-        for row in range(n_nodes):
-            for col in range(n_nodes - 1):
-                row_e = row * n_nodes + col + 1
-                col_e1 = n_lines * row + col
-                out = out.at[i_row, row_e].set(out[i_row, row_e] - other[i_row, col_e1])
-
-        # Nodes with lines on their top
-        for row in range(n_nodes - 1):
-            for col in range(n_nodes):
-                row_e = row * n_nodes + col
-                col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
-                out = out.at[i_row, row_e].set(out[i_row, row_e] - other[i_row, col_e1])
-
-        # Nodes with lines on their bottom
-        for row in range(n_nodes - 1):
-            for col in range(n_nodes):
-                row_e = (row + 1) * n_nodes + col
-                col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
-                out = out.at[i_row, row_e].set(out[i_row, row_e] + other[i_row, col_e1])
-
-    return out
+    result = jnp.reshape(result, (other.shape[0], (order + 1) ** 2))
+    return result
 
 
 def apply_e10_rt(order: int, other: jax.Array) -> jax.Array:
@@ -398,30 +328,18 @@ def apply_e10_rt(order: int, other: jax.Array) -> jax.Array:
     Calling this function is equivalent to right multiplying by E10 transposed.
     """
     assert other.ndim == 2
-    n_nodes = order + 1
-    n_lines = order
-    out = jnp.zeros((other.shape[0], 2 * order * (order + 1)), np.float64)
+    mat = jnp.reshape(other, (other.shape[0], order + 1, order + 1))
 
-    for i_row in range(other.shape[0]):
-        for row in range(n_nodes):
-            for col in range(n_lines):
-                row_e = row * n_lines + col
-                col_e1 = n_nodes * row + col
-                col_e2 = n_nodes * row + col + 1
-                out = out.at[i_row, row_e].set(
-                    other[i_row, col_e1] - other[i_row, col_e2]
-                )
-
-        for row in range(n_lines):
-            for col in range(n_nodes):
-                row_e = n_nodes * n_lines + row * n_nodes + col
-                col_e1 = n_nodes * (row + 1) + col
-                col_e2 = n_nodes * row + col
-                out = out.at[i_row, row_e].set(
-                    other[i_row, col_e1] - other[i_row, col_e2]
-                )
-
-    return out
+    out_h = mat[:, :, :-1] - mat[:, :, +1:]
+    out_v = mat[:, +1:, :] - mat[:, :-1, :]
+    result = jnp.concatenate(
+        (
+            jnp.reshape(out_h, (other.shape[0], order * (order + 1))),
+            jnp.reshape(out_v, (other.shape[0], order * (order + 1))),
+        ),
+        axis=1,
+    )
+    return result
 
 
 def apply_e21_r(order: int, other: jax.Array) -> jax.Array:
@@ -430,40 +348,23 @@ def apply_e21_r(order: int, other: jax.Array) -> jax.Array:
     Calling this function is equivalent to right multiplying by E21.
     """
     assert other.ndim == 2
-    n_nodes = order + 1
-    n_lines = order
-    out = jnp.zeros((other.shape[0], (order + 1) * order * 2), np.float64)
+    mat = jnp.reshape(other, (other.shape[0], order, order))
+    out_h = jnp.zeros((other.shape[0], order + 1, order))
+    out_v = jnp.zeros((other.shape[0], order, order + 1))
 
-    for i_row in range(other.shape[0]):
-        # Lines with surfaces on the top
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = row * n_lines + col
-                col_e1 = row * n_lines + col
-                out = out.at[i_row, row_e].set(out[i_row, row_e] + other[i_row, col_e1])
+    out_h = out_h.at[:, :-1, :].set(out_h[:, :-1, :] + mat)
+    out_h = out_h.at[:, +1:, :].set(out_h[:, +1:, :] - mat)
+    out_v = out_v.at[:, :, :-1].set(out_v[:, :, :-1] + mat)
+    out_v = out_v.at[:, :, +1:].set(out_v[:, :, +1:] - mat)
 
-        # Lines with surfaces on the bottom
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = (row + 1) * n_lines + col
-                col_e1 = row * n_lines + col
-                out = out.at[i_row, row_e].set(out[i_row, row_e] - other[i_row, col_e1])
-
-        # Lines with surfaces on the left
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = (order + 1) * order + row * n_nodes + col
-                col_e1 = row * n_lines + col
-                out = out.at[i_row, row_e].set(out[i_row, row_e] + other[i_row, col_e1])
-
-        # Lines with surfaces on the right
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = (order + 1) * order + row * n_nodes + col + 1
-                col_e1 = row * n_lines + col
-                out = out.at[i_row, row_e].set(out[i_row, row_e] - other[i_row, col_e1])
-
-    return out
+    result = jnp.concatenate(
+        (
+            jnp.reshape(out_h, (other.shape[0], order * (order + 1))),
+            jnp.reshape(out_v, (other.shape[0], order * (order + 1))),
+        ),
+        axis=1,
+    )
+    return result
 
 
 def apply_e21_rt(order: int, other: jax.Array) -> jax.Array:
@@ -472,26 +373,18 @@ def apply_e21_rt(order: int, other: jax.Array) -> jax.Array:
     Calling this function is equivalent to right multiplying by E21 transposed.
     """
     assert other.ndim == 2
-    n_nodes = order + 1
-    n_lines = order
-    out = jnp.zeros((other.shape[0], order**2), np.float64)
+    mat_h = jnp.reshape(
+        other[:, : order * (order + 1)], (other.shape[0], order + 1, order)
+    )
+    mat_v = jnp.reshape(
+        other[:, order * (order + 1) :], (other.shape[0], order, order + 1)
+    )
+    result = jnp.reshape(
+        (mat_h[:, :-1, :] - mat_h[:, +1:, :]) - (mat_v[:, :, +1:] - mat_v[:, :, :-1]),
+        (other.shape[0], order**2),
+    )
 
-    for i_row in range(other.shape[0]):
-        for row in range(n_lines):
-            for col in range(n_lines):
-                row_e = row * n_lines + col
-                col_e1 = n_lines * row + col  # +
-                col_e2 = n_lines * (row + 1) + col  # -
-                col_e3 = n_nodes * n_lines + n_nodes * row + col  # +
-                col_e4 = n_nodes * n_lines + n_nodes * row + col + 1  # -
-                out = out.at[i_row, row_e].set(
-                    other[i_row, col_e1]
-                    - other[i_row, col_e2]
-                    + other[i_row, col_e3]
-                    - other[i_row, col_e4]
-                )
-
-    return out
+    return result
 
 
 def apply_incidence_right(
@@ -744,23 +637,23 @@ def compute_element_matrices(
     br: jax.Array,
     tr: jax.Array,
     tl: jax.Array,
+    int_nodes_1d: jax.Array,
+    mass_node_precomp: jax.Array,
+    mass_edge_precomp: jax.Array,
+    mass_surf_precomp: jax.Array,
     order: int,
     form_orders: Sequence[int],
     expr_mat: Sequence[Sequence[None | Sequence[MatOp]]],
-    caches: dict[int, BasisCache],
 ) -> jax.Array:
     """Comnpute element matrices."""
     print(f"Evaluating function for order {order}")
+    t0 = perf_counter()
     # Compute mass matrices
-    cache = caches[order]
-    int_nodes_1d = jax.device_put(cache.int_nodes_1d)
     (j00, j01), (j10, j11), det = compute_jacobian(
         bl, br, tr, tl, int_nodes_1d[None, :], int_nodes_1d[:, None]
     )
-    mass_node_precomp = jax.device_put(cache.mass_node_precomp)
     mat_mass_0 = jnp.sum(mass_node_precomp * det, axis=(-2, -1))
-    precomp_edge = jax.device_put(cache.mass_edge_precomp)
-    nb = precomp_edge.shape[0] // 2
+    nb = mass_edge_precomp.shape[0] // 2
 
     khh = j11**2 + j10**2
     kvv = j01**2 + j00**2
@@ -769,19 +662,18 @@ def compute_element_matrices(
     kvv = kvv / det
     kvh = kvh / det
     mat_mass_1_00 = jnp.sum(
-        precomp_edge[0 * nb : 1 * nb, 0 * nb : 1 * nb, ...] * khh, axis=(-2, -1)
+        mass_edge_precomp[0 * nb : 1 * nb, 0 * nb : 1 * nb, ...] * khh, axis=(-2, -1)
     )
     mat_mass_1_01 = jnp.sum(
-        precomp_edge[1 * nb : 2 * nb, 0 * nb : 1 * nb, ...] * kvh, axis=(-2, -1)
+        mass_edge_precomp[1 * nb : 2 * nb, 0 * nb : 1 * nb, ...] * kvh, axis=(-2, -1)
     )
     mat_mass_1_11 = jnp.sum(
-        precomp_edge[1 * nb : 2 * nb, 1 * nb : 2 * nb, ...] * kvv, axis=(-2, -1)
+        mass_edge_precomp[1 * nb : 2 * nb, 1 * nb : 2 * nb, ...] * kvv, axis=(-2, -1)
     )
     mat_mass_1 = jnp.block(
         [[mat_mass_1_00, mat_mass_1_01], [mat_mass_1_01.T, mat_mass_1_11]]
     )
     del mat_mass_1_01, mat_mass_1_00, mat_mass_1_11
-    mass_surf_precomp = jax.device_put(cache.mass_surf_precomp)
     mat_mass_2 = jnp.sum(mass_surf_precomp / det, axis=(-2, -1))
 
     form_sz: list[int] = list()
@@ -827,12 +719,45 @@ def compute_element_matrices(
                     jnp.zeros((form_sizes[iform], form_sizes[jform]), jnp.float64)
                 )
         blocks.append(row_blocks)
-
+    t1 = perf_counter()
+    print(f"Compiling order {order} function took {t1 - t0:g} seconds.")
     return jnp.block(blocks)
 
 
 if __name__ == "__main__":
     jax.config.update("jax_enable_x64", True)
+
+    # order = 2
+    # np.random.seed(0)
+    # apply_e10_t(order, np.eye(((order + 1) * order * 2)))
+    # apply_e10(order, np.random.random_sample(((order + 1) ** 2, (order + 1) * 2 - 1)))
+    # apply_e10_t(
+    #     order, np.random.random_sample(((order + 1) * order * 2, (order + 1) * 2 - 1))
+    # )
+    # apply_e21(order, np.eye(((order + 1) * order * 2)))
+    # apply_e21(
+    #     order, np.random.random_sample(((order + 1) * order * 2, (order + 1) * 2 - 1))
+    # )
+    # apply_e21_t(order, np.eye((order**2)))
+    # apply_e21_t(order, np.random.random_sample((order**2, (order + 1) * 2 - 1)))
+    # apply_e10_r(order, np.eye(order * (order + 1) * 2))
+    # apply_e10_r(
+    #     order,
+    #     np.random.random_sample((order**2 - 2 * order + 3, order * (order + 1) * 2)),
+    # )
+    # apply_e10_rt(order, np.eye((order + 1) ** 2))
+    # apply_e10_rt(
+    #     order, np.random.random_sample((order**2 - 2 * order + 3, (order + 1) ** 2))
+    # )
+    # apply_e21_r(order, np.eye(order**2))
+    # apply_e21_r(order, np.random.random_sample((order**2 - 2 * order + 3, order**2)))
+    # apply_e21_rt(order, np.eye((order + 1) * order * 2))
+    # apply_e21_rt(
+    #     order,
+    #     np.random.random_sample((order**2 - 2 * order + 3, order * (order + 1) * 2)),
+    # )
+
+    # exit()
 
     np.random.seed(0)
 
@@ -840,10 +765,6 @@ if __name__ == "__main__":
         ((MassMat(1, False),), (Incidence(1, 0), MassMat(2, False), Transpose())),
         ((Incidence(1, 0), MassMat(2, False)), None),
     )
-
-    caches = {o: BasisCache(o, 2 * o) for o in range(1, 10)}
-
-    order = 1
 
     # res = compute_element_matrices(
     #     np.array((0, 0)),
@@ -856,39 +777,64 @@ if __name__ == "__main__":
     #     caches,
     # )
 
+    from collections.abc import Callable
     from functools import partial
 
-    partial_func = partial(
-        compute_element_matrices, caches=caches, expr_mat=instructions, form_orders=(1, 2)
-    )
-    compiled_func = jax.jit(
-        partial_func, static_argnames=("expr_mat", "order", "form_orders")
-    )
+    funcs: dict[int, Callable] = dict()
 
-    NE = 100000
+    NE = 10000
     blvs = np.full((NE, 2), np.array((0, 0)))
     brvs = np.full((NE, 2), np.array((1, 0)))
     trvs = np.full((NE, 2), np.array((1, 1)))
     tlvs = np.full((NE, 2), np.array((0, 1)))
     np.random.seed(0)
-    orders = np.random.randint(1, 4, NE)
-    orders[0] = 2
+    orders = np.random.randint(1, 10, NE)
+    unique_orders = np.unique(orders)
+    caches: dict[int, BasisCache] = dict()
+    for order in unique_orders:
+        c = BasisCache(order, 2 * order)
+        caches[order] = c
+
+        partial_func = partial(
+            compute_element_matrices,
+            expr_mat=instructions,
+            form_orders=(1, 2),
+            order=order,
+        )
+
+        compiled_func = jax.jit(partial_func)
+
+        del c
+        fn = jax.vmap(
+            compiled_func,
+            in_axes=(0, 0, 0, 0, None, None, None, None),
+            out_axes=0,
+        )
+
+        funcs[order] = fn
 
     res: list[jax.Array] = []
 
     # Run the operations to be profiled
-    from time import perf_counter
 
     t0 = perf_counter()
-    for i in range(NE):
-        v = compiled_func(
-            order=orders[i],
-            bl=jax.device_put(blvs[i, :]),
-            br=jax.device_put(brvs[i, :]),
-            tr=jax.device_put(trvs[i, :]),
-            tl=jax.device_put(tlvs[i, :]),
+    for order in unique_orders:
+        c = caches[order]
+        pos = np.where(orders == order)[0]
+        t0 = perf_counter()
+        v = funcs[order](
+            jax.device_put(blvs[pos, :]),
+            jax.device_put(brvs[pos, :]),
+            jax.device_put(trvs[pos, :]),
+            jax.device_put(tlvs[pos, :]),
+            jax.device_put(c.int_nodes_1d),
+            jax.device_put(c.mass_node_precomp),
+            jax.device_put(c.mass_edge_precomp),
+            jax.device_put(c.mass_surf_precomp),
         )
-        # print(f"Did element {i}: {orders[i]}")
+        t1 = perf_counter()
+
+        print(f"Did {len(pos)} elements of order {order} in {t1 - t0:g} seconds.")
         res.append(v)
     for v in res:
         v.block_until_ready()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from itertools import accumulate
 
 import numpy as np
@@ -27,6 +28,412 @@ from interplib.kforms.kform import (
     KFormSystem,
     KProjectionCombination,
 )
+
+
+def incidence_10(order: int) -> npt.NDArray[np.float64]:
+    r"""Incidence matrix from 0.forms to 1-forms.
+
+    This applies the exterior derivative operation to primal 0-forms and maps them
+    into 1-forms. The negative transpose is the equivalent operation for the dual
+    1-forms, the derivatives of which are consequently dual 2-forms.
+
+    This is done by mapping degrees of freedom of the original primal 0-form or dual
+    1-form into those of the derivative primal 1-forms or dual 2-forms respectively.
+
+    .. math::
+
+        \vec{\mathcal{N}}^{(1)}(f) = \mathbb{E}^{(1,0)} \vec{\mathcal{N}}^{(0)}(f)
+
+
+    .. math::
+
+        \tilde{\mathcal{N}}^{(2)}(f) = -\left(\mathbb{E}^{(1,0)}\right)^{T}
+        \tilde{\mathcal{N}}^{(1)}(f)
+
+    Returns
+    -------
+    array
+        Incidence matrix :math:`\mathbb{E}^{(1,0)}`.
+    """
+    n_nodes = order + 1
+    n_lines = order
+    e = np.zeros(((n_nodes * n_lines + n_lines * n_nodes), (n_nodes * n_nodes)))
+
+    for row in range(n_nodes):
+        for col in range(n_lines):
+            e[row * n_lines + col, n_nodes * row + col] = +1
+            e[row * n_lines + col, n_nodes * row + col + 1] = -1
+
+    for row in range(n_lines):
+        for col in range(n_nodes):
+            e[n_nodes * n_lines + row * n_nodes + col, n_nodes * row + col] = -1
+            e[n_nodes * n_lines + row * n_nodes + col, n_nodes * (row + 1) + col] = +1
+
+    return e
+
+
+def apply_e10(order: int, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Apply the E10 matrix to the given input.
+
+    Calling this function is equivalent to left multiplying by E10.
+    """
+    assert other.ndim == 2
+    n_nodes = order + 1
+    n_lines = order
+    out = np.zeros((2 * order * (order + 1), other.shape[1]), np.float64)
+
+    for i_col in range(other.shape[1]):
+        for row in range(n_nodes):
+            for col in range(n_lines):
+                row_e = row * n_lines + col
+                col_e1 = n_nodes * row + col
+                col_e2 = n_nodes * row + col + 1
+                out[row_e, i_col] = other[col_e1, i_col] - other[col_e2, i_col]
+
+        for row in range(n_lines):
+            for col in range(n_nodes):
+                row_e = n_nodes * n_lines + row * n_nodes + col
+                col_e1 = n_nodes * (row + 1) + col
+                col_e2 = n_nodes * row + col
+                out[row_e, i_col] = other[col_e1, i_col] - other[col_e2, i_col]
+
+    return out
+
+
+def apply_e10_t(order: int, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Apply the E10 transpose matrix to the given input.
+
+    Calling this function is equivalent to left multiplying by E10 transposed.
+    """
+    assert other.ndim == 2
+    n_nodes = order + 1
+    n_lines = order
+    out = np.zeros(((order + 1) ** 2, other.shape[1]), np.float64)
+
+    for i_col in range(other.shape[1]):
+        # Nodes with lines on their right
+        for row in range(n_nodes):
+            for col in range(n_nodes - 1):
+                row_e = row * n_nodes + col
+                col_e1 = n_lines * row + col
+                out[row_e, i_col] += other[col_e1, i_col]
+
+        # Nodes with lines on their left
+        for row in range(n_nodes):
+            for col in range(n_nodes - 1):
+                row_e = row * n_nodes + col + 1
+                col_e1 = n_lines * row + col
+                out[row_e, i_col] -= other[col_e1, i_col]
+
+        # Nodes with lines on their top
+        for row in range(n_nodes - 1):
+            for col in range(n_nodes):
+                row_e = row * n_nodes + col
+                col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
+                out[row_e, i_col] -= other[col_e1, i_col]
+
+        # Nodes with lines on their bottom
+        for row in range(n_nodes - 1):
+            for col in range(n_nodes):
+                row_e = (row + 1) * n_nodes + col
+                col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
+                out[row_e, i_col] += other[col_e1, i_col]
+
+    return out
+
+
+def apply_e10_r(order: int, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Apply the right E10 matrix to the given input.
+
+    Calling this function is equivalent to right multiplying by E10.
+    """
+    assert other.ndim == 2
+    n_nodes = order + 1
+    n_lines = order
+    out = np.zeros((other.shape[0], (order + 1) ** 2), np.float64)
+
+    for i_row in range(other.shape[0]):
+        # Nodes with lines on their right
+        for row in range(n_nodes):
+            for col in range(n_nodes - 1):
+                row_e = row * n_nodes + col
+                col_e1 = n_lines * row + col
+                out[i_row, row_e] += other[i_row, col_e1]
+
+        # Nodes with lines on their left
+        for row in range(n_nodes):
+            for col in range(n_nodes - 1):
+                row_e = row * n_nodes + col + 1
+                col_e1 = n_lines * row + col
+                out[i_row, row_e] -= other[i_row, col_e1]
+
+        # Nodes with lines on their top
+        for row in range(n_nodes - 1):
+            for col in range(n_nodes):
+                row_e = row * n_nodes + col
+                col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
+                out[i_row, row_e] -= other[i_row, col_e1]
+
+        # Nodes with lines on their bottom
+        for row in range(n_nodes - 1):
+            for col in range(n_nodes):
+                row_e = (row + 1) * n_nodes + col
+                col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
+                out[i_row, row_e] += other[i_row, col_e1]
+
+    return out
+
+
+def apply_e10_rt(order: int, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Apply the right transposed E10 matrix to the given input.
+
+    Calling this function is equivalent to right multiplying by E10 transposed.
+    """
+    assert other.ndim == 2
+    n_nodes = order + 1
+    n_lines = order
+    out = np.zeros((other.shape[0], 2 * order * (order + 1)), np.float64)
+
+    for i_row in range(other.shape[0]):
+        for row in range(n_nodes):
+            for col in range(n_lines):
+                row_e = row * n_lines + col
+                col_e1 = n_nodes * row + col
+                col_e2 = n_nodes * row + col + 1
+                out[i_row, row_e] = other[i_row, col_e1] - other[i_row, col_e2]
+
+        for row in range(n_lines):
+            for col in range(n_nodes):
+                row_e = n_nodes * n_lines + row * n_nodes + col
+                col_e1 = n_nodes * (row + 1) + col
+                col_e2 = n_nodes * row + col
+                out[i_row, row_e] = other[i_row, col_e1] - other[i_row, col_e2]
+
+    return out
+
+
+def incidence_21(order: int) -> npt.NDArray[np.float64]:
+    r"""Incidence matrix from 1-forms to 2-forms.
+
+    This applies the exterior derivative operation to primal 1-forms and maps them
+    into 2-forms. The negative transpose is the equivalent operation for the dual
+    0-forms, the derivatives of which are consequently dual 1-forms.
+
+    This is done by mapping degrees of freedom of the original primal 1-form or dual
+    0-form into those of the derivative primal 2-forms or dual 1-forms respectively.
+
+    .. math::
+
+        \vec{\mathcal{N}}^{(2)}(f) = \mathbb{E}^{(2,1)} \vec{\mathcal{N}}^{(1)}(f)
+
+
+    .. math::
+
+        \tilde{\mathcal{N}}^{(1)}(f) = -\left(\mathbb{E}^{(2,1)}\right)^{T}
+        \tilde{\mathcal{N}}^{(0)}(f)
+
+    Returns
+    -------
+    array
+        Incidence matrix :math:`\mathbb{E}^{(2,1)}`.
+    """
+    n_nodes = order + 1
+    n_lines = order
+    e = np.zeros(((n_lines * n_lines), (n_nodes * n_lines + n_lines * n_nodes)))
+
+    for row in range(n_lines):
+        for col in range(n_lines):
+            e[row * n_lines + col, n_lines * row + col] = +1
+            e[row * n_lines + col, n_lines * (row + 1) + col] = -1
+            e[row * n_lines + col, n_nodes * n_lines + n_nodes * row + col] = +1
+            e[row * n_lines + col, n_nodes * n_lines + n_nodes * row + col + 1] = -1
+
+    return e
+
+
+def apply_e21(order: int, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Apply the E21 matrix to the given input.
+
+    Calling this function is equivalent to left multiplying by E21.
+    """
+    assert other.ndim == 2
+    n_nodes = order + 1
+    n_lines = order
+    out = np.zeros((order**2, other.shape[1]), np.float64)
+
+    for i_col in range(other.shape[1]):
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = row * n_lines + col
+                col_e1 = n_lines * row + col  # +
+                col_e2 = n_lines * (row + 1) + col  # -
+                col_e3 = n_nodes * n_lines + n_nodes * row + col  # +
+                col_e4 = n_nodes * n_lines + n_nodes * row + col + 1  # -
+                out[row_e, i_col] = (
+                    other[col_e1, i_col]
+                    - other[col_e2, i_col]
+                    + other[col_e3, i_col]
+                    - other[col_e4, i_col]
+                )
+
+    return out
+
+
+def apply_e21_t(order: int, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Apply the E21 transposed matrix to the given input.
+
+    Calling this function is equivalent to left multiplying by E21 transposed.
+    """
+    assert other.ndim == 2
+    n_nodes = order + 1
+    n_lines = order
+    out = np.zeros(((2 * order * (order + 1)), other.shape[1]), np.float64)
+
+    for i_col in range(other.shape[1]):
+        # Lines with surfaces on the top
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = row * n_lines + col
+                col_e1 = row * n_lines + col
+                out[row_e, i_col] = other[col_e1, i_col]
+
+        # Lines with surfaces on the bottom
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = (row + 1) * n_lines + col
+                col_e1 = row * n_lines + col
+                out[row_e, i_col] -= other[col_e1, i_col]
+
+        # Lines with surfaces on the left
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = (order + 1) * order + row * n_nodes + col
+                col_e1 = row * n_lines + col
+                out[row_e, i_col] += other[col_e1, i_col]
+
+        # Lines with surfaces on the right
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = (order + 1) * order + row * n_nodes + col + 1
+                col_e1 = row * n_lines + col
+                out[row_e, i_col] -= other[col_e1, i_col]
+
+    return out
+
+
+def apply_e21_r(order: int, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Apply the right E21 matrix to the given input.
+
+    Calling this function is equivalent to right multiplying by E21.
+    """
+    assert other.ndim == 2
+    n_nodes = order + 1
+    n_lines = order
+    out = np.zeros((other.shape[0], (order + 1) * order * 2), np.float64)
+
+    for i_row in range(other.shape[0]):
+        # Lines with surfaces on the top
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = row * n_lines + col
+                col_e1 = row * n_lines + col
+                out[i_row, row_e] = other[i_row, col_e1]
+
+        # Lines with surfaces on the bottom
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = (row + 1) * n_lines + col
+                col_e1 = row * n_lines + col
+                out[i_row, row_e] -= other[i_row, col_e1]
+
+        # Lines with surfaces on the left
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = (order + 1) * order + row * n_nodes + col
+                col_e1 = row * n_lines + col
+                out[i_row, row_e] += other[i_row, col_e1]
+
+        # Lines with surfaces on the right
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = (order + 1) * order + row * n_nodes + col + 1
+                col_e1 = row * n_lines + col
+                out[i_row, row_e] -= other[i_row, col_e1]
+
+    return out
+
+
+def apply_e21_rt(order: int, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Apply the right transpose E21 matrix to the given input.
+
+    Calling this function is equivalent to right multiplying by E21 transposed.
+    """
+    assert other.ndim == 2
+    n_nodes = order + 1
+    n_lines = order
+    out = np.zeros((other.shape[0], order**2), np.float64)
+
+    for i_row in range(other.shape[0]):
+        for row in range(n_lines):
+            for col in range(n_lines):
+                row_e = row * n_lines + col
+                col_e1 = n_lines * row + col  # +
+                col_e2 = n_lines * (row + 1) + col  # -
+                col_e3 = n_nodes * n_lines + n_nodes * row + col  # +
+                col_e4 = n_nodes * n_lines + n_nodes * row + col + 1  # -
+                out[i_row, row_e] = (
+                    other[i_row, col_e1]
+                    - other[i_row, col_e2]
+                    + other[i_row, col_e3]
+                    - other[i_row, col_e4]
+                )
+
+    return out
+
+
+def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.int32]:
+    """Ordering for vtkLagrangeQuadrilateral.
+
+    VTK has an option to create cells of type LagrangeQuadrilateral. These
+    allow for arbitrary order of interpolation with nodal basis. Due to
+    backwards compatibility the ordering of the nodes in these is done in
+    an unique way. As such, either the positions or ordering of the nodes
+    must be adjusted.
+
+    This function returns the correct order which can be used for either
+    given a specific polynomial order.
+
+    Parameters
+    ----------
+    order : int
+        Order of the element.
+
+    Returns
+    -------
+    array
+        Array of indices which correctly order nodes on an element of
+        the specified order.
+    """
+    n = int(order) + 1
+    v = np.arange(n)
+    return (
+        np.concatenate(
+            (
+                (0, n - 1, n**2 - 1, n * (n - 1)),  # corners
+                v[1:-1],  # bottom edge
+                n - 1 + n * v[1:-1],  # right edge
+                n * (n - 1) + v[1:-1],  # top edge
+                n * v[1:-1],  # left edge
+                np.concatenate([v[1:-1] + n * k for k in v[1:-1]]),
+            )
+        )
+        if order > 1
+        else np.concatenate(
+            (
+                (0, n - 1, n**2 - 1, n * (n - 1)),  # corners
+            )
+        )
+    )
 
 
 class BasisCache:
@@ -197,7 +604,138 @@ class BasisCache:
         self._precomp_surf = None
 
 
+@dataclass(frozen=True, eq=False)
 class Element2D:
+    """General 2D element."""
+
+    parent: ElementNode2D | None
+
+    def order_on_side(self, side: int) -> int:
+        """Effective order of the element on the specified side."""
+        raise NotImplementedError
+
+    def dof_sizes(self, form_orders: Sequence[int]) -> tuple[int, ...]:
+        """Compute number unknown DoFs for differential forms."""
+        raise NotImplementedError
+
+    def dof_offsets(self, form_orders: Sequence[int]) -> tuple[int, ...]:
+        """Compute offset of unknown DoFs."""
+        sizes = self.dof_sizes(form_orders)
+        return (0, *accumulate(sizes))
+
+    def element_edge_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
+        """Get non-offset indices of edge DoFs on the boundary of an element."""
+        raise NotImplementedError
+
+    def element_node_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
+        """Get non-offset indices of node DoFs on the boundary of an element."""
+        raise NotImplementedError
+
+    @property
+    def bottom_left(self) -> tuple[float, float]:
+        """Coordinates of the bottom left corner."""
+        raise NotImplementedError
+
+    @property
+    def bottom_right(self) -> tuple[float, float]:
+        """Coordinates of the bottom right corner."""
+        raise NotImplementedError
+
+    @property
+    def top_right(self) -> tuple[float, float]:
+        """Coordinates of the top right corner."""
+        raise NotImplementedError
+
+    @property
+    def top_left(self) -> tuple[float, float]:
+        """Coordinates of the top left corner."""
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, eq=False)
+class ElementNode2D(Element2D):
+    """Two dimensional element that contains children."""
+
+    child_bl: Element2D
+    child_br: Element2D
+    child_tl: Element2D
+    child_tr: Element2D
+
+    def order_on_side(self, side: int) -> int:
+        """Effective order of the element on the specified side."""
+        if side == 0:
+            return self.child_bl.order_on_side(0) + self.child_br.order_on_side(0)
+
+        if side == 1:
+            return self.child_br.order_on_side(1) + self.child_tr.order_on_side(1)
+
+        if side == 2:
+            return self.child_tr.order_on_side(2) + self.child_tl.order_on_side(2)
+
+        if side == 3:
+            return self.child_tl.order_on_side(3) + self.child_bl.order_on_side(3)
+
+        raise ValueError(f"Invalid value of the side (can not be {side}).")
+
+    def dof_sizes(self, form_orders: Sequence[int]) -> tuple[int, ...]:
+        """Compute number unknown DoFs for differential forms."""
+        sizes: list[int] = list()
+        for form_order in form_orders:
+            if form_order == 2:
+                n = 0
+            elif form_order == 1 or form_order == 0:
+                n = sum(self.order_on_side(i_side) for i_side in range(4))
+            else:
+                raise ValueError(f"Invalid differential form order {form_order}.")
+            sizes.append(n)
+
+        return tuple(sizes)
+
+    def element_edge_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
+        """Get non-offset indices of edge DoFs on the boundary of an element."""
+        offset = sum(self.order_on_side(i_side) for i_side in range(bnd_idx))
+        count = self.order_on_side(bnd_idx)
+
+        return np.astype(
+            offset + np.arange(count, dtype=np.uint32), np.uint32, copy=False
+        )
+
+    def element_node_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
+        """Get non-offset indices of node DoFs on the boundary of an element."""
+        offset = sum(self.order_on_side(i_side) for i_side in range(bnd_idx))
+        count = self.order_on_side(bnd_idx) + 1
+
+        res = np.astype(offset + np.arange(count, dtype=np.uint32), np.uint32, copy=False)
+
+        if bnd_idx == 3:
+            # This node is shared between left and bottom side
+            res[-1] = 0
+
+        return res
+
+    @property
+    def bottom_left(self) -> tuple[float, float]:
+        """Coordinates of the bottom left corner."""
+        return self.child_bl.bottom_left
+
+    @property
+    def bottom_right(self) -> tuple[float, float]:
+        """Coordinates of the bottom right corner."""
+        return self.child_br.bottom_right
+
+    @property
+    def top_right(self) -> tuple[float, float]:
+        """Coordinates of the top right corner."""
+        return self.child_tr.top_right
+
+    @property
+    def top_left(self) -> tuple[float, float]:
+        """Coordinates of the top left corner."""
+        return self.child_tl.top_left
+
+
+@dataclass(frozen=True, eq=False)
+class ElementLeaf2D(Element2D):
     """Two dimensional square element.
 
     This type facilitates operations related to calculations which need
@@ -219,37 +757,113 @@ class Element2D:
         Coordinates of the top left corner.
     """
 
-    level: int
     order: int
 
-    bottom_left: tuple[float, float]
-    bottom_right: tuple[float, float]
-    top_right: tuple[float, float]
-    top_left: tuple[float, float]
+    _bottom_left: tuple[float, float]
+    _bottom_right: tuple[float, float]
+    _top_right: tuple[float, float]
+    _top_left: tuple[float, float]
 
-    _mass_node: npt.NDArray[np.float64] | None
-    _mass_edge: npt.NDArray[np.float64] | None
-    _mass_surf: npt.NDArray[np.float64] | None
+    @property
+    def bottom_left(self) -> tuple[float, float]:
+        """Coordinates of the bottom left corner."""
+        return self._bottom_left
 
-    def __init__(
-        self,
-        level: int,
-        p: int,
-        bl: tuple[float, float],
-        br: tuple[float, float],
-        tr: tuple[float, float],
-        tl: tuple[float, float],
-    ) -> None:
-        self.level = int(level)
-        self.order = int(p)
-        self.bottom_left = bl
-        self.bottom_right = br
-        self.top_right = tr
-        self.top_left = tl
+    @property
+    def bottom_right(self) -> tuple[float, float]:
+        """Coordinates of the bottom right corner."""
+        return self._bottom_right
 
-        self._mass_node = None
-        self._mass_edge = None
-        self._mass_surf = None
+    @property
+    def top_right(self) -> tuple[float, float]:
+        """Coordinates of the top right corner."""
+        return self._top_right
+
+    @property
+    def top_left(self) -> tuple[float, float]:
+        """Coordinates of the top left corner."""
+        return self._top_left
+
+    def element_node_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
+        """Get non-offset indices of node DoFs on the boundary of an element."""
+        n = self.order
+
+        if bnd_idx == 0:
+            return np.arange(0, n + 1, dtype=np.uint32)
+
+        elif bnd_idx == 1:
+            return np.astype(
+                n + np.arange(0, n + 1, dtype=np.uint32) * (n + 1),
+                np.uint32,
+                copy=False,
+            )
+
+        elif bnd_idx == 2:
+            return np.astype(
+                np.flip((n + 1) * n + np.arange(0, n + 1, dtype=np.uint32)),
+                np.uint32,
+                copy=False,
+            )
+
+        elif bnd_idx == 3:
+            return np.astype(
+                np.flip(np.arange(0, n + 1, dtype=np.uint32) * (n + 1)),
+                np.uint32,
+                copy=False,
+            )
+
+        raise ValueError("Only boundary ID of up to 3 is allowed.")
+
+    def element_edge_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
+        """Get non-offset indices of edge DoFs on the boundary of an element."""
+        n = self.order
+        if bnd_idx == 0:
+            return np.arange(0, n, dtype=np.uint32)
+
+        elif bnd_idx == 1:
+            return np.astype(
+                (n * (n + 1)) + n + np.arange(0, n, dtype=np.uint32) * (n + 1),
+                np.uint32,
+                copy=False,
+            )
+
+        elif bnd_idx == 2:
+            return np.astype(
+                np.flip(n * n + np.arange(0, n, dtype=np.uint32)),
+                np.uint32,
+                copy=False,
+            )
+
+        elif bnd_idx == 3:
+            return np.astype(
+                np.flip((n * (n + 1)) + np.arange(0, n, dtype=np.uint32) * (n + 1)),
+                np.uint32,
+                copy=False,
+            )
+
+        raise ValueError("Only boundary ID of up to 3 is allowed.")
+
+    def order_on_side(self, side: int) -> int:
+        """Effective order of the element on the specified side."""
+        if side < 0 or side >= 4:
+            raise ValueError(f"Side index can not be {side}.")
+        return self.order
+
+    def dof_sizes(self, form_orders: Sequence[int]) -> tuple[int, ...]:
+        """Compute number unknown DoFs for differential forms."""
+        sizes: list[int] = list()
+        for form_order in form_orders:
+            if form_order == 2:
+                n = self.order**2
+            elif form_order == 1:
+                n = self.order * (self.order + 1) * 2
+            elif form_order == 0:
+                n = (self.order + 1) ** 2
+            else:
+                raise ValueError(f"Invalid differential form order {form_order}.")
+            sizes.append(n)
+
+        return tuple(sizes)
 
     def poly_x(self, xi: npt.ArrayLike, eta: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute the x-coordiate of (xi, eta) points."""
@@ -260,8 +874,8 @@ class Element2D:
         b21 = (1 - t1) / 2
         b22 = (1 + t1) / 2
         return np.astype(
-            (self.bottom_left[0] * b11 + self.bottom_right[0] * b12) * b21
-            + (self.top_left[0] * b11 + self.top_right[0] * b12) * b22,
+            (self._bottom_left[0] * b11 + self._bottom_right[0] * b12) * b21
+            + (self._top_left[0] * b11 + self._top_right[0] * b12) * b22,
             np.float64,
             copy=False,
         )
@@ -275,16 +889,14 @@ class Element2D:
         b21 = (1 - t1) / 2
         b22 = (1 + t1) / 2
         return np.astype(
-            (self.bottom_left[1] * b11 + self.bottom_right[1] * b12) * b21
-            + (self.top_left[1] * b11 + self.top_right[1] * b12) * b22,
+            (self._bottom_left[1] * b11 + self._bottom_right[1] * b12) * b21
+            + (self._top_left[1] * b11 + self._top_right[1] * b12) * b22,
             np.float64,
             copy=False,
         )
 
     def mass_matrix_node(self, cache: BasisCache) -> npt.NDArray[np.float64]:
         """Element's mass matrix for nodal basis."""
-        if self._mass_node is not None:
-            return self._mass_node
         assert cache.basis_order == self.order
         precomp = cache.mass_node_precomp
         (j00, j01), (j10, j11) = self.jacobian(
@@ -295,13 +907,10 @@ class Element2D:
         # Does not use symmetry (yet)
         mat = np.sum(precomp * det[None, None, ...], axis=(-2, -1))
 
-        self._mass_node = mat
         return mat
 
     def mass_matrix_edge(self, cache: BasisCache) -> npt.NDArray[np.float64]:
         """Element's mass matrix for mixed node-edge basis."""
-        if self._mass_edge is not None:
-            return self._mass_edge
         assert cache.basis_order == self.order
         precomp = cache.mass_edge_precomp
         (j00, j01), (j10, j11) = self.jacobian(
@@ -335,13 +944,10 @@ class Element2D:
             precomp[1 * nb : 2 * nb, 1 * nb : 2 * nb, ...] * kvv[None, None, ...],
             axis=(-2, -1),
         )
-        self._mass_edge = mat
         return mat
 
     def mass_matrix_surface(self, cache: BasisCache) -> npt.NDArray[np.float64]:
         """Element's mass matrix for surface basis."""
-        if self._mass_surf is not None:
-            return self._mass_surf
         assert cache.basis_order == self.order
         precomp = cache.mass_surf_precomp
         (j00, j01), (j10, j11) = self.jacobian(
@@ -351,7 +957,6 @@ class Element2D:
 
         # Does not use symmetry (yet)
         mat = np.sum(precomp / det[None, None, ...], axis=(-2, -1))
-        self._mass_surf = mat
         return mat
 
     def jacobian(
@@ -408,15 +1013,15 @@ class Element2D:
         t0 = np.asarray(xi)
         t1 = np.asarray(eta)
 
-        x0 = self.bottom_left[0]
-        x1 = self.bottom_right[0]
-        x2 = self.top_right[0]
-        x3 = self.top_left[0]
+        x0 = self._bottom_left[0]
+        x1 = self._bottom_right[0]
+        x2 = self._top_right[0]
+        x3 = self._top_left[0]
 
-        y0 = self.bottom_left[1]
-        y1 = self.bottom_right[1]
-        y2 = self.top_right[1]
-        y3 = self.top_left[1]
+        y0 = self._bottom_left[1]
+        y1 = self._bottom_right[1]
+        y2 = self._top_right[1]
+        y3 = self._top_left[1]
 
         dx_dxi = np.astype(
             ((x1 - x0) * (1 - t1) + (x2 - x3) * (1 + t1)) / 4, np.float64, copy=False
@@ -431,357 +1036,6 @@ class Element2D:
             ((y3 - y0) * (1 - t0) + (y2 - y1) * (1 + t0)) / 4, np.float64, copy=False
         )
         return ((dx_dxi, dy_dxi), (dx_deta, dy_deta))
-
-    def incidence_10(self) -> npt.NDArray[np.float64]:
-        r"""Incidence matrix from 0.forms to 1-forms.
-
-        This applies the exterior derivative operation to primal 0-forms and maps them
-        into 1-forms. The negative transpose is the equivalent operation for the dual
-        1-forms, the derivatives of which are consequently dual 2-forms.
-
-        This is done by mapping degrees of freedom of the original primal 0-form or dual
-        1-form into those of the derivative primal 1-forms or dual 2-forms respectively.
-
-        .. math::
-
-            \vec{\mathcal{N}}^{(1)}(f) = \mathbb{E}^{(1,0)} \vec{\mathcal{N}}^{(0)}(f)
-
-
-        .. math::
-
-            \tilde{\mathcal{N}}^{(2)}(f) = -\left(\mathbb{E}^{(1,0)}\right)^{T}
-            \tilde{\mathcal{N}}^{(1)}(f)
-
-        Returns
-        -------
-        array
-            Incidence matrix :math:`\mathbb{E}^{(1,0)}`.
-        """
-        n_nodes = self.order + 1
-        n_lines = self.order
-        e = np.zeros(((n_nodes * n_lines + n_lines * n_nodes), (n_nodes * n_nodes)))
-
-        for row in range(n_nodes):
-            for col in range(n_lines):
-                e[row * n_lines + col, n_nodes * row + col] = +1
-                e[row * n_lines + col, n_nodes * row + col + 1] = -1
-
-        for row in range(n_lines):
-            for col in range(n_nodes):
-                e[n_nodes * n_lines + row * n_nodes + col, n_nodes * row + col] = -1
-                e[n_nodes * n_lines + row * n_nodes + col, n_nodes * (row + 1) + col] = +1
-
-        return e
-
-    def apply_e10(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Apply the E10 matrix to the given input.
-
-        Calling this function is equivalent to left multiplying by E10.
-        """
-        assert other.ndim == 2
-        n_nodes = self.order + 1
-        n_lines = self.order
-        out = np.zeros((2 * self.order * (self.order + 1), other.shape[1]), np.float64)
-
-        for i_col in range(other.shape[1]):
-            for row in range(n_nodes):
-                for col in range(n_lines):
-                    row_e = row * n_lines + col
-                    col_e1 = n_nodes * row + col
-                    col_e2 = n_nodes * row + col + 1
-                    out[row_e, i_col] = other[col_e1, i_col] - other[col_e2, i_col]
-
-            for row in range(n_lines):
-                for col in range(n_nodes):
-                    row_e = n_nodes * n_lines + row * n_nodes + col
-                    col_e1 = n_nodes * (row + 1) + col
-                    col_e2 = n_nodes * row + col
-                    out[row_e, i_col] = other[col_e1, i_col] - other[col_e2, i_col]
-
-        return out
-
-    def apply_e10_t(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Apply the E10 transpose matrix to the given input.
-
-        Calling this function is equivalent to left multiplying by E10 transposed.
-        """
-        assert other.ndim == 2
-        n_nodes = self.order + 1
-        n_lines = self.order
-        out = np.zeros(((self.order + 1) ** 2, other.shape[1]), np.float64)
-
-        for i_col in range(other.shape[1]):
-            # Nodes with lines on their right
-            for row in range(n_nodes):
-                for col in range(n_nodes - 1):
-                    row_e = row * n_nodes + col
-                    col_e1 = n_lines * row + col
-                    out[row_e, i_col] += other[col_e1, i_col]
-
-            # Nodes with lines on their left
-            for row in range(n_nodes):
-                for col in range(n_nodes - 1):
-                    row_e = row * n_nodes + col + 1
-                    col_e1 = n_lines * row + col
-                    out[row_e, i_col] -= other[col_e1, i_col]
-
-            # Nodes with lines on their top
-            for row in range(n_nodes - 1):
-                for col in range(n_nodes):
-                    row_e = row * n_nodes + col
-                    col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
-                    out[row_e, i_col] -= other[col_e1, i_col]
-
-            # Nodes with lines on their bottom
-            for row in range(n_nodes - 1):
-                for col in range(n_nodes):
-                    row_e = (row + 1) * n_nodes + col
-                    col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
-                    out[row_e, i_col] += other[col_e1, i_col]
-
-        return out
-
-    def apply_e10_r(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Apply the right E10 matrix to the given input.
-
-        Calling this function is equivalent to right multiplying by E10.
-        """
-        assert other.ndim == 2
-        n_nodes = self.order + 1
-        n_lines = self.order
-        out = np.zeros((other.shape[0], (self.order + 1) ** 2), np.float64)
-
-        for i_row in range(other.shape[0]):
-            # Nodes with lines on their right
-            for row in range(n_nodes):
-                for col in range(n_nodes - 1):
-                    row_e = row * n_nodes + col
-                    col_e1 = n_lines * row + col
-                    out[i_row, row_e] += other[i_row, col_e1]
-
-            # Nodes with lines on their left
-            for row in range(n_nodes):
-                for col in range(n_nodes - 1):
-                    row_e = row * n_nodes + col + 1
-                    col_e1 = n_lines * row + col
-                    out[i_row, row_e] -= other[i_row, col_e1]
-
-            # Nodes with lines on their top
-            for row in range(n_nodes - 1):
-                for col in range(n_nodes):
-                    row_e = row * n_nodes + col
-                    col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
-                    out[i_row, row_e] -= other[i_row, col_e1]
-
-            # Nodes with lines on their bottom
-            for row in range(n_nodes - 1):
-                for col in range(n_nodes):
-                    row_e = (row + 1) * n_nodes + col
-                    col_e1 = (n_nodes * (n_nodes - 1)) + row * n_nodes + col
-                    out[i_row, row_e] += other[i_row, col_e1]
-
-        return out
-
-    def apply_e10_rt(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Apply the right transposed E10 matrix to the given input.
-
-        Calling this function is equivalent to right multiplying by E10 transposed.
-        """
-        assert other.ndim == 2
-        n_nodes = self.order + 1
-        n_lines = self.order
-        out = np.zeros((other.shape[0], 2 * self.order * (self.order + 1)), np.float64)
-
-        for i_row in range(other.shape[0]):
-            for row in range(n_nodes):
-                for col in range(n_lines):
-                    row_e = row * n_lines + col
-                    col_e1 = n_nodes * row + col
-                    col_e2 = n_nodes * row + col + 1
-                    out[i_row, row_e] = other[i_row, col_e1] - other[i_row, col_e2]
-
-            for row in range(n_lines):
-                for col in range(n_nodes):
-                    row_e = n_nodes * n_lines + row * n_nodes + col
-                    col_e1 = n_nodes * (row + 1) + col
-                    col_e2 = n_nodes * row + col
-                    out[i_row, row_e] = other[i_row, col_e1] - other[i_row, col_e2]
-
-        return out
-
-    def incidence_21(self) -> npt.NDArray[np.float64]:
-        r"""Incidence matrix from 1-forms to 2-forms.
-
-        This applies the exterior derivative operation to primal 1-forms and maps them
-        into 2-forms. The negative transpose is the equivalent operation for the dual
-        0-forms, the derivatives of which are consequently dual 1-forms.
-
-        This is done by mapping degrees of freedom of the original primal 1-form or dual
-        0-form into those of the derivative primal 2-forms or dual 1-forms respectively.
-
-        .. math::
-
-            \vec{\mathcal{N}}^{(2)}(f) = \mathbb{E}^{(2,1)} \vec{\mathcal{N}}^{(1)}(f)
-
-
-        .. math::
-
-            \tilde{\mathcal{N}}^{(1)}(f) = -\left(\mathbb{E}^{(2,1)}\right)^{T}
-            \tilde{\mathcal{N}}^{(0)}(f)
-
-        Returns
-        -------
-        array
-            Incidence matrix :math:`\mathbb{E}^{(2,1)}`.
-        """
-        n_nodes = self.order + 1
-        n_lines = self.order
-        e = np.zeros(((n_lines * n_lines), (n_nodes * n_lines + n_lines * n_nodes)))
-
-        for row in range(n_lines):
-            for col in range(n_lines):
-                e[row * n_lines + col, n_lines * row + col] = +1
-                e[row * n_lines + col, n_lines * (row + 1) + col] = -1
-                e[row * n_lines + col, n_nodes * n_lines + n_nodes * row + col] = +1
-                e[row * n_lines + col, n_nodes * n_lines + n_nodes * row + col + 1] = -1
-
-        return e
-
-    def apply_e21(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Apply the E21 matrix to the given input.
-
-        Calling this function is equivalent to left multiplying by E21.
-        """
-        assert other.ndim == 2
-        n_nodes = self.order + 1
-        n_lines = self.order
-        out = np.zeros((self.order**2, other.shape[1]), np.float64)
-
-        for i_col in range(other.shape[1]):
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = row * n_lines + col
-                    col_e1 = n_lines * row + col  # +
-                    col_e2 = n_lines * (row + 1) + col  # -
-                    col_e3 = n_nodes * n_lines + n_nodes * row + col  # +
-                    col_e4 = n_nodes * n_lines + n_nodes * row + col + 1  # -
-                    out[row_e, i_col] = (
-                        other[col_e1, i_col]
-                        - other[col_e2, i_col]
-                        + other[col_e3, i_col]
-                        - other[col_e4, i_col]
-                    )
-
-        return out
-
-    def apply_e21_t(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Apply the E21 transposed matrix to the given input.
-
-        Calling this function is equivalent to left multiplying by E21 transposed.
-        """
-        assert other.ndim == 2
-        n_nodes = self.order + 1
-        n_lines = self.order
-        out = np.zeros(((2 * self.order * (self.order + 1)), other.shape[1]), np.float64)
-
-        for i_col in range(other.shape[1]):
-            # Lines with surfaces on the top
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = row * n_lines + col
-                    col_e1 = row * n_lines + col
-                    out[row_e, i_col] = other[col_e1, i_col]
-
-            # Lines with surfaces on the bottom
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = (row + 1) * n_lines + col
-                    col_e1 = row * n_lines + col
-                    out[row_e, i_col] -= other[col_e1, i_col]
-
-            # Lines with surfaces on the left
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = (self.order + 1) * self.order + row * n_nodes + col
-                    col_e1 = row * n_lines + col
-                    out[row_e, i_col] += other[col_e1, i_col]
-
-            # Lines with surfaces on the right
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = (self.order + 1) * self.order + row * n_nodes + col + 1
-                    col_e1 = row * n_lines + col
-                    out[row_e, i_col] -= other[col_e1, i_col]
-
-        return out
-
-    def apply_e21_r(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Apply the right E21 matrix to the given input.
-
-        Calling this function is equivalent to right multiplying by E21.
-        """
-        assert other.ndim == 2
-        n_nodes = self.order + 1
-        n_lines = self.order
-        out = np.zeros((other.shape[0], (self.order + 1) * self.order * 2), np.float64)
-
-        for i_row in range(other.shape[0]):
-            # Lines with surfaces on the top
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = row * n_lines + col
-                    col_e1 = row * n_lines + col
-                    out[i_row, row_e] = other[i_row, col_e1]
-
-            # Lines with surfaces on the bottom
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = (row + 1) * n_lines + col
-                    col_e1 = row * n_lines + col
-                    out[i_row, row_e] -= other[i_row, col_e1]
-
-            # Lines with surfaces on the left
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = (self.order + 1) * self.order + row * n_nodes + col
-                    col_e1 = row * n_lines + col
-                    out[i_row, row_e] += other[i_row, col_e1]
-
-            # Lines with surfaces on the right
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = (self.order + 1) * self.order + row * n_nodes + col + 1
-                    col_e1 = row * n_lines + col
-                    out[i_row, row_e] -= other[i_row, col_e1]
-
-        return out
-
-    def apply_e21_rt(self, other: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Apply the right transpose E21 matrix to the given input.
-
-        Calling this function is equivalent to right multiplying by E21 transposed.
-        """
-        assert other.ndim == 2
-        n_nodes = self.order + 1
-        n_lines = self.order
-        out = np.zeros((other.shape[0], self.order**2), np.float64)
-
-        for i_row in range(other.shape[0]):
-            for row in range(n_lines):
-                for col in range(n_lines):
-                    row_e = row * n_lines + col
-                    col_e1 = n_lines * row + col  # +
-                    col_e2 = n_lines * (row + 1) + col  # -
-                    col_e3 = n_nodes * n_lines + n_nodes * row + col  # +
-                    col_e4 = n_nodes * n_lines + n_nodes * row + col + 1  # -
-                    out[i_row, row_e] = (
-                        other[i_row, col_e1]
-                        - other[i_row, col_e2]
-                        + other[i_row, col_e3]
-                        - other[i_row, col_e4]
-                    )
-
-        return out
 
     def reconstruct(
         self,
@@ -868,54 +1122,12 @@ class Element2D:
 
         return np.array(out, np.float64, copy=None)
 
-    @staticmethod
-    def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.int32]:
-        """Ordering for vtkLagrangeQuadrilateral.
-
-        VTK has an option to create cells of type LagrangeQuadrilateral. These
-        allow for arbitrary order of interpolation with nodal basis. Due to
-        backwards compatibility the ordering of the nodes in these is done in
-        an unique way. As such, either the positions or ordering of the nodes
-        must be adjusted.
-
-        This function returns the correct order which can be used for either
-        given a specific polynomial order.
-
-        Parameters
-        ----------
-        order : int
-            Order of the element.
-
-        Returns
-        -------
-        array
-            Array of indices which correctly order nodes on an element of
-            the specified order.
-        """
-        n = int(order) + 1
-        v = np.arange(n)
-        return (
-            np.concatenate(
-                (
-                    (0, n - 1, n**2 - 1, n * (n - 1)),  # corners
-                    v[1:-1],  # bottom edge
-                    n - 1 + n * v[1:-1],  # right edge
-                    n * (n - 1) + v[1:-1],  # top edge
-                    n * v[1:-1],  # left edge
-                    np.concatenate([v[1:-1] + n * k for k in v[1:-1]]),
-                )
-            )
-            if order > 1
-            else np.concatenate(
-                (
-                    (0, n - 1, n**2 - 1, n * (n - 1)),  # corners
-                )
-            )
-        )
-
     def divide(
         self, order: int
-    ) -> tuple[tuple[Element2D, Element2D], tuple[Element2D, Element2D]]:
+    ) -> tuple[
+        ElementNode2D,
+        tuple[tuple[ElementLeaf2D, ElementLeaf2D], tuple[ElementLeaf2D, ElementLeaf2D]],
+    ]:
         """Divide the element into four child elements of the specified order.
 
         Parameters
@@ -925,65 +1137,66 @@ class Element2D:
 
         Returns
         -------
-        (2, 2) tuple of Element2D
+        ElementNode2D
+            Parent element which contains the nodes.
+
+        (2, 2) tuple of ElementLeaf2D
             Child elements of the same order as the element itself. Indexing the
             tuple will give bottom/top for the first axis and left/right for the
             second.
         """
-        bottom_mid = (np.array(self.bottom_left) + np.array(self.bottom_right)) / 2
-        left_mid = (np.array(self.bottom_left) + np.array(self.top_left)) / 2
-        right_mid = (np.array(self.bottom_right) + np.array(self.top_right)) / 2
-        top_mid = (np.array(self.top_left) + np.array(self.top_right)) / 2
+        bottom_mid = (np.array(self._bottom_left) + np.array(self._bottom_right)) / 2
+        left_mid = (np.array(self._bottom_left) + np.array(self._top_left)) / 2
+        right_mid = (np.array(self._bottom_right) + np.array(self._top_right)) / 2
+        top_mid = (np.array(self._top_left) + np.array(self._top_right)) / 2
         center_mid = (
-            np.array(self.bottom_left)
-            + np.array(self.bottom_right)
-            + np.array(self.top_left)
-            + np.array(self.top_right)
+            np.array(self._bottom_left)
+            + np.array(self._bottom_right)
+            + np.array(self._top_left)
+            + np.array(self._top_right)
         ) / 4
-        btm_l = Element2D(
-            self.level + 1,
+        btm_l = ElementLeaf2D(
+            None,
             order,
             self.bottom_left,
             tuple(bottom_mid),
             tuple(center_mid),
             tuple(left_mid),
         )
-        btm_r = Element2D(
-            self.level + 1,
+        btm_r = ElementLeaf2D(
+            None,
             order,
             tuple(bottom_mid),
             self.bottom_right,
             tuple(right_mid),
             tuple(center_mid),
         )
-        top_r = Element2D(
-            self.level + 1,
+        top_r = ElementLeaf2D(
+            None,
             order,
             tuple(center_mid),
             tuple(right_mid),
             self.top_right,
             tuple(top_mid),
         )
-        top_l = Element2D(
-            self.level + 1,
+        top_l = ElementLeaf2D(
+            None,
             order,
             tuple(left_mid),
             tuple(center_mid),
             tuple(top_mid),
             self.top_left,
         )
-        return ((btm_l, btm_r), (top_l, top_r))
-
-    def __repr__(self) -> str:
-        """Return string representation of the Element."""
-        return (
-            f"Element2D({self.level}, {self.order}, {self.bottom_left}, "
-            f"{self.bottom_right}, {self.top_right}, {self.top_left})"
-        )
+        parent = ElementNode2D(self.parent, btm_l, btm_r, top_l, top_r)
+        object.__setattr__(btm_l, "parent", parent)
+        object.__setattr__(btm_r, "parent", parent)
+        object.__setattr__(top_l, "parent", parent)
+        object.__setattr__(top_r, "parent", parent)
+        return parent, ((btm_l, btm_r), (top_l, top_r))
 
 
 def rhs_2d_element_projection(
-    right: KElementProjection, element: Element2D, cache: BasisCache
+    right: KElementProjection, element: ElementLeaf2D, cache: BasisCache
 ) -> npt.NDArray[np.float64]:
     """Evaluate the differential form projections on the 1D element.
 
@@ -1095,7 +1308,7 @@ def rhs_2d_element_projection(
 
 
 def rhs_2d_boundary_projection(
-    right: KBoundaryProjection, element: Element2D, cache: BasisCache, bid: int
+    right: KBoundaryProjection, element: ElementLeaf2D, cache: BasisCache, bid: int
 ) -> npt.NDArray[np.float64]:
     """Evaluate the differential form projections on the 2D element boundary.
 
@@ -1171,7 +1384,7 @@ def rhs_2d_boundary_projection(
 
 
 def _extract_rhs_2d(
-    proj: KProjectionCombination, element: Element2D, cache: BasisCache
+    proj: KProjectionCombination, element: ElementLeaf2D, cache: BasisCache
 ) -> npt.NDArray[np.float64]:
     """Extract the rhs resulting from element projections."""
     if proj.weight.order == 0:
@@ -1197,7 +1410,7 @@ def _extract_rhs_2d(
 
 def element_rhs(
     system: KFormSystem,
-    element: Element2D,
+    element: ElementLeaf2D,
     cache: BasisCache,
 ) -> npt.NDArray[np.float64]:
     """Compute element matrix and vector.
@@ -1289,7 +1502,7 @@ class Mesh2D:
         """Number of (surface) elements in the mesh."""
         return self.primal.n_surfaces
 
-    def get_element(self, idx: int, /) -> Element2D:
+    def get_element(self, idx: int, /) -> ElementLeaf2D:
         """Obtain the 2D element corresponding to the index."""
         s = self.primal.get_surface(idx + 1)
         assert len(s) == 4, "Primal surface must be square."
@@ -1297,8 +1510,8 @@ class Mesh2D:
         for i in range(4):
             line = self.primal.get_line(s[i])
             indices[i] = line.begin.index
-        return Element2D(
-            0,
+        return ElementLeaf2D(
+            None,
             int(self.orders[idx]),
             tuple(self.positions[indices[0], :]),  # type: ignore
             tuple(self.positions[indices[1], :]),  # type: ignore
@@ -1308,7 +1521,7 @@ class Mesh2D:
 
 
 def eval_expression(
-    expr: Iterable[MatOp], element: Element2D, cache: BasisCache
+    expr: Iterable[MatOp], element: ElementLeaf2D, cache: BasisCache
 ) -> npt.NDArray[np.float64] | np.float64:
     """Evaluate the matrix expression."""
     stack: list[tuple[float, npt.NDArray[np.floating] | None]] = []
@@ -1340,16 +1553,16 @@ def eval_expression(
         elif type(op) is Incidence:
             if op.dual:
                 if op.begin == 0:
-                    mat = -element.incidence_21().T
+                    mat = -incidence_21(element.order).T
                 elif op.begin == 1:
-                    mat = -element.incidence_10().T
+                    mat = -incidence_10(element.order).T
                 else:
                     assert False
             else:
                 if op.begin == 0:
-                    mat = element.incidence_10()
+                    mat = incidence_10(element.order)
                 elif op.begin == 1:
-                    mat = element.incidence_21()
+                    mat = incidence_21(element.order)
                 else:
                     assert False
 

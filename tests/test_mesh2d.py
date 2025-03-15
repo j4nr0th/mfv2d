@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib.mimetic.mimetic2d import Element2D
+from interplib.mimetic.mimetic2d import ElementLeaf2D
 
 
 def check_e01():
@@ -36,7 +36,7 @@ def check_e01():
     ).reshape((-1,))
     y = np.concatenate((y1, y2))
 
-    e = Element2D(3, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
+    e = ElementLeaf2D(3, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
 
     e10 = e.incidence_10()
 
@@ -74,7 +74,7 @@ def check_e12():
     ).reshape((-1,))
     x = np.concatenate((x1, x2))
 
-    e = Element2D(3, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
+    e = ElementLeaf2D(3, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
 
     e21 = e.incidence_21()
 
@@ -84,7 +84,7 @@ def check_e12():
 
 def check_e10_e21_null():
     """Product of E21 @ E10 should be zero."""
-    e = Element2D(10, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
+    e = ElementLeaf2D(10, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
     e10 = e.incidence_10()
     e21 = e.incidence_21()
     assert np.all(e21 @ e10 == 0)

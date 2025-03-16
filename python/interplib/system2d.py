@@ -73,6 +73,20 @@ class ConstraintEquation:
         )
 
 
+OrderDivisionFunction = Callable[
+    [int, int, int], tuple[int | None, tuple[int, int, int, int]]
+]
+
+
+def divide_old(
+    order: int, level: int, max_level: int
+) -> tuple[int | None, tuple[int, int, int, int]]:
+    """Keep child order equal to parent and set parent to double the child."""
+    del level, max_level
+    v = order
+    return 2 * order, (v, v, v, v)
+
+
 @dataclass(init=False)
 class ElementTree:
     """Container for mesh elements."""
@@ -98,6 +112,7 @@ class ElementTree:
         self,
         elements: Sequence[ElementLeaf2D],
         predicate: None | Callable[[ElementLeaf2D, int], bool],
+        division_function: OrderDivisionFunction,
         max_levels: int,
         unknowns: Sequence[kform.KFormUnknown],
     ) -> None:
@@ -107,6 +122,7 @@ class ElementTree:
 
         def check_refinement(
             pred: Callable[[ElementLeaf2D, int], bool] | None,
+            order_div: OrderDivisionFunction,
             e: ElementLeaf2D,
             level: int,
             max_level: int,
@@ -115,11 +131,12 @@ class ElementTree:
             out: list[Element2D]
             if level < max_level and pred is not None and pred(e, level):
                 # TODO: Make this nicer without this stupid Method mumbo jumbo
-                new_e, ((ebl, ebr), (etl, etr)) = e.divide(e.order)
-                cbl = check_refinement(pred, ebl, level + 1, max_level)
-                cbr = check_refinement(pred, ebr, level + 1, max_level)
-                ctl = check_refinement(pred, etl, level + 1, max_level)
-                ctr = check_refinement(pred, etr, level + 1, max_level)
+                parent_order, child_orders = order_div(e.order, level, max_level)
+                new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders, parent_order)
+                cbl = check_refinement(pred, order_div, ebl, level + 1, max_level)
+                cbr = check_refinement(pred, order_div, ebr, level + 1, max_level)
+                ctl = check_refinement(pred, order_div, etl, level + 1, max_level)
+                ctr = check_refinement(pred, order_div, etr, level + 1, max_level)
                 object.__setattr__(new_e, "child_bl", cbl[0])
                 object.__setattr__(new_e, "child_br", cbr[0])
                 object.__setattr__(new_e, "child_tl", ctl[0])
@@ -136,7 +153,7 @@ class ElementTree:
 
         for e in elements:
             top_indices.append(len(all_elems))
-            all_elems += check_refinement(predicate, e, 0, max_levels)
+            all_elems += check_refinement(predicate, division_function, e, 0, max_levels)
 
         self.elements = tuple(all_elems)
         del all_elems
@@ -387,6 +404,7 @@ def solve_system_2d(
     refinement_levels: int = 0,
     div_predicate: Callable[[ElementLeaf2D, int], bool] | None = None,
     *,
+    division_function: OrderDivisionFunction | None = None,
     timed: bool = False,
     recon_order: int | None = None,
     gpu: bool = False,
@@ -403,32 +421,37 @@ def solve_system_2d(
     ----------
     system : kforms.KFormSystem
         System of equations to solve.
+
     mesh : Mesh2D
         Mesh on which to solve the system on.
+
     rec_order : int
         Order of reconstruction returned.
+
     boundary_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
         Sequence of boundary conditions to be applied to the system.
+
     refinement_levels : int, default: 0
         Number of mesh refinement levels which can be done. When zero
         (default value) no refinement is done.
+
     div_predicate : Callable (Element2D) -> bool
         Callable used to determine if an element should be divided further.
+
+    division_function : OrderDivisionFunction, optional
+        Function which determines order of the parent and child elements resulting from
+        the division of the element. When not specified, the "old" method is used.
+
     timed : bool, default: False
         Report time taken for different parts of the code.
+
     recon_order : int, optional
         When specified, all elements will be reconstructed using this polynomial order.
         Otherwise, they are reconstructed with their own order.
+
     gpu : bool, default: False
         Compute element matrices one the GPU using Jax. This improves performance, but
         might yield worse rounding.
-
-    Note
-    ----
-
-    When running on the GPU, ``jax`` defaults to using ``f32`` for its calculations. This
-    causes a loss of accuracy, so in that case, make sure you use
-    ``jax.config.update("jax_enable_x64", True)`` to force it to use 64-bit floats.
 
     Returns
     -------
@@ -502,10 +525,14 @@ def solve_system_2d(
 
     unknown_form_orders = tuple(form.order for form in system.unknown_forms)
 
+    if division_function is None:
+        division_function = divide_old
+
     # Make elements into a rectree
     element_tree = ElementTree(
         list(mesh.get_element(ie) for ie in range(mesh.n_elements)),
         div_predicate,
+        division_function,
         refinement_levels,
         system.unknown_forms,
     )

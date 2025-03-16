@@ -661,21 +661,25 @@ class ElementNode2D(Element2D):
     child_tl: Element2D
     child_tr: Element2D
 
+    maximum_order: int | None = None
+
     def order_on_side(self, side: int) -> int:
         """Effective order of the element on the specified side."""
         if side == 0:
-            return self.child_bl.order_on_side(0) + self.child_br.order_on_side(0)
+            base_size = self.child_bl.order_on_side(0) + self.child_br.order_on_side(0)
+        elif side == 1:
+            base_size = self.child_br.order_on_side(1) + self.child_tr.order_on_side(1)
+        elif side == 2:
+            base_size = self.child_tr.order_on_side(2) + self.child_tl.order_on_side(2)
+        elif side == 3:
+            base_size = self.child_tl.order_on_side(3) + self.child_bl.order_on_side(3)
+        else:
+            raise ValueError(f"Invalid value of the side (can not be {side}).")
 
-        if side == 1:
-            return self.child_br.order_on_side(1) + self.child_tr.order_on_side(1)
+        if self.maximum_order is not None:
+            base_size = min(self.maximum_order, base_size)
 
-        if side == 2:
-            return self.child_tr.order_on_side(2) + self.child_tl.order_on_side(2)
-
-        if side == 3:
-            return self.child_tl.order_on_side(3) + self.child_bl.order_on_side(3)
-
-        raise ValueError(f"Invalid value of the side (can not be {side}).")
+        return base_size
 
     def dof_sizes(self, form_orders: Sequence[int]) -> tuple[int, ...]:
         """Compute number unknown DoFs for differential forms."""
@@ -1123,7 +1127,12 @@ class ElementLeaf2D(Element2D):
         return np.array(out, np.float64, copy=None)
 
     def divide(
-        self, order: int
+        self,
+        order_bl: int,
+        order_br: int,
+        order_tl: int,
+        order_tr: int,
+        order_p: int | None = None,
     ) -> tuple[
         ElementNode2D,
         tuple[tuple[ElementLeaf2D, ElementLeaf2D], tuple[ElementLeaf2D, ElementLeaf2D]],
@@ -1132,8 +1141,16 @@ class ElementLeaf2D(Element2D):
 
         Parameters
         ----------
-        order : int
-            Order of the child elements.
+        order_bl : int
+            Order of the bottom left element.
+        order_br : int
+            Order of the bottom right element.
+        order_tl : int
+            Order of the top left element.
+        order_tr : int
+            Order of the top right element.
+        order_p : int, optional
+            Order of the parent element. If given, the parent will have a fixed order.
 
         Returns
         -------
@@ -1157,7 +1174,7 @@ class ElementLeaf2D(Element2D):
         ) / 4
         btm_l = ElementLeaf2D(
             None,
-            order,
+            order_bl,
             self.bottom_left,
             tuple(bottom_mid),
             tuple(center_mid),
@@ -1165,7 +1182,7 @@ class ElementLeaf2D(Element2D):
         )
         btm_r = ElementLeaf2D(
             None,
-            order,
+            order_br,
             tuple(bottom_mid),
             self.bottom_right,
             tuple(right_mid),
@@ -1173,7 +1190,7 @@ class ElementLeaf2D(Element2D):
         )
         top_r = ElementLeaf2D(
             None,
-            order,
+            order_tr,
             tuple(center_mid),
             tuple(right_mid),
             self.top_right,
@@ -1181,13 +1198,15 @@ class ElementLeaf2D(Element2D):
         )
         top_l = ElementLeaf2D(
             None,
-            order,
+            order_tl,
             tuple(left_mid),
             tuple(center_mid),
             tuple(top_mid),
             self.top_left,
         )
-        parent = ElementNode2D(self.parent, btm_l, btm_r, top_l, top_r)
+
+        parent = ElementNode2D(self.parent, btm_l, btm_r, top_l, top_r, order_p)
+
         object.__setattr__(btm_l, "parent", parent)
         object.__setattr__(btm_r, "parent", parent)
         object.__setattr__(top_l, "parent", parent)

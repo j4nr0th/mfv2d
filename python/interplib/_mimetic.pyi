@@ -512,3 +512,40 @@ class SparseVector:
     def __array__(self, dtype=None, copy=None) -> npt.NDArray:
         """Convert the vector to a full array."""
         ...
+
+class GivensRotation:
+    """Representation of a Givens rotation matrix."""
+
+    def __new__(cls, n: int, i1: int, i2: int, c: float, s: float) -> Self: ...
+    @property
+    def n(self) -> int:
+        """Dimension of the rotation."""
+        ...
+
+    @property
+    def i1(self) -> int:
+        """First index of rotation."""
+        ...
+
+    @property
+    def i2(self) -> int:
+        """Second index of rotation."""
+        ...
+
+    @property
+    def c(self) -> float:
+        """Cosine rotation value."""
+        ...
+
+    @property
+    def s(self) -> float:
+        """Sine rotation value."""
+        ...
+
+    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
+        """Convert the object into a full numpy matrix."""
+        ...
+
+    def __matmul__(self, other: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Apply the rotation to the vector or matrix."""
+        ...

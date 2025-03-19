@@ -468,3 +468,47 @@ def continuity(
 ) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.uint32]]:
     """Create continuity equation for different forms."""
     ...
+
+class SparseVector:
+    """Vector which stores only the non-zero components."""
+
+    @classmethod
+    def from_entries(cls, n: int, indices: npt.ArrayLike, values: npt.ArrayLike) -> Self:
+        """Create sparse vector from an array of indices and values.
+
+        Parameters
+        ----------
+        n : int
+            Dimension of the vector.
+
+        indices : array_like
+            Indices of the entries. Must be sorted.
+
+        values : array_like
+            Values of the entries.
+
+        Returns
+        -------
+        SparseVector
+            New vector with indices and values as given.
+        """
+        ...
+
+    @property
+    def n(self) -> int:
+        """Dimension of the vector."""
+        ...
+
+    @property
+    def values(self) -> npt.NDArray[np.float64]:
+        """Values of non-zero entries of the vector."""
+        ...
+
+    @property
+    def indices(self) -> npt.NDArray[np.uint64]:
+        """Indices of non-zero entries of the vector."""
+        ...
+
+    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
+        """Convert the vector to a full array."""
+        ...

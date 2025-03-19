@@ -86,8 +86,25 @@ set(EVAL_HEADER_FILES
         src/mimetic/eval/connectivity.h
 )
 
+set(MAT_HEADER_FILES
+        src/mimetic/solve/qr_solve.h
+        src/mimetic/solve/svector.h
+)
+
+set(MAT_SOURCE_FILES
+        src/mimetic/solve/qr_solve.c
+        src/mimetic/solve/svector.c
+)
+
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
-Python_add_library(_mimetic MODULE ${MIMETIC_SOURCE_FILES} ${EVAL_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
+Python_add_library(_mimetic
+        MODULE
+        ${MIMETIC_SOURCE_FILES}
+        ${EVAL_SOURCE_FILES}
+        ${MAT_SOURCE_FILES}
+        ${COMMON_SOURCE_FILES}
+        WITH_SOABI
+)# USE_SABI 3.10) STABLE API HATE!
 # Python_add_library(_eval MODULE ${EVAL_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
 install(TARGETS _interp _mimetic DESTINATION ${SKBUILD_PROJECT_NAME})
 

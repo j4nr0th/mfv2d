@@ -5,11 +5,18 @@
 #include <numpy/ndarrayobject.h>
 
 int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *row_i, const svector_t *row_j,
-                          svector_t *restrict out_i, svector_t *restrict out_j, const allocator_callbacks *allocator)
+                          svector_t *restrict out_i, svector_t *restrict out_j, const unsigned cut_j,
+                          const allocator_callbacks *allocator)
 {
     ASSERT(row_i->n == row_j->n, "Input vectors must have the same size.");
     ASSERT(out_i->n == out_j->n, "Output vectors must have the same size.");
-    const uint64_t max_elements = row_i->count + row_j->count;
+    uint64_t max_elements = row_i->count + row_j->count;
+
+    // Can't have more elements than the full row.
+    if (max_elements > row_i->n)
+    {
+        max_elements = row_i->n;
+    }
 
     if (sparse_vec_resize(out_i, max_elements, allocator) || sparse_vec_resize(out_j, max_elements, allocator))
     {
@@ -26,7 +33,7 @@ int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *r
             // row I still available
             if (idx_j < row_j->count)
             {
-                // row j still available
+                // row J still available
                 if (row_i->entries[idx_i].index < row_j->entries[idx_j].index)
                 {
                     // I before J
@@ -68,23 +75,37 @@ int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *r
         }
         out_i->entries[pos].value = c * vi + s * vj;
         out_i->entries[pos].index = pv;
-        // Skip the first one on the account of the fact that it is eliminated
-        if (pos != 0)
+        // Skip the first cut_j the account of the fact that they are eliminated.
+        if (pos >= cut_j)
         {
             out_j->entries[pos - 1].value = -s * vi + c * vj;
             out_j->entries[pos - 1].index = pv;
         }
     }
+    // Adjust the element counts for out_i and out_j.
     out_i->count = pos;
-    out_j->count = pos - 1;
+    out_j->count = pos - cut_j;
 
     return 0;
 }
 
+givens_object_t *givens_to_python(const givens_rotation_t *g)
+{
+    givens_object_t *const this =
+        (givens_object_t *)givens_rotation_type_object.tp_alloc(&givens_rotation_type_object, 0);
+    if (!this)
+        return this;
+    this->data = *g;
+    return this;
+}
+
 static PyObject *givens_repr(const givens_object_t *this)
 {
-    return PyUnicode_FromFormat("GivensRotation(%" PRIu64 ", %" PRIu64 ", %" PRIu64 ", %g, %g)", this->data.n,
-                                this->data.k, this->data.l, this->data.c, this->data.s);
+    char float_buffer1[32], float_buffer2[32];
+    snprintf(float_buffer1, sizeof(float_buffer1), "%g", this->data.c);
+    snprintf(float_buffer2, sizeof(float_buffer2), "%g", this->data.s);
+    return PyUnicode_FromFormat("GivensRotation(%" PRIu64 ", %" PRIu64 ", %" PRIu64 ", %s, %s)", this->data.n,
+                                this->data.k, this->data.l, float_buffer1, float_buffer2);
 }
 
 static PyObject *givens_as_array(const givens_object_t *this, PyObject *args, PyObject *kwds)

@@ -20,3 +20,18 @@ def test_construction(n: int, m: int) -> None:
         lil[i] = s
 
     assert np.all(np.array(lil) == a)
+
+
+@pytest.mark.parametrize("n", (2, 3, 20, 100))
+def test_decomposition(n: int) -> None:
+    """Check that QR decomposition makes sense."""
+    np.random.seed(0)
+    a = np.random.random_sample((n, n))
+    r = LiLMatrix.from_full(a)
+    assert np.all(np.array(r) == a)
+    q = r.qr_decompose()
+
+    for g in q:
+        a = g @ a
+
+    assert pytest.approx(a) == np.array(r)

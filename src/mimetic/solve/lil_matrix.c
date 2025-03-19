@@ -3,6 +3,7 @@
 //
 
 #include "lil_matrix.h"
+#include "qr_solve.h"
 #include <numpy/ndarrayobject.h>
 
 static PyObject *lil_mat_repr(const lil_mat_object_t *this)
@@ -151,6 +152,88 @@ static PyObject *lil_mat_as_array(const lil_mat_object_t *this, PyObject *args, 
     return (PyObject *)out;
 }
 
+static PyObject *lil_mat_from_full(PyTypeObject *type, PyObject *arg)
+{
+    PyArrayObject *const array = (PyArrayObject *)PyArray_FromAny(arg, PyArray_DescrFromType(NPY_FLOAT64), 2, 2,
+                                                                  NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+    if (!array)
+        return NULL;
+
+    const npy_intp *dims = PyArray_DIMS(array);
+    lil_mat_object_t *const this = (lil_mat_object_t *)type->tp_alloc(type, dims[0]);
+    const npy_float64 *const ptr = PyArray_DATA(array);
+
+    for (uint64_t row = 0; row < dims[0]; ++row)
+    {
+        if (sparse_vector_new(this->row_data + row, dims[1], dims[1], &SYSTEM_ALLOCATOR))
+        {
+            Py_DECREF(this);
+            Py_DECREF(array);
+            return NULL;
+        }
+        for (uint64_t j = 0; j < dims[1]; ++j)
+        {
+            this->row_data[row].entries[j] = (entry_t){.index = j, .value = ptr[row * dims[1] + j]};
+        }
+        this->row_data[row].count = dims[1];
+    }
+
+    this->rows = dims[0];
+    this->cols = dims[1];
+    Py_DECREF(array);
+    return (PyObject *)this;
+}
+
+static void lil_mat_delete(lil_mat_object_t *this)
+{
+    for (uint64_t i = 0; i < this->rows; ++i)
+    {
+        sparse_vec_del(this->row_data + i, &SYSTEM_ALLOCATOR);
+    }
+}
+
+static PyObject *lil_mat_qr_decomposition(lil_mat_object_t *this, PyObject *Py_UNUSED(args))
+{
+    const lil_matrix_t tmp = {.rows = this->rows, .cols = this->cols, .row_data = this->row_data};
+    uint64_t n_givens;
+    givens_rotation_t *p_givens;
+
+    Py_BEGIN_ALLOW_THREADS;
+
+    // Threads are allowed inside here, since this can be on the slow side.
+    // As long as no one else has the bright idea to start messing with the
+    // matrix in another thread we will be fine. If someone is retarded enough
+    // to try that, may God have mercy on his soul.
+    if (decompose_qr(&tmp, &n_givens, &p_givens, &SYSTEM_ALLOCATOR))
+    {
+        return NULL;
+    }
+
+    Py_END_ALLOW_THREADS;
+
+    PyTupleObject *out_tuple = (PyTupleObject *)PyTuple_New((Py_ssize_t)n_givens);
+    if (!out_tuple)
+    {
+        deallocate(&SYSTEM_ALLOCATOR, p_givens);
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < n_givens; ++i)
+    {
+        givens_object_t *const g = givens_to_python(p_givens + i);
+        if (!g)
+        {
+            Py_DECREF(out_tuple);
+            out_tuple = NULL;
+            break;
+        }
+        PyTuple_SET_ITEM(out_tuple, i, g);
+    }
+    deallocate(&SYSTEM_ALLOCATOR, p_givens);
+
+    return (PyObject *)out_tuple;
+}
+
 static PyMethodDef lil_mat_methods[] = {
     {.ml_name = "count_entries",
      .ml_meth = (void *)lil_mat_count_entries,
@@ -162,6 +245,33 @@ static PyMethodDef lil_mat_methods[] = {
      .ml_flags = METH_VARARGS | METH_KEYWORDS,
      .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray\n"
                "Convert the matrix into a numpy array.\n"},
+    {.ml_name = "from_full",
+     .ml_meth = (void *)lil_mat_from_full,
+     .ml_flags = METH_O | METH_CLASS,
+     .ml_doc = "from_full(mat: array, /) -> LiLMatrix:\n"
+               "Create A LiLMatrix from a full matrix.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "mat : array\n"
+               "    Full matrix to convert.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "LiLMatrix\n"
+               "    Matrix represented in the LiLMatrix format.\n"},
+    {.ml_name = "qr_decompose",
+     .ml_meth = (void *)lil_mat_qr_decomposition,
+     .ml_flags = METH_NOARGS,
+     .ml_doc = "qr_decompose() -> tuple[GivensRotation, ...]:\n"
+               "Decompose the matrix into a series of Givens rotations and a triangular matrix.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "(GivensRotation, ...)\n"
+               "    Givens rotations in the order they were applied to the matrix.\n"
+               "    This means that for the solution, they should be applied in the\n"
+               "    reversed order.\n"},
     {}, // Sentinel
 };
 
@@ -194,4 +304,5 @@ PyTypeObject lil_mat_type_object = {
     .tp_methods = lil_mat_methods,
     .tp_getset = lil_mat_getset,
     .tp_new = lil_mat_new,
+    .tp_finalize = (destructor)lil_mat_delete,
 };

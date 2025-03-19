@@ -582,3 +582,30 @@ class LiLMatrix:
     def __array__(self, dtype=None, copy=None) -> npt.NDArray:
         """Convert the matrix into a numpy array."""
         ...
+
+    @classmethod
+    def from_full(cls, mat: npt.ArrayLike, /) -> Self:
+        """Create A LiLMatrix from a full matrix.
+
+        Parameters
+        ----------
+        mat : array
+            Full matrix to convert.
+
+        Returns
+        -------
+        LiLMatrix
+            Matrix represented in the LiLMatrix format.ž
+        """
+        ...
+
+    def qr_decompose(self) -> tuple[GivensRotation, ...]:
+        """Decompose the matrix into a series of Givens rotations and a triangular matrix.
+
+        Returns
+        -------
+        (GivensRotation, ...)
+            Givens rotations in the order they were applied to the matrix.
+            This means that for the solution, they should be applied in the
+            reversed order.
+        """

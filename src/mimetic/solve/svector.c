@@ -13,7 +13,7 @@ int sparse_vector_new(svector_t *this, uint64_t n, uint64_t capacity, const allo
         return -1;
     }
 
-    this->size = 0;
+    this->count = 0;
     this->n = n;
     this->capacity = capacity;
     this->entries = entries;
@@ -39,6 +39,23 @@ int sparse_vec_resize(svector_t *this, uint64_t capacity, const allocator_callba
     }
     this->entries = new_ptr;
     return 0;
+}
+
+svec_object_t *sparse_vec_to_python(const svector_t *this)
+{
+    svec_object_t *const self = (svec_object_t *)svec_type_object.tp_alloc(&svec_type_object, (Py_ssize_t)this->count);
+    if (!self)
+        return NULL;
+
+    for (uint64_t i = 0; i < this->count; ++i)
+    {
+        self->entries[i] = this->entries[i];
+    }
+
+    self->capacity = this->count;
+    self->count = this->count;
+    self->n = this->n;
+    return self;
 }
 
 static PyObject *svec_repr(const svec_object_t *this)
@@ -67,10 +84,7 @@ static PyObject *svec_repr(const svec_object_t *this)
         count += snprintf(buffer + count, capacity - count, " (%" PRIu64 ", %g),", this->entries[i].index,
                           this->entries[i].value);
     }
-    if (this->count != 0)
-    {
-        buffer[count - 1] = ')';
-    }
+    buffer[count - 1] = ')';
     PyObject *const str_out = PyUnicode_FromString(buffer);
     PyMem_RawFree(buffer);
     return str_out;
@@ -119,9 +133,9 @@ static PyObject *svec_from_entries(PyTypeObject *type, PyObject *args, PyObject 
         return NULL;
     }
 
-    for (uint64_t i = 0; i < count - 1; ++i)
+    for (uint64_t i = 1; i < count; ++i)
     {
-        if (pi[i] >= pi[i + 1])
+        if (pi[i - 1] >= pi[i])
         {
             PyErr_Format(PyExc_ValueError, "Entry indices %" PRIu64 " and %" PRIu64 " are not sorted.", i, i + 1);
             Py_DECREF(array_values);

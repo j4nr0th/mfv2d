@@ -549,3 +549,36 @@ class GivensRotation:
     def __matmul__(self, other: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Apply the rotation to the vector or matrix."""
         ...
+
+class LiLMatrix:
+    """Matrix which has a list of is used to store sparse rows.
+
+    Parameters
+    ----------
+    rows : int
+        Number of rows of the matrix.
+    cols : int
+        Number of colums of the matrix.
+    """
+
+    def __new__(cls, rows: int, cols: int) -> Self: ...
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Get the shape of the matrix."""
+        ...
+
+    def __getitem__(self, idx: int, /) -> SparseVector:
+        """Get the row of the matrix."""
+        ...
+
+    def __setitem__(self, idx: int, val: SparseVector, /) -> None:
+        """Set the row of the matrix."""
+        ...
+
+    def count_entries(self) -> int:
+        """Return the number of entries in the matrix."""
+        ...
+
+    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
+        """Convert the matrix into a numpy array."""
+        ...

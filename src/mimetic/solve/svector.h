@@ -16,7 +16,7 @@ typedef struct
 
 typedef struct
 {
-    uint64_t n, size, capacity;
+    uint64_t n, count, capacity;
     entry_t *restrict entries;
 } svector_t;
 
@@ -61,5 +61,14 @@ void sparse_vec_del(svector_t *this, const allocator_callbacks *allocator);
  */
 INTERPLIB_INTERNAL
 int sparse_vec_resize(svector_t *this, uint64_t capacity, const allocator_callbacks *allocator);
+
+/**
+ * Create a Python sparse vector object based on the given sparse vector.
+ *
+ * @param this Vector that is to be converted.
+ * @return Pointer to the object or NULL on allocation failure.
+ */
+INTERPLIB_INTERNAL
+svec_object_t *sparse_vec_to_python(const svector_t *this);
 
 #endif // SVECTOR_H

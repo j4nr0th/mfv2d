@@ -9,7 +9,7 @@ int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *r
 {
     ASSERT(row_i->n == row_j->n, "Input vectors must have the same size.");
     ASSERT(out_i->n == out_j->n, "Output vectors must have the same size.");
-    const uint64_t max_elements = row_i->size + row_j->size;
+    const uint64_t max_elements = row_i->count + row_j->count;
 
     if (sparse_vec_resize(out_i, max_elements, allocator) || sparse_vec_resize(out_j, max_elements, allocator))
     {
@@ -17,14 +17,14 @@ int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *r
     }
 
     uint64_t idx_i, idx_j, pos;
-    for (idx_i = 0, idx_j = 0, pos = 0; idx_i < row_i->size && idx_j < row_j->size; ++pos)
+    for (idx_i = 0, idx_j = 0, pos = 0; idx_i < row_i->count && idx_j < row_j->count; ++pos)
     {
         scalar_t vi = 0.0, vj = 0.0;
         uint64_t pv;
-        if (idx_i < row_i->size)
+        if (idx_i < row_i->count)
         {
             // row I still available
-            if (idx_j < row_j->size)
+            if (idx_j < row_j->count)
             {
                 // row j still available
                 if (row_i->entries[idx_i].index < row_j->entries[idx_j].index)
@@ -75,8 +75,8 @@ int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *r
             out_j->entries[pos - 1].index = pv;
         }
     }
-    out_i->size = pos;
-    out_j->size = pos - 1;
+    out_i->count = pos;
+    out_j->count = pos - 1;
 
     return 0;
 }
@@ -127,7 +127,7 @@ static PyMethodDef givens_methods[] = {
     {.ml_name = "__array__",
      .ml_meth = (void *)givens_as_array,
      .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray[int]\n"
+     .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray\n"
                "Convert the object into a full numpy matrix.\n"},
     {}, // Sentinel
 };

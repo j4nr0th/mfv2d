@@ -90,12 +90,14 @@ set(MAT_HEADER_FILES
         src/mimetic/solve/qr_solve.h
         src/mimetic/solve/svector.h
         src/mimetic/solve/givens.h
+        src/mimetic/solve/lil_matrix.h
 )
 
 set(MAT_SOURCE_FILES
         src/mimetic/solve/qr_solve.c
         src/mimetic/solve/svector.c
         src/mimetic/solve/givens.c
+        src/mimetic/solve/lil_matrix.c
 )
 
 Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!

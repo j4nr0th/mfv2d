@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 from interplib._mimetic import LiLMatrix, SparseVector
+from scipy import sparse as sp
 
 
 @pytest.mark.parametrize(("n", "m"), ((10, 1), (10, 10), (3, 4), (4, 3)))
@@ -35,3 +36,18 @@ def test_decomposition(n: int) -> None:
         a = g @ a
 
     assert pytest.approx(a) == np.array(r)
+
+
+@pytest.mark.parametrize("n", (2, 3, 5))
+def test_block_diag(n: int) -> None:
+    """Check that the block diagonal works."""
+    np.random.seed(0)
+    matrices = list()
+    sizes = np.random.randint(1, 5, n)
+    for s in sizes:
+        matrices.append(np.random.random_sample((s, s)))
+
+    m = LiLMatrix.block_diag(*(LiLMatrix.from_full(mat) for mat in matrices))
+    ms = sp.block_diag(matrices)
+
+    assert np.all(ms.toarray() == np.array(m))

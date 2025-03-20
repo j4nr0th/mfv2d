@@ -58,6 +58,18 @@ svec_object_t *sparse_vec_to_python(const svector_t *this)
     return self;
 }
 
+int sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_callbacks *allocator)
+{
+    dst->n = src->n;
+    if (sparse_vec_resize(dst, src->count, allocator))
+        return -1;
+
+    memcpy(dst->entries, src->entries, sizeof *dst->entries * src->count);
+    dst->count = src->count;
+
+    return 0;
+}
+
 static PyObject *svec_repr(const svec_object_t *this)
 {
     size_t capacity = 8 * this->count + 64;

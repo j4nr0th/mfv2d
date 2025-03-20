@@ -559,7 +559,7 @@ class LiLMatrix:
     rows : int
         Number of rows of the matrix.
     cols : int
-        Number of colums of the matrix.
+        Number of columns of the matrix.
     """
 
     def __new__(cls, rows: int, cols: int) -> Self: ...
@@ -610,3 +610,19 @@ class LiLMatrix:
             This means that for the solution, they should be applied in the
             reversed order.
         """
+
+    @classmethod
+    def block_diag(cls, *blocks: LiLMatrix) -> Self:
+        """Construct a new matrix from blocks along the diagonal.
+
+        Parameters
+        ----------
+        *blocks : LiLMatrix
+            Block matrices. These are placed on the diagonal of the resulting matrix.
+
+        Returns
+        -------
+        LiLMatrix
+            Block diagonal matrix resulting from the blocks.
+        """
+        ...

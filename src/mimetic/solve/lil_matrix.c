@@ -234,6 +234,57 @@ static PyObject *lil_mat_qr_decomposition(lil_mat_object_t *this, PyObject *Py_U
     return (PyObject *)out_tuple;
 }
 
+static PyObject *lil_mat_block_diagonal(PyTypeObject *type, PyObject *const *args, const Py_ssize_t nargs)
+{
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        if (!Py_IS_TYPE(args[i], &lil_mat_type_object))
+        {
+            PyErr_Format(PyExc_TypeError, "All arguments must be LiLMatrix objects, but argument %u had the type %R.",
+                         i, Py_TYPE(args[i]));
+            return NULL;
+        }
+    }
+
+    const lil_mat_object_t *const *matrices = (const lil_mat_object_t *const *)args;
+    uint64_t n_rows = 0, n_cols = 0;
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        n_rows += matrices[i]->rows;
+    }
+
+    lil_mat_object_t *const this = (lil_mat_object_t *)type->tp_alloc(type, (Py_ssize_t)n_rows);
+
+    if (!this)
+        return NULL;
+
+    this->rows = n_rows;
+    uint64_t current_offset = 0, col_offset = 0;
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        const lil_mat_object_t *mat = matrices[i];
+        for (unsigned j = 0; j < mat->rows; ++j)
+        {
+            if (sparse_vector_copy(mat->row_data + j, this->row_data + current_offset, &SYSTEM_ALLOCATOR))
+            {
+                Py_DECREF(this);
+                return NULL;
+            }
+
+            for (unsigned k = 0; k < this->row_data[current_offset].count; ++k)
+            {
+                this->row_data[current_offset].entries[k].index += col_offset;
+            }
+
+            current_offset += 1;
+        }
+        col_offset += mat->cols;
+    }
+    this->cols = col_offset;
+
+    return (PyObject *)this;
+}
+
 static PyMethodDef lil_mat_methods[] = {
     {.ml_name = "count_entries",
      .ml_meth = (void *)lil_mat_count_entries,
@@ -272,6 +323,21 @@ static PyMethodDef lil_mat_methods[] = {
                "    Givens rotations in the order they were applied to the matrix.\n"
                "    This means that for the solution, they should be applied in the\n"
                "    reversed order.\n"},
+    {.ml_name = "block_diag",
+     .ml_meth = (void *)lil_mat_block_diagonal,
+     .ml_flags = METH_FASTCALL | METH_CLASS,
+     .ml_doc = "block_diag(*blocks: LiLMatrix) -> LiLMatrix:\n"
+               "Construct a new matrix from blocks along the diagonal.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "*blocks : LiLMatrix\n"
+               "    Block matrices. These are placed on the diagonal of the resulting matrix.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "LiLMatrix\n"
+               "    Block diagonal matrix resulting from the blocks.\n"},
     {}, // Sentinel
 };
 

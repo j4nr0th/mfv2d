@@ -71,4 +71,15 @@ int sparse_vec_resize(svector_t *this, uint64_t capacity, const allocator_callba
 INTERPLIB_INTERNAL
 svec_object_t *sparse_vec_to_python(const svector_t *this);
 
+/**
+ * Performs a deep copy of a vector to another memory location.
+ *
+ * @param src Vector to copy from.
+ * @param dst Vector to copy to.
+ * @param allocator Allocator to use to potentially allocate the memory with.
+ * @return Zero on success.
+ */
+INTERPLIB_INTERNAL
+int sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_callbacks *allocator);
+
 #endif // SVECTOR_H

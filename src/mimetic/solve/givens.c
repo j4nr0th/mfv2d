@@ -335,7 +335,7 @@ static PyObject *givens_matmul(const givens_object_t *this, PyObject *other)
     {
         const svec_object_t *const in = (svec_object_t *)other;
         // Sparse vector
-        const svector_t iv = {.n = in->n, .count = in->count, .capacity = 0, .entries = in->entries};
+        const svector_t iv = {.n = in->n, .count = in->count, .capacity = 0, .entries = (entry_t *)in->entries};
         svector_t tmp;
         if (sparse_vector_new(&tmp, in->n, in->count + 1, &SYSTEM_ALLOCATOR))
         {

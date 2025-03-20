@@ -41,6 +41,24 @@ int sparse_vec_resize(svector_t *this, uint64_t capacity, const allocator_callba
     return 0;
 }
 
+int sparse_vector_append(svector_t *this, const entry_t e, const allocator_callbacks *allocator)
+{
+    enum
+    {
+        MINIMUM_INCREMENT = 8
+    };
+    if (this->count >= this->capacity && sparse_vec_resize(this, this->count + MINIMUM_INCREMENT, allocator))
+    {
+        return -1;
+    }
+    ASSERT(this->count == 0 || e.index > this->entries[this->count - 1].index,
+           "Must have higher index than last in array.");
+
+    this->entries[this->count] = e;
+    this->count += 1;
+    return 0;
+}
+
 svec_object_t *sparse_vec_to_python(const svector_t *this)
 {
     svec_object_t *const self = (svec_object_t *)svec_type_object.tp_alloc(&svec_type_object, (Py_ssize_t)this->count);
@@ -287,7 +305,7 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
             return NULL;
         }
         const Py_ssize_t seq_len = PySlice_AdjustIndices((Py_ssize_t)this->n, &start, &stop, step);
-        const svector_t self = {.n = this->n, .count = this->count, .capacity = 0, .entries = this->entries};
+        const svector_t self = {.n = this->n, .count = this->count, .capacity = 0, .entries = (entry_t *)this->entries};
         const uint64_t begin = sparse_vector_find_first_geq(&self, start, 0);
         svector_t fake;
         if (begin == this->count)
@@ -329,7 +347,7 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
         adjusted_idx = (uint64_t)idx;
     }
 
-    const svector_t self = {.n = this->n, .count = this->count, .capacity = 0, .entries = this->entries};
+    const svector_t self = {.n = this->n, .count = this->count, .capacity = 0, .entries = (entry_t *)this->entries};
     const uint64_t pos = sparse_vector_find_first_geq(&self, adjusted_idx, 0);
     if (pos != this->count || this->entries[pos].index != adjusted_idx)
         return PyFloat_FromDouble(0.0);

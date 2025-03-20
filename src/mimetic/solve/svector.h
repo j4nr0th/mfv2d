@@ -63,6 +63,17 @@ INTERPLIB_INTERNAL
 int sparse_vec_resize(svector_t *this, uint64_t capacity, const allocator_callbacks *allocator);
 
 /**
+ * Append an entry to a sparse vector, resizing if needed.
+ *
+ * @param this Vector to which to append to.
+ * @param e Entry that is to be appended
+ * @param allocator Allocator to use for reallocating memory if needed.
+ * @return Zero on success.
+ */
+INTERPLIB_INTERNAL
+int sparse_vector_append(svector_t *this, entry_t e, const allocator_callbacks *allocator);
+
+/**
  * Create a Python sparse vector object based on the given sparse vector.
  *
  * @param this Vector that is to be converted.

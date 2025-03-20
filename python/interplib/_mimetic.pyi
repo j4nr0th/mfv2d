@@ -646,3 +646,28 @@ class LiLMatrix:
             Block diagonal matrix resulting from the blocks.
         """
         ...
+
+    def add_columns(self, *cols: SparseVector) -> None:
+        """Add columns to the matrix.
+
+        Parameters
+        ----------
+        *cols : SparseVectors
+            Columns to be added to the matrix.
+        """
+        ...
+
+    def add_rows(self, *rows: SparseVector) -> LiLMatrix:
+        """Create a new matrix with added rows.
+
+        Parameters
+        ----------
+        *rows : SparaseVector
+            Rows to be added.
+
+        Returns
+        -------
+        LiLMatrix
+            Matrix with new rows added.
+        """
+        ...

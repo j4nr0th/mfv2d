@@ -51,3 +51,27 @@ def test_block_diag(n: int) -> None:
     ms = sp.block_diag(matrices)
 
     assert np.all(ms.toarray() == np.array(m))
+
+
+def test_padding() -> None:
+    """Check that adding rows and columns works as expected."""
+    a00 = np.array([[0, 1, 2, 4], [2, 4, -1, 0], [2, 0, 0, 3]])
+    extra_cols = (
+        SparseVector.from_entries(3, (1, 2), (-1, +2)),
+        SparseVector.from_entries(3, (0, 2), (-4, +4)),
+        SparseVector.from_entries(3, (1,), (5,)),
+    )
+    extra_rows = (
+        SparseVector.from_entries(7, (2, 5, 6), (0.1, 0.2, 0.3)),
+        SparseVector.from_entries(7, (1, 2, 3), (1, 2, 3)),
+    )
+    m = LiLMatrix.from_full(a00)
+    assert np.all(np.array(m) == a00)
+    ac = np.stack([np.array(c) for c in extra_cols], axis=1)
+    a01 = np.concatenate((a00, ac), axis=1)
+    m.add_columns(*extra_cols)
+    assert np.all(np.array(m) == a01)
+    ar = np.stack([np.array(r) for r in extra_rows], axis=0)
+    a02 = np.concatenate((a01, ar), axis=0)
+    m2 = m.add_rows(*extra_rows)
+    assert np.all(np.array(m2) == a02)

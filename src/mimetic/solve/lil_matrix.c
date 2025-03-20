@@ -285,6 +285,115 @@ static PyObject *lil_mat_block_diagonal(PyTypeObject *type, PyObject *const *arg
     return (PyObject *)this;
 }
 
+static PyObject *lil_matrix_add_columns(lil_mat_object_t *this, PyObject *const *args, const Py_ssize_t nargs)
+{
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        if (!Py_IS_TYPE(args[i], &svec_type_object))
+        {
+            PyErr_Format(PyExc_TypeError, "All columns must be SparseVectors, but parameter %u had the type %R", i,
+                         Py_TYPE(args[i]));
+            return NULL;
+        }
+    }
+
+    const svec_object_t *const *const cols = (const svec_object_t *const *)args;
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        if (cols[i]->n != this->rows)
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "Column %u did not have the dimensions of the matrix rows (expected %u, got %u).", i,
+                         (unsigned)this->rows, (unsigned)cols[i]->n);
+            return NULL;
+        }
+    }
+
+    const uint64_t base_cols = this->cols;
+    this->cols += nargs;
+    for (unsigned i = 0; i < this->rows; ++i)
+    {
+        this->row_data[i].n += nargs;
+    }
+
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        const svec_object_t *const vec = cols[i];
+        for (unsigned j = 0; j < vec->count; ++j)
+        {
+            const entry_t *entry = vec->entries + j;
+            if (entry->value == 0)
+                continue;
+
+            if (sparse_vector_append(this->row_data + entry->index,
+                                     (entry_t){.index = base_cols + i, .value = entry->value}, &SYSTEM_ALLOCATOR))
+            {
+                return NULL;
+            }
+        }
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *lil_matrix_add_rows(const lil_mat_object_t *this, PyObject *const *args, const Py_ssize_t nargs)
+{
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        if (!Py_IS_TYPE(args[i], &svec_type_object))
+        {
+            PyErr_Format(PyExc_TypeError, "All rows must be SparseVectors, but parameter %u had the type %R", i,
+                         Py_TYPE(args[i]));
+            return NULL;
+        }
+    }
+
+    const svec_object_t *const *const rows = (const svec_object_t *const *)args;
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        if (rows[i]->n != this->cols)
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "Row %u did not have the dimensions of the matrix columns (expected %u, got %u).", i,
+                         (unsigned)this->cols, (unsigned)rows[i]->n);
+            return NULL;
+        }
+    }
+
+    lil_mat_object_t *const self =
+        (lil_mat_object_t *)lil_mat_type_object.tp_alloc(&lil_mat_type_object, (Py_ssize_t)(this->rows + nargs));
+    if (!self)
+        return NULL;
+
+    self->cols = this->cols;
+    self->rows = this->rows + nargs;
+
+    for (uint64_t i = 0; i < this->rows; ++i)
+    {
+        self->row_data[i].n = this->cols;
+        if (sparse_vector_copy(this->row_data + i, self->row_data + i, &SYSTEM_ALLOCATOR))
+        {
+            Py_DECREF(self);
+            return NULL;
+        }
+    }
+
+    for (uint64_t i = 0; i < nargs; ++i)
+    {
+        const uint64_t j = i + this->rows;
+        self->row_data[j].n = this->cols;
+        const svec_object_t *const vec = rows[i];
+        const svector_t in = {.n = this->cols, .count = vec->count, .capacity = 0, .entries = (entry_t *)vec->entries};
+        if (sparse_vector_copy(&in, self->row_data + j, &SYSTEM_ALLOCATOR))
+        {
+            Py_DECREF(self);
+            return NULL;
+        }
+    }
+
+    return (PyObject *)self;
+}
+
 static PyMethodDef lil_mat_methods[] = {
     {.ml_name = "count_entries",
      .ml_meth = (void *)lil_mat_count_entries,
@@ -338,6 +447,31 @@ static PyMethodDef lil_mat_methods[] = {
                "-------\n"
                "LiLMatrix\n"
                "    Block diagonal matrix resulting from the blocks.\n"},
+    {.ml_name = "add_columns",
+     .ml_meth = (void *)lil_matrix_add_columns,
+     .ml_flags = METH_FASTCALL,
+     .ml_doc = "add_columns(self, *cols: SparseVector) -> None:\n"
+               "Add columns to the matrix.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "*cols : SparseVectors\n"
+               "    Columns to be added to the matrix.\n"},
+    {.ml_name = "add_rows",
+     .ml_meth = (void *)lil_matrix_add_rows,
+     .ml_flags = METH_FASTCALL,
+     .ml_doc = "add_rows(*rows: SparseVector) -> LiLMatrix:\n"
+               "Create a new matrix with added rows.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "*rows : SparaseVector\n"
+               "    Rows to be added.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "LiLMatrix\n"
+               "    Matrix with new rows added.\n"},
     {}, // Sentinel
 };
 

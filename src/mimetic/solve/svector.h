@@ -23,7 +23,7 @@ typedef struct
 typedef struct
 {
     PyObject_HEAD;
-    uint64_t n, count, capacity;
+    uint64_t n, count;
     entry_t entries[];
 } svec_object_t;
 
@@ -81,5 +81,17 @@ svec_object_t *sparse_vec_to_python(const svector_t *this);
  */
 INTERPLIB_INTERNAL
 int sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_callbacks *allocator);
+
+/**
+ * Search the vector for the first entry with the given index, or one which is greater than it.
+ *
+ * @param this Vector which to search.
+ * @param v Index of the entry to find.
+ * @param start Index where to begin the search. Useful if continuing from a previous search.
+ * @return Index of the first entry with an index equal to or greater than the specified value. If none are found,
+ * this->count is returned.
+ */
+INTERPLIB_INTERNAL
+uint64_t sparse_vector_find_first_geq(const svector_t *this, uint64_t v, uint64_t start);
 
 #endif // SVECTOR_H

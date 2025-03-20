@@ -52,7 +52,7 @@ svec_object_t *sparse_vec_to_python(const svector_t *this)
         self->entries[i] = this->entries[i];
     }
 
-    self->capacity = this->count;
+    // self->capacity = this->count;
     self->count = this->count;
     self->n = this->n;
     return self;
@@ -68,6 +68,47 @@ int sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_cal
     dst->count = src->count;
 
     return 0;
+}
+
+uint64_t sparse_vector_find_first_geq(const svector_t *this, const uint64_t v, const uint64_t start)
+{
+    enum
+    {
+        LINEAR_SEARCH_LIMIT = 8
+    };
+    uint64_t begin = start;
+    uint64_t len = this->count - start;
+    uint64_t d_pivot = len / 2;
+
+    // Binary search until length is small enough to do the linear search
+    while (len > LINEAR_SEARCH_LIMIT)
+    {
+        const uint64_t pv = this->entries[begin + d_pivot].index;
+        if (pv == v)
+        {
+            return begin + d_pivot;
+        }
+
+        if (pv < v)
+        {
+            begin += d_pivot;
+            len -= d_pivot;
+        }
+        else // if (pv > v)
+        {
+            len = d_pivot;
+        }
+        d_pivot = len / 2;
+    }
+
+    // Linear search is fine for small sections
+    for (uint64_t i = 0; i < len; ++i)
+    {
+        if (this->entries[i + begin].index >= v)
+            return i + begin;
+    }
+
+    return this->count;
 }
 
 static PyObject *svec_repr(const svec_object_t *this)
@@ -175,7 +216,7 @@ static PyObject *svec_from_entries(PyTypeObject *type, PyObject *args, PyObject 
         return NULL;
     }
 
-    this->capacity = count;
+    // this->capacity = count;
     this->count = count;
     this->n = (uint64_t)n;
 
@@ -228,6 +269,114 @@ static PyObject *svec_array(const svec_object_t *this, PyObject *args, PyObject 
     return (PyObject *)out;
 }
 
+static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
+{
+    if (PySlice_Check(py_idx))
+    {
+        Py_ssize_t start, stop, step;
+        // Slice
+        if (PySlice_Unpack(py_idx, &start, &stop, &step))
+        {
+            return NULL;
+        }
+        if (step != 1)
+        {
+            PyErr_Format(PyExc_KeyError,
+                         "Sparse vectors do not support slices with steps other than 1 (%lld was given).",
+                         (long long int)step);
+            return NULL;
+        }
+        const Py_ssize_t seq_len = PySlice_AdjustIndices((Py_ssize_t)this->n, &start, &stop, step);
+        const svector_t self = {.n = this->n, .count = this->count, .capacity = 0, .entries = this->entries};
+        const uint64_t begin = sparse_vector_find_first_geq(&self, start, 0);
+        svector_t fake;
+        if (begin == this->count)
+        {
+            // Nothing in the range
+            fake = (svector_t){.n = stop - start, .count = 0, .capacity = 0, .entries = NULL};
+            return (PyObject *)sparse_vec_to_python(&fake);
+        }
+        const uint64_t end = sparse_vector_find_first_geq(&self, stop, begin + 1);
+        fake = (svector_t){
+            .n = seq_len, .count = end - begin, .capacity = 0, .entries = (entry_t *)(this->entries + begin)};
+        svec_object_t *const vec = sparse_vec_to_python(&fake);
+        for (uint64_t i = 0; i < vec->count; ++i)
+        {
+            vec->entries[i].index -= start;
+        }
+        return (PyObject *)vec;
+    }
+
+    const Py_ssize_t idx = PyLong_AsSsize_t(py_idx);
+    if (PyErr_Occurred())
+        return NULL;
+
+    if (idx >= this->n || idx < -this->n)
+    {
+        PyErr_Format(PyExc_KeyError,
+                     "Index %" PRIi64 " is outside the allowed range for a vector of dimension %" PRIu64 ".",
+                     (int64_t)idx, this->n);
+        return NULL;
+    }
+
+    uint64_t adjusted_idx;
+    if (idx < 0)
+    {
+        adjusted_idx = (uint64_t)(this->n - idx);
+    }
+    else
+    {
+        adjusted_idx = (uint64_t)idx;
+    }
+
+    const svector_t self = {.n = this->n, .count = this->count, .capacity = 0, .entries = this->entries};
+    const uint64_t pos = sparse_vector_find_first_geq(&self, adjusted_idx, 0);
+    if (pos != this->count || this->entries[pos].index != adjusted_idx)
+        return PyFloat_FromDouble(0.0);
+
+    return PyFloat_FromDouble(this->entries[pos].value);
+}
+
+static PyObject *svec_concatenate(PyTypeObject *type, PyObject *const *args, const Py_ssize_t nargs)
+{
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        if (!Py_IS_TYPE(args[i], &svec_type_object))
+        {
+            PyErr_Format(PyExc_TypeError, "Argument %u was not a sparse vector but was instead %R.", i,
+                         Py_TYPE(args[i]));
+            return NULL;
+        }
+    }
+
+    uint64_t n_sum = 0, cnt_sum = 0;
+    const svec_object_t *const *vecs = (const svec_object_t *const *)args;
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        n_sum += vecs[i]->n;
+        cnt_sum += vecs[i]->count;
+    }
+
+    svec_object_t *const this = (svec_object_t *)type->tp_alloc(type, (Py_ssize_t)cnt_sum);
+    if (!this)
+        return NULL;
+
+    this->n = n_sum;
+    this->count = cnt_sum;
+    uint64_t offset_n = 0, pos = 0;
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        const svec_object_t *v = vecs[i];
+        for (unsigned j = 0; j < v->count; ++j, ++pos)
+        {
+            this->entries[pos] = (entry_t){.index = offset_n + v->entries[j].index, .value = v->entries[j].value};
+        }
+        offset_n += v->n;
+    }
+
+    return (PyObject *)this;
+}
+
 static PyMethodDef svec_methods[] = {
     {.ml_name = "__array__",
      .ml_meth = (void *)svec_array,
@@ -255,6 +404,21 @@ static PyMethodDef svec_methods[] = {
                "-------\n"
                "SparseVector\n"
                "    New vector with indices and values as given.\n"},
+    {.ml_name = "concatenate",
+     .ml_meth = (void *)svec_concatenate,
+     .ml_flags = METH_FASTCALL | METH_CLASS,
+     .ml_doc = "concatenate(*vectors: SparseVector) -> SparseVector:\n"
+               "Merge sparse vectors together into a single vector.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "*vectors : SparseVector\n"
+               "    Sparse vectors that should be concatenated.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "Self\n"
+               "    Newly created sparse vector.\n"},
     {}, // Sentinel
 };
 
@@ -308,12 +472,16 @@ static PyGetSetDef svec_get_set[] = {
     {}, // Sentinel
 };
 
+static PyMappingMethods svec_mapping = {
+    .mp_subscript = (binaryfunc)svec_get,
+};
+
 PyTypeObject svec_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._mimetic.SparseVector",
     .tp_basicsize = sizeof(svec_object_t),
     .tp_itemsize = sizeof(entry_t),
     .tp_repr = (reprfunc)svec_repr,
-    // .tp_as_mapping = ,
+    .tp_as_mapping = &svec_mapping,
     // .tp_hash = ,
     // .tp_str = ,
     .tp_flags = Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_DEFAULT,

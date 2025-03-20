@@ -513,6 +513,26 @@ class SparseVector:
         """Convert the vector to a full array."""
         ...
 
+    @overload
+    def __getitem__(self, idx: int, /) -> float: ...
+    @overload
+    def __getitem__(self, idx: slice, /) -> SparseVector: ...
+    @classmethod
+    def concatenate(cls, *vectors: SparseVector) -> Self:
+        """Merge sparse vectors together into a single vector.
+
+        Parameters
+        ----------
+        *vectors : SparseVector
+            Sparse vectors that should be concatenated.
+
+        Returns
+        -------
+        Self
+            Newly created sparse vector.
+        """
+        ...
+
 class GivensRotation:
     """Representation of a Givens rotation matrix."""
 

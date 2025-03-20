@@ -55,9 +55,16 @@ int decompose_qr(const lil_matrix_t *mat, uint64_t *p_ng, givens_rotation_t **co
         // Row that will be eliminated
         const svector_t *const row_j = mat->row_data + j_row;
         uint64_t i_row;
-        while ((i_row = row_j->entries[0].index) < j_row)
+        while (row_j->count > 0 && (i_row = row_j->entries[0].index) < j_row)
         {
             // Loop while there are entries which are below the diagonal.
+            if (row_j->entries[0].value == 0)
+            {
+                // Already eliminated.
+                memmove(row_j->entries, row_j->entries + 1, sizeof(*row_j->entries) * (row_j->count - 1));
+                mat->row_data[j_row].count -= 1;
+                continue;
+            }
 
             const svector_t *const row_i = mat->row_data + i_row;
             ASSERT(row_i->entries[0].index == i_row, "Top row does not begin on the diagonal.");

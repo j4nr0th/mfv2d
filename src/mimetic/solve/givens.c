@@ -99,6 +99,116 @@ givens_object_t *givens_to_python(const givens_rotation_t *g)
     return this;
 }
 
+int givens_rotate_sparse_vector(const givens_rotation_t *g, const svector_t *vec, svector_t *out,
+                                const allocator_callbacks *allocator)
+{
+    ASSERT(out->n == vec->n, "Input and output vectors should have the same dimensions.");
+    ASSERT(g->n == vec->n, "Givens rotation and the vectors must have the same dimensions.");
+    const uint64_t max_size = vec->count + 1 ? vec->count < vec->n : vec->n;
+
+    if (sparse_vec_resize(out, max_size, allocator))
+    {
+        return -1;
+    }
+    uint64_t i1, i2;
+    scalar_t g00, g01, g10, g11;
+    if (g->k < g->l)
+    {
+        i1 = g->k;
+        i2 = g->l;
+        g00 = g->c;
+        g01 = +g->s;
+        g10 = -g->s;
+        g11 = g->c;
+    }
+    else
+    {
+        i1 = g->l;
+        i2 = g->k;
+        g00 = g->c;
+        g01 = -g->s;
+        g10 = +g->s;
+        g11 = g->c;
+    }
+
+    scalar_t v1 = 0.0, v2 = 0.0;
+    int b1 = 0;
+    uint64_t p_out, p_in;
+    for (p_out = 0, p_in = 0; p_in < vec->count && vec->entries[p_in].index < i1; ++p_in)
+    {
+        const entry_t *entry = vec->entries + p_in;
+        if (entry->value == 0.0)
+            continue;
+
+        out->entries[p_out] = *entry;
+        p_out += 1;
+    }
+    if (p_in == vec->count)
+    {
+        // Nothing in the range of rotation
+        out->count = p_out;
+        return 0;
+    }
+    const uint64_t p1 = p_out;
+    if (p_in < vec->count && vec->entries[p_in].index == i1)
+    {
+        b1 = 1;
+        v1 = vec->entries[p_in].value;
+    }
+
+    for (; p_in < vec->count && vec->entries[p_in].index < i2; ++p_in)
+    {
+        const entry_t *entry = vec->entries + p_in;
+        if (entry->value == 0.0)
+            continue;
+
+        out->entries[p_out] = *entry;
+        p_out += 1;
+    }
+    if (p_in == vec->count && b1 == 0)
+    {
+        // Nothing in the range of rotation
+        out->count = p_out;
+        return 0;
+    }
+
+    if (vec->entries[p_in].index == i2)
+    {
+        v2 = vec->entries[p_in].value;
+        p_in += 1;
+    }
+    if (v1 != 0.0 || v2 != 0.0)
+    {
+        const scalar_t r1 = v1 * g00 + v2 * g01;
+        const scalar_t r2 = v1 * g10 + v2 * g11;
+        // Do the rotation now
+        if (b1 == 0)
+        {
+            // Need space for the first entry, since there was a zero there before
+            memmove(out->entries + p1 + 1, out->entries + p1, sizeof(*out->entries) * (p_out - p1));
+            p_out += 1;
+        }
+        out->entries[p1] = (entry_t){.index = i1, .value = r1};
+        out->entries[p_out] = (entry_t){.index = i2, .value = r2};
+        p_out += 1;
+    }
+
+    // Finish it up
+    for (; p_in < vec->count; ++p_in)
+    {
+        const entry_t *entry = vec->entries + p_in;
+        if (entry->value == 0.0)
+            continue;
+
+        out->entries[p_out] = *entry;
+        p_out += 1;
+    }
+
+    out->count = p_out;
+
+    return 0;
+}
+
 static PyObject *givens_repr(const givens_object_t *this)
 {
     char float_buffer1[32], float_buffer2[32];
@@ -221,6 +331,31 @@ static PyGetSetDef givens_getset[] = {
 
 static PyObject *givens_matmul(const givens_object_t *this, PyObject *other)
 {
+    if (Py_IS_TYPE(other, &svec_type_object))
+    {
+        const svec_object_t *const in = (svec_object_t *)other;
+        // Sparse vector
+        const svector_t iv = {.n = in->n, .count = in->count, .capacity = 0, .entries = in->entries};
+        svector_t tmp;
+        if (sparse_vector_new(&tmp, in->n, in->count + 1, &SYSTEM_ALLOCATOR))
+        {
+            return NULL;
+        }
+
+        if (givens_rotate_sparse_vector(&this->data, &iv, &tmp, &SYSTEM_ALLOCATOR))
+        {
+            sparse_vec_del(&tmp, &SYSTEM_ALLOCATOR);
+            return NULL;
+        }
+
+        svec_object_t *const out = sparse_vec_to_python(&tmp);
+        sparse_vec_del(&tmp, &SYSTEM_ALLOCATOR);
+        if (!out)
+            return NULL;
+
+        return (PyObject *)out;
+    }
+
     PyArrayObject *const mat = (PyArrayObject *)PyArray_FromAny(other, PyArray_DescrFromType(NPY_FLOAT64), 1, 2,
                                                                 NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
     if (!mat)

@@ -50,4 +50,17 @@ givens_object_t *givens_to_python(const givens_rotation_t *g);
 INTERPLIB_INTERNAL
 extern PyTypeObject givens_rotation_type_object;
 
+/**
+ * Apply Givens rotation to a sparse column vector.
+ *
+ * @param g Givens rotation that is to be applied.
+ * @param vec Vector to be rotated.
+ * @param out Vector that will receive the result.
+ * @param allocator Allocator used to resize/allocate memory for output if needed.
+ * @return Zero on success.
+ */
+INTERPLIB_INTERNAL
+int givens_rotate_sparse_vector(const givens_rotation_t *g, const svector_t *vec, svector_t *restrict out,
+                                const allocator_callbacks *allocator);
+
 #endif // GIVENS_H

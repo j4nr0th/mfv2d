@@ -1,7 +1,7 @@
 """Stub for the C implemented types and functions related to mimetics."""
 
 from collections.abc import Sequence
-from typing import Self, final
+from typing import Self, final, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -546,9 +546,10 @@ class GivensRotation:
         """Convert the object into a full numpy matrix."""
         ...
 
-    def __matmul__(self, other: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Apply the rotation to the vector or matrix."""
-        ...
+    @overload
+    def __matmul__(self, other: npt.ArrayLike) -> npt.NDArray[np.float64]: ...
+    @overload
+    def __matmul__(self, other: SparseVector) -> SparseVector: ...
 
 class LiLMatrix:
     """Matrix which has a list of is used to store sparse rows.

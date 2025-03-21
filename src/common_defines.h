@@ -37,10 +37,10 @@
  * configuration, the macro is replaced with compiler specific assume
  * directive, or a zero if that is not known for the specific compiler used.
  */
-#define ASSERT(condition, message)                                                                                     \
+#define ASSERT(condition, message, ...)                                                                                \
     ((condition) ? 0                                                                                                   \
-                 : (fprintf(stderr, "%s:%d: %s: Assertion '%s' failed - %s\n", __FILE__, __LINE__, __func__,           \
-                            #condition, (message)),                                                                    \
+                 : (fprintf(stderr, "%s:%d: %s: Assertion '%s' failed - " message "\n", __FILE__, __LINE__, __func__,  \
+                            #condition __VA_OPT__(, ) __VA_ARGS__),                                                    \
                     1))
 #else
 #ifdef __GNUC__

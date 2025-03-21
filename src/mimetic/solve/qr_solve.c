@@ -20,13 +20,14 @@ static void print_svec(const svector_t *this)
 /**
  * Perform QR decomposition by applying Givens rotations to the split matrix.
  *
+ * @param n_max Maximum number of operations allowed.
  * @param mat Matrix that will be decomposed.
  * @param p_ng Pointer that will receive the number of Given's rotations required.
  * @param p_givens Pointer that will receive an array (pointer) of p_ng Given's rotations that were performed
  * @param allocator Allocator callbacks that will be used.
  * @return Zero if successful.
  */
-int decompose_qr(const lil_matrix_t *mat, uint64_t *p_ng, givens_rotation_t **const p_givens,
+int decompose_qr(const int64_t n_max, const lil_matrix_t *mat, uint64_t *p_ng, givens_rotation_t **const p_givens,
                  const allocator_callbacks *allocator)
 {
     // Try and guess how many Givens rotations will be needed
@@ -42,7 +43,7 @@ int decompose_qr(const lil_matrix_t *mat, uint64_t *p_ng, givens_rotation_t **co
     // Create two new vectors, which will be re-used by swapping with old rows.
     // This way, we (ideally) only need to allocate twice. Worst case, we need
     // to still reallocate each row once, but that's it.
-    if (sparse_vector_new(&out_i, mat->rows, 1, allocator) || sparse_vector_new(&out_j, mat->rows, 1, allocator))
+    if (sparse_vector_new(&out_i, mat->cols, 1, allocator) || sparse_vector_new(&out_j, mat->cols, 1, allocator))
     {
         deallocate(allocator, givens);
         sparse_vec_del(&out_i, allocator);
@@ -50,12 +51,12 @@ int decompose_qr(const lil_matrix_t *mat, uint64_t *p_ng, givens_rotation_t **co
         return -1;
     }
 
-    for (uint64_t j_row = 1; j_row < mat->rows; ++j_row)
+    for (uint64_t j_row = 1; j_row < mat->rows && (int64_t)n_givens < n_max; ++j_row)
     {
         // Row that will be eliminated
         const svector_t *const row_j = mat->row_data + j_row;
         uint64_t i_row;
-        while (row_j->count > 0 && (i_row = row_j->entries[0].index) < j_row)
+        while (row_j->count > 0 && (i_row = row_j->entries[0].index) < j_row && (int64_t)n_givens < n_max)
         {
             // Loop while there are entries which are below the diagonal.
             if (row_j->entries[0].value == 0)

@@ -171,11 +171,17 @@ static PyObject *lil_mat_from_full(PyTypeObject *type, PyObject *arg)
             Py_DECREF(array);
             return NULL;
         }
-        for (uint64_t j = 0; j < dims[1]; ++j)
+        uint64_t j, k;
+        for (j = 0, k = 0; j < dims[1]; ++j)
         {
-            this->row_data[row].entries[j] = (entry_t){.index = j, .value = ptr[row * dims[1] + j]};
+            const npy_float64 v = ptr[row * dims[1] + j];
+            if (v != 0.0)
+            {
+                this->row_data[row].entries[k] = (entry_t){.index = j, .value = v};
+                k += 1;
+            }
         }
-        this->row_data[row].count = dims[1];
+        this->row_data[row].count = k;
     }
 
     this->rows = dims[0];
@@ -192,11 +198,24 @@ static void lil_mat_delete(lil_mat_object_t *this)
     }
 }
 
-static PyObject *lil_mat_qr_decomposition(lil_mat_object_t *this, PyObject *Py_UNUSED(args))
+static PyObject *lil_mat_qr_decomposition(lil_mat_object_t *this, PyObject *args)
 {
+    long long int n_max = LLONG_MAX;
+    if (!PyArg_ParseTuple(args, "|L", &n_max))
+    {
+        return NULL;
+    }
+
     const lil_matrix_t tmp = {.rows = this->rows, .cols = this->cols, .row_data = this->row_data};
     uint64_t n_givens;
     givens_rotation_t *p_givens;
+
+    for (uint64_t i = 0; i < this->rows; ++i)
+    {
+        ASSERT(this->row_data[i].n == this->cols,
+               "Dimension of row %" PRIu64 " (%" PRIu64 ") does not match column count %" PRIu64 ".", i,
+               this->row_data[i].n, this->cols);
+    }
 
     Py_BEGIN_ALLOW_THREADS;
 
@@ -204,7 +223,7 @@ static PyObject *lil_mat_qr_decomposition(lil_mat_object_t *this, PyObject *Py_U
     // As long as no one else has the bright idea to start messing with the
     // matrix in another thread we will be fine. If someone is retarded enough
     // to try that, may God have mercy on his soul.
-    if (decompose_qr(&tmp, &n_givens, &p_givens, &SYSTEM_ALLOCATOR))
+    if (decompose_qr((int64_t)n_max, &tmp, &n_givens, &p_givens, &SYSTEM_ALLOCATOR))
     {
         return NULL;
     }
@@ -251,6 +270,7 @@ static PyObject *lil_mat_block_diagonal(PyTypeObject *type, PyObject *const *arg
     for (unsigned i = 0; i < nargs; ++i)
     {
         n_rows += matrices[i]->rows;
+        n_cols += matrices[i]->cols;
     }
 
     lil_mat_object_t *const this = (lil_mat_object_t *)type->tp_alloc(type, (Py_ssize_t)n_rows);
@@ -270,6 +290,7 @@ static PyObject *lil_mat_block_diagonal(PyTypeObject *type, PyObject *const *arg
                 Py_DECREF(this);
                 return NULL;
             }
+            this->row_data[current_offset].n = n_cols;
 
             for (unsigned k = 0; k < this->row_data[current_offset].count; ++k)
             {
@@ -422,9 +443,14 @@ static PyMethodDef lil_mat_methods[] = {
                "    Matrix represented in the LiLMatrix format.\n"},
     {.ml_name = "qr_decompose",
      .ml_meth = (void *)lil_mat_qr_decomposition,
-     .ml_flags = METH_NOARGS,
-     .ml_doc = "qr_decompose() -> tuple[GivensRotation, ...]:\n"
+     .ml_flags = METH_VARARGS,
+     .ml_doc = "qr_decompose(n: int | None = None, /) -> tuple[GivensRotation, ...]:\n"
                "Decompose the matrix into a series of Givens rotations and a triangular matrix.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "n : int, optional\n"
+               "    Maximum number of steps to perform.\n"
                "\n"
                "Returns\n"
                "-------\n"

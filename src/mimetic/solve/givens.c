@@ -8,8 +8,10 @@ int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *r
                           svector_t *restrict out_i, svector_t *restrict out_j, const unsigned cut_j,
                           const allocator_callbacks *allocator)
 {
-    ASSERT(row_i->n == row_j->n, "Input vectors must have the same size.");
-    ASSERT(out_i->n == out_j->n, "Output vectors must have the same size.");
+    ASSERT(row_i->n == row_j->n, "Input vectors must have the same size (%" PRIu64 " vs %" PRIu64 ").", row_i->n,
+           row_j->n);
+    ASSERT(out_i->n == out_j->n, "Output vectors must have the same size (%" PRIu64 " vs %" PRIu64 ").", out_i->n,
+           out_j->n);
     uint64_t max_elements = row_i->count + row_j->count;
 
     // Can't have more elements than the full row.
@@ -24,7 +26,7 @@ int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *r
     }
 
     uint64_t idx_i, idx_j, pos;
-    for (idx_i = 0, idx_j = 0, pos = 0; idx_i < row_i->count && idx_j < row_j->count; ++pos)
+    for (idx_i = 0, idx_j = 0, pos = 0; idx_i < row_i->count || idx_j < row_j->count; ++pos)
     {
         scalar_t vi = 0.0, vj = 0.0;
         uint64_t pv;

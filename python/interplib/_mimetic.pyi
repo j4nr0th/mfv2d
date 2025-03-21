@@ -620,8 +620,13 @@ class LiLMatrix:
         """
         ...
 
-    def qr_decompose(self) -> tuple[GivensRotation, ...]:
+    def qr_decompose(self, n: int | None = None, /) -> tuple[GivensRotation, ...]:
         """Decompose the matrix into a series of Givens rotations and a triangular matrix.
+
+        Parameters
+        ----------
+        n : int, optional
+            Maximum number of steps to perform.
 
         Returns
         -------

@@ -570,6 +570,10 @@ class GivensRotation:
     def __matmul__(self, other: npt.ArrayLike) -> npt.NDArray[np.float64]: ...
     @overload
     def __matmul__(self, other: SparseVector) -> SparseVector: ...
+    @property
+    def T(self) -> GivensRotation:
+        """Inverse rotation."""
+        ...
 
 class LiLMatrix:
     """Matrix which has a list of is used to store sparse rows.
@@ -674,5 +678,31 @@ class LiLMatrix:
         -------
         LiLMatrix
             Matrix with new rows added.
+        """
+        ...
+
+    def solve_upper_triangular(
+        self, rsh: npt.ArrayLike, /, out: npt.NDArray[np.float64] | None = None
+    ) -> npt.NDArray[np.float64]:
+        """Use back-substitution to solve find the right side.
+
+        This assumes the matrix is upper triangualr.
+
+        Parameters
+        ----------
+        rhs : array_like
+            Vector or matrix that gives the right side of the equation.
+
+        out : array, optional
+            Array to be used as output. If not given a new one will be created and
+            returned, otherwise, the given value is returned. It must match the shape
+            of the input array exactly and have the correct data type.
+
+        Returns
+        -------
+        array
+            Vector or matrix that yields the rhs when matrix multiplication is used.
+            If the ``out`` parameter is given, the value returned will be exactly that
+            matrix.
         """
         ...

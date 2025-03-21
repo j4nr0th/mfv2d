@@ -69,11 +69,10 @@ int decompose_qr(const int64_t n_max, const lil_matrix_t *mat, uint64_t *p_ng, g
 
             const svector_t *const row_i = mat->row_data + i_row;
             ASSERT(row_i->entries[0].index == i_row, "Top row does not begin on the diagonal.");
-            givens_rotation_t g = {
-                .n = mat->rows, .k = i_row, .l = j_row, .c = row_i->entries[0].value, .s = row_j->entries[0].value};
-            const scalar_t mag = hypot(g.c, g.s);
-            g.c /= mag;
-            g.s /= mag;
+            const scalar_t c = row_i->entries[0].value;
+            const scalar_t s = row_j->entries[0].value;
+            const scalar_t a = atan2(s, c);
+            givens_rotation_t g = {.n = mat->rows, .k = i_row, .l = j_row, .c = cos(a), .s = sin(a)};
             if (apply_givens_rotation(g.c, g.s, row_i, row_j, &out_i, &out_j, 1, allocator))
             {
                 // Failed a malloc or something like that

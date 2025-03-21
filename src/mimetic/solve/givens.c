@@ -43,7 +43,7 @@ int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *r
                     pv = row_i->entries[idx_i].index;
                     idx_i += 1;
                 }
-                else if (row_i->entries[idx_i].index < row_j->entries[idx_j].index)
+                else if (row_i->entries[idx_i].index > row_j->entries[idx_j].index)
                 {
                     // J before I
                     vj = row_j->entries[idx_j].value;
@@ -318,6 +318,13 @@ static PyObject *givens_get_s(const givens_object_t *this, void *Py_UNUSED(closu
     return PyFloat_FromDouble(this->data.s);
 }
 
+static PyObject *givens_transpose(const givens_object_t *this, void *Py_UNUSED(closure))
+{
+    const givens_rotation_t g = {
+        .n = this->data.n, .k = this->data.k, .l = this->data.l, .c = this->data.c, .s = -this->data.s};
+    return (PyObject *)givens_to_python(&g);
+}
+
 static PyGetSetDef givens_getset[] = {
     {.name = "n", .get = (getter)givens_get_n, .set = NULL, .doc = "int : Dimension of the rotation.", .closure = NULL},
     {.name = "i1", .get = (getter)givens_get_i1, .set = NULL, .doc = "int : First index of rotation.", .closure = NULL},
@@ -328,6 +335,11 @@ static PyGetSetDef givens_getset[] = {
      .closure = NULL},
     {.name = "c", .get = (getter)givens_get_c, .set = NULL, .doc = "int : Cosine rotation value.", .closure = NULL},
     {.name = "s", .get = (getter)givens_get_s, .set = NULL, .doc = "int : Sine rotation value.", .closure = NULL},
+    {.name = "T",
+     .get = (getter)givens_transpose,
+     .set = NULL,
+     .doc = "GivensRotation : Inverse rotation.",
+     .closure = NULL},
     {}, // Sentinel
 };
 

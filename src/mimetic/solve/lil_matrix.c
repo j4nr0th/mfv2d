@@ -415,6 +415,111 @@ static PyObject *lil_matrix_add_rows(const lil_mat_object_t *this, PyObject *con
     return (PyObject *)self;
 }
 
+static PyObject *lil_matrix_solve_upper_triangular(const lil_mat_object_t *this, PyObject *args, PyObject *kwds)
+{
+    PyObject *rhs;
+    PyArrayObject *out = NULL;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O!", (char *[3]){"", "out", NULL}, &rhs, &PyArray_Type, &out))
+    {
+        return NULL;
+    }
+
+    if (out)
+    {
+        if (PyArray_TYPE(out) != NPY_FLOAT64)
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "Output array must have the data type of float64 (%u), but it had %d instead.", NPY_FLOAT64,
+                         PyArray_TYPE(out));
+            return NULL;
+        }
+        const unsigned needed_flags = (NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+        if ((PyArray_FLAGS(out) & needed_flags) != needed_flags)
+        {
+            PyErr_Format(PyExc_ValueError, "Output array must have at least flags %x, but it has %x.", needed_flags,
+                         PyArray_FLAGS(out));
+            return NULL;
+        }
+    }
+
+    PyArrayObject *const in = (PyArrayObject *)PyArray_FromAny(rhs, PyArray_DescrFromType(NPY_FLOAT64), 1, 2,
+                                                               NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+    if (!in)
+        return NULL;
+
+    const unsigned ndims = PyArray_NDIM(in);
+    const npy_intp *const dims = PyArray_DIMS(in);
+
+    if (out)
+    {
+        const unsigned out_dims = PyArray_NDIM(out);
+        if (out_dims != ndims)
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "Output array does not have the same number of dimensions as the input array (%u against %u).",
+                         out_dims, ndims);
+            Py_DECREF(in);
+            return NULL;
+        }
+        const npy_intp *const dims_out = PyArray_DIMS(out);
+        for (unsigned i = 0; i < ndims; ++i)
+        {
+            if (dims[i] != dims_out[i])
+            {
+                PyErr_Format(PyExc_ValueError,
+                             "Output array's dimension %u does not match input array's (%u against %u).", i, dims[i],
+                             dims_out[i]);
+                Py_DECREF(in);
+                return NULL;
+            }
+        }
+        Py_INCREF(out);
+    }
+    else
+    {
+        out = (PyArrayObject *)PyArray_SimpleNew(ndims, dims, NPY_FLOAT64);
+        if (!out)
+        {
+            Py_DECREF(in);
+            return NULL;
+        }
+    }
+
+    const npy_float64 *ptr_in = PyArray_DATA(in);
+    npy_float64 *ptr_out = PyArray_DATA(out);
+
+    const unsigned n_cols = ndims == 2 ? dims[1] : 1;
+
+    Py_BEGIN_ALLOW_THREADS;
+
+    /**
+     * Solve by back-substitution. This means we assume that we have a non-zero diagonals, which are the first element
+     * in each row.
+     */
+
+    for (uint64_t i_row = this->rows; i_row > 0; --i_row)
+    {
+        const uint64_t r = i_row - 1;
+        const svector_t *const row = this->row_data + r;
+        ASSERT(row->entries[0].index == r, "Row %" PRIu64 " starts at column %" PRIu64 ", not the diagonal.", r,
+               row->entries[0].index);
+        for (unsigned i_col = 0; i_col < n_cols; ++i_col)
+        {
+            scalar_t v = 0.0;
+            for (uint64_t j = 1; j < row->count; ++j)
+            {
+                v += row->entries[j].value * ptr_out[row->entries[j].index * n_cols + i_col];
+            }
+            ptr_out[r * n_cols + i_col] = (ptr_in[r * n_cols + i_col] - v) / row->entries[0].value;
+        }
+    }
+
+    Py_END_ALLOW_THREADS;
+
+    Py_DECREF(in);
+    return (PyObject *)out;
+}
+
 static PyMethodDef lil_mat_methods[] = {
     {.ml_name = "count_entries",
      .ml_meth = (void *)lil_mat_count_entries,
@@ -498,6 +603,30 @@ static PyMethodDef lil_mat_methods[] = {
                "-------\n"
                "LiLMatrix\n"
                "    Matrix with new rows added.\n"},
+    {.ml_name = "solve_upper_triangular",
+     .ml_meth = (void *)lil_matrix_solve_upper_triangular,
+     .ml_flags = METH_KEYWORDS | METH_VARARGS,
+     .ml_doc = "solve_upper_triangular(rsh: array_like, /, out: array | None = None) -> array:\n"
+               "Use back-substitution to solve find the right side.\n"
+               "\n"
+               "This assumes the matrix is upper triangualr.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "rhs : array_like\n"
+               "    Vector or matrix that gives the right side of the equation.\n"
+               "\n"
+               "out : array, optional\n"
+               "    Array to be used as output. If not given a new one will be created and\n"
+               "    returned, otherwise, the given value is returned. It must match the shape\n"
+               "    of the input array exactly and have the correct data type.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "array\n"
+               "    Vector or matrix that yields the rhs when matrix multiplication is used.\n"
+               "    If the ``out`` parameter is given, the value returned will be exactly that\n"
+               "    matrix.\n"},
     {}, // Sentinel
 };
 

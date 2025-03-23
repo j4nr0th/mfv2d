@@ -499,6 +499,8 @@ class SparseVector:
         """Dimension of the vector."""
         ...
 
+    @n.setter
+    def n(self, v: int, /) -> None: ...
     @property
     def values(self) -> npt.NDArray[np.float64]:
         """Values of non-zero entries of the vector."""
@@ -531,6 +533,11 @@ class SparseVector:
         Self
             Newly created sparse vector.
         """
+        ...
+
+    @property
+    def count(self) -> int:
+        """Number of entries in the vector."""
         ...
 
 class GivensRotation:
@@ -574,6 +581,31 @@ class GivensRotation:
     def T(self) -> GivensRotation:
         """Inverse rotation."""
         ...
+
+class GivensSeries:
+    """Series of GivensRotations."""
+
+    @overload
+    def __new__(cls, n: int, /) -> Self: ...
+    @overload
+    def __new__(cls, *rotations: GivensRotation) -> Self: ...
+    @property
+    def n(self) -> int:
+        """Size of the rotations."""
+        ...
+
+    def __len__(self) -> int:
+        """Return number of Givens rotations."""
+        ...
+
+    # @overload
+    def __getitem__(self, idx: int, /) -> GivensRotation: ...
+    # @overload
+    # def __getitem__(self, idx: slice, /) -> GivensSeries: ...
+    @overload
+    def __matmul__(self, other: SparseVector) -> SparseVector: ...
+    @overload
+    def __matmul__(self, other: npt.ArrayLike) -> npt.NDArray[np.float64]: ...
 
 class LiLMatrix:
     """Matrix which has a list of is used to store sparse rows.
@@ -624,7 +656,7 @@ class LiLMatrix:
         """
         ...
 
-    def qr_decompose(self, n: int | None = None, /) -> tuple[GivensRotation, ...]:
+    def qr_decompose(self, n: int | None = None, /) -> GivensSeries:
         """Decompose the matrix into a series of Givens rotations and a triangular matrix.
 
         Parameters
@@ -639,6 +671,7 @@ class LiLMatrix:
             This means that for the solution, they should be applied in the
             reversed order.
         """
+        ...
 
     @classmethod
     def block_diag(cls, *blocks: LiLMatrix) -> Self:
@@ -705,4 +738,27 @@ class LiLMatrix:
             If the ``out`` parameter is given, the value returned will be exactly that
             matrix.
         """
+        ...
+
+    @classmethod
+    def empty_diagonal(cls, n: int, /) -> Self:
+        """Create empty square matrix with zeros on the diagonal.
+
+        This is intended for padding that allows for computing QR decompositions.
+
+        Parameters
+        ----------
+        n : int
+            Size of the square matrix.
+
+        Returns
+        -------
+        LiLMatrix
+            Sparse matrix that is square and has only zeros on its diagonal.
+        """
+        ...
+
+    @property
+    def usage(self) -> int:
+        """Number of non-zero entries."""
         ...

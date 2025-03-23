@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._mimetic import GivensRotation, SparseVector
+from interplib._mimetic import GivensRotation, GivensSeries, SparseVector
 
 
 def test_givens_manual_1() -> None:
@@ -77,3 +77,24 @@ def test_givens_sv_5() -> None:
     g = GivensRotation(5, 3, 1, np.cos(0.3), np.sin(0.3))
     s = SparseVector.from_entries(5, (0, 3, 4), (1.0, 2.0, 3.0))
     assert np.all(g @ np.array(s) == np.array(g @ s))
+
+
+@pytest.mark.parametrize("n", (2, 3, 20, 30))
+def test_givens_series(n: int) -> None:
+    """Check Givens Series is equivalent to applying the different Givens rotations."""
+    np.random.seed(0)
+
+    a = np.random.random_sample((n, n))
+    g_vals = [
+        GivensRotation(n, i, i + 1, np.cos(a), np.sin(a))
+        for i, a in enumerate(np.random.random_sample(n - 1) * 2 * np.pi)
+    ]
+    b = a
+
+    for g in g_vals:
+        b = g @ b
+
+    gs = GivensSeries(*g_vals)
+    c = gs @ a
+
+    assert pytest.approx(c) == b

@@ -22,7 +22,7 @@ typedef struct
 
 typedef struct
 {
-    PyObject_HEAD;
+    PyObject_VAR_HEAD;
     uint64_t n, count;
     entry_t entries[];
 } svec_object_t;
@@ -55,12 +55,12 @@ void sparse_vec_del(svector_t *this, const allocator_callbacks *allocator);
  * Increase the size of the vector if too small.
  *
  * @param this Memory where the vector is stored.
- * @param capacity New required capacity.
+ * @param new_capacity New required capacity.
  * @param allocator Allocator that can be used to reallocate the buffers as needed.
  * @return Zero on success.
  */
 INTERPLIB_INTERNAL
-int sparse_vec_resize(svector_t *this, uint64_t capacity, const allocator_callbacks *allocator);
+int sparse_vec_resize(svector_t *this, uint64_t new_capacity, const allocator_callbacks *allocator);
 
 /**
  * Append an entry to a sparse vector, resizing if needed.
@@ -94,7 +94,8 @@ INTERPLIB_INTERNAL
 int sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_callbacks *allocator);
 
 /**
- * Search the vector for the first entry with the given index, or one which is greater than it.
+ * Search the vector for the first entry with the given index, or one which is greater than it. The length of the vector
+ * must be at least 1.
  *
  * @param this Vector which to search.
  * @param v Index of the entry to find.

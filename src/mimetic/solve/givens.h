@@ -19,6 +19,13 @@ typedef struct
     givens_rotation_t data;
 } givens_object_t;
 
+typedef struct
+{
+    PyObject_VAR_HEAD;
+    uint64_t n;
+    givens_rotation_t data[];
+} givens_series_t;
+
 /**
  * Apply Givens rotations to two affected rows.
  *
@@ -50,17 +57,29 @@ givens_object_t *givens_to_python(const givens_rotation_t *g);
 INTERPLIB_INTERNAL
 extern PyTypeObject givens_rotation_type_object;
 
+INTERPLIB_INTERNAL
+extern PyTypeObject givens_series_type_object;
+
 /**
  * Apply Givens rotation to a sparse column vector.
  *
  * @param g Givens rotation that is to be applied.
  * @param vec Vector to be rotated.
- * @param out Vector that will receive the result.
  * @param allocator Allocator used to resize/allocate memory for output if needed.
  * @return Zero on success.
  */
 INTERPLIB_INTERNAL
-int givens_rotate_sparse_vector(const givens_rotation_t *g, const svector_t *vec, svector_t *restrict out,
-                                const allocator_callbacks *allocator);
+int givens_rotate_sparse_vector_inplace(const givens_rotation_t *g, svector_t *vec,
+                                        const allocator_callbacks *allocator);
+
+/**
+ * Convert a C-based Givens rotations object into a Python version GivensSeries.
+ *
+ * @param n Number of Givens rotations to join together.
+ * @param g Givens rotation object to convert.
+ * @return Pointer to the newly created object, or NULL on failure.
+ */
+INTERPLIB_INTERNAL
+givens_series_t *givens_series_to_python(uint64_t n, const givens_rotation_t g[static n]);
 
 #endif // GIVENS_H

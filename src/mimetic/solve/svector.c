@@ -27,17 +27,18 @@ void sparse_vec_del(svector_t *this, const allocator_callbacks *allocator)
     *this = (svector_t){};
 }
 
-int sparse_vec_resize(svector_t *this, uint64_t capacity, const allocator_callbacks *allocator)
+int sparse_vec_resize(svector_t *this, const uint64_t new_capacity, const allocator_callbacks *allocator)
 {
-    if (this->capacity >= capacity)
+    if (this->capacity >= new_capacity)
         return 0;
 
-    entry_t *const new_ptr = reallocate(allocator, this->entries, sizeof(*this->entries) * capacity);
+    entry_t *const new_ptr = reallocate(allocator, this->entries, sizeof(*this->entries) * new_capacity);
     if (!new_ptr)
     {
         return -1;
     }
     this->entries = new_ptr;
+    this->capacity = new_capacity;
     return 0;
 }
 
@@ -90,12 +91,30 @@ int sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_cal
 
 uint64_t sparse_vector_find_first_geq(const svector_t *this, const uint64_t v, const uint64_t start)
 {
+    // Quick check if too small
+    if (this->entries[0].index >= v)
+        return 0;
+
+    // Quick check if too large
+    if (this->entries[this->count - 1].index <= v)
+    {
+        // Actually hit it
+        if (this->entries[this->count - 1].index == v)
+            return this->count - 1;
+
+        // Nvm, too large
+        return this->count;
+    }
+
     enum
     {
         LINEAR_SEARCH_LIMIT = 8
     };
     uint64_t begin = start;
-    uint64_t len = this->count - start;
+    // Since entries are sorted and unique, entry with value v can not be further ahead than the
+    // difference from the first entry.
+    const uint64_t first_diff = v - this->entries[0].index + 1;
+    uint64_t len = (this->count < first_diff ? this->count : first_diff) - start;
     uint64_t d_pivot = len / 2;
 
     // Binary search until length is small enough to do the linear search
@@ -126,7 +145,7 @@ uint64_t sparse_vector_find_first_geq(const svector_t *this, const uint64_t v, c
             return i + begin;
     }
 
-    return this->count;
+    return begin + len;
 }
 
 static PyObject *svec_repr(const svec_object_t *this)
@@ -291,6 +310,12 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
 {
     if (PySlice_Check(py_idx))
     {
+        // Quick check for an empty vector
+        if (this->count == 0)
+        {
+            const svector_t v = {.n = this->n, .count = 0, .capacity = 0, .entries = NULL};
+            return (PyObject *)sparse_vec_to_python(&v);
+        }
         Py_ssize_t start, stop, step;
         // Slice
         if (PySlice_Unpack(py_idx, &start, &stop, &step))
@@ -314,7 +339,7 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
             fake = (svector_t){.n = stop - start, .count = 0, .capacity = 0, .entries = NULL};
             return (PyObject *)sparse_vec_to_python(&fake);
         }
-        const uint64_t end = sparse_vector_find_first_geq(&self, stop, begin + 1);
+        const uint64_t end = sparse_vector_find_first_geq(&self, stop, begin);
         fake = (svector_t){
             .n = seq_len, .count = end - begin, .capacity = 0, .entries = (entry_t *)(this->entries + begin)};
         svec_object_t *const vec = sparse_vec_to_python(&fake);
@@ -336,6 +361,9 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
                      (int64_t)idx, this->n);
         return NULL;
     }
+    // Quick check for an empty vector
+    if (this->count == 0)
+        return PyLong_FromDouble(0.0);
 
     uint64_t adjusted_idx;
     if (idx < 0)
@@ -475,17 +503,49 @@ static PyObject *svec_get_indices(const svec_object_t *this, void *Py_UNUSED(clo
     return (PyObject *)array;
 }
 
+static PyObject *svec_get_count(const svec_object_t *this, void *Py_UNUSED(closure))
+{
+    return PyLong_FromSize_t((size_t)this->count);
+}
+
+static int svec_set_n(svec_object_t *this, PyObject *val, void *Py_UNUSED(closure))
+{
+    const uint64_t n = PyLong_AsSize_t(val);
+    if (PyErr_Occurred())
+        return -1;
+
+    if (this->count != 0 && this->entries[this->count - 1].index >= n)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Can not set the dimension of the vector to %" PRIu64
+                     ", because the vector's last element is at index %" PRIu64 ".",
+                     n, this->entries[this->count - 1].index);
+        return -1;
+    }
+    this->n = n;
+    return 0;
+}
+
 static PyGetSetDef svec_get_set[] = {
-    {.name = "n", .get = (void *)svec_get_n, .set = NULL, .doc = "int : Dimension of the vector.", .closure = NULL},
+    {.name = "n",
+     .get = (getter)svec_get_n,
+     .set = (setter)svec_set_n,
+     .doc = "int : Dimension of the vector.",
+     .closure = NULL},
     {.name = "values",
-     .get = (void *)svec_get_values,
+     .get = (getter)svec_get_values,
      .set = NULL,
      .doc = "array : Values of non-zero entries of the vector.",
      .closure = NULL},
     {.name = "indices",
-     .get = (void *)svec_get_indices,
+     .get = (getter)svec_get_indices,
      .set = NULL,
      .doc = "array : Indices of non-zero entries of the vector.",
+     .closure = NULL},
+    {.name = "count",
+     .get = (getter)svec_get_count,
+     .set = NULL,
+     .doc = "int : Number of entries in the vector.",
      .closure = NULL},
     {}, // Sentinel
 };

@@ -230,27 +230,10 @@ static PyObject *lil_mat_qr_decomposition(lil_mat_object_t *this, PyObject *args
 
     Py_END_ALLOW_THREADS;
 
-    PyTupleObject *out_tuple = (PyTupleObject *)PyTuple_New((Py_ssize_t)n_givens);
-    if (!out_tuple)
-    {
-        deallocate(&SYSTEM_ALLOCATOR, p_givens);
-        return NULL;
-    }
-
-    for (uint64_t i = 0; i < n_givens; ++i)
-    {
-        givens_object_t *const g = givens_to_python(p_givens + i);
-        if (!g)
-        {
-            Py_DECREF(out_tuple);
-            out_tuple = NULL;
-            break;
-        }
-        PyTuple_SET_ITEM(out_tuple, i, g);
-    }
+    givens_series_t *const series = givens_series_to_python(n_givens, p_givens);
     deallocate(&SYSTEM_ALLOCATOR, p_givens);
 
-    return (PyObject *)out_tuple;
+    return (PyObject *)series;
 }
 
 static PyObject *lil_mat_block_diagonal(PyTypeObject *type, PyObject *const *args, const Py_ssize_t nargs)
@@ -520,6 +503,42 @@ static PyObject *lil_matrix_solve_upper_triangular(const lil_mat_object_t *this,
     return (PyObject *)out;
 }
 
+static PyObject *lil_mat_empty_diagonal(PyTypeObject *type, PyObject *arg)
+{
+    const Py_ssize_t py_n = PyLong_AsSsize_t(arg);
+    if (PyErr_Occurred())
+        return NULL;
+
+    if (py_n <= 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Value of dimension must be strictly positive (got %zd instead).", py_n);
+        return NULL;
+    }
+
+    const uint64_t n = (uint64_t)py_n;
+
+    lil_mat_object_t *const this = (lil_mat_object_t *)type->tp_alloc(type, py_n);
+    if (!this)
+        return NULL;
+
+    this->rows = n;
+    this->cols = n;
+
+    for (uint64_t i = 0; i < n; ++i)
+    {
+        svector_t *const row = this->row_data + i;
+        if (sparse_vector_new(row, n, 1, &SYSTEM_ALLOCATOR))
+        {
+            Py_DECREF(this);
+            return NULL;
+        }
+        row->entries[0] = (entry_t){.index = i, .value = 0.0};
+        row->count = 1;
+    }
+
+    return (PyObject *)this;
+}
+
 static PyMethodDef lil_mat_methods[] = {
     {.ml_name = "count_entries",
      .ml_meth = (void *)lil_mat_count_entries,
@@ -549,7 +568,7 @@ static PyMethodDef lil_mat_methods[] = {
     {.ml_name = "qr_decompose",
      .ml_meth = (void *)lil_mat_qr_decomposition,
      .ml_flags = METH_VARARGS,
-     .ml_doc = "qr_decompose(n: int | None = None, /) -> tuple[GivensRotation, ...]:\n"
+     .ml_doc = "qr_decompose(n: int | None = None, /) -> GivensSeries:\n"
                "Decompose the matrix into a series of Givens rotations and a triangular matrix.\n"
                "\n"
                "Parameters\n"
@@ -627,6 +646,23 @@ static PyMethodDef lil_mat_methods[] = {
                "    Vector or matrix that yields the rhs when matrix multiplication is used.\n"
                "    If the ``out`` parameter is given, the value returned will be exactly that\n"
                "    matrix.\n"},
+    {.ml_name = "empty_diagonal",
+     .ml_meth = (void *)lil_mat_empty_diagonal,
+     .ml_flags = METH_CLASS | METH_O,
+     .ml_doc = "empty_diagonal(n: int, /) -> Self:\n"
+               "Create empty square matrix with zeros on the diagonal.\n"
+               "\n"
+               "This is intended for padding that allows for computing QR decompositions.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "n : int\n"
+               "    Size of the square matrix.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "LiLMatrix\n"
+               "    Sparse matrix that is square and has only zeros on its diagonal.\n"},
     {}, // Sentinel
 };
 
@@ -635,11 +671,27 @@ static PyObject *lil_mat_get_shape(const lil_mat_object_t *this, void *Py_UNUSED
     return PyTuple_Pack(2, PyLong_FromSize_t((size_t)this->rows), PyLong_FromSize_t((size_t)this->cols));
 }
 
+static PyObject *lil_mat_get_usage(const lil_mat_object_t *this, void *Py_UNUSED(closure))
+{
+    uint64_t n = 0;
+    for (uint64_t i = 0; i < this->rows; ++i)
+    {
+        n += this->row_data[i].count;
+    }
+
+    return PyLong_FromSize_t((size_t)n);
+}
+
 static PyGetSetDef lil_mat_getset[] = {
     {.name = "shape",
      .get = (getter)lil_mat_get_shape,
      .set = NULL,
      .doc = "(int, int) : Get the shape of the matrix.",
+     .closure = NULL},
+    {.name = "usage",
+     .get = (getter)lil_mat_get_usage,
+     .set = NULL,
+     .doc = "int : Number of non-zero entries.",
      .closure = NULL},
     {}, // Sentinel
 };

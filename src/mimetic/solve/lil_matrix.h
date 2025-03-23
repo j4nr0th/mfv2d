@@ -15,7 +15,7 @@ typedef struct
 
 typedef struct
 {
-    PyObject_HEAD;
+    PyObject_VAR_HEAD;
     uint64_t rows, cols;
     svector_t row_data[];
 } lil_mat_object_t;

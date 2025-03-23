@@ -17,7 +17,14 @@ from scipy.sparse import linalg as sla
 
 from interplib import kforms as kform
 from interplib._interp import compute_gll, lagrange1d
-from interplib._mimetic import GeoID, Surface, compute_element_matrices_2
+from interplib._mimetic import (
+    GeoID,
+    GivensSeries,
+    LiLMatrix,
+    SparseVector,
+    Surface,
+    compute_element_matrices_2,
+)
 from interplib.kforms.eval import MatOp, MatOpCode, _ctranslate, translate_equation
 from interplib.kforms.jax_eval import compute_element_matrices_3
 from interplib.kforms.kform import KBoundaryProjection
@@ -31,6 +38,7 @@ from interplib.mimetic.mimetic2d import (
     vtk_lagrange_ordering,
 )
 from interplib.prof import PerfTimer
+from interplib.qr import CompositeQMatix
 
 
 @dataclass(init=False, frozen=True)
@@ -674,11 +682,36 @@ def solve_system_2d(
 
     main_mat = sp.block_diag(matrices)
     main_vec = np.concatenate(vec)
-    del matrices, vec, element_matrices, element_vectors
 
     if timed:
         base_timer.stop("Assembling the main matrix took {} seconds.")
         base_timer.set()
+
+    inv_list: list[LiLMatrix] = list()
+    q_list: list[GivensSeries | CompositeQMatix] = list()
+
+    for i, itop in enumerate(element_tree.top_indices):
+        elm_top = element_tree.elements[itop]
+        _, em, eqm = element_inverse(
+            elm_top,
+            unknown_form_orders,
+            cont_indices_edges,
+            cont_indices_nodes,
+            element_tree,
+            element_matrices,
+        )
+        inv_list.append(em)
+        q_list.append(eqm)
+
+    r_mat = LiLMatrix.block_diag(*inv_list)
+    q_mat = CompositeQMatix(None, *q_list)
+    del inv_list, q_list
+
+    if timed:
+        base_timer.stop("Assembling the main inverse took {} seconds.")
+        base_timer.set()
+
+    del matrices, vec, element_matrices, element_vectors
 
     # Apply lagrange multipliers for continuity
     continuity_equations: list[ConstraintEquation] = list()
@@ -990,12 +1023,19 @@ def solve_system_2d(
         lag_cols: list[npt.NDArray[np.uint32]] = list()
         lag_vals: list[npt.NDArray[np.float64]] = list()
         lag_rhs: list[np.float64] = list()
+        sparse_eq: list[SparseVector] = list()
 
         for ieq, lag_eq in enumerate(continuity_equations):
             lag_rows.append(np.full_like(lag_eq.indices, ieq))
             lag_cols.append(lag_eq.indices)
             lag_vals.append(lag_eq.values)
             lag_rhs.append(lag_eq.rhs)
+            iordering = np.argsort(lag_eq.indices)
+            sparse_eq.append(
+                SparseVector.from_entries(
+                    element_begin[-1], lag_eq.indices[iordering], lag_eq.values[iordering]
+                )
+            )
 
         mat_rows = np.concatenate(lag_rows, dtype=int)
         mat_cols = np.concatenate(lag_cols, dtype=int)
@@ -1009,6 +1049,39 @@ def solve_system_2d(
         if timed:
             base_timer.stop("Preparing the system took {} seconds.")
             base_timer.set()
+        extra_cols: list[SparseVector] = list()
+        extra_rows: list[SparseVector] = list()
+        for seq in sparse_eq:
+            extra_cols.append(q_mat @ seq)
+            seq.n += len(sparse_eq)
+            extra_rows.append(seq)
+
+        r_mat.add_columns(*extra_cols)
+        r_mat = r_mat.add_rows(*extra_rows)
+
+        # r2 = LiLMatrix.from_full(main_mat.toarray())
+        # q2 = r2.qr_decompose(sum(len(c) for (_, c) in q_mat.children))
+        # # for _, c in q_mat.children:
+        # #     print([g for g in c])
+        # # print([g for g in q2])
+
+        # from matplotlib import pyplot as plt
+
+        # plt.figure()
+
+        # plt.imshow(np.array(r_mat) - np.array(r2))
+        # # plt.figure()
+
+        # # plt.imshow(q_mat @ np.eye(q_mat.n) - q2 @ np.eye(q2.n))
+
+        # plt.show()
+
+        q_mat.own = r_mat.qr_decompose()
+
+        if timed:
+            base_timer.stop("Updating the global system took {} seconds.")
+            base_timer.set()
+
         main_vec = np.concatenate((main_vec, lag_rhs))
 
     main_mat = sp.csc_array(main_mat)
@@ -1017,11 +1090,10 @@ def solve_system_2d(
     # from matplotlib import pyplot as plt
 
     # plt.figure()
-    # plt.spy(main_mat)
+    # plt.spy(np.array(r_mat))
     # plt.show()
 
     # exit()
-    del main_mat, main_vec, continuity_equations
 
     # np.savetxt("test_mat.dat", matrix.toarray())
     # Solve the system
@@ -1030,7 +1102,17 @@ def solve_system_2d(
         base_timer.stop("Solving took {} seconds.")
         base_timer.set()
 
+    sol2 = r_mat.solve_upper_triangular(q_mat @ main_vec)
+    if timed:
+        base_timer.stop("Solving with QR (incremental) {} seconds.")
+        base_timer.set()
+
+    print(f"Max err in QR: {np.max(np.abs(solution - sol2))}")
+    print(f"Final r_mat had sparsity of {r_mat.usage / np.prod(r_mat.shape): %}")
+    del r_mat, q_mat
+
     # print(solution)
+    del main_mat, main_vec, continuity_equations
 
     xvals: list[npt.NDArray[np.float64]] = list()
     yvals: list[npt.NDArray[np.float64]] = list()
@@ -1965,3 +2047,105 @@ def continuity_parent_child_edges(
             )
 
     return equations
+
+
+def element_inverse(
+    e: Element2D,
+    unknown_form_orders: tuple[int, ...],
+    cont_indices_edges: list[int],
+    cont_indices_nodes: list[int],
+    element_tree: ElementTree,
+    element_matrices: dict[int, npt.NDArray[np.float64] | jax.Array],
+) -> tuple[
+    npt.NDArray[np.uint32],
+    LiLMatrix,
+    GivensSeries | CompositeQMatix,
+]:
+    """Find inverse of the element matrix and sizes inside the elements."""
+    # Add offset for the next element
+    size = sum(e.dof_sizes(unknown_form_orders))
+    curr_size = np.array([size], np.uint32)
+    q: GivensSeries | CompositeQMatix
+    # Check if leaf element
+    if isinstance(e, ElementLeaf2D):
+        # Leaf element, meaning only the element matrix is added
+        i = element_tree.elements.index(e)  # TODO: change this later
+        assert i in element_matrices
+        m = element_matrices[i]
+        assert m.shape[0] == m.shape[1] and m.shape[0] == size
+        sparsed = LiLMatrix.from_full(m)
+        q = sparsed.qr_decompose()
+
+        return (curr_size, sparsed, q)
+
+    assert isinstance(e, ElementNode2D)
+
+    vec: list[npt.NDArray[np.float64]] = list()
+    # A non-leaf element, meaning its four children must be found
+    vec.append(np.zeros(size))
+    # Add the bottom left
+    children = (e.child_bl, e.child_br, e.child_tl, e.child_tr)
+
+    mats: tuple[
+        LiLMatrix,
+        LiLMatrix,
+        LiLMatrix,
+        LiLMatrix,
+    ]
+    qms: tuple[
+        GivensSeries | CompositeQMatix,
+        GivensSeries | CompositeQMatix,
+        GivensSeries | CompositeQMatix,
+        GivensSeries | CompositeQMatix,
+    ]
+
+    sizes, mats, qms = zip(
+        *(
+            element_inverse(
+                ce,
+                unknown_form_orders,
+                cont_indices_edges,
+                cont_indices_nodes,
+                element_tree,
+                element_matrices,
+            )
+            for ce in children
+        )
+    )
+
+    for m in mats:
+        assert m.shape[0] == m.shape[1]
+
+    offsets = np.pad(np.cumsum([size] + [m.shape[0] for m in mats]), (1, 0))
+
+    # Get the continuity equations
+    cont = parent_child_equations(
+        unknown_form_orders, cont_indices_edges, cont_indices_nodes, e, *offsets[:-1]
+    )
+    q = CompositeQMatix(None, GivensSeries(size), *qms)
+
+    extra_rows: list[SparseVector] = list()
+    extra_cols: list[SparseVector] = list()
+    for eq in cont:
+        iordering = np.argsort(eq.indices)
+        sc = SparseVector.from_entries(
+            offsets[-1], eq.indices[iordering], eq.values[iordering]
+        )
+        extra_cols.append(q @ sc)
+
+        sc.n += len(cont)
+        extra_rows.append(sc)
+
+    combined = LiLMatrix.block_diag(LiLMatrix.empty_diagonal(size), *mats)
+    combined.add_columns(*extra_cols)
+    combined = combined.add_rows(*extra_rows)
+
+    new_q = combined.qr_decompose()
+    q.own = new_q
+
+    size_list = [curr_size]
+    for s in sizes:
+        size_list.append(s + size_list[-1][-1])
+    size_list[-1][-1] += len(cont)
+
+    return np.concatenate(size_list), combined, q

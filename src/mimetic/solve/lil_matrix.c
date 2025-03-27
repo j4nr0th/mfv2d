@@ -216,19 +216,21 @@ static PyObject *lil_mat_qr_decomposition(lil_mat_object_t *this, PyObject *args
                "Dimension of row %" PRIu64 " (%" PRIu64 ") does not match column count %" PRIu64 ".", i,
                this->row_data[i].n, this->cols);
     }
-
+    int result;
     Py_BEGIN_ALLOW_THREADS;
 
     // Threads are allowed inside here, since this can be on the slow side.
     // As long as no one else has the bright idea to start messing with the
     // matrix in another thread we will be fine. If someone is retarded enough
     // to try that, may God have mercy on his soul.
-    if (decompose_qr((int64_t)n_max, &tmp, &n_givens, &p_givens, &SYSTEM_ALLOCATOR))
+    result = decompose_qr((int64_t)n_max, &tmp, &n_givens, &p_givens, &SYSTEM_ALLOCATOR);
+
+    Py_END_ALLOW_THREADS;
+
+    if (result)
     {
         return NULL;
     }
-
-    Py_END_ALLOW_THREADS;
 
     givens_series_t *const series = givens_series_to_python(n_givens, p_givens);
     deallocate(&SYSTEM_ALLOCATOR, p_givens);
@@ -236,7 +238,8 @@ static PyObject *lil_mat_qr_decomposition(lil_mat_object_t *this, PyObject *args
     return (PyObject *)series;
 }
 
-static PyObject *lil_mat_block_diagonal(PyTypeObject *type, PyObject *const *args, const Py_ssize_t nargs)
+INTERPLIB_EXTERNAL
+PyObject *lil_mat_block_diagonal(PyTypeObject *type, PyObject *const *args, const Py_ssize_t nargs)
 {
     for (unsigned i = 0; i < nargs; ++i)
     {
@@ -539,6 +542,46 @@ static PyObject *lil_mat_empty_diagonal(PyTypeObject *type, PyObject *arg)
     return (PyObject *)this;
 }
 
+static uint64_t compute_usage(const lil_mat_object_t *this)
+{
+    uint64_t n = 0;
+    for (uint64_t i = 0; i < this->rows; ++i)
+    {
+        n += this->row_data[i].count;
+    }
+    return n;
+}
+
+static PyObject *lil_mat_to_scipy(const lil_mat_object_t *this, PyObject *Py_UNUSED(arg))
+{
+    const uint64_t usage = compute_usage(this);
+    const npy_intp dims[2] = {(npy_intp)usage, 2};
+    PyArrayObject *const value_array = (PyArrayObject *)PyArray_SimpleNew(1, dims, NPY_FLOAT64);
+    PyArrayObject *const index_array = (PyArrayObject *)PyArray_SimpleNew(1, dims, NPY_UINT64);
+    if (!value_array || !index_array)
+    {
+        Py_XDECREF(value_array);
+        Py_XDECREF(index_array);
+        return NULL;
+    }
+
+    npy_float64 *const ptr_vals = PyArray_DATA(value_array);
+    npy_uint64 *const idx_array = PyArray_DATA(index_array);
+    uint64_t p = 0;
+    for (uint64_t row = 0; row < this->rows; ++row)
+    {
+        const svector_t *const v = this->row_data + row;
+        for (uint64_t j = 0; j < v->count; ++j)
+        {
+            ptr_vals[j] = v->entries[j].value;
+            idx_array[j << 1] = row;                     // 2 * j
+            idx_array[j << 1 | 1] = v->entries[j].index; // 2 * j + 1
+        }
+    }
+
+    return PyTuple_Pack(2, value_array, index_array);
+}
+
 static PyMethodDef lil_mat_methods[] = {
     {.ml_name = "count_entries",
      .ml_meth = (void *)lil_mat_count_entries,
@@ -663,6 +706,19 @@ static PyMethodDef lil_mat_methods[] = {
                "-------\n"
                "LiLMatrix\n"
                "    Sparse matrix that is square and has only zeros on its diagonal.\n"},
+    {.ml_name = "to_scipy",
+     .ml_meth = (PyCFunction)lil_mat_to_scipy,
+     .ml_flags = METH_NOARGS,
+     .ml_doc = "to_scipy() -> (array, array):\n"
+               "Convert itself into an array of values and an array of coorinates.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "(N,) array of floats\n"
+               "    Values of the entries stored in the matrx.\n"
+               "\n"
+               "(N, 2) array of uint64\n"
+               "    Positions of entries as ``(row, col)``.\n"},
     {}, // Sentinel
 };
 
@@ -673,13 +729,7 @@ static PyObject *lil_mat_get_shape(const lil_mat_object_t *this, void *Py_UNUSED
 
 static PyObject *lil_mat_get_usage(const lil_mat_object_t *this, void *Py_UNUSED(closure))
 {
-    uint64_t n = 0;
-    for (uint64_t i = 0; i < this->rows; ++i)
-    {
-        n += this->row_data[i].count;
-    }
-
-    return PyLong_FromSize_t((size_t)n);
+    return PyLong_FromSize_t((size_t)compute_usage(this));
 }
 
 static PyGetSetDef lil_mat_getset[] = {

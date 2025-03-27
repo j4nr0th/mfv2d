@@ -77,3 +77,18 @@ class CompositeQMatix:
         if self.own is not None:
             a = self.own @ a
         return a
+
+    def apply(self, v: npt.NDArray[np.float64], /) -> None:
+        """Apply in-place as fast as possible.
+
+        This function works as fast as possible, without any allocations.
+
+        Parameters
+        ----------
+        v : array
+            One dimensional array to rotate.
+        """
+        for s, c in self.children:
+            c.apply(v[s])
+        if self.own:
+            c.apply(v)

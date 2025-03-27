@@ -8,6 +8,7 @@ from itertools import accumulate
 
 import numpy as np
 import numpy.typing as npt
+import pyvista as pv
 
 from interplib._interp import compute_gll, dlagrange1d, lagrange1d
 from interplib._mimetic import Manifold2D
@@ -1537,6 +1538,27 @@ class Mesh2D:
             tuple(self.positions[indices[2], :]),  # type: ignore
             tuple(self.positions[indices[3], :]),  # type: ignore
         )
+
+    def as_polydata(self) -> pv.PolyData:
+        """Convert the mesh into PyVista's polydata.
+
+        Returns
+        -------
+        PolyData
+            PolyData representation of the mesh.
+        """
+        man = self.primal
+        pos = self.positions
+
+        indices: list[list[int]] = [
+            [man.get_line(i_line).begin.index for i_line in man.get_surface(i_surf + 1)]  # type: ignore
+            for i_surf in range(man.n_surfaces)
+        ]
+
+        return pv.PolyData.from_irregular_faces(np.pad(pos, ((0, 0), (0, 1))), indices)
+        # for i_surf in range(man.n_surfaces):
+        #     s = man.get_surface(i_surf + 1)
+        #     idx: list[int] = [man.get_line(i_line).begin.index for i_line in s]
 
 
 def eval_expression(

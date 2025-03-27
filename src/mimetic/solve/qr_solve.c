@@ -17,6 +17,107 @@ static void print_svec(const svector_t *this)
     }
 }
 
+int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *row_i, const svector_t *row_j,
+                          svector_t *restrict out_i, svector_t *restrict out_j, const unsigned cut_j,
+                          const allocator_callbacks *allocator)
+{
+    (void)cut_j;
+    ASSERT(row_i->n == row_j->n, "Input vectors must have the same size (%" PRIu64 " vs %" PRIu64 ").", row_i->n,
+           row_j->n);
+    ASSERT(out_i->n == out_j->n, "Output vectors must have the same size (%" PRIu64 " vs %" PRIu64 ").", out_i->n,
+           out_j->n);
+    uint64_t max_elements = row_i->count + row_j->count;
+
+    // Can't have more elements than the full row.
+    if (max_elements > row_i->n)
+    {
+        max_elements = row_i->n;
+    }
+
+    if (sparse_vec_resize(out_i, max_elements, allocator) || sparse_vec_resize(out_j, max_elements, allocator))
+    {
+        return -1;
+    }
+
+    uint64_t idx_i, idx_j, pos;
+    for (idx_i = 0, idx_j = 0, pos = 0; idx_i < row_i->count && idx_j < row_j->count; ++pos)
+    {
+        scalar_t vi = 0.0, vj = 0.0;
+        uint64_t pv;
+        // row I still available
+        // row J still available
+        if (row_i->entries[idx_i].index < row_j->entries[idx_j].index)
+        {
+            // I before J
+            vi = row_i->entries[idx_i].value;
+            pv = row_i->entries[idx_i].index;
+            idx_i += 1;
+        }
+        else if (row_i->entries[idx_i].index > row_j->entries[idx_j].index)
+        {
+            // J before I
+            vj = row_j->entries[idx_j].value;
+            pv = row_j->entries[idx_j].index;
+            idx_j += 1;
+        }
+        else
+        {
+            // I and J equal
+            vi = row_i->entries[idx_i].value;
+            vj = row_j->entries[idx_j].value;
+            pv = row_j->entries[idx_j].index;
+            idx_i += 1;
+            idx_j += 1;
+        }
+        out_i->entries[pos].value = c * vi + s * vj;
+        out_i->entries[pos].index = pv;
+        // Skip the first cut_j the account of the fact that they are eliminated.
+        if (pos >= 1)
+        {
+            out_j->entries[pos - 1].value = -s * vi + c * vj;
+            out_j->entries[pos - 1].index = pv;
+        }
+    }
+
+    // Remainder of I or J still needs to be handled (Unless they're of equal length)
+    if (idx_i < row_i->count)
+    {
+        while (idx_i < row_i->count)
+        {
+            const scalar_t vi = row_i->entries[idx_i].value;
+            const uint64_t pv = row_i->entries[idx_i].index;
+            idx_i += 1;
+            out_i->entries[pos].value = c * vi;
+            out_i->entries[pos].index = pv;
+            // Skip the first cut_j the account of the fact that they are eliminated.
+            out_j->entries[pos - 1].value = -s * vi;
+            out_j->entries[pos - 1].index = pv;
+            pos += 1;
+        }
+    }
+    else // if (idx_j < row_j->count)
+    {
+        while (idx_j < row_j->count)
+        {
+
+            // row J still available
+            const scalar_t vj = row_j->entries[idx_j].value;
+            const uint64_t pv = row_j->entries[idx_j].index;
+            idx_j += 1;
+            out_i->entries[pos].value = s * vj;
+            out_i->entries[pos].index = pv;
+            out_j->entries[pos - 1].value = c * vj;
+            out_j->entries[pos - 1].index = pv;
+            pos += 1;
+        }
+    }
+
+    // Adjust the element counts for out_i and out_j.
+    out_i->count = pos;
+    out_j->count = pos - 1;
+
+    return 0;
+}
 /**
  * Perform QR decomposition by applying Givens rotations to the split matrix.
  *

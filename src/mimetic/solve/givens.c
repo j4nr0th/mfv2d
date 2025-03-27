@@ -4,9 +4,9 @@
 #include "givens.h"
 #include <numpy/ndarrayobject.h>
 
-int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *row_i, const svector_t *row_j,
-                          svector_t *restrict out_i, svector_t *restrict out_j, const unsigned cut_j,
-                          const allocator_callbacks *allocator)
+int apply_givens_rotation_2(const scalar_t c, const scalar_t s, const svector_t *row_i, const svector_t *row_j,
+                            svector_t *restrict out_i, svector_t *restrict out_j, const unsigned cut_j,
+                            const allocator_callbacks *allocator)
 {
     ASSERT(row_i->n == row_j->n, "Input vectors must have the same size (%" PRIu64 " vs %" PRIu64 ").", row_i->n,
            row_j->n);
@@ -80,8 +80,8 @@ int apply_givens_rotation(const scalar_t c, const scalar_t s, const svector_t *r
         // Skip the first cut_j the account of the fact that they are eliminated.
         if (pos >= cut_j)
         {
-            out_j->entries[pos - 1].value = -s * vi + c * vj;
-            out_j->entries[pos - 1].index = pv;
+            out_j->entries[pos - cut_j].value = -s * vi + c * vj;
+            out_j->entries[pos - cut_j].index = pv;
         }
     }
     // Adjust the element counts for out_i and out_j.
@@ -595,6 +595,88 @@ static PyObject *givens_series_matmul(const givens_series_t *this, PyObject *oth
     return (PyObject *)out;
 }
 
+INTERPLIB_EXTERNAL
+PyObject *givens_series_apply(const givens_series_t *this, PyObject *other)
+{
+    PyArrayObject *const mat = (PyArrayObject *)other;
+
+    if (!PyArray_Check(mat))
+    {
+        PyErr_Format(PyExc_TypeError, "Input was not an array, instead its type was %R.", Py_TYPE(other));
+        return NULL;
+    }
+
+    if (PyArray_TYPE(mat) != NPY_FLOAT64)
+    {
+        PyErr_Format(PyExc_ValueError, "Input array's data type was not float64 (%d), but instead it was %d.",
+                     NPY_FLOAT64, PyArray_TYPE(mat));
+        return NULL;
+    }
+
+    const int needed_flags = (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE | NPY_ARRAY_ALIGNED);
+    if ((PyArray_FLAGS(mat) & needed_flags) != needed_flags)
+    {
+        PyErr_Format(PyExc_ValueError, "Input array did not have required flags %04x, instead it only had %04x.",
+                     needed_flags, PyArray_FLAGS(mat));
+        return NULL;
+    }
+
+    if (PyArray_NDIM(mat) != 1)
+    {
+        PyErr_Format(PyExc_ValueError, "Input array was not flat and instead had %u dimensions.",
+                     (unsigned)PyArray_NDIM(mat));
+        return NULL;
+    }
+
+    const unsigned n_rows = PyArray_DIM(mat, 0);
+    if (Py_SIZE(this) > 0 && n_rows != this->n)
+    {
+        PyErr_Format(
+            PyExc_ValueError,
+            "Givens rotation of size %" PRIu64
+            " can not be applied to the array which does not have that as its first dimension (instead it had %u).",
+            this->n, n_rows);
+        Py_DECREF(mat);
+        return NULL;
+    }
+
+    npy_float64 *ptr = PyArray_DATA(mat);
+
+    Py_BEGIN_ALLOW_THREADS;
+    for (uint64_t j = 0; j < Py_SIZE(this); ++j)
+    {
+        uint64_t i1, i2;
+        scalar_t c00, c01, c10, c11;
+        const givens_rotation_t *g = this->data + j;
+        if (g->k < g->l)
+        {
+            i1 = g->k;
+            i2 = g->l;
+            c00 = g->c;
+            c01 = g->s;
+            c11 = g->c;
+            c10 = -g->s;
+        }
+        else
+        {
+            i1 = g->l;
+            i2 = g->k;
+            c00 = g->c;
+            c01 = -g->s;
+            c11 = g->c;
+            c10 = g->s;
+        }
+
+        const npy_float64 v1 = ptr[i1];
+        const npy_float64 v2 = ptr[i2];
+        ptr[i1] = c00 * v1 + c01 * v2;
+        ptr[i2] = c10 * v1 + c11 * v2;
+    }
+    Py_END_ALLOW_THREADS;
+
+    Py_RETURN_NONE;
+}
+
 static PyNumberMethods number_series_methods = {
     .nb_matrix_multiply = (binaryfunc)givens_series_matmul,
 };
@@ -698,6 +780,22 @@ static PyObject *givens_series_new(PyTypeObject *type, PyObject *args, const PyO
     return (PyObject *)this;
 }
 
+static PyMethodDef givens_series_methods[] = {
+    {.ml_name = "apply",
+     .ml_meth = (PyCFunction)givens_series_apply,
+     .ml_flags = METH_O,
+     .ml_doc = "apply(self, v: npt.NDArray[np.float64], /) -> None:\n"
+               "Apply in-place as fast as possible.\n"
+               "\n"
+               "This function works as fast as possible, without any allocations.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "v : array\n"
+               "    One dimensional array to rotate.\n"},
+    {}, // Sentinel
+};
+
 PyTypeObject givens_series_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "interplib._mimetic.GivensSeries",
     .tp_basicsize = sizeof(givens_series_t),
@@ -710,4 +808,5 @@ PyTypeObject givens_series_type_object = {
     .tp_getset = givens_series_getset,
     .tp_as_sequence = &series_seq_methods,
     .tp_as_number = &number_series_methods,
+    .tp_methods = givens_series_methods,
 };

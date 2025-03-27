@@ -606,6 +606,17 @@ class GivensSeries:
     def __matmul__(self, other: SparseVector) -> SparseVector: ...
     @overload
     def __matmul__(self, other: npt.ArrayLike) -> npt.NDArray[np.float64]: ...
+    def apply(self, v: npt.NDArray[np.float64], /) -> None:
+        """Apply in-place as fast as possible.
+
+        This function works as fast as possible, without any allocations.
+
+        Parameters
+        ----------
+        v : array
+            One dimensional array to rotate.
+        """
+        ...
 
 class LiLMatrix:
     """Matrix which has a list of is used to store sparse rows.
@@ -761,4 +772,17 @@ class LiLMatrix:
     @property
     def usage(self) -> int:
         """Number of non-zero entries."""
+        ...
+
+    def to_scipy(self) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.uint64]]:
+        """Convert itself into an array of values and an array of coorinates.
+
+        Returns
+        -------
+        (N,) array of floats
+            Values of the entries stored in the matrx.
+
+        (N, 2) array of uint64
+            Positions of entries as ``(row, col)``.
+        """
         ...

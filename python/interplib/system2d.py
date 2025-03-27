@@ -687,29 +687,29 @@ def solve_system_2d(
         base_timer.stop("Assembling the main matrix took {} seconds.")
         base_timer.set()
 
-    inv_list: list[LiLMatrix] = list()
-    q_list: list[GivensSeries | CompositeQMatix] = list()
+    # inv_list: list[LiLMatrix] = list()
+    # q_list: list[GivensSeries | CompositeQMatix] = list()
 
-    for i, itop in enumerate(element_tree.top_indices):
-        elm_top = element_tree.elements[itop]
-        _, em, eqm = element_inverse(
-            elm_top,
-            unknown_form_orders,
-            cont_indices_edges,
-            cont_indices_nodes,
-            element_tree,
-            element_matrices,
-        )
-        inv_list.append(em)
-        q_list.append(eqm)
+    # for i, itop in enumerate(element_tree.top_indices):
+    #     elm_top = element_tree.elements[itop]
+    #     _, em, eqm = element_inverse(
+    #         elm_top,
+    #         unknown_form_orders,
+    #         cont_indices_edges,
+    #         cont_indices_nodes,
+    #         element_tree,
+    #         element_matrices,
+    #     )
+    #     inv_list.append(em)
+    #     q_list.append(eqm)
 
-    r_mat = LiLMatrix.block_diag(*inv_list)
-    q_mat = CompositeQMatix(None, *q_list)
-    del inv_list, q_list
+    # r_mat = LiLMatrix.block_diag(*inv_list)
+    # q_mat = CompositeQMatix(None, *q_list)
+    # del inv_list, q_list
 
-    if timed:
-        base_timer.stop("Assembling the main inverse took {} seconds.")
-        base_timer.set()
+    # if timed:
+    #     base_timer.stop("Assembling the main inverse took {} seconds.")
+    #     base_timer.set()
 
     del matrices, vec, element_matrices, element_vectors
 
@@ -911,7 +911,7 @@ def solve_system_2d(
                     # TODO: this might be more efficiently done as some sort of projection
                     lnds = elem_cache.int_nodes_1d
                     wnds = elem_cache.int_weights_1d
-                    for i in range(bc.form.order):
+                    for i in range(side_order):
                         xc = (xv[i + 1] + xv[i]) / 2 + (xv[i + 1] - xv[i]) / 2 * lnds
                         yc = (yv[i + 1] + yv[i]) / 2 + (yv[i + 1] - yv[i]) / 2 * lnds
                         dx = (xv[i + 1] - xv[i]) / 2
@@ -1023,19 +1023,20 @@ def solve_system_2d(
         lag_cols: list[npt.NDArray[np.uint32]] = list()
         lag_vals: list[npt.NDArray[np.float64]] = list()
         lag_rhs: list[np.float64] = list()
-        sparse_eq: list[SparseVector] = list()
+        # sparse_eq: list[SparseVector] = list()
 
         for ieq, lag_eq in enumerate(continuity_equations):
             lag_rows.append(np.full_like(lag_eq.indices, ieq))
             lag_cols.append(lag_eq.indices)
             lag_vals.append(lag_eq.values)
             lag_rhs.append(lag_eq.rhs)
-            iordering = np.argsort(lag_eq.indices)
-            sparse_eq.append(
-                SparseVector.from_entries(
-                    element_begin[-1], lag_eq.indices[iordering], lag_eq.values[iordering]
-                )
-            )
+            # iordering = np.argsort(lag_eq.indices)
+            # sparse_eq.append(
+            #     SparseVector.from_entries(
+            #         element_begin[-1], lag_eq.indices[iordering],
+            # lag_eq.values[iordering]
+            #     )
+            # )
 
         mat_rows = np.concatenate(lag_rows, dtype=int)
         mat_cols = np.concatenate(lag_cols, dtype=int)
@@ -1049,16 +1050,19 @@ def solve_system_2d(
         if timed:
             base_timer.stop("Preparing the system took {} seconds.")
             base_timer.set()
-        extra_cols: list[SparseVector] = list()
-        extra_rows: list[SparseVector] = list()
-        for seq in sparse_eq:
-            extra_cols.append(q_mat @ seq)
-            seq.n += len(sparse_eq)
-            extra_rows.append(seq)
+        # extra_cols: list[SparseVector] = list()
+        # extra_rows: list[SparseVector] = list()
+        # for seq in sparse_eq:
+        #     extra_cols.append(q_mat @ seq)
+        #     seq.n += len(sparse_eq)
+        #     extra_rows.append(seq)
 
-        r_mat.add_columns(*extra_cols)
-        r_mat = r_mat.add_rows(*extra_rows)
+        # r_mat.add_columns(*extra_cols)
+        # r_mat = r_mat.add_rows(*extra_rows)
 
+        # if timed:
+        #     base_timer.stop("Adding rows and cols took {} seconds.")
+        #     base_timer.set()
         # r2 = LiLMatrix.from_full(main_mat.toarray())
         # q2 = r2.qr_decompose(sum(len(c) for (_, c) in q_mat.children))
         # # for _, c in q_mat.children:
@@ -1076,11 +1080,14 @@ def solve_system_2d(
 
         # plt.show()
 
-        q_mat.own = r_mat.qr_decompose()
+        # q_mat.own = r_mat.qr_decompose()
 
-        if timed:
-            base_timer.stop("Updating the global system took {} seconds.")
-            base_timer.set()
+        # if timed:
+        #     base_timer.stop(
+        #         "Updating the global system took {} seconds"
+        #         f" and {len(q_mat.own)} rotations."
+        #     )
+        #     base_timer.set()
 
         main_vec = np.concatenate((main_vec, lag_rhs))
 
@@ -1090,7 +1097,8 @@ def solve_system_2d(
     # from matplotlib import pyplot as plt
 
     # plt.figure()
-    # plt.spy(np.array(r_mat))
+    # plt.spy(main_mat)
+    # print(main_vec)
     # plt.show()
 
     # exit()
@@ -1102,14 +1110,14 @@ def solve_system_2d(
         base_timer.stop("Solving took {} seconds.")
         base_timer.set()
 
-    sol2 = r_mat.solve_upper_triangular(q_mat @ main_vec)
-    if timed:
-        base_timer.stop("Solving with QR (incremental) {} seconds.")
-        base_timer.set()
+    # sol2 = r_mat.solve_upper_triangular(q_mat @ main_vec)
+    # if timed:
+    #     base_timer.stop("Solving with QR (incremental) {} seconds.")
+    #     base_timer.set()
 
-    print(f"Max err in QR: {np.max(np.abs(solution - sol2))}")
-    print(f"Final r_mat had sparsity of {r_mat.usage / np.prod(r_mat.shape): %}")
-    del r_mat, q_mat
+    # print(f"Max err in QR: {np.max(np.abs(solution - sol2))}")
+    # print(f"Final r_mat had sparsity of {r_mat.usage / np.prod(r_mat.shape): %}")
+    # del r_mat, q_mat
 
     # print(solution)
     del main_mat, main_vec, continuity_equations
@@ -1178,7 +1186,7 @@ def solve_system_2d(
         np.stack((x, y, np.zeros_like(x)), axis=-1),
     )
 
-    grid.cell_data["order"] = [e.order for e in leaf_elements]
+    grid.cell_data["order"] = np.array([e.order for e in leaf_elements], np.uint32)
 
     # Build the outputs
     for form in build:

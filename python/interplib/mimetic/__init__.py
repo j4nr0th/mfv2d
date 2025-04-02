@@ -14,4 +14,5 @@ from interplib.mimetic.mimetic1d import Mesh1D as Mesh1D
 
 # 2D types
 from interplib.mimetic.mimetic2d import Element2D as Element2D
+from interplib.mimetic.mimetic2d import ElementLeaf2D as ElementLeaf2D
 from interplib.mimetic.mimetic2d import Mesh2D as Mesh2D

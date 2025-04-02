@@ -962,14 +962,14 @@ def solve_system_2d(
                 else:
                     assert False
                 i_element = element_tree.top_indices[id_surf.index]
+                primal_surface = mesh.primal.get_surface(id_surf)
                 e = element_tree.elements[i_element]
-
+                i_side = find_boundary_id(primal_surface, edge)
                 side_order = e.order_on_side(i_side)
                 if side_order not in cache:
                     cache[side_order] = BasisCache(side_order, 2 * side_order)
 
                 basis_cache = cache[side_order]
-                primal_surface = mesh.primal.get_surface(id_surf)
                 ndir, p0, p1 = endpoints_from_line(e, primal_surface, edge)
                 dx = (p1[0] - p0[0]) / 2
                 xv = (p1[0] + p0[0]) / 2 + dx * basis_cache.int_nodes_1d

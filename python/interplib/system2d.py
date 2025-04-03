@@ -15,7 +15,7 @@ import pyvista as pv
 from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
-from interplib import kforms as kform
+from interplib import kforms
 from interplib._interp import compute_gll, lagrange1d
 from interplib._mimetic import (
     GeoID,
@@ -122,7 +122,7 @@ class ElementTree:
         predicate: None | Callable[[ElementLeaf2D, int], bool],
         division_function: OrderDivisionFunction,
         max_levels: int,
-        unknowns: Sequence[kform.KFormUnknown],
+        unknowns: Sequence[kforms.KFormUnknown],
     ) -> None:
         # Divide the elements as long as predicate is true.
         all_elems: list[Element2D] = list()
@@ -367,9 +367,9 @@ def continuity_child_matrices(
 
 
 def endpoints_from_line(
-    elm: Element2D, s: Surface, i: int
+    elm: Element2D, i_side: int
 ) -> tuple[int, tuple[float, float], tuple[float, float]]:
-    """Get endpoints of the element boundary based on the line index.
+    """Get endpoints of the element boundary based on the boundary index.
 
     Returns
     -------
@@ -381,15 +381,15 @@ def endpoints_from_line(
     (float, float)
         End of the line corresponding to +1 on the reference element.
     """
-    if s[0].index == i:
+    if i_side == 0:
         return (+1, elm.bottom_left, elm.bottom_right)
-    if s[1].index == i:
+    if i_side == 1:
         return (-1, elm.bottom_right, elm.top_right)
-    if s[2].index == i:
+    if i_side == 2:
         return (-1, elm.top_right, elm.top_left)
-    if s[3].index == i:
+    if i_side == 3:
         return (+1, elm.top_left, elm.bottom_left)
-    raise ValueError("Line is not in the element.")
+    raise ValueError("Boundary ID is not valid.")
 
 
 def find_boundary_id(s: Surface, i: int) -> Literal[0, 1, 2, 3]:
@@ -406,9 +406,9 @@ def find_boundary_id(s: Surface, i: int) -> Literal[0, 1, 2, 3]:
 
 
 def solve_system_2d(
-    system: kform.KFormSystem,
+    system: kforms.KFormSystem,
     mesh: Mesh2D,
-    boundaray_conditions: Sequence[kform.BoundaryCondition2DStrong] | None = None,
+    boundaray_conditions: Sequence[kforms.BoundaryCondition2DStrong] | None = None,
     refinement_levels: int = 0,
     div_predicate: Callable[[ElementLeaf2D, int], bool] | None = None,
     *,
@@ -419,7 +419,7 @@ def solve_system_2d(
 ) -> tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
-    dict[kform.KFormUnknown, npt.NDArray[np.float64]],
+    dict[kforms.KFormUnknown, npt.NDArray[np.float64]],
     pv.UnstructuredGrid,
     SolutionStatistics,
 ]:
@@ -478,7 +478,7 @@ def solve_system_2d(
     """
     base_timer = PerfTimer()
     # Check that inputs make sense.
-    strong_boundary_edges: dict[kform.KFormUnknown, list[npt.NDArray[np.uint64]]] = {}
+    strong_boundary_edges: dict[kforms.KFormUnknown, list[npt.NDArray[np.uint64]]] = {}
     for primal in system.unknown_forms:
         if primal.order > 2:
             raise ValueError(
@@ -686,6 +686,14 @@ def solve_system_2d(
     if timed:
         base_timer.stop("Assembling the main matrix took {} seconds.")
         base_timer.set()
+
+    # for i_te in range(len(element_tree.top_indices) - 1):
+    #     i_e1 = element_tree.top_indices[i_te]
+    #     i_e2 = element_tree.top_indices[i_te + 1]
+    #     n_real = element_begin[i_e2] - element_begin[i_e1]
+    #     n_comp = element_tree.elements[i_e1].total_dof_count(unknown_form_orders)
+
+    #     assert n_real == n_comp
 
     # inv_list: list[LiLMatrix] = list()
     # q_list: list[GivensSeries | CompositeQMatix] = list()
@@ -965,50 +973,13 @@ def solve_system_2d(
                 primal_surface = mesh.primal.get_surface(id_surf)
                 e = element_tree.elements[i_element]
                 i_side = find_boundary_id(primal_surface, edge)
-                side_order = e.order_on_side(i_side)
-                if side_order not in cache:
-                    cache[side_order] = BasisCache(side_order, 2 * side_order)
-
-                basis_cache = cache[side_order]
-                ndir, p0, p1 = endpoints_from_line(e, primal_surface, edge)
-                dx = (p1[0] - p0[0]) / 2
-                xv = (p1[0] + p0[0]) / 2 + dx * basis_cache.int_nodes_1d
-                dy = (p1[1] - p0[1]) / 2
-                yv = (p1[1] + p0[1]) / 2 + dy * basis_cache.int_nodes_1d
-                f_vals = kp.func(xv, yv)
-                if w_form.order == 0:
-                    # dofs = node_dof_indices_from_line(e, primal_surface, edge)
-                    dofs = element_tree.element_node_dofs(
-                        i_element, find_boundary_id(primal_surface, edge)
-                    )
-                    # Tangental integral of function with the 0 basis
-                    basis = basis_cache.nodal_1d
-                    f_vals = (
-                        f_vals[..., 0] * dx + f_vals[..., 1] * dy
-                    ) * basis_cache.int_weights_1d
-
-                elif w_form.order:
-                    # dofs = edge_dof_indices_from_line(e, primal_surface, edge)
-                    dofs = element_tree.element_edge_dofs(
-                        i_element, find_boundary_id(primal_surface, edge)
-                    )
-                    # Integral with the normal basis
-                    basis = basis_cache.edge_1d
-                    f_vals *= basis_cache.int_weights_1d * ndir  # * np.hypot(dx, dy)
-
-                else:
-                    assert False
-                dofs = (
-                    dofs
-                    + element_tree.dof_offsets[system.unknown_forms.index(w_form)][
-                        i_element
-                    ]
+                i_form = system.unknown_forms.index(w_form)
+                vals, dofs = element_boundary_projection(
+                    unknown_form_orders, cache, i_side, kp.func, w_form.order, e, i_form
                 )
-                vals = c * np.sum(f_vals[..., None] * basis, axis=0)
-                # element_vectors[i_element][dofs] += vals
-                main_vec[element_begin[i_element] : element_begin[i_element + 1]][
-                    dofs
-                ] += vals
+                vals *= c
+                dofs = dofs + element_begin[i_element]
+                main_vec[dofs] += vals
 
     if timed:
         base_timer.stop("Boundary conditions took {} seconds.")
@@ -1126,7 +1097,7 @@ def solve_system_2d(
     yvals: list[npt.NDArray[np.float64]] = list()
 
     # Prepare to build up the 1D Splines
-    build: dict[kform.KFormUnknown, list[npt.NDArray[np.float64]]] = {
+    build: dict[kforms.KFormUnknown, list[npt.NDArray[np.float64]]] = {
         form: [] for form in system.unknown_forms
     }
 
@@ -1175,7 +1146,7 @@ def solve_system_2d(
             shape = (-1, 2) if form.order == 1 else (-1,)
             build[form].append(np.reshape(recon_v, shape))
 
-    out: dict[kform.KFormUnknown, npt.NDArray[np.float64]] = dict()
+    out: dict[kforms.KFormUnknown, npt.NDArray[np.float64]] = dict()
 
     x = np.concatenate(xvals)
     y = np.concatenate(yvals)
@@ -1208,6 +1179,104 @@ def solve_system_2d(
     )
 
     return (x, y, out, grid, stats)
+
+
+def element_boundary_projection(
+    form_orders: Sequence[int],
+    cache: dict[int, BasisCache],
+    i_side: int,
+    kf: Callable,
+    form_order: int,
+    e: Element2D,
+    i_form: int,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.integer]]:
+    """Compute projection of the function on the boundary to apply weak BCs."""
+    if type(e) is ElementLeaf2D:
+        side_order = e.order_on_side(i_side)
+        if side_order not in cache:
+            cache[side_order] = BasisCache(side_order, 2 * side_order)
+
+        basis_cache = cache[side_order]
+        ndir, p0, p1 = endpoints_from_line(e, i_side)
+        dx = (p1[0] - p0[0]) / 2
+        xv = (p1[0] + p0[0]) / 2 + dx * basis_cache.int_nodes_1d
+        dy = (p1[1] - p0[1]) / 2
+        yv = (p1[1] + p0[1]) / 2 + dy * basis_cache.int_nodes_1d
+        f_vals = np.asarray(kf(xv, yv), np.float64, copy=False)
+        if form_order == 0:
+            # dofs = node_dof_indices_from_line(e, primal_surface, edge)
+            dofs = e.element_node_dofs(i_side)
+            # Tangental integral of function with the 0 basis
+            basis = basis_cache.nodal_1d
+            f_vals = (
+                f_vals[..., 0] * dx + f_vals[..., 1] * dy
+            ) * basis_cache.int_weights_1d
+
+        elif form_order:
+            # dofs = edge_dof_indices_from_line(e, primal_surface, edge)
+            dofs = e.element_edge_dofs(i_side)
+            # Integral with the normal basis
+            basis = basis_cache.edge_1d
+            f_vals *= basis_cache.int_weights_1d * ndir  # * np.hypot(dx, dy)
+
+        else:
+            assert False
+
+        dofs = dofs + e.dof_offsets(form_orders)[i_form]
+        vals = np.sum(f_vals[..., None] * basis, axis=0)
+        return vals, dofs
+
+    if type(e) is ElementNode2D:
+        offset = np.sum(e.dof_sizes(form_orders), dtype=np.uint64)
+
+        if i_side == 3 or i_side == 0:
+            v_00, d_00 = element_boundary_projection(
+                form_orders, cache, i_side, kf, form_order, e.child_bl, i_form
+            )
+            d_00 = d_00 + offset
+        else:
+            v_00 = np.array((), np.float64)
+            d_00 = np.array((), np.uint64)
+
+        offset += e.child_bl.total_dof_count(form_orders)
+
+        if i_side == 0 or i_side == 1:
+            v_01, d_01 = element_boundary_projection(
+                form_orders, cache, i_side, kf, form_order, e.child_br, i_form
+            )
+            d_01 = d_01 + offset
+        else:
+            v_01 = np.array((), np.float64)
+            d_01 = np.array((), np.uint64)
+
+        offset += e.child_br.total_dof_count(form_orders)
+
+        if i_side == 3 or i_side == 2:
+            v_10, d_10 = element_boundary_projection(
+                form_orders, cache, i_side, kf, form_order, e.child_tl, i_form
+            )
+            d_10 = d_10 + offset
+        else:
+            v_10 = np.array((), np.float64)
+            d_10 = np.array((), np.uint64)
+
+        offset += e.child_tl.total_dof_count(form_orders)
+
+        if i_side == 1 or i_side == 2:
+            v_11, d_11 = element_boundary_projection(
+                form_orders, cache, i_side, kf, form_order, e.child_tr, i_form
+            )
+            d_11 = d_11 + offset
+        else:
+            v_11 = np.array((), np.float64)
+            d_11 = np.array((), np.uint64)
+
+        # offset += e.child_tr.total_dof_count(form_orders)
+        return np.concatenate((v_00, v_01, v_10, v_11), dtype=np.float64), np.concatenate(
+            (d_00, d_01, d_10, d_11), dtype=np.uint64
+        )
+
+    raise TypeError(f"Unknown element type {type(e)} encountered.")
 
 
 def element_matrix(

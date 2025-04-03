@@ -9,18 +9,18 @@ import numpy.typing as npt
 from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
-from interplib import kforms as kform
+from interplib import kforms as kforms
 from interplib._interp import Polynomial1D, Spline1D
 from interplib.mimetic.mimetic1d import Mesh1D, element_system
 
 
 def solve_system_1d(
-    system: kform.KFormSystem,
+    system: kforms.KFormSystem,
     mesh: Mesh1D,
-    continuous: Sequence[kform.KFormUnknown],
-    bcs_left: kform.BoundaryCondition1D | None = None,
-    bcs_right: kform.BoundaryCondition1D | None = None,
-) -> dict[kform.KFormUnknown, Spline1D]:
+    continuous: Sequence[kforms.KFormUnknown],
+    bcs_left: kforms.BoundaryCondition1D | None = None,
+    bcs_right: kforms.BoundaryCondition1D | None = None,
+) -> dict[kforms.KFormUnknown, Spline1D]:
     """Solve the system on the specified mesh."""
     # Check that inputs make sense.
     for primal in system.unknown_forms:
@@ -31,14 +31,14 @@ def solve_system_1d(
             )
     # Check that the boundary conditions make sense
     if bcs_left is not None:
-        if isinstance(bcs_left, kform.BoundaryCondition1DStrong):
+        if isinstance(bcs_left, kforms.BoundaryCondition1DStrong):
             for form in bcs_left.forms:
                 if form not in system.unknown_forms:
                     raise ValueError(
                         f"Left boundary condition uses a form {form}, which is not in any"
                         f" of the equations (which have forms {system.unknown_forms})."
                     )
-        elif isinstance(bcs_left, kform.BoundaryCondition1DWeak):
+        elif isinstance(bcs_left, kforms.BoundaryCondition1DWeak):
             if bcs_left.form not in system.weak_forms:
                 raise ValueError(
                     f"Form in the left weak condition ({bcs_left.form}) does not appear"
@@ -46,7 +46,7 @@ def solve_system_1d(
                 )
 
     if bcs_right is not None:
-        if isinstance(bcs_right, kform.BoundaryCondition1DStrong):
+        if isinstance(bcs_right, kforms.BoundaryCondition1DStrong):
             for form in bcs_right.forms:
                 if form not in system.unknown_forms:
                     raise ValueError(
@@ -54,7 +54,7 @@ def solve_system_1d(
                         " any of the equations (which have forms"
                         f" {system.unknown_forms})."
                     )
-        elif isinstance(bcs_right, kform.BoundaryCondition1DWeak):
+        elif isinstance(bcs_right, kforms.BoundaryCondition1DWeak):
             if bcs_right.form not in system.weak_forms:
                 raise ValueError(
                     f"Form in the right weak condition ({bcs_right.form}) does not"
@@ -140,7 +140,7 @@ def solve_system_1d(
     coeffs: list[float]
     dof_indices: list[int]
     if bcs_left is not None:
-        if isinstance(bcs_left, kform.BoundaryCondition1DStrong):
+        if isinstance(bcs_left, kforms.BoundaryCondition1DStrong):
             base_offset = element_offset[0]
             coeffs = []
             dof_indices = []
@@ -155,7 +155,7 @@ def solve_system_1d(
             mat_rows += [lagrange_idx] * len(coeffs) + dof_indices
             lagrange_idx += 1
 
-        elif isinstance(bcs_left, kform.BoundaryCondition1DWeak):
+        elif isinstance(bcs_left, kforms.BoundaryCondition1DWeak):
             for ie, eq in enumerate(system.equations):
                 for p_form in eq.weak_forms:
                     if bcs_left.form != p_form:
@@ -172,7 +172,7 @@ def solve_system_1d(
             assert False
 
     if bcs_right is not None:
-        if isinstance(bcs_right, kform.BoundaryCondition1DStrong):
+        if isinstance(bcs_right, kforms.BoundaryCondition1DStrong):
             base_offset = element_offset[-2]
             coeffs = []
             dof_indices = []
@@ -188,7 +188,7 @@ def solve_system_1d(
             del coeffs
             lagrange_idx += 1
 
-        elif isinstance(bcs_right, kform.BoundaryCondition1DWeak):
+        elif isinstance(bcs_right, kforms.BoundaryCondition1DWeak):
             for ie, eq in enumerate(system.equations):
                 for p_form in eq.weak_forms:
                     if bcs_right.form != p_form:
@@ -228,7 +228,7 @@ def solve_system_1d(
     solution = sla.spsolve(matrix, vector)
 
     # Prepare to build up the 1D Splines
-    build: dict[kform.KFormUnknown, list[npt.NDArray[np.float64]]] = {
+    build: dict[kforms.KFormUnknown, list[npt.NDArray[np.float64]]] = {
         form: [] for form in system.unknown_forms
     }
 
@@ -263,7 +263,7 @@ def solve_system_1d(
             else:
                 build[form].append(k)
 
-    out: dict[kform.KFormUnknown, Spline1D] = dict()
+    out: dict[kforms.KFormUnknown, Spline1D] = dict()
     nodes = mesh.positions
     # Build the output splines
     for form in build:

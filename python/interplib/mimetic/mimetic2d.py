@@ -450,6 +450,8 @@ class BasisCache:
     _precomp_node: npt.NDArray[np.float64] | None = None
     _precomp_edge: npt.NDArray[np.float64] | None = None
     _precomp_surf: npt.NDArray[np.float64] | None = None
+    _precomp_mix01: npt.NDArray[np.float64] | None = None
+    _precomp_mix12: npt.NDArray[np.float64] | None = None
 
     def __init__(self, basis_order: int, integration_order: int, /) -> None:
         self.basis_order = int(basis_order)
@@ -570,6 +572,98 @@ class BasisCache:
                 mat[i, j, ...] = mat[j, i, ...] = res
 
         self._precomp_surf = mat
+        return mat
+
+    @property
+    def mass_mix01_precomp(self) -> npt.NDArray[np.float64]:
+        """Pre-computed products of 0-form and 1-form basis."""
+        if self._precomp_mix01 is not None:
+            return self._precomp_mix01
+
+        ndl = self.nodal_1d.T
+        edg = self.edge_1d.T
+
+        basis_node = np.reshape(
+            ndl[None, :, None, :] * ndl[:, None, :, None],
+            (
+                (self.basis_order + 1) ** 2,
+                self.integration_order + 1,
+                self.integration_order + 1,
+            ),
+        )
+        basis_edge_eta = np.reshape(
+            edg[None, :, None, :] * ndl[:, None, :, None],
+            (
+                (self.basis_order + 1) * self.basis_order,
+                self.integration_order + 1,
+                self.integration_order + 1,
+            ),
+        )
+        basis_edge_xi = np.reshape(
+            ndl[None, :, None, :] * edg[:, None, :, None],
+            (
+                (self.basis_order + 1) * self.basis_order,
+                self.integration_order + 1,
+                self.integration_order + 1,
+            ),
+        )
+
+        mat = np.concatenate(
+            (
+                basis_edge_eta[None, :, :, :] * basis_node[:, None, :, :],
+                basis_edge_xi[None, :, :, :] * basis_node[:, None, :, :],
+            ),
+            axis=1,
+        )
+        mat *= self.int_weights_2d[None, None, :, :]
+        self._precomp_mix01 = mat
+
+        return mat
+
+    @property
+    def mass_mix12_precomp(self) -> npt.NDArray[np.float64]:
+        """Pre-computed products of 1-form and 2-form basis."""
+        if self._precomp_mix12 is not None:
+            return self._precomp_mix12
+
+        ndl = self.nodal_1d.T
+        edg = self.edge_1d.T
+
+        basis_edge_eta = np.reshape(
+            edg[None, :, None, :] * ndl[:, None, :, None],
+            (
+                (self.basis_order + 1) * self.basis_order,
+                self.integration_order + 1,
+                self.integration_order + 1,
+            ),
+        )
+        basis_edge_xi = np.reshape(
+            ndl[None, :, None, :] * edg[:, None, :, None],
+            (
+                (self.basis_order + 1) * self.basis_order,
+                self.integration_order + 1,
+                self.integration_order + 1,
+            ),
+        )
+        basis_surf = np.reshape(
+            edg[None, :, None, :] * edg[:, None, :, None],
+            (
+                self.basis_order**2,
+                self.integration_order + 1,
+                self.integration_order + 1,
+            ),
+        )
+
+        mat = np.concatenate(
+            (
+                basis_edge_eta[:, None, :, :] * basis_surf[None, :, :, :],
+                basis_edge_xi[:, None, :, :] * basis_surf[None, :, :, :],
+            ),
+            axis=0,
+        )
+        mat *= self.int_weights_2d[None, None, :, :]
+        self._precomp_mix12 = mat
+
         return mat
 
     def c_serialization(

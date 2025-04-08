@@ -313,6 +313,8 @@ _SerializedBasisCache = tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
 ]
 
 def compute_element_matrices(
@@ -376,6 +378,8 @@ def compute_element_matrices_2(
     pos_tr: npt.NDArray[np.float64],
     pos_tl: npt.NDArray[np.float64],
     element_orders: npt.NDArray[np.uint32],
+    vector_fields: tuple[npt.NDArray[np.float64], ...],
+    element_field_offsets: npt.NDArray[np.uint64],
     serialized_caches: Sequence[_SerializedBasisCache],
     thread_stack_size: int = (1 << 24),
 ) -> tuple[npt.NDArray[np.float64]]:
@@ -405,6 +409,16 @@ def compute_element_matrices_2(
     element_orders : (N,) array
         Array of orders of the elements. There must be an entry for this in
         the ``serialized_caches``.
+
+    vector_fields : tuple of arrays
+        Tuple of vector field values used for interior products. These are compuated at
+        integration nodes for each element, then flattened, and packed in a tuple. The
+        ordering of the fields in the tuple must match that of the system instructions
+        were generated from.
+
+    element_field_offsets : array
+        Array of offsets that indicates where the vector fields for each element begins.
+        It should contain one more entry than the element count.
 
     serialized_caches : Sequence of _SerializedBasisCache
         All the serialized caches to use for the elements. Only one is allowed

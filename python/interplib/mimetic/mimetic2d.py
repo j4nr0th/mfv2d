@@ -677,6 +677,8 @@ class BasisCache:
         npt.NDArray[np.float64],
         npt.NDArray[np.float64],
         npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
     ]:
         """Serialize into form which C code understands."""
         edge_pre_comp = self.mass_edge_precomp
@@ -690,6 +692,8 @@ class BasisCache:
             np.ascontiguousarray(edge_pre_comp[1 * m : 2 * m, 0 * m : 1 * m, ...]),
             np.ascontiguousarray(edge_pre_comp[1 * m : 2 * m, 1 * m : 2 * m, ...]),
             self.mass_surf_precomp,
+            self.mass_mix01_precomp,
+            self.mass_mix12_precomp,
         )
 
     def clean(self) -> None:

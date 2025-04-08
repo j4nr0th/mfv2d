@@ -12,6 +12,8 @@ import numpy.typing as npt
 
 from interplib._mimetic import Manifold
 
+VectorFieldFunction = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
+
 
 @dataclass(frozen=True)
 class Term:
@@ -58,11 +60,33 @@ class KForm(Term):
         """Return print-friendly representation of the object."""
         return f"{self.label}({self.order})"
 
-    def __mul__(self, other: KForm, /) -> KInnerProduct:
+    @overload
+    def __mul__(self, other: KForm, /) -> KInnerProduct: ...
+    @overload
+    def __mul__(self, other: VectorFieldFunction, /) -> KInteriorProduct: ...
+    def __mul__(
+        self, other: KForm | VectorFieldFunction, /
+    ) -> KInnerProduct | KInteriorProduct:
         """Inner product with a weight."""
-        return KInnerProduct(other, self)
+        if isinstance(other, KForm):
+            return KInnerProduct(other, self)
+        if callable(other):
+            return KInteriorProduct(
+                self.manifold,
+                f"i_{{{other.__name__}}}({self.label})",
+                self.order - 1,
+                self,
+                other,
+            )
+        return NotImplemented
 
-    def __rmul__(self, other: KForm, /) -> KInnerProduct:
+    @overload
+    def __rmul__(self, other: KForm, /) -> KInnerProduct: ...
+    @overload
+    def __rmul__(self, other: VectorFieldFunction, /) -> KInteriorProduct: ...
+    def __rmul__(
+        self, other: KForm | VectorFieldFunction, /
+    ) -> KInnerProduct | KInteriorProduct:
         """Inner product with a weight."""
         return self.__mul__(other)
 
@@ -243,7 +267,7 @@ class KWeight(KForm):
             return KElementProjection(self, None)
         return NotImplemented
 
-    @overload
+    @overload  # type: ignore[override]
     def __rmul__(self, other: KForm, /) -> KInnerProduct: ...
 
     @overload
@@ -343,6 +367,28 @@ class KFormDerivative(KForm):
             return self.order
         else:
             return self.form.primal_order - 1
+
+
+@dataclass(frozen=True, eq=False)
+class KInteriorProduct(KForm):
+    """Represents an interior product of a K-form with a tangent vector field."""
+
+    form: KForm
+    vector_field: VectorFieldFunction
+
+    def __post_init__(self) -> None:
+        """Enforce the conditions for allowing interior product."""
+        # The form can not be a zero-form
+        if self.form.order == 0:
+            raise ValueError("Interior product can not be applied to a 0-form.")
+
+        if not self.form.is_primal:
+            raise ValueError("Can not apply interior product to a dual form.")
+
+    @property
+    def is_primal(self) -> bool:
+        """Check if the form is primal or not."""
+        return False
 
 
 @dataclass(init=False, frozen=True, eq=False)
@@ -496,7 +542,7 @@ class KSum(Term):
             return KEquaton(self, other)
         try:
             if float(other) == 0:
-                _, ws, _ = _extract_forms(self.pairs[0][1].weight)
+                _, ws, _, _ = _extract_forms(self.pairs[0][1].weight)
                 w = tuple(w for w in ws)[0]
                 return KEquaton(
                     self,
@@ -701,8 +747,10 @@ class KProjectionCombination:
         return s
 
 
-def _extract_forms(form: Term) -> tuple[set[KFormUnknown], set[KWeight], list[KForm]]:
-    """Extract all primal and dual forms, which make up the current form.
+def _extract_forms(
+    form: Term,
+) -> tuple[set[KFormUnknown], set[KWeight], list[KForm], set[VectorFieldFunction]]:
+    """Extract all unknown and weight forms, which make up the current form.
 
     Parameters
     ----------
@@ -712,11 +760,13 @@ def _extract_forms(form: Term) -> tuple[set[KFormUnknown], set[KWeight], list[KF
     Returns
     -------
     set of KForm
-        All unique forms occurring within the form.
+        All unique forms occurring within the term.
     set of KFormWeight
-        All unique weight forms occurring within the form.
+        All unique weight forms occurring within the term.
     list of KForm
         List of weak form terms.
+    set of VectorFieldFunction
+        Set of interior product functions.
     """
     if type(form) is KFormDerivative:
         return _extract_forms(form.form)
@@ -724,12 +774,15 @@ def _extract_forms(form: Term) -> tuple[set[KFormUnknown], set[KWeight], list[KF
         set_f: set[KFormUnknown] = set()
         set_w: set[KWeight] = set()
         weak_all: list[KForm] = []
+        vffs: set[VectorFieldFunction] = set()
         for _, ip in form.pairs:
-            f, w, weak = _extract_forms(ip)
+            f, w, weak, fn = _extract_forms(ip)
             set_f |= f
             set_w |= w
+            vffs |= fn
             weak_all += weak
-        return (set_f, set_w, weak_all)
+        return (set_f, set_w, weak_all, vffs)
+
     if type(form) is KInnerProduct:
         f1 = _extract_forms(form.weight)
         f2 = _extract_forms(form.function)
@@ -737,13 +790,21 @@ def _extract_forms(form: Term) -> tuple[set[KFormUnknown], set[KWeight], list[KF
         assert len(f1[2]) == 0 and len(f2[2]) == 0
         if type(form.weight) is KFormDerivative:
             weak.append(form.function)
-        return (f1[0] | f2[0], f1[1] | f2[1], weak)
+        return (f1[0] | f2[0], f1[1] | f2[1], weak, f1[3] | f2[3])
+
     if type(form) is KHodge:
         return _extract_forms(form.base_form)
+
     if type(form) is KFormUnknown:
-        return ({form}, set(), [])
+        return ({form}, set(), [], set())
+
     if type(form) is KWeight:
-        return (set(), {form}, [])
+        return (set(), {form}, [], set())
+
+    if type(form) is KInteriorProduct:
+        f1 = _extract_forms(form.form)
+        return (f1[0], f1[1], f1[2], f1[3] | {form.vector_field})
+
     raise TypeError(f"Invalid type {type(form)}")
 
 
@@ -766,15 +827,17 @@ class KEquaton:
     right: KProjectionCombination
     variables: tuple[KForm, ...]
     weak_forms: tuple[KForm]
+    vector_fields: set[VectorFieldFunction]
 
     def __init__(self, left: KSum | KInnerProduct, right: KProjectionCombination) -> None:
-        p, d, w = _extract_forms(left)
+        p, d, w, vf = _extract_forms(left)
         if d != {right.weight}:
             raise ValueError("Left and right side do not use the same weight.")
         object.__setattr__(self, "left", left)
         object.__setattr__(self, "right", right)
         object.__setattr__(self, "variables", tuple(k for k in p))
         object.__setattr__(self, "weak_forms", tuple(w))
+        object.__setattr__(self, "vector_fields", vf)
 
 
 def _parse_form(form: Term) -> dict[Term, str | None]:
@@ -921,6 +984,7 @@ class KFormSystem:
     dual_forms: tuple[KWeight, ...]
     equations: tuple[KEquaton, ...]
     weak_forms: set[KForm]
+    vector_fields: tuple[VectorFieldFunction, ...]
 
     def __init__(
         self,
@@ -931,8 +995,10 @@ class KFormSystem:
         weights: list[KWeight] = []
         weak: set[KForm] = set()
         equation_list: list[KEquaton] = []
+        vfs: set[VectorFieldFunction] = set()
         for ie, equation in enumerate(equations):
-            p, d, w = _extract_forms(equation.left)
+            p, d, w, vf = _extract_forms(equation.left)
+            vfs |= vf
             weak |= set(w)
             unknowns |= p
             if len(d) != 1:
@@ -962,6 +1028,7 @@ class KFormSystem:
         self.equations = tuple(
             equation_list[self.unknown_forms.index(d.base_form)] for d in weights
         )
+        self.vector_fields = tuple(vec_field for vec_field in vfs)
 
     @overload
     def shape_1d(

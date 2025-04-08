@@ -558,7 +558,12 @@ def solve_system_2d(
     if recon_order is not None and recon_order not in cache:
         cache[int(recon_order)] = BasisCache(int(recon_order), int(recon_order))
 
-    bytecodes = [translate_equation(eq.left, simplify=True) for eq in system.equations]
+    vector_fields = system.vector_fields
+
+    bytecodes = [
+        translate_equation(eq.left, vector_fields, simplify=True)
+        for eq in system.equations
+    ]
 
     codes: list[list[None | list[MatOpCode | float | int]]] = list()
     expr_array: list[tuple[None | tuple[MatOp, ...], ...]] = list()
@@ -578,6 +583,7 @@ def solve_system_2d(
     expr_mat = tuple(expr_array)
     del expr_array
 
+    e: Element2D
     bl = np.array([e.bottom_left for e in leaf_elements])
     br = np.array([e.bottom_right for e in leaf_elements])
     tr = np.array([e.top_right for e in leaf_elements])
@@ -617,12 +623,34 @@ def solve_system_2d(
                 npt.NDArray[np.float64],
                 npt.NDArray[np.float64],
                 npt.NDArray[np.float64],
+                npt.NDArray[np.float64],
+                npt.NDArray[np.float64],
             ]
         ] = list()
 
         for o in element_tree.unique_orders:
             c_ser.append(cache[o].c_serialization())
             cache[o].clean()
+
+        # Compute vector fields at integration points for leaf elements
+        vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+            list() for _ in vector_fields
+        )
+        vec_field_offsets = np.zeros(len(leaf_elements) + 1, np.uint64)
+
+        for idx, e in enumerate(leaf_elements):
+            e_cache = cache[e.order]
+            x = e.poly_x(e_cache.int_nodes_1d[None, :], e_cache.int_nodes_1d[:, None])
+            y = e.poly_y(e_cache.int_nodes_1d[None, :], e_cache.int_nodes_1d[:, None])
+            for i, vec_fld in enumerate(vector_fields):
+                vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
+            vec_field_offsets[idx + 1] = (
+                vec_field_offsets[idx] + (e_cache.integration_order + 1) ** 2
+            )
+        vec_fields = tuple(
+            np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+        )
+        del vec_field_lists
 
         element_matrices = {
             int(ileaf): m
@@ -636,6 +664,8 @@ def solve_system_2d(
                     tr,
                     tl,
                     orde,
+                    vec_fields,
+                    vec_field_offsets,
                     c_ser,
                 ),
                 strict=True,
@@ -2190,10 +2220,10 @@ def element_inverse(
         )
     )
 
-    for m in mats:
-        assert m.shape[0] == m.shape[1]
+    for lil_m in mats:
+        assert lil_m.shape[0] == lil_m.shape[1]
 
-    offsets = np.pad(np.cumsum([size] + [m.shape[0] for m in mats]), (1, 0))
+    offsets = np.pad(np.cumsum([size] + [lil_m.shape[0] for lil_m in mats]), (1, 0))
 
     # Get the continuity equations
     cont = parent_child_equations(

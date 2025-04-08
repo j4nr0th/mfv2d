@@ -1,6 +1,6 @@
 """Conversion and evaluation of kforms as a stack machine."""
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import IntEnum
 
@@ -9,9 +9,11 @@ from interplib.kforms.kform import (
     KFormUnknown,
     KHodge,
     KInnerProduct,
+    KInteriorProduct,
     KSum,
     KWeight,
     Term,
+    VectorFieldFunction,
 )
 
 
@@ -68,6 +70,14 @@ class Sum(MatOp):
     """Sum matrices together."""
 
     count: int
+
+
+@dataclass(frozen=True)
+class InterProd(MatOp):
+    """Compute interior product."""
+
+    starting_order: int
+    field_index: int
 
 
 def simplify_expression(*operations: MatOp) -> list[MatOp]:
@@ -234,7 +244,9 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
     return ops
 
 
-def translate_equation(form: Term, simplify: bool = True) -> dict[Term, list[MatOp]]:
+def translate_equation(
+    form: Term, vec_fields: Sequence[VectorFieldFunction], simplify: bool = True
+) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
     Parameter
@@ -250,14 +262,16 @@ def translate_equation(form: Term, simplify: bool = True) -> dict[Term, list[Mat
         Dictionary mapping forms to either a matrix that represents the operation to
         perform on them, or ``float``, if it should be multiplication with a constant.
     """
-    v = _translate_equation(form)
+    v = _translate_equation(form, vec_fields)
     if simplify:
         for k in v:
             v[k] = simplify_expression(*v[k])
     return v
 
 
-def _translate_equation(form: Term) -> dict[Term, list[MatOp]]:
+def _translate_equation(
+    form: Term, vec_fields: Sequence[VectorFieldFunction]
+) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
     Parameter
@@ -277,7 +291,7 @@ def _translate_equation(form: Term) -> dict[Term, list[MatOp]]:
         accum: dict[Term, list[MatOp]] = {}
         counts: dict[Term, int] = {}
         for c, ip in form.pairs:
-            right = _translate_equation(ip)
+            right = _translate_equation(ip, vec_fields)
             if c != 1.0:
                 for f in right:
                     right[f].append(Scale(c))
@@ -305,8 +319,8 @@ def _translate_equation(form: Term) -> dict[Term, list[MatOp]]:
         # if isinstance(form.function, KHodge):
         #     unknown = _translate_equation(form.function.base_form)
         # else:
-        unknown = _translate_equation(form.function)
-        weight = _translate_equation(form.weight)
+        unknown = _translate_equation(form.function, vec_fields)
+        weight = _translate_equation(form.weight, vec_fields)
         assert len(weight) == 1
         dv = tuple(v for v in weight.keys())[0]
         for k in unknown:
@@ -338,14 +352,14 @@ def _translate_equation(form: Term) -> dict[Term, list[MatOp]]:
         return unknown
 
     if type(form) is KFormDerivative:
-        res = _translate_equation(form.form)
+        res = _translate_equation(form.form, vec_fields)
         for k in res:
             vr = res[k]
             vr.append(Incidence(form.form.order, not form.form.is_primal))
         return res
 
     if type(form) is KHodge:
-        unknown = _translate_equation(form.base_form)
+        unknown = _translate_equation(form.base_form, vec_fields)
         prime_order = form.primal_order
         for k in unknown:
             mass = MassMat(prime_order, not form.base_form.is_primal)
@@ -360,6 +374,12 @@ def _translate_equation(form: Term) -> dict[Term, list[MatOp]]:
     if type(form) is KWeight:
         return {form: [Identity()]}
 
+    if type(form) is KInteriorProduct:
+        res = _translate_equation(form.form, vec_fields)
+        for k in res:
+            vr = res[k]
+            vr.append(InterProd(form.form.order, vec_fields.index(form.vector_field)))
+        return res
     raise TypeError("Unknown type")
 
 
@@ -434,6 +454,13 @@ def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
             if val is None:
                 val = (1.0, "I")
 
+        elif type(op) is InterProd:
+            mat = f"M({op.starting_order - 1}, {op.starting_order}; {op.field_index})"
+            if val is None:
+                val = (1.0, mat)
+            c, s = val
+            val = (c, mat + " @ " + s)
+
         else:
             raise TypeError("Unknown operation.")
 
@@ -462,6 +489,7 @@ class MatOpCode(IntEnum):
     SCALE = 6
     TRANSPOSE = 7
     SUM = 8
+    INTERPROD = 9
 
 
 def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
@@ -490,6 +518,10 @@ def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
             out.append(op.count)
         elif type(op) is MatMul:
             out.append(MatOpCode.MATMUL)
+        elif type(op) is InterProd:
+            out.append(MatOpCode.INTERPROD)
+            out.append(op.starting_order)
+            out.append(op.field_index)
         else:
             raise TypeError("Unknown instruction")
 

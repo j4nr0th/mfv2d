@@ -74,7 +74,7 @@ class KForm(Term):
             return KInteriorProduct(
                 self.manifold,
                 f"i_{{{other.__name__}}}({self.label})",
-                self.order - 1,
+                self.order + 1,
                 self,
                 other,
             )
@@ -390,6 +390,16 @@ class KInteriorProduct(KForm):
         """Check if the form is primal or not."""
         return False
 
+    @property
+    def is_weight(self) -> bool:
+        """Check if it is a weight form."""
+        return self.form.is_weight
+
+    @property
+    def primal_order(self) -> int:
+        """Return the order of the primal."""
+        return self.form.order - 1
+
 
 @dataclass(init=False, frozen=True, eq=False)
 class KInnerProduct(Term):
@@ -419,8 +429,8 @@ class KInnerProduct(Term):
         else:
             weight = b
             function = a
-        wg_order = weight.order
-        fn_order = function.order
+        wg_order = weight.primal_order
+        fn_order = function.primal_order
         if wg_order != fn_order:
             raise ValueError(
                 f"The K forms are not of the same order ({wg_order} vs {fn_order})"
@@ -914,12 +924,20 @@ def _parse_form(form: Term) -> dict[Term, str | None]:
             )
         primal[dv] = None
         return primal
+
     if type(form) is KFormDerivative:
         res = _parse_form(form.form)
         if form.form.is_primal:
             mtx_name = f"E({form.order}, {form.order - 1})"
         else:
             mtx_name = f"E({form.primal_order + 1}, {form.primal_order})^T"
+        for k in res:
+            res[k] = mtx_name + (f" @ {res[k]}" if res[k] is not None else "")
+        return res
+
+    if type(form) is KInteriorProduct:
+        res = _parse_form(form.form)
+        mtx_name = f"M({form.order}, {form.form.order}; {form.vector_field.__name__})"
         for k in res:
             res[k] = mtx_name + (f" @ {res[k]}" if res[k] is not None else "")
         return res

@@ -1342,7 +1342,7 @@ def element_matrix(
 
     vec: list[npt.NDArray[np.float64]] = list()
     # A non-leaf element, meaning its four children must be found
-    vec.append(np.zeros(size))
+    vec.append(np.zeros(size, np.float64))
     # Add the bottom left
     children = (e.child_bl, e.child_br, e.child_tl, e.child_tr)
 

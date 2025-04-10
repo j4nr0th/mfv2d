@@ -27,6 +27,8 @@ typedef enum
     MATOP_TRANSPOSE = 7,
     // Sum matrices with those on stack, the next bytecode value is says how many are to be popped from the stack.
     MATOP_SUM = 8,
+    // Interior product with vector field.
+    MATOP_INTERPROD = 9,
     // Not an instruction, used to count how many instructions there are.
     MATOP_COUNT,
 } matrix_op_t;

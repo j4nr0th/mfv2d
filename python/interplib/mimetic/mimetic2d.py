@@ -1386,7 +1386,6 @@ def rhs_2d_element_projection(
     Returns
     -------
     array of :class:`numpy.float64`
-        weights_2d = weights[:, None] * weights[None, :]
         The resulting projection vector.
     """
     # TODO: don't recompute basis, just reuse the cached values.

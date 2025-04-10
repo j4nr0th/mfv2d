@@ -157,6 +157,30 @@ int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyOb
             }
             break;
 
+        case MATOP_INTERPROD:
+            if (n - i < 2)
+            {
+                out_of_bounds = 1;
+            }
+            else
+            {
+                i += 1;
+                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                if (PyErr_Occurred())
+                {
+                    bad_value = 1;
+                    break;
+                }
+                i += 1;
+                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                if (PyErr_Occurred())
+                {
+                    bad_value = 1;
+                    break;
+                }
+            }
+            break;
+
         default:
             PyErr_Format(PyExc_ValueError, "Invalid error code %u.", (unsigned)op);
             return 0;

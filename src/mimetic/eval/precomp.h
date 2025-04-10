@@ -29,21 +29,40 @@ const char *mass_mtx_indices_str(mass_mtx_indices_t v);
 
 typedef struct
 {
+    // Basis and integration orders
     unsigned order;
     unsigned n_int;
+
+    // Pointers and arrays for pre-computed matrix entries
     const double *nodes_int;
     const double *mass_nodal;
     const double *mass_edge_00;
     const double *mass_edge_01;
     const double *mass_edge_11;
     const double *mass_surf;
+    const double *mix_10;
+    const double *mix_21;
     PyArrayObject *arr_int_nodes;
     PyArrayObject *arr_node;
     PyArrayObject *arr_edge_00;
     PyArrayObject *arr_edge_01;
     PyArrayObject *arr_edge_11;
     PyArrayObject *arr_surf;
+    PyArrayObject *arr_mix_10;
+    PyArrayObject *arr_mix_21;
 } basis_precomp_t;
+
+enum
+{
+    VECTOR_FIELDS_MAX = 16,
+};
+
+typedef struct
+{
+    unsigned n_fields;                       // Number of vector fields provided.
+    const npy_uint64 *offsets;               // Pointer to array of arrays of vector fields.
+    const double *fields[VECTOR_FIELDS_MAX]; // Array of offsets for elements.
+} field_information_t;
 
 typedef struct
 {

@@ -21,9 +21,10 @@ INTERPLIB_INTERNAL
 int basis_precomp_create(PyObject *serialized, basis_precomp_t *out)
 {
     int order, n_int;
-    PyObject *int_nodes, *node_precomp, *edge_00_precomp, *edge_01_precomp, *edge_11_precomp, *surface_precomp;
-    if (!PyArg_ParseTuple(serialized, "iiOOOOOO", &order, &n_int, &int_nodes, &node_precomp, &edge_00_precomp,
-                          &edge_01_precomp, &edge_11_precomp, &surface_precomp))
+    PyObject *int_nodes, *node_precomp, *edge_00_precomp, *edge_01_precomp, *edge_11_precomp, *surface_precomp, *mix_10,
+        *mix_21;
+    if (!PyArg_ParseTuple(serialized, "iiOOOOOOOO", &order, &n_int, &int_nodes, &node_precomp, &edge_00_precomp,
+                          &edge_01_precomp, &edge_11_precomp, &surface_precomp, &mix_10, &mix_21))
     {
         return 0;
     }
@@ -40,9 +41,13 @@ int basis_precomp_create(PyObject *serialized, basis_precomp_t *out)
         edge_11_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
     PyArrayObject *const arr_surface_precomp = (PyArrayObject *)PyArray_FromAny(
         surface_precomp, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+    PyArrayObject *const arr_mix_10 = (PyArrayObject *)PyArray_FromAny(
+        mix_10, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
+    PyArrayObject *const arr_mix_21 = (PyArrayObject *)PyArray_FromAny(
+        mix_21, PyArray_DescrFromType(NPY_DOUBLE), 4, 4, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, NULL);
 
     if (!arr_int_nodes || !arr_node_precomp || !arr_edge_00_precomp || !arr_edge_01_precomp || !arr_edge_11_precomp ||
-        !arr_surface_precomp)
+        !arr_surface_precomp || !arr_mix_10 || !arr_mix_21)
     {
         goto failed;
     }
@@ -102,9 +107,34 @@ int basis_precomp_create(PyObject *serialized, basis_precomp_t *out)
     if ((dims[0] != (order) * (order)) || (dims[1] != dims[0]) || (dims[2] != n_int) || dims[2] != dims[3])
     {
         PyErr_Format(PyExc_ValueError,
-                     "Shape of the nodal pre-computed array is not as expected (expected"
+                     "Shape of the surface pre-computed array is not as expected (expected"
                      " to get (%u, %u, %u, %u), but got (%u, %u, %u, %u)).",
-                     (order) * (order), (order) * (order), n_int, n_int, dims[0], dims[1], dims[2], dims[3]);
+                     order * order, order * order, n_int, n_int, dims[0], dims[1], dims[2], dims[3]);
+        goto failed;
+    }
+
+    // Check sizes for mix 10 precomp
+    dims = PyArray_DIMS(arr_mix_10);
+    if (dims[0] != (order + 1) * (order + 1) || (dims[1] != 2 * (order + 1) * order) || (dims[2] != n_int) ||
+        dims[2] != dims[3])
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Shape of the mixed 10 pre-computed array is not as expected (expected"
+                     " to get (%u, %u, %u, %u), but got (%u, %u, %u, %u)).",
+                     (order + 1) * (order + 1), 2 * (order + 1) * (order), n_int, n_int, dims[0], dims[1], dims[2],
+                     dims[3]);
+        goto failed;
+    }
+
+    // Check sizes for mix 21 precomp
+    dims = PyArray_DIMS(arr_mix_21);
+    if ((dims[0] != 2 * (order + 1) * (order)) || (dims[1] != order * order) || (dims[2] != n_int) ||
+        dims[2] != dims[3])
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Shape of the mixed 21 pre-computed array is not as expected (expected"
+                     " to get (%u, %u, %u, %u), but got (%u, %u, %u, %u)).",
+                     2 * (order + 1) * (order), order * order, n_int, n_int, dims[0], dims[1], dims[2], dims[3]);
         goto failed;
     }
 
@@ -123,6 +153,10 @@ int basis_precomp_create(PyObject *serialized, basis_precomp_t *out)
         .arr_edge_11 = arr_edge_11_precomp,
         .mass_surf = PyArray_DATA(arr_surface_precomp),
         .arr_surf = arr_surface_precomp,
+        .mix_10 = PyArray_DATA(arr_mix_10),
+        .arr_mix_10 = arr_mix_10,
+        .mix_21 = PyArray_DATA(arr_mix_21),
+        .arr_mix_21 = arr_mix_21,
     };
 
     return 1;
@@ -135,6 +169,8 @@ failed:
     Py_XDECREF(arr_edge_01_precomp);
     Py_XDECREF(arr_edge_11_precomp);
     Py_XDECREF(arr_surface_precomp);
+    Py_XDECREF(arr_mix_10);
+    Py_XDECREF(arr_mix_21);
     return 0;
 }
 

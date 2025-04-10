@@ -60,7 +60,8 @@ eval_result_t evaluate_element_term(error_stack_t *error_stack, form_order_t for
 
 INTERPLIB_INTERNAL
 eval_result_t evaluate_element_term_sibling(error_stack_t *error_stack, form_order_t form, unsigned order,
-                                            const bytecode_t *code, precompute_t *precomp, unsigned n_stack,
+                                            const bytecode_t *code, precompute_t *precomp,
+                                            const field_information_t *vector_fields, unsigned n_stack,
                                             matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
                                             matrix_full_t *p_out);
 

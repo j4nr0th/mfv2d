@@ -681,7 +681,7 @@ static PyObject *compute_element_matrices_2(PyObject *Py_UNUSED(module), PyObjec
                     field_information_t element_field_information = vector_fields;
                     for (unsigned idx = 0; idx < element_field_information.n_fields; ++idx)
                     {
-                        element_field_information.fields[idx] += element_field_information.offsets[i_elem];
+                        element_field_information.fields[idx] += 2 * element_field_information.offsets[i_elem];
                     }
 
                     matrix_full_t mat;

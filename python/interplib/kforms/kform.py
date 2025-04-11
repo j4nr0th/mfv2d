@@ -74,7 +74,7 @@ class KForm(Term):
             return KInteriorProduct(
                 self.manifold,
                 f"i_{{{other.__name__}}}({self.label})",
-                self.order + 1,
+                self.order - 1,
                 self,
                 other,
             )

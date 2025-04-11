@@ -13,6 +13,36 @@ from interplib.mimetic.mimetic2d import BasisCache, rhs_2d_element_projection
 type Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 
 
+def exact_interior_prod_2(vec: Function2D, form2: Function2D) -> Function2D:
+    """Create an interior product function."""
+
+    def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute interior product."""
+        vec_field = vec(x, y)
+        scl_field = form2(x, y)
+        out = np.empty_like(vec_field)
+        out[..., 0] = -vec_field[..., 0] * scl_field
+        out[..., 1] = -vec_field[..., 1] * scl_field
+        return out
+
+    return wrapped
+
+
+def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
+    """Create an interior product function."""
+
+    def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute interior product."""
+        vec_field = vec(x, y)
+        form_field = form2(x, y)
+        return (
+            form_field[..., 0] * vec_field[..., 0]
+            + form_field[..., 1] * vec_field[..., 1]
+        )
+
+    return wrapped
+
+
 def test_advect_21_undeformed() -> None:
     """Check that interior product of a 2-form with a 1-form is computed correctly."""
 
@@ -32,20 +62,6 @@ def test_advect_21_undeformed() -> None:
         v0 = np.asarray(x)
         v1 = np.asarray(y)
         return v0 - v1**3
-
-    def exact_interior_prod_2(vec: Function2D, form2: Function2D) -> Function2D:
-        """Create an interior product function."""
-
-        def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-            """Compute interior product."""
-            vec_field = vec(x, y)
-            scl_field = form2(x, y)
-            out = np.empty_like(vec_field)
-            out[..., 0] = vec_field[..., 1] * scl_field
-            out[..., 1] = vec_field[..., 0] * scl_field
-            return out
-
-        return wrapped
 
     man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
 
@@ -189,20 +205,6 @@ def test_advect_10_undeformed() -> None:
             dtype=np.float64,
         )
 
-    def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
-        """Create an interior product function."""
-
-        def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-            """Compute interior product."""
-            vec_field = vec(x, y)
-            form_field = form2(x, y)
-            return (
-                form_field[..., 0] * vec_field[..., 0]
-                + form_field[..., 1] * vec_field[..., 1]
-            )
-
-        return wrapped
-
     man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
 
     omega = KFormUnknown(man, "omega", 1)
@@ -332,20 +334,6 @@ def test_advect_21_regular_deformed_1() -> None:
         v0 = np.asarray(x)
         v1 = np.asarray(y)
         return v0 - v1**3
-
-    def exact_interior_prod_2(vec: Function2D, form2: Function2D) -> Function2D:
-        """Create an interior product function."""
-
-        def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-            """Compute interior product."""
-            vec_field = vec(x, y)
-            scl_field = form2(x, y)
-            out = np.empty_like(vec_field)
-            out[..., 0] = vec_field[..., 1] * scl_field
-            out[..., 1] = vec_field[..., 0] * scl_field
-            return out
-
-        return wrapped
 
     man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
 
@@ -487,20 +475,6 @@ def test_advect_21_regular_deformed_2() -> None:
         v0 = np.asarray(x)
         v1 = np.asarray(y)
         return v0 - v1**3
-
-    def exact_interior_prod_2(vec: Function2D, form2: Function2D) -> Function2D:
-        """Create an interior product function."""
-
-        def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-            """Compute interior product."""
-            vec_field = vec(x, y)
-            scl_field = form2(x, y)
-            out = np.empty_like(vec_field)
-            out[..., 0] = vec_field[..., 1] * scl_field
-            out[..., 1] = vec_field[..., 0] * scl_field
-            return out
-
-        return wrapped
 
     man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
 
@@ -647,20 +621,6 @@ def test_advect_10_refgular_deformed_1() -> None:
             dtype=np.float64,
         )
 
-    def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
-        """Create an interior product function."""
-
-        def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-            """Compute interior product."""
-            vec_field = vec(x, y)
-            form_field = form2(x, y)
-            return (
-                form_field[..., 0] * vec_field[..., 0]
-                + form_field[..., 1] * vec_field[..., 1]
-            )
-
-        return wrapped
-
     man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
 
     omega = KFormUnknown(man, "omega", 1)
@@ -794,20 +754,6 @@ def test_advect_10_refgular_deformed_2() -> None:
             dtype=np.float64,
         )
 
-    def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
-        """Create an interior product function."""
-
-        def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-            """Compute interior product."""
-            vec_field = vec(x, y)
-            form_field = form2(x, y)
-            return (
-                form_field[..., 0] * vec_field[..., 0]
-                + form_field[..., 1] * vec_field[..., 1]
-            )
-
-        return wrapped
-
     man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
 
     omega = KFormUnknown(man, "omega", 1)
@@ -936,20 +882,6 @@ def test_advect_21_irregular_deformed_1() -> None:
         v0 = np.asarray(x)
         v1 = np.asarray(y)
         return v0 - v1**3
-
-    def exact_interior_prod_2(vec: Function2D, form2: Function2D) -> Function2D:
-        """Create an interior product function."""
-
-        def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-            """Compute interior product."""
-            vec_field = vec(x, y)
-            scl_field = form2(x, y)
-            out = np.empty_like(vec_field)
-            out[..., 0] = vec_field[..., 1] * scl_field
-            out[..., 1] = vec_field[..., 0] * scl_field
-            return out
-
-        return wrapped
 
     man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
 
@@ -1096,20 +1028,6 @@ def test_advect_10_irrefgular_deformed_1() -> None:
             dtype=np.float64,
         )
 
-    def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
-        """Create an interior product function."""
-
-        def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-            """Compute interior product."""
-            vec_field = vec(x, y)
-            form_field = form2(x, y)
-            return (
-                form_field[..., 0] * vec_field[..., 0]
-                + form_field[..., 1] * vec_field[..., 1]
-            )
-
-        return wrapped
-
     man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
 
     omega = KFormUnknown(man, "omega", 1)
@@ -1212,6 +1130,137 @@ def test_advect_10_irrefgular_deformed_1() -> None:
     # plt.figure()
     # plt.imshow(v_2)
     # plt.colorbar()
+    # plt.show()
+    # print(np.max(np.abs(lhs - rhs)))
+    assert np.max(np.abs(lhs - rhs)) < 1e-11
+
+
+def test_div_21_irregular_deformed_1() -> None:
+    """Check that interior product of a 2-form with a 1-form is computed correctly.
+
+    This checks divergence can be computed correctly.
+    """
+
+    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            (v0**2 * v1, -v0 * v1**3),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return v0 - v1**3
+
+    def div_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact divergence of v * omega field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return 3 * v0**2 * v1 - 2 * v0 * v1**4 - 3 * v0**2 * v1**2 + 6 * v0 * v1**5
+
+    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
+
+    omega = KFormUnknown(man, "omega", 2)
+    v = omega.weight
+
+    system = KFormSystem(
+        (v * (~(u_exact * omega)).derivative) == v @ 0,
+        sorting=lambda f: f.order,
+    )
+    print(system)
+
+    vector_fields = system.vector_fields
+    bytecodes = [
+        translate_equation(eq.left, vector_fields, simplify=True)
+        for eq in system.equations
+    ]
+
+    codes: list[list[None | list[MatOpCode | float | int]]] = list()
+    for bite in bytecodes:
+        row: list[list[MatOpCode | float | int] | None] = list()
+        expr_row: list[tuple[MatOp, ...] | None] = list()
+        for f in system.unknown_forms:
+            if f in bite:
+                row.append(_ctranslate(*bite[f]))
+                expr_row.append(tuple(bite[f]))
+            else:
+                row.append(None)
+                expr_row.append(None)
+
+        codes.append(row)
+
+    N = 8
+    N2 = 15
+
+    cache = BasisCache(N, N2)
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+        list() for _ in vector_fields
+    )
+    vec_field_offsets = np.zeros(2, np.uint64)
+    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
+    # e = ElementLeaf2D(None, N, (-2, +0.1), (-2, -0.1), (+2, -0.1), (+2, +0.1))
+    # e = ElementLeaf2D(None, N, (-1, +1), (-1, -1), (+1, -1), (+1, +1))
+
+    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    for i, vec_fld in enumerate(vector_fields):
+        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
+    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
+    vec_fields = tuple(
+        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+    )
+    del vec_field_lists
+
+    mats = compute_element_matrices_2(
+        tuple(form.order for form in system.unknown_forms),
+        codes,
+        np.array([e.bottom_left], np.float64),
+        np.array([e.bottom_right], np.float64),
+        np.array([e.top_right], np.float64),
+        np.array([e.top_left], np.float64),
+        np.array((e.order,), np.uint32),
+        vec_fields,
+        vec_field_offsets,
+        (cache.c_serialization(),),
+    )
+
+    emat = mats[0]
+    # print(emat)
+
+    # from matplotlib import pyplot as plt
+
+    # plt.figure()
+    # plt.imshow(emat)
+    # plt.colorbar()
+    # plt.show()
+
+    omega_proj = np.linalg.solve(
+        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+    )
+    lhs = np.linalg.solve(e.mass_matrix_surface(cache), emat @ omega_proj).reshape((N, N))
+    rhs = np.linalg.solve(
+        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ div_exact, e, cache)
+    ).reshape((N, N))
+
+    # print(lhs / rhs)
+    # print(lhs - rhs)
+
+    # plt.figure()
+    # plt.imshow(rhs)
+    # plt.colorbar()
+
+    # plt.figure()
+    # plt.imshow(lhs)
+    # plt.colorbar()
+    # plt.show()
+
     # plt.show()
     # print(np.max(np.abs(lhs - rhs)))
     assert np.max(np.abs(lhs - rhs)) < 1e-11

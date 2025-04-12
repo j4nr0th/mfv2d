@@ -1972,6 +1972,8 @@ def continuity_element_1_forms(
     base_self_dofs = e_self.element_edge_dofs(side_self)
     order_self = e_self.order_on_side(side_self)
     order_other = e_other.order_on_side(side_other)
+    trans_table = (-1, +1, +1, -1)
+    orientation_coefficient = trans_table[side_self] * trans_table[side_other]
 
     for var_idx in cont_indices:
         self_var_offset = e_self.dof_offsets(unknown_form_orders)[var_idx]
@@ -1986,7 +1988,9 @@ def continuity_element_1_forms(
         if order_self == order_other:
             assert base_other_dofs.size == base_self_dofs.size
             for v1, v2 in zip(ds, dofs_other, strict=True):
-                equations.append(ConstraintEquation((v1, v2), (+1, -1), 0.0))
+                equations.append(
+                    ConstraintEquation((v1, v2), (+1, orientation_coefficient), 0.0)
+                )
 
         else:
             if order_self > order_other:
@@ -2008,7 +2012,7 @@ def continuity_element_1_forms(
                 equations.append(
                     ConstraintEquation(
                         np.concatenate(((v_h,), dofs_low)),
-                        np.concatenate(((-1,), coefficients)),
+                        np.concatenate(((orientation_coefficient,), coefficients)),
                         0.0,
                     )
                 )

@@ -593,16 +593,18 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
                                          unsigned n_stack, unsigned stack_pos, matrix_t stack[restrict n_stack],
                                          const allocator_callbacks *allocator, matrix_t *current)
 {
-    if (remaining < 2)
+    if (remaining < 3)
     {
         EVAL_ERROR(error_stack, EVAL_OUT_OF_INSTRUCTIONS,
-                   "InterProd instruction with less than 2 instructions remaining.");
+                   "InterProd instruction with less than 3 instructions remaining.");
         return EVAL_OUT_OF_INSTRUCTIONS;
     }
 
     const unsigned starting_index = code->u32;
     code += 1;
     const unsigned field_index = code->u32;
+    code += 1;
+    const unsigned dual = code->u32;
     code += 1;
     if (starting_index != 1 && starting_index != 2)
     {
@@ -628,18 +630,37 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
         const double *ptr = NULL;
 
         // IDK what it's shitting itself over, I range check right before.
-        switch (starting_index)
+        if (!dual)
         {
-        case 1:
-            rows = (n_basis + 1) * (n_basis + 1);
-            cols = n_basis * (n_basis + 1) * 2;
-            ptr = precomp->basis->mix_10;
-            break;
-        case 2:
-            rows = n_basis * (n_basis + 1) * 2;
-            cols = n_basis * n_basis;
-            ptr = precomp->basis->mix_21;
-            break;
+            switch (starting_index)
+            {
+            case 1:
+                rows = (n_basis + 1) * (n_basis + 1);
+                cols = n_basis * (n_basis + 1) * 2;
+                ptr = precomp->basis->mix_10;
+                break;
+            case 2:
+                rows = n_basis * (n_basis + 1) * 2;
+                cols = n_basis * n_basis;
+                ptr = precomp->basis->mix_21;
+                break;
+            }
+        }
+        else
+        {
+            switch (starting_index)
+            {
+            case 1:
+                rows = n_basis * n_basis;
+                cols = n_basis * (n_basis + 1) * 2;
+                ptr = precomp->basis->mix_21;
+                break;
+            case 2:
+                rows = n_basis * (n_basis + 1) * 2;
+                cols = (n_basis + 1) * (n_basis + 1);
+                ptr = precomp->basis->mix_10;
+                break;
+            }
         }
 
         const matrix_full_t mat = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
@@ -652,103 +673,202 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
             return EVAL_FAILED_ALLOC;
         }
 
-        switch (starting_index)
+        if (!dual)
         {
-        case 1:
-            // Mix 10
-            //  Left half, which is involved with eta basis
-            for (unsigned row = 0; row < (n_basis + 1) * (n_basis + 1); ++row)
+            switch (starting_index)
             {
-                for (unsigned col = 0; col < n_basis * (n_basis + 1); ++col)
+            case 1:
+                // Mix 10
+                //  Left half, which is involved with eta basis
+                for (unsigned row = 0; row < (n_basis + 1) * (n_basis + 1); ++row)
                 {
-                    const unsigned offset = (row * cols + col) * n_int * n_int;
-                    double val = 0.0;
-                    for (unsigned i = 0; i < n_int; ++i)
+                    for (unsigned col = 0; col < n_basis * (n_basis + 1); ++col)
                     {
-                        for (unsigned j = 0; j < n_int; ++j)
+                        const unsigned offset = (row * cols + col) * n_int * n_int;
+                        double val = 0.0;
+                        for (unsigned i = 0; i < n_int; ++i)
                         {
-                            const jacobian_t *const p_jac = jac + (i * n_int + j);
-                            const double vector_comp = field[i * (2 * n_int) + 2 * j + 1] * p_jac->j11 +
-                                                       field[i * (2 * n_int) + 2 * j + 0] * p_jac->j01;
-                            val += ptr[offset + i * n_int + j] * vector_comp;
+                            for (unsigned j = 0; j < n_int; ++j)
+                            {
+                                const jacobian_t *const p_jac = jac + (i * n_int + j);
+                                const double vector_comp = field[i * (2 * n_int) + 2 * j + 1] * p_jac->j11 +
+                                                           field[i * (2 * n_int) + 2 * j + 0] * p_jac->j01;
+                                val += ptr[offset + i * n_int + j] * vector_comp;
+                            }
                         }
+                        mat.data[row * cols + col] = val;
                     }
-                    mat.data[row * cols + col] = val;
                 }
-            }
-            //  Right half, which is involved with xi basis
-            for (unsigned row = 0; row < (n_basis + 1) * (n_basis + 1); ++row)
-            {
-                for (unsigned col = n_basis * (n_basis + 1); col < 2 * n_basis * (n_basis + 1); ++col)
+                //  Right half, which is involved with xi basis
+                for (unsigned row = 0; row < (n_basis + 1) * (n_basis + 1); ++row)
                 {
-                    const unsigned offset = (row * cols + col) * n_int * n_int;
-                    double val = 0.0;
-                    for (unsigned i = 0; i < n_int; ++i)
+                    for (unsigned col = n_basis * (n_basis + 1); col < 2 * n_basis * (n_basis + 1); ++col)
                     {
-                        for (unsigned j = 0; j < n_int; ++j)
+                        const unsigned offset = (row * cols + col) * n_int * n_int;
+                        double val = 0.0;
+                        for (unsigned i = 0; i < n_int; ++i)
                         {
-                            const jacobian_t *const p_jac = jac + (i * n_int + j);
-                            const double vector_comp = field[i * (2 * n_int) + 2 * j + 0] * p_jac->j00 +
-                                                       field[i * (2 * n_int) + 2 * j + 1] * p_jac->j10;
-                            val += ptr[offset + i * n_int + j] * vector_comp;
+                            for (unsigned j = 0; j < n_int; ++j)
+                            {
+                                const jacobian_t *const p_jac = jac + (i * n_int + j);
+                                const double vector_comp = field[i * (2 * n_int) + 2 * j + 0] * p_jac->j00 +
+                                                           field[i * (2 * n_int) + 2 * j + 1] * p_jac->j10;
+                                val += ptr[offset + i * n_int + j] * vector_comp;
+                            }
                         }
+                        mat.data[row * cols + col] = val;
                     }
-                    mat.data[row * cols + col] = val;
                 }
-            }
-            break;
-        case 2:
-            // Mix 21
-            //  Top half, which is involved with eta basis
-            for (unsigned row = 0; row < rows / 2; ++row)
-            {
-                for (unsigned col = 0; col < cols; ++col)
+                break;
+            case 2:
+                // Mix 21
+                //  Top half, which is involved with eta basis
+                for (unsigned row = 0; row < rows / 2; ++row)
                 {
-                    const unsigned offset = (row * cols + col) * n_int * n_int;
-                    double val = 0.0;
-                    for (unsigned i = 0; i < n_int; ++i)
+                    for (unsigned col = 0; col < cols; ++col)
                     {
-                        for (unsigned j = 0; j < n_int; ++j)
+                        const unsigned offset = (row * cols + col) * n_int * n_int;
+                        double val = 0.0;
+                        for (unsigned i = 0; i < n_int; ++i)
                         {
-                            const jacobian_t *const p_jac = jac + (i * n_int + j);
-                            // const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j11 -
-                            //                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j01) /
-                            //                            p_jac->det;
-                            const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 0] * p_jac->j01 +
-                                                         field[i * (2 * n_int) + 2 * j + 1] * p_jac->j11) /
-                                                       p_jac->det;
+                            for (unsigned j = 0; j < n_int; ++j)
+                            {
+                                const jacobian_t *const p_jac = jac + (i * n_int + j);
+                                // const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j11 -
+                                //                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j01) /
+                                //                            p_jac->det;
+                                const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 0] * p_jac->j01 +
+                                                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j11) /
+                                                           p_jac->det;
 
-                            val += ptr[offset + i * n_int + j] * vector_comp;
+                                val += ptr[offset + i * n_int + j] * vector_comp;
+                            }
                         }
+                        mat.data[row * cols + col] = val;
                     }
-                    mat.data[row * cols + col] = val;
                 }
-            }
-            //  Bottom half, which is involved with xi basis
-            for (unsigned row = rows / 2; row < rows; ++row)
-            {
-                for (unsigned col = 0; col < cols; ++col)
+                //  Bottom half, which is involved with xi basis
+                for (unsigned row = rows / 2; row < rows; ++row)
                 {
-                    const unsigned offset = (row * cols + col) * n_int * n_int;
-                    double val = 0.0;
-                    for (unsigned i = 0; i < n_int; ++i)
+                    for (unsigned col = 0; col < cols; ++col)
                     {
-                        for (unsigned j = 0; j < n_int; ++j)
+                        const unsigned offset = (row * cols + col) * n_int * n_int;
+                        double val = 0.0;
+                        for (unsigned i = 0; i < n_int; ++i)
                         {
-                            const jacobian_t *const p_jac = jac + (i * n_int + j);
-                            // const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j10 -
-                            //                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j00) /
-                            //                           p_jac->det;
-                            const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 0] * p_jac->j00 +
-                                                         field[i * (2 * n_int) + 2 * j + 1] * p_jac->j10) /
-                                                       p_jac->det;
-                            val += ptr[offset + i * n_int + j] * vector_comp;
+                            for (unsigned j = 0; j < n_int; ++j)
+                            {
+                                const jacobian_t *const p_jac = jac + (i * n_int + j);
+                                // const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j10 -
+                                //                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j00) /
+                                //                           p_jac->det;
+                                const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 0] * p_jac->j00 +
+                                                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j10) /
+                                                           p_jac->det;
+                                val += ptr[offset + i * n_int + j] * vector_comp;
+                            }
                         }
+                        mat.data[row * cols + col] = val;
                     }
-                    mat.data[row * cols + col] = val;
                 }
+                break;
             }
-            break;
+        }
+        else
+        {
+            switch (starting_index)
+            {
+            case 2:
+                // Mix 10 transposed
+                //  Top half, which is involved with eta basis
+                for (unsigned row = 0; row < rows / 2; ++row)
+                {
+                    for (unsigned col = 0; col < cols; ++col)
+                    {
+                        const unsigned offset = (col * rows + row) * n_int * n_int;
+                        double val = 0.0;
+                        for (unsigned i = 0; i < n_int; ++i)
+                        {
+                            for (unsigned j = 0; j < n_int; ++j)
+                            {
+                                const jacobian_t *const p_jac = jac + (i * n_int + j);
+                                const double vector_comp = field[i * (2 * n_int) + 2 * j + 0] * p_jac->j11 -
+                                                           field[i * (2 * n_int) + 2 * j + 1] * p_jac->j01;
+                                val += ptr[offset + i * n_int + j] * vector_comp;
+                            }
+                        }
+                        mat.data[row * cols + col] = val;
+                    }
+                }
+                //  Bottom half, which is involved with xi basis
+                for (unsigned row = rows / 2; row < rows; ++row)
+                {
+                    for (unsigned col = 0; col < cols; ++col)
+                    {
+                        const unsigned offset = (col * rows + row) * n_int * n_int;
+
+                        double val = 0.0;
+                        for (unsigned i = 0; i < n_int; ++i)
+                        {
+                            for (unsigned j = 0; j < n_int; ++j)
+                            {
+                                const jacobian_t *const p_jac = jac + (i * n_int + j);
+                                const double vector_comp = -(-field[i * (2 * n_int) + 2 * j + 0] * p_jac->j10 +
+                                                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j00);
+                                val += ptr[offset + i * n_int + j] * vector_comp;
+                            }
+                        }
+                        mat.data[row * cols + col] = val;
+                    }
+                }
+                break;
+            case 1:
+                // Mix 21 Transpose
+                //  Left half, which is involved with eta basis
+                for (unsigned row = 0; row < rows; ++row)
+                {
+                    for (unsigned col = 0; col < cols / 2; ++col)
+                    {
+                        const unsigned offset = (col * rows + row) * n_int * n_int;
+                        double val = 0.0;
+                        for (unsigned i = 0; i < n_int; ++i)
+                        {
+                            for (unsigned j = 0; j < n_int; ++j)
+                            {
+                                const jacobian_t *const p_jac = jac + (i * n_int + j);
+                                const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j01 +
+                                                            field[i * (2 * n_int) + 2 * j + 1] * p_jac->j11) /
+                                                           p_jac->det;
+                                val += ptr[offset + i * n_int + j] * vector_comp;
+                            }
+                        }
+                        mat.data[row * cols + col] = val;
+                    }
+                }
+                //  Right half, which is involved with xi basis
+                for (unsigned row = 0; row < rows; ++row)
+                {
+                    for (unsigned col = cols / 2; col < cols; ++col)
+                    {
+                        const unsigned offset = (col * rows + row) * n_int * n_int;
+
+                        double val = 0.0;
+                        for (unsigned i = 0; i < n_int; ++i)
+                        {
+                            for (unsigned j = 0; j < n_int; ++j)
+                            {
+                                const jacobian_t *const p_jac = jac + (i * n_int + j);
+                                const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j00 +
+                                                            field[i * (2 * n_int) + 2 * j + 1] * p_jac->j10) /
+                                                           p_jac->det;
+                                val += ptr[offset + i * n_int + j] * vector_comp;
+                            }
+                        }
+                        mat.data[row * cols + col] = val;
+                    }
+                }
+                break;
+            }
         }
 
         this.full = mat;
@@ -791,7 +911,7 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
     }
     matrix_cleanup(&this, allocator);
 
-    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 2, code, precomp,
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 3, code, precomp,
                         vector_fields, n_stack, stack_pos, stack, allocator, current);
 }
 

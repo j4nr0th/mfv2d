@@ -78,6 +78,7 @@ class InterProd(MatOp):
 
     starting_order: int
     field_index: int
+    dual: bool
 
 
 def simplify_expression(*operations: MatOp) -> list[MatOp]:
@@ -119,6 +120,7 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
                     or type(ops[i + 1]) is Incidence
                     or type(ops[i + 1]) is Push
                     or type(ops[i + 1]) is Scale
+                    or type(ops[i + 1]) is InterProd
                 )
             ):
                 # Identity does nothing to these
@@ -378,7 +380,17 @@ def _translate_equation(
         res = _translate_equation(form.form, vec_fields)
         for k in res:
             vr = res[k]
-            vr.append(InterProd(form.form.order, vec_fields.index(form.vector_field)))
+            if form.form.is_primal:
+                vr.append(
+                    InterProd(form.form.order, vec_fields.index(form.vector_field), False)
+                )
+            else:
+                vr.append(MassMat(form.primal_order - 1, True))
+                vr.append(
+                    InterProd(form.form.order, vec_fields.index(form.vector_field), True)
+                )
+                vr.append(MassMat(form.primal_order, True))
+
         return res
     raise TypeError("Unknown type")
 
@@ -455,7 +467,12 @@ def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
                 val = (1.0, "I")
 
         elif type(op) is InterProd:
-            mat = f"M({op.starting_order - 1}, {op.starting_order}; {op.field_index})"
+            if not op.dual:
+                mat = f"M({op.starting_order}, {op.starting_order - 1}; {op.field_index})"
+            else:
+                mat = (
+                    f"M*({op.starting_order}, {op.starting_order - 1}; {op.field_index})"
+                )
             if val is None:
                 val = (1.0, mat)
             c, s = val
@@ -522,6 +539,7 @@ def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
             out.append(MatOpCode.INTERPROD)
             out.append(op.starting_order)
             out.append(op.field_index)
+            out.append(op.dual)
         else:
             raise TypeError("Unknown instruction")
 

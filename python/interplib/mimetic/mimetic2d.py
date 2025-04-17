@@ -1223,6 +1223,7 @@ class ElementLeaf2D(Element2D):
                     out += c[i * (self.order + 1) + j] * (u * v)
 
         elif k == 1:
+            # TODO: check if reconstruction is done correctly on non-unit domain.
             values_xi = lagrange1d(cache.nodes_1d, xi)
             values_eta = lagrange1d(cache.nodes_1d, eta)
             in_dvalues_xi = dlagrange1d(cache.nodes_1d, xi)

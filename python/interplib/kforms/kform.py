@@ -382,13 +382,10 @@ class KInteriorProduct(KForm):
         if self.form.order == 0:
             raise ValueError("Interior product can not be applied to a 0-form.")
 
-        if not self.form.is_primal:
-            raise ValueError("Can not apply interior product to a dual form.")
-
     @property
     def is_primal(self) -> bool:
         """Check if the form is primal or not."""
-        return False
+        return not self.form.is_primal
 
     @property
     def is_weight(self) -> bool:
@@ -398,7 +395,9 @@ class KInteriorProduct(KForm):
     @property
     def primal_order(self) -> int:
         """Return the order of the primal."""
-        return self.form.order - 1
+        if self.form.is_primal:
+            return self.form.primal_order - 1
+        return self.form.primal_order + 1
 
 
 @dataclass(init=False, frozen=True, eq=False)

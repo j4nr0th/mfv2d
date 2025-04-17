@@ -66,8 +66,8 @@ def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
         vec_field = vec(x, y)
         form_field = form2(x, y)
         return (
-            form_field[..., 0] * vec_field[..., 0]
-            + form_field[..., 1] * vec_field[..., 1]
+            form_field[..., 1] * vec_field[..., 0]
+            - form_field[..., 0] * vec_field[..., 1]
         )
 
     return wrapped
@@ -635,7 +635,7 @@ def test_advect_10_refgular_deformed_1() -> None:
         v0 = np.asarray(x)
         v1 = np.asarray(y)
         return np.stack(
-            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
+            # (0 * v0**2 * v1, 1 + 0 * -v0 * v1**3),
             (v0**2 * v1, -v0 * v1**3),
             axis=-1,
             dtype=np.float64,
@@ -646,6 +646,7 @@ def test_advect_10_refgular_deformed_1() -> None:
         v0 = np.asarray(x)
         v1 = np.asarray(y)
         return np.stack(
+            # (1 + 0 * v0 * v1**3, 0 * -(v0**2) * v1),
             (v0 * v1**3, -(v0**2) * v1),
             axis=-1,
             dtype=np.float64,
@@ -741,7 +742,8 @@ def test_advect_10_refgular_deformed_1() -> None:
         e.mass_matrix_node(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
     )
 
-    # print(lhs / rhs)
+    # print("Exact:   ", rhs)
+    # print("Computed:", lhs)
 
     # v_1 = lhs.reshape((N + 1, N + 1))
     # v_2 = rhs.reshape((N + 1, N + 1))
@@ -1825,12 +1827,12 @@ def test_dual_advect_10_undeformed() -> None:
     emat = emat[2 * (N + 1) * N :, : 2 * (N + 1) * N]
     # print(emat)
 
-    from matplotlib import pyplot as plt
+    # from matplotlib import pyplot as plt
 
-    plt.figure()
-    plt.imshow(emat)
-    plt.colorbar()
-    plt.show()
+    # plt.figure()
+    # plt.imshow(emat)
+    # plt.colorbar()
+    # plt.show()
 
     exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
 
@@ -1842,21 +1844,21 @@ def test_dual_advect_10_undeformed() -> None:
         e.mass_matrix_surface(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
     )
 
-    print("Computed:", lhs)
-    print("Exact:   ", rhs)
+    # print("Computed:", lhs)
+    # print("Exact:   ", rhs)
 
-    v_1 = lhs.reshape((N, N))
-    v_2 = rhs.reshape((N, N))
+    # v_1 = lhs.reshape((N, N))
+    # v_2 = rhs.reshape((N, N))
 
-    plt.figure()
-    plt.imshow(v_1)
-    plt.colorbar()
+    # plt.figure()
+    # plt.imshow(v_1)
+    # plt.colorbar()
 
-    plt.figure()
-    plt.imshow(v_2)
-    plt.colorbar()
-    plt.show()
-    print(np.max(np.abs(lhs - rhs)))
+    # plt.figure()
+    # plt.imshow(v_2)
+    # plt.colorbar()
+    # plt.show()
+    # print(np.max(np.abs(lhs - rhs)))
     assert np.max(np.abs(lhs - rhs)) < 1e-14
 
 
@@ -1957,12 +1959,12 @@ def test_dual_advect_10_rotated() -> None:
     emat = emat[2 * (N + 1) * N :, : 2 * (N + 1) * N]
     # print(emat)
 
-    from matplotlib import pyplot as plt
+    # from matplotlib import pyplot as plt
 
-    plt.figure()
-    plt.imshow(emat)
-    plt.colorbar()
-    plt.show()
+    # plt.figure()
+    # plt.imshow(emat)
+    # plt.colorbar()
+    # plt.show()
 
     exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
 
@@ -1974,21 +1976,21 @@ def test_dual_advect_10_rotated() -> None:
         e.mass_matrix_surface(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
     )
 
-    print("Computed:", lhs)
-    print("Exact:   ", rhs)
+    # print("Computed:", lhs)
+    # print("Exact:   ", rhs)
 
-    v_1 = lhs.reshape((N, N))
-    v_2 = rhs.reshape((N, N))
+    # v_1 = lhs.reshape((N, N))
+    # v_2 = rhs.reshape((N, N))
 
-    plt.figure()
-    plt.imshow(v_1)
-    plt.colorbar()
+    # plt.figure()
+    # plt.imshow(v_1)
+    # plt.colorbar()
 
-    plt.figure()
-    plt.imshow(v_2)
-    plt.colorbar()
-    plt.show()
-    print(np.max(np.abs(lhs - rhs)))
+    # plt.figure()
+    # plt.imshow(v_2)
+    # plt.colorbar()
+    # plt.show()
+    # print(np.max(np.abs(lhs - rhs)))
     assert np.max(np.abs(lhs - rhs)) < 1e-14
 
 

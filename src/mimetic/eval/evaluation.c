@@ -691,8 +691,8 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
                             for (unsigned j = 0; j < n_int; ++j)
                             {
                                 const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                const double vector_comp = field[i * (2 * n_int) + 2 * j + 1] * p_jac->j11 +
-                                                           field[i * (2 * n_int) + 2 * j + 0] * p_jac->j01;
+                                const double vector_comp = field[i * (2 * n_int) + 2 * j + 0] * p_jac->j11 -
+                                                           field[i * (2 * n_int) + 2 * j + 1] * p_jac->j01;
                                 val += ptr[offset + i * n_int + j] * vector_comp;
                             }
                         }
@@ -711,8 +711,8 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
                             for (unsigned j = 0; j < n_int; ++j)
                             {
                                 const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                const double vector_comp = field[i * (2 * n_int) + 2 * j + 0] * p_jac->j00 +
-                                                           field[i * (2 * n_int) + 2 * j + 1] * p_jac->j10;
+                                const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 1] * p_jac->j00 -
+                                                             field[i * (2 * n_int) + 2 * j + 0] * p_jac->j10);
                                 val += ptr[offset + i * n_int + j] * vector_comp;
                             }
                         }

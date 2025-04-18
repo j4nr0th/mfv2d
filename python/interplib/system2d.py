@@ -405,6 +405,341 @@ def find_boundary_id(s: Surface, i: int) -> Literal[0, 1, 2, 3]:
     raise ValueError(f"Line with index {i} is not in the surface {s}.")
 
 
+def find_strong_bc_edge_indices(
+    system: kforms.KFormSystem,
+    refinement_levels: int,
+    boundaray_conditions: None | Sequence[kforms.BoundaryCondition2DStrong],
+    mesh: Mesh2D,
+) -> dict[kforms.KFormUnknown, npt.NDArray[np.uint64]]:
+    """Return a dictionary containing indices of edges with strong boundary conditions."""
+    # Check that inputs make sense.
+    strong_boundary_edges: dict[kforms.KFormUnknown, list[npt.NDArray[np.uint64]]] = {}
+    for primal in system.unknown_forms:
+        if primal.order > 2:
+            raise ValueError(
+                f"Can not solve the system on a 2D mesh, as it contains a {primal.order}"
+                "-form."
+            )
+        strong_boundary_edges[primal] = []
+
+    refinement_levels = int(refinement_levels)
+    if refinement_levels < 0:
+        raise ValueError(
+            f"Can not have less than 0 refinement levels ({refinement_levels} was given)."
+        )
+
+    # Check boundary conditions are sensible
+    if boundaray_conditions is not None:
+        for bc in boundaray_conditions:
+            if bc.form not in system.unknown_forms:
+                raise ValueError(
+                    f"Boundary conditions specify form {bc.form}, which is not in the"
+                    " system"
+                )
+            if np.any(bc.indices >= mesh.primal.n_lines):
+                raise ValueError(
+                    f"Boundary condition on {bc.form} specifies lines which are"
+                    " outside not in the mesh (highest index specified was "
+                    f"{np.max(bc.indices)}, but mesh has {mesh.primal.n_points}"
+                    " lines)."
+                )
+            strong_boundary_edges[bc.form].append(bc.indices)
+
+    return {
+        form: np.concatenate(strong_boundary_edges[form])
+        if len(strong_boundary_edges[form])
+        else np.array([], np.uint64)
+        for form in strong_boundary_edges
+    }
+
+
+def apply_weak_boundary_conditions(
+    system: kforms.KFormSystem,
+    mesh: Mesh2D,
+    strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]],
+    element_tree: ElementTree,
+    unknown_form_orders: Sequence[int],
+    cache: dict[int, BasisCache],
+    element_begin: npt.NDArray[np.uint32],
+    main_vec: npt.NDArray[np.float64],
+) -> None:
+    """Update the right side vector by contribution of weak boundary conditions."""
+    # Weak boundary conditions
+    for eq in system.equations:
+        rhs = eq.right
+        for c, kp in rhs.pairs:
+            if not isinstance(kp, KBoundaryProjection) or kp.func is None or c == 0:
+                continue
+            w_form = kp.weight.base_form
+            edges = mesh.boundary_indices
+            if w_form in strong_indices:
+                edges = np.astype(
+                    np.setdiff1d(edges, strong_indices[w_form]),  # type: ignore
+                    np.int32,
+                    copy=False,
+                )
+            if edges.size == 0:
+                continue
+            for edge in edges:
+                dual_line = mesh.dual.get_line(edge + 1)
+                # primal_line = mesh.primal.get_line(edge + 1)
+                if dual_line.begin:
+                    id_surf = dual_line.begin
+                elif dual_line.end:
+                    id_surf = dual_line.end
+                else:
+                    assert False
+                i_element = element_tree.top_indices[id_surf.index]
+                primal_surface = mesh.primal.get_surface(id_surf)
+                e = element_tree.elements[i_element]
+                i_side = find_boundary_id(primal_surface, edge)
+                i_form = system.unknown_forms.index(w_form)
+                vals, dofs = element_boundary_projection(
+                    unknown_form_orders, cache, i_side, kp.func, w_form.order, e, i_form
+                )
+                vals *= c
+                dofs = dofs + element_begin[i_element]
+                main_vec[dofs] += vals
+
+
+def strong_boundary_condition_equations(
+    boundaray_conditions: Sequence[kforms.BoundaryCondition2DStrong],
+    system: kforms.KFormSystem,
+    element_tree: ElementTree,
+    mesh: Mesh2D,
+    base_element_offsets: npt.NDArray[np.uint32],
+    cache: dict[int, BasisCache],
+) -> list[ConstraintEquation]:
+    """Create equations which represent strong boundary conditions."""
+    set_nodes: set[int] = set()
+    continuity_equations: list[ConstraintEquation] = list()
+    for bc in boundaray_conditions:
+        self_var_offset = element_tree.dof_offsets[system.unknown_forms.index(bc.form)]
+
+        for idx in bc.indices:
+            dof_offsets: npt.NDArray[np.integer] | None = None
+            surf_id: GeoID | None = None
+            x0: float
+            x1: float
+            y0: float
+            y1: float
+
+            dual_line = mesh.dual.get_line(idx + 1)
+            if dual_line.begin and dual_line.end:
+                raise ValueError(
+                    f"Boundary condition for {bc.form} was specified for"
+                    f" line {idx}, which is not on the boundary."
+                )
+            surf_id = dual_line.begin if dual_line.begin else dual_line.end
+            primal_surface = mesh.primal.get_surface(surf_id)
+            assert len(primal_surface) == 4
+            i_element = element_tree.top_indices[surf_id.index]
+
+            for i_side in range(4):
+                if primal_surface[i_side].index == idx:
+                    if bc.form.order == 0:
+                        dof_offsets = element_tree.element_node_dofs(i_element, i_side)
+                    else:
+                        dof_offsets = element_tree.element_edge_dofs(i_element, i_side)
+                    break
+            assert i_side != 4
+            assert dof_offsets is not None
+            assert surf_id is not None
+
+            dof_offsets = np.astype(
+                dof_offsets
+                + self_var_offset[i_element]
+                + base_element_offsets[surf_id.index],
+                np.uint32,
+            )
+            assert dof_offsets is not None
+
+            primal_line = mesh.primal.get_line(primal_surface[i_side])
+            x0, y0 = mesh.positions[primal_line.begin.index, :]
+            x1, y1 = mesh.positions[primal_line.end.index, :]
+
+            side_order = element_tree.elements[i_element].order_on_side(i_side)
+            if side_order not in cache:
+                cache[side_order] = BasisCache(side_order, 2 * side_order)
+
+            elem_cache = cache[side_order]
+            comp_nodes = elem_cache.nodes_1d
+            xv = (x1 + x0) / 2 + (x1 - x0) / 2 * comp_nodes
+            yv = (y1 + y0) / 2 + (y1 - y0) / 2 * comp_nodes
+
+            vals = np.empty_like(dof_offsets, np.float64)
+            if bc.form.order == 0:
+                vals[:] = bc.func(xv, yv)
+
+                if primal_line.begin.index in set_nodes:
+                    vals = vals[1:]
+                    dof_offsets = dof_offsets[1:]
+                else:
+                    set_nodes.add(primal_line.begin.index)
+
+                if primal_line.end.index in set_nodes:
+                    vals = vals[:-1]
+                    dof_offsets = dof_offsets[:-1]
+                else:
+                    set_nodes.add(primal_line.end.index)
+
+            elif bc.form.order == 1:
+                # TODO: this might be more efficiently done as some sort of projection
+                lnds = elem_cache.int_nodes_1d
+                wnds = elem_cache.int_weights_1d
+                for i in range(side_order):
+                    xc = (xv[i + 1] + xv[i]) / 2 + (xv[i + 1] - xv[i]) / 2 * lnds
+                    yc = (yv[i + 1] + yv[i]) / 2 + (yv[i + 1] - yv[i]) / 2 * lnds
+                    dx = (xv[i + 1] - xv[i]) / 2
+                    dy = (yv[i + 1] - yv[i]) / 2
+                    if i_side == 0:
+                        normal = np.array((-dy, dx))
+                    elif i_side == 1:
+                        normal = np.array((dy, -dx))
+                    elif i_side == 2:
+                        normal = np.array((dy, -dx))
+                    elif i_side == 3:
+                        normal = np.array((-dy, dx))
+                    else:
+                        assert False
+                    fvals = bc.func(xc, yc)
+                    fvals = fvals[..., 0] * normal[0] + fvals[..., 1] * normal[1]
+                    vals[i] = np.sum(fvals * wnds)
+            else:
+                assert False
+
+            assert vals.size == dof_offsets.size
+            for r, v in zip(dof_offsets, vals, strict=True):
+                continuity_equations.append(ConstraintEquation((r,), (1,), v))
+    return continuity_equations
+
+
+def top_level_continuity_0(
+    system: kforms.KFormSystem,
+    element_tree: ElementTree,
+    mesh: Mesh2D,
+    unknown_form_orders: Sequence[int],
+    base_element_offsets: npt.NDArray[np.uint32],
+) -> list[ConstraintEquation]:
+    """Create equations enforcing 0-form continuity between top level elements."""
+    # Continuity of 0-forms on the non-corner DoFs
+    continuity_equations: list[ConstraintEquation] = list()
+    if system.get_form_indices_by_order(0) and (
+        (len(element_tree.unique_orders) > 1) or (1 not in element_tree.unique_orders)
+    ):
+        for il in range(mesh.dual.n_lines):
+            dual_line = mesh.dual.get_line(il + 1)
+            idx_neighbour = dual_line.begin
+            idx_self = dual_line.end
+
+            if not idx_neighbour or not idx_self:
+                continue
+
+            s_other = mesh.primal.get_surface(idx_neighbour)
+            s_self = mesh.primal.get_surface(idx_self)
+
+            i_other = int(element_tree.top_indices[idx_neighbour.index])
+            i_self = int(element_tree.top_indices[idx_self.index])
+            continuity_equations.extend(
+                continuity_0_forms_inner(
+                    unknown_form_orders,
+                    system.get_form_indices_by_order(0),
+                    element_tree.elements[i_other],
+                    element_tree.elements[i_self],
+                    find_boundary_id(s_other, il),
+                    find_boundary_id(s_self, il),
+                    base_element_offsets[idx_neighbour.index],
+                    base_element_offsets[idx_self.index],
+                )
+            )
+
+    # Continuity of 0-forms on the corner DoFs
+    if system.get_form_indices_by_order(0):
+        for i_surf in range(mesh.dual.n_surfaces):
+            dual_surface = mesh.dual.get_surface(i_surf + 1)
+            closed = True
+            valid: list[int] = list()
+            for i_ln in range(len(dual_surface)):
+                id_line = dual_surface[i_ln]
+                dual_line = mesh.dual.get_line(id_line)
+                idx_neighbour = dual_line.begin
+                idx_self = dual_line.end
+                if not idx_neighbour or not idx_self:
+                    closed = False
+                else:
+                    valid.append(i_ln)
+
+            if closed:
+                valid.pop()
+
+            for i_ln in valid:
+                id_line = dual_surface[i_ln]
+                dual_line = mesh.dual.get_line(id_line)
+                idx_neighbour = dual_line.begin
+                idx_self = dual_line.end
+
+                if not idx_neighbour or not idx_self:
+                    continue
+
+                s_other = mesh.primal.get_surface(idx_neighbour)
+                s_self = mesh.primal.get_surface(idx_self)
+
+                i_other = int(element_tree.top_indices[idx_neighbour.index])
+                i_self = int(element_tree.top_indices[idx_self.index])
+                continuity_equations.extend(
+                    continuity_0_form_corner(
+                        unknown_form_orders,
+                        system.get_form_indices_by_order(0),
+                        element_tree.elements[i_other],
+                        element_tree.elements[i_self],
+                        find_boundary_id(s_other, id_line.index),
+                        find_boundary_id(s_self, id_line.index),
+                        base_element_offsets[idx_neighbour.index],
+                        base_element_offsets[idx_self.index],
+                    )
+                )
+
+    return continuity_equations
+
+
+def top_level_continuity_1(
+    system: kforms.KFormSystem,
+    element_tree: ElementTree,
+    mesh: Mesh2D,
+    unknown_form_orders: Sequence[int],
+    base_element_offsets: npt.NDArray[np.uint32],
+) -> list[ConstraintEquation]:
+    """Create equations enforcing 0-form continuity between top level elements."""
+    # Continuity of 0-forms on the non-corner DoFs
+    continuity_equations: list[ConstraintEquation] = list()
+    for il in range(mesh.dual.n_lines):
+        dual_line = mesh.dual.get_line(il + 1)
+        idx_neighbour = dual_line.begin
+        idx_self = dual_line.end
+        if not idx_self or not idx_neighbour:
+            continue
+
+        # For each variable which must be continuous, get locations in left and right
+        s_other = mesh.primal.get_surface(idx_neighbour)
+        s_self = mesh.primal.get_surface(idx_self)
+
+        i_other = int(element_tree.top_indices[idx_neighbour.index])
+        i_self = int(element_tree.top_indices[idx_self.index])
+        continuity_equations.extend(
+            continuity_element_1_forms(
+                unknown_form_orders,
+                system.get_form_indices_by_order(1),
+                element_tree.elements[i_other],
+                element_tree.elements[i_self],
+                find_boundary_id(s_other, il),
+                find_boundary_id(s_self, il),
+                base_element_offsets[idx_neighbour.index],
+                base_element_offsets[idx_self.index],
+            )
+        )
+    return continuity_equations
+
+
 def solve_system_2d(
     system: kforms.KFormSystem,
     mesh: Mesh2D,
@@ -416,13 +751,7 @@ def solve_system_2d(
     timed: bool = False,
     recon_order: int | None = None,
     gpu: bool = False,
-) -> tuple[
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    dict[kforms.KFormUnknown, npt.NDArray[np.float64]],
-    pv.UnstructuredGrid,
-    SolutionStatistics,
-]:
+) -> tuple[pv.UnstructuredGrid, SolutionStatistics]:
     """Solve the system on the specified mesh.
 
     Parameters
@@ -463,13 +792,6 @@ def solve_system_2d(
 
     Returns
     -------
-    x : array
-        Array of x positions where the reconstructed values were computed.
-    y : array
-        Array of y positions where the reconstructed values were computed.
-    reconstructions : dict of kforms.KFormUnknown to array
-        Reconstructed solution for unknowns. The number of points on the element
-        where these reconstructions are computed depends on the degree of the element.
     grid : pyvista.UnstructuredGrid
         Reconstructed solution as an unstructured grid of VTK's "lagrange quadrilateral"
         cells. This reconstruction is done on the nodal basis for all unknowns.
@@ -477,59 +799,10 @@ def solve_system_2d(
         Statistics about the solution. This can be used for convergence tests or timing.
     """
     base_timer = PerfTimer()
-    # Check that inputs make sense.
-    strong_boundary_edges: dict[kforms.KFormUnknown, list[npt.NDArray[np.uint64]]] = {}
-    for primal in system.unknown_forms:
-        if primal.order > 2:
-            raise ValueError(
-                f"Can not solve the system on a 2D mesh, as it contains a {primal.order}"
-                "-form."
-            )
-        strong_boundary_edges[primal] = []
 
-    refinement_levels = int(refinement_levels)
-    if refinement_levels < 0:
-        raise ValueError(
-            f"Can not have less than 0 refinement levels ({refinement_levels} was given)."
-        )
-
-    # Check boundary conditions are sensible
-    if boundaray_conditions is not None:
-        for bc in boundaray_conditions:
-            if bc.form not in system.unknown_forms:
-                raise ValueError(
-                    f"Boundary conditions specify form {bc.form}, which is not in the"
-                    " system"
-                )
-            if np.any(bc.indices >= mesh.primal.n_lines):
-                raise ValueError(
-                    f"Boundary condition on {bc.form} specifies lines which are"
-                    " outside not in the mesh (highest index specified was "
-                    f"{np.max(bc.indices)}, but mesh has {mesh.primal.n_points}"
-                    " lines)."
-                )
-            strong_boundary_edges[bc.form].append(bc.indices)
-
-    strong_indices = {
-        form: np.concatenate(strong_boundary_edges[form])
-        if len(strong_boundary_edges[form])
-        else np.array([])
-        for form in strong_boundary_edges
-    }
-    del strong_boundary_edges
-
-    cont_indices_edges: list[int] = []
-    cont_indices_nodes: list[int] = []
-    for form in system.unknown_forms:
-        if form.order == 2:
-            continue
-        idx = system.unknown_forms.index(form)
-        if form.order == 1:
-            cont_indices_edges.append(idx)
-        elif form.order == 0:
-            cont_indices_nodes.append(idx)
-        else:
-            assert False
+    strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]] = (
+        find_strong_bc_edge_indices(system, refinement_levels, boundaray_conditions, mesh)
+    )
 
     unknown_form_orders = tuple(form.order for form in system.unknown_forms)
 
@@ -559,6 +832,7 @@ def solve_system_2d(
         cache[int(recon_order)] = BasisCache(int(recon_order), int(recon_order))
 
     vector_fields = system.vector_fields
+    e: Element2D
 
     bytecodes = [
         translate_equation(eq.left, vector_fields, simplify=True)
@@ -583,7 +857,6 @@ def solve_system_2d(
     expr_mat = tuple(expr_array)
     del expr_array
 
-    e: Element2D
     bl = np.array([e.bottom_left for e in leaf_elements])
     br = np.array([e.bottom_right for e in leaf_elements])
     tr = np.array([e.top_right for e in leaf_elements])
@@ -613,23 +886,9 @@ def solve_system_2d(
         }
         del matrices_2
     else:
-        c_ser: list[
-            tuple[
-                int,
-                int,
-                npt.NDArray[np.float64],
-                npt.NDArray[np.float64],
-                npt.NDArray[np.float64],
-                npt.NDArray[np.float64],
-                npt.NDArray[np.float64],
-                npt.NDArray[np.float64],
-                npt.NDArray[np.float64],
-                npt.NDArray[np.float64],
-            ]
-        ] = list()
+        c_ser = tuple(cache[int(o)].c_serialization() for o in element_tree.unique_orders)
 
         for o in element_tree.unique_orders:
-            c_ser.append(cache[o].c_serialization())
             cache[o].clean()
 
         # Compute vector fields at integration points for leaf elements
@@ -687,6 +946,129 @@ def solve_system_2d(
         base_timer.stop("Computing the RHS took {} seconds.")
         base_timer.set()
 
+    base_element_offsets, element_begin, main_mat, main_vec = (
+        assemble_global_element_matrix(
+            system, unknown_form_orders, element_tree, element_matrices, element_vectors
+        )
+    )
+
+    if timed:
+        base_timer.stop("Assembling the main matrix took {} seconds.")
+        base_timer.set()
+
+    del element_matrices, element_vectors
+
+    # Apply lagrange multipliers for continuity
+    continuity_equations: list[ConstraintEquation] = list()
+
+    # Continuity of 1-forms on top level
+    if system.get_form_indices_by_order(1):
+        continuity_equations.extend(
+            top_level_continuity_1(
+                system, element_tree, mesh, unknown_form_orders, base_element_offsets
+            )
+        )
+
+        if timed:
+            base_timer.stop("Continuity of 1-forms took {} seconds.")
+            base_timer.set()
+
+    continuity_equations.extend(
+        top_level_continuity_0(
+            system, element_tree, mesh, unknown_form_orders, base_element_offsets
+        )
+    )
+    if timed:
+        base_timer.stop("Continuity of 0-forms took {} seconds.")
+        base_timer.set()
+
+    # Strong boundary conditions
+    if boundaray_conditions is not None:
+        continuity_equations.extend(
+            strong_boundary_condition_equations(
+                boundaray_conditions,
+                system,
+                element_tree,
+                mesh,
+                base_element_offsets,
+                cache,
+            )
+        )
+    apply_weak_boundary_conditions(
+        system,
+        mesh,
+        strong_indices,
+        element_tree,
+        unknown_form_orders,
+        cache,
+        element_begin,
+        main_vec,
+    )
+
+    if timed:
+        base_timer.stop("Boundary conditions took {} seconds.")
+        base_timer.set()
+
+    n_lagrange_eq = len(continuity_equations)
+
+    if continuity_equations:
+        lagrange_mat, lag_rhs = constraint_equations_to_matrix(continuity_equations)
+        lagrange_mat.resize(n_lagrange_eq, element_begin[-1])
+        main_mat = sp.block_array([[main_mat, lagrange_mat.T], [lagrange_mat, None]])
+        del lagrange_mat
+        if timed:
+            base_timer.stop("Preparing the system took {} seconds.")
+            base_timer.set()
+
+        main_vec = np.concatenate((main_vec, lag_rhs))
+
+    main_mat = sp.csc_array(main_mat)
+    solution = np.asarray(sla.spsolve(main_mat, main_vec), dtype=np.float64, copy=None)
+
+    if timed:
+        base_timer.stop("Solving took {} seconds.")
+        base_timer.set()
+
+    del main_mat, main_vec, continuity_equations
+
+    # Prepare to build up the 1D Splines
+    grid = reconstruct_mesh_from_solution(
+        system,
+        recon_order,
+        element_tree,
+        leaf_elements,
+        cache,
+        leaf_indices,
+        element_begin,
+        solution,
+    )
+
+    if timed:
+        base_timer.stop("Reconstruction took {} seconds.")
+        base_timer.set()
+
+    stats = SolutionStatistics(
+        element_orders=dict(element_tree.order_counts),
+        n_total_dofs=element_tree.n_dof,
+        n_lagrange=n_lagrange_eq,
+        n_elems=len(element_tree.elements),
+        n_leaves=len(leaf_elements),
+        n_leaf_dofs=element_tree.n_dof_leaves,
+    )
+
+    return grid, stats
+
+
+def assemble_global_element_matrix(
+    system: kforms.KFormSystem,
+    unknown_form_orders: Sequence[int],
+    element_tree: ElementTree,
+    element_matrices: dict[int, npt.NDArray[np.float64] | jax.Array],
+    element_vectors: dict[int, npt.NDArray[np.float64]],
+) -> tuple[
+    npt.NDArray[np.uint32], npt.NDArray[np.uint32], sp.coo_array, npt.NDArray[np.float64]
+]:
+    """Assemble the element matrices together into the global element matrix."""
     base_element_offsets = np.zeros(element_tree.n_base_elements + 1, np.uint32)
     matrices: list[sp.coo_array] = list()
     vec: list[npt.NDArray[np.float64]] = list()
@@ -698,8 +1080,8 @@ def solve_system_2d(
         bvals, em, ev = element_matrix(
             elm_top,
             unknown_form_orders,
-            cont_indices_edges,
-            cont_indices_nodes,
+            system.get_form_indices_by_order(1),
+            system.get_form_indices_by_order(0),
             element_tree,
             element_matrices,
             element_vectors,
@@ -712,424 +1094,26 @@ def solve_system_2d(
 
     main_mat = sp.block_diag(matrices)
     main_vec = np.concatenate(vec)
-
-    if timed:
-        base_timer.stop("Assembling the main matrix took {} seconds.")
-        base_timer.set()
-
-    # for i_te in range(len(element_tree.top_indices) - 1):
-    #     i_e1 = element_tree.top_indices[i_te]
-    #     i_e2 = element_tree.top_indices[i_te + 1]
-    #     n_real = element_begin[i_e2] - element_begin[i_e1]
-    #     n_comp = element_tree.elements[i_e1].total_dof_count(unknown_form_orders)
-
-    #     assert n_real == n_comp
-
-    # inv_list: list[LiLMatrix] = list()
-    # q_list: list[GivensSeries | CompositeQMatix] = list()
-
-    # for i, itop in enumerate(element_tree.top_indices):
-    #     elm_top = element_tree.elements[itop]
-    #     _, em, eqm = element_inverse(
-    #         elm_top,
-    #         unknown_form_orders,
-    #         cont_indices_edges,
-    #         cont_indices_nodes,
-    #         element_tree,
-    #         element_matrices,
-    #     )
-    #     inv_list.append(em)
-    #     q_list.append(eqm)
-
-    # r_mat = LiLMatrix.block_diag(*inv_list)
-    # q_mat = CompositeQMatix(None, *q_list)
-    # del inv_list, q_list
-
-    # if timed:
-    #     base_timer.stop("Assembling the main inverse took {} seconds.")
-    #     base_timer.set()
-
-    del matrices, vec, element_matrices, element_vectors
-
-    # Apply lagrange multipliers for continuity
-    continuity_equations: list[ConstraintEquation] = list()
-
-    # Continuity of 1-forms on top level
-    if cont_indices_edges:
-        for il in range(mesh.dual.n_lines):
-            dual_line = mesh.dual.get_line(il + 1)
-            idx_neighbour = dual_line.begin
-            idx_self = dual_line.end
-            if not idx_self or not idx_neighbour:
-                continue
-
-            # For each variable which must be continuous, get locations in left and right
-            s_other = mesh.primal.get_surface(idx_neighbour)
-            s_self = mesh.primal.get_surface(idx_self)
-
-            i_other = int(element_tree.top_indices[idx_neighbour.index])
-            i_self = int(element_tree.top_indices[idx_self.index])
-            continuity_equations.extend(
-                continuity_element_1_forms(
-                    unknown_form_orders,
-                    cont_indices_edges,
-                    element_tree.elements[i_other],
-                    element_tree.elements[i_self],
-                    find_boundary_id(s_other, il),
-                    find_boundary_id(s_self, il),
-                    base_element_offsets[idx_neighbour.index],
-                    base_element_offsets[idx_self.index],
-                )
-            )
-
-    if timed:
-        base_timer.stop("Continuity of 1-forms took {} seconds.")
-        base_timer.set()
-
-    # Continuity of 0-forms on the non-corner DoFs
-    if cont_indices_nodes and (
-        (len(element_tree.unique_orders) > 1) or (1 not in element_tree.unique_orders)
-    ):
-        for il in range(mesh.dual.n_lines):
-            dual_line = mesh.dual.get_line(il + 1)
-            idx_neighbour = dual_line.begin
-            idx_self = dual_line.end
-
-            if not idx_neighbour or not idx_self:
-                continue
-
-            s_other = mesh.primal.get_surface(idx_neighbour)
-            s_self = mesh.primal.get_surface(idx_self)
-
-            i_other = int(element_tree.top_indices[idx_neighbour.index])
-            i_self = int(element_tree.top_indices[idx_self.index])
-            continuity_equations.extend(
-                continuity_0_forms_inner(
-                    unknown_form_orders,
-                    cont_indices_nodes,
-                    element_tree.elements[i_other],
-                    element_tree.elements[i_self],
-                    find_boundary_id(s_other, il),
-                    find_boundary_id(s_self, il),
-                    base_element_offsets[idx_neighbour.index],
-                    base_element_offsets[idx_self.index],
-                )
-            )
-
-    # Continuity of 0-forms on the corner DoFs
-    if cont_indices_nodes:
-        for i_surf in range(mesh.dual.n_surfaces):
-            dual_surface = mesh.dual.get_surface(i_surf + 1)
-            closed = True
-            valid: list[int] = list()
-            for i_ln in range(len(dual_surface)):
-                id_line = dual_surface[i_ln]
-                dual_line = mesh.dual.get_line(id_line)
-                idx_neighbour = dual_line.begin
-                idx_self = dual_line.end
-                if not idx_neighbour or not idx_self:
-                    closed = False
-                else:
-                    valid.append(i_ln)
-
-            if closed:
-                valid.pop()
-
-            for i_ln in valid:
-                id_line = dual_surface[i_ln]
-                dual_line = mesh.dual.get_line(id_line)
-                idx_neighbour = dual_line.begin
-                idx_self = dual_line.end
-
-                if not idx_neighbour or not idx_self:
-                    continue
-
-                s_other = mesh.primal.get_surface(idx_neighbour)
-                s_self = mesh.primal.get_surface(idx_self)
-
-                i_other = int(element_tree.top_indices[idx_neighbour.index])
-                i_self = int(element_tree.top_indices[idx_self.index])
-                continuity_equations.extend(
-                    continuity_0_form_corner(
-                        unknown_form_orders,
-                        cont_indices_nodes,
-                        element_tree.elements[i_other],
-                        element_tree.elements[i_self],
-                        find_boundary_id(s_other, id_line.index),
-                        find_boundary_id(s_self, id_line.index),
-                        base_element_offsets[idx_neighbour.index],
-                        base_element_offsets[idx_self.index],
-                    )
-                )
-
-    if timed:
-        base_timer.stop("Continuity of 0-forms took {} seconds.")
-        base_timer.set()
-
-    # Strong boundary conditions
-    if boundaray_conditions is not None:
-        set_nodes: set[int] = set()
-        for bc in boundaray_conditions:
-            self_var_offset = element_tree.dof_offsets[
-                system.unknown_forms.index(bc.form)
-            ]
-
-            for idx in bc.indices:
-                dof_offsets: npt.NDArray[np.integer] | None = None
-                surf_id: GeoID | None = None
-                x0: float
-                x1: float
-                y0: float
-                y1: float
-
-                dual_line = mesh.dual.get_line(idx + 1)
-                if dual_line.begin and dual_line.end:
-                    raise ValueError(
-                        f"Boundary condition for {bc.form} was specified for"
-                        f" line {idx}, which is not on the boundary."
-                    )
-                surf_id = dual_line.begin if dual_line.begin else dual_line.end
-                primal_surface = mesh.primal.get_surface(surf_id)
-                assert len(primal_surface) == 4
-                i_element = element_tree.top_indices[surf_id.index]
-
-                for i_side in range(4):
-                    if primal_surface[i_side].index == idx:
-                        if bc.form.order == 0:
-                            dof_offsets = element_tree.element_node_dofs(
-                                i_element, i_side
-                            )
-                        else:
-                            dof_offsets = element_tree.element_edge_dofs(
-                                i_element, i_side
-                            )
-                        break
-                assert i_side != 4
-                assert dof_offsets is not None
-                assert surf_id is not None
-
-                dof_offsets = np.astype(
-                    dof_offsets
-                    + self_var_offset[i_element]
-                    + base_element_offsets[surf_id.index],
-                    np.uint32,
-                )
-                assert dof_offsets is not None
-
-                primal_line = mesh.primal.get_line(primal_surface[i_side])
-                x0, y0 = mesh.positions[primal_line.begin.index, :]
-                x1, y1 = mesh.positions[primal_line.end.index, :]
-
-                side_order = element_tree.elements[i_element].order_on_side(i_side)
-                if side_order not in cache:
-                    cache[side_order] = BasisCache(side_order, 2 * side_order)
-
-                elem_cache = cache[side_order]
-                comp_nodes = elem_cache.nodes_1d
-                xv = (x1 + x0) / 2 + (x1 - x0) / 2 * comp_nodes
-                yv = (y1 + y0) / 2 + (y1 - y0) / 2 * comp_nodes
-
-                vals = np.empty_like(dof_offsets, np.float64)
-                if bc.form.order == 0:
-                    vals[:] = bc.func(xv, yv)
-
-                    if primal_line.begin.index in set_nodes:
-                        vals = vals[1:]
-                        dof_offsets = dof_offsets[1:]
-                    else:
-                        set_nodes.add(primal_line.begin.index)
-
-                    if primal_line.end.index in set_nodes:
-                        vals = vals[:-1]
-                        dof_offsets = dof_offsets[:-1]
-                    else:
-                        set_nodes.add(primal_line.end.index)
-
-                elif bc.form.order == 1:
-                    # TODO: this might be more efficiently done as some sort of projection
-                    lnds = elem_cache.int_nodes_1d
-                    wnds = elem_cache.int_weights_1d
-                    for i in range(side_order):
-                        xc = (xv[i + 1] + xv[i]) / 2 + (xv[i + 1] - xv[i]) / 2 * lnds
-                        yc = (yv[i + 1] + yv[i]) / 2 + (yv[i + 1] - yv[i]) / 2 * lnds
-                        dx = (xv[i + 1] - xv[i]) / 2
-                        dy = (yv[i + 1] - yv[i]) / 2
-                        if i_side == 0:
-                            normal = np.array((-dy, dx))
-                        elif i_side == 1:
-                            normal = np.array((dy, -dx))
-                        elif i_side == 2:
-                            normal = np.array((dy, -dx))
-                        elif i_side == 3:
-                            normal = np.array((-dy, dx))
-                        else:
-                            assert False
-                        fvals = bc.func(xc, yc)
-                        fvals = fvals[..., 0] * normal[0] + fvals[..., 1] * normal[1]
-                        vals[i] = np.sum(fvals * wnds)
-                else:
-                    assert False
-
-                assert vals.size == dof_offsets.size
-                for r, v in zip(dof_offsets, vals, strict=True):
-                    continuity_equations.append(ConstraintEquation((r,), (1,), v))
-
-    # Weak boundary conditions
-    for eq in system.equations:
-        rhs = eq.right
-        for c, kp in rhs.pairs:
-            if not isinstance(kp, KBoundaryProjection) or kp.func is None or c == 0:
-                continue
-            w_form = kp.weight.base_form
-            edges = mesh.boundary_indices
-            if w_form in strong_indices:
-                edges = np.astype(
-                    np.setdiff1d(edges, strong_indices[w_form]),  # type: ignore
-                    np.int32,
-                    copy=False,
-                )
-            if edges.size == 0:
-                continue
-            for edge in edges:
-                dual_line = mesh.dual.get_line(edge + 1)
-                primal_line = mesh.primal.get_line(edge + 1)
-                if dual_line.begin:
-                    id_surf = dual_line.begin
-                elif dual_line.end:
-                    id_surf = dual_line.end
-                else:
-                    assert False
-                i_element = element_tree.top_indices[id_surf.index]
-                primal_surface = mesh.primal.get_surface(id_surf)
-                e = element_tree.elements[i_element]
-                i_side = find_boundary_id(primal_surface, edge)
-                i_form = system.unknown_forms.index(w_form)
-                vals, dofs = element_boundary_projection(
-                    unknown_form_orders, cache, i_side, kp.func, w_form.order, e, i_form
-                )
-                vals *= c
-                dofs = dofs + element_begin[i_element]
-                main_vec[dofs] += vals
-
-    if timed:
-        base_timer.stop("Boundary conditions took {} seconds.")
-        base_timer.set()
-
-    # TODO: Assemble the system matrix
-
-    n_lagrange_eq = len(continuity_equations)
-
-    if continuity_equations:
-        lag_rows: list[npt.NDArray[np.uint32]] = list()
-        lag_cols: list[npt.NDArray[np.uint32]] = list()
-        lag_vals: list[npt.NDArray[np.float64]] = list()
-        lag_rhs: list[np.float64] = list()
-        # sparse_eq: list[SparseVector] = list()
-
-        for ieq, lag_eq in enumerate(continuity_equations):
-            lag_rows.append(np.full_like(lag_eq.indices, ieq))
-            lag_cols.append(lag_eq.indices)
-            lag_vals.append(lag_eq.values)
-            lag_rhs.append(lag_eq.rhs)
-            # iordering = np.argsort(lag_eq.indices)
-            # sparse_eq.append(
-            #     SparseVector.from_entries(
-            #         element_begin[-1], lag_eq.indices[iordering],
-            # lag_eq.values[iordering]
-            #     )
-            # )
-
-        mat_rows = np.concatenate(lag_rows, dtype=int)
-        mat_cols = np.concatenate(lag_cols, dtype=int)
-        mat_vals = np.concatenate(lag_vals)
-
-        lagrange_mat = sp.csc_array((mat_vals, (mat_rows, mat_cols)), dtype=np.float64)
-        lagrange_mat.resize(n_lagrange_eq, element_begin[-1])
-        del mat_rows, mat_cols, mat_vals
-        main_mat = sp.block_array([[main_mat, lagrange_mat.T], [lagrange_mat, None]])
-        del lagrange_mat
-        if timed:
-            base_timer.stop("Preparing the system took {} seconds.")
-            base_timer.set()
-        # extra_cols: list[SparseVector] = list()
-        # extra_rows: list[SparseVector] = list()
-        # for seq in sparse_eq:
-        #     extra_cols.append(q_mat @ seq)
-        #     seq.n += len(sparse_eq)
-        #     extra_rows.append(seq)
-
-        # r_mat.add_columns(*extra_cols)
-        # r_mat = r_mat.add_rows(*extra_rows)
-
-        # if timed:
-        #     base_timer.stop("Adding rows and cols took {} seconds.")
-        #     base_timer.set()
-        # r2 = LiLMatrix.from_full(main_mat.toarray())
-        # q2 = r2.qr_decompose(sum(len(c) for (_, c) in q_mat.children))
-        # # for _, c in q_mat.children:
-        # #     print([g for g in c])
-        # # print([g for g in q2])
-
-        # from matplotlib import pyplot as plt
-
-        # plt.figure()
-
-        # plt.imshow(np.array(r_mat) - np.array(r2))
-        # # plt.figure()
-
-        # # plt.imshow(q_mat @ np.eye(q_mat.n) - q2 @ np.eye(q2.n))
-
-        # plt.show()
-
-        # q_mat.own = r_mat.qr_decompose()
-
-        # if timed:
-        #     base_timer.stop(
-        #         "Updating the global system took {} seconds"
-        #         f" and {len(q_mat.own)} rotations."
-        #     )
-        #     base_timer.set()
-
-        main_vec = np.concatenate((main_vec, lag_rhs))
-
-    main_mat = sp.csc_array(main_mat)
-    solution = sla.spsolve(main_mat, main_vec)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.spy(main_mat)
-    # print(main_vec)
-    # plt.show()
-
-    # exit()
-
-    # np.savetxt("test_mat.dat", matrix.toarray())
-    # Solve the system
-
-    if timed:
-        base_timer.stop("Solving took {} seconds.")
-        base_timer.set()
-
-    # sol2 = r_mat.solve_upper_triangular(q_mat @ main_vec)
-    # if timed:
-    #     base_timer.stop("Solving with QR (incremental) {} seconds.")
-    #     base_timer.set()
-
-    # print(f"Max err in QR: {np.max(np.abs(solution - sol2))}")
-    # print(f"Final r_mat had sparsity of {r_mat.usage / np.prod(r_mat.shape): %}")
-    # del r_mat, q_mat
-
-    # print(solution)
-    del main_mat, main_vec, continuity_equations
-
+    assert isinstance(main_mat, sp.coo_array)
+    return base_element_offsets, element_begin, main_mat, main_vec
+
+
+def reconstruct_mesh_from_solution(
+    system: kforms.KFormSystem,
+    recon_order: int | None,
+    element_tree: ElementTree,
+    leaf_elements: Sequence[ElementLeaf2D],
+    cache: dict[int, BasisCache],
+    leaf_indices: npt.NDArray[np.uint32],
+    element_begin: npt.NDArray[np.uint32],
+    solution: npt.NDArray[np.float64],
+) -> pv.UnstructuredGrid:
+    """Reconstruct the unknown differential forms."""
+    build: dict[kforms.KFormUnknown, list[npt.NDArray[np.float64]]] = {
+        form: list() for form in system.unknown_forms
+    }
     xvals: list[npt.NDArray[np.float64]] = list()
     yvals: list[npt.NDArray[np.float64]] = list()
-
-    # Prepare to build up the 1D Splines
-    build: dict[kforms.KFormUnknown, list[npt.NDArray[np.float64]]] = {
-        form: [] for form in system.unknown_forms
-    }
 
     node_array: list[npt.NDArray[np.int32]] = list()
     offset_nodes = 0
@@ -1142,7 +1126,6 @@ def solve_system_2d(
         ordering = vtk_lagrange_ordering(element_order) + offset_nodes
         node_array.append(np.concatenate(((ordering.size,), ordering)))
         offset_nodes += ordering.size
-
         ex = elm.poly_x(recon_nodes_1d[None, :], recon_nodes_1d[:, None])
         ey = elm.poly_y(recon_nodes_1d[None, :], recon_nodes_1d[:, None])
 
@@ -1164,7 +1147,9 @@ def solve_system_2d(
                     mass = elm.mass_matrix_node(cache[elm.order])
                 else:
                     assert False
-                form_dofs = np.linalg.solve(mass, form_dofs)
+                form_dofs = np.astype(
+                    np.linalg.solve(mass, form_dofs), np.float64, copy=False
+                )
             # Reconstruct unknown
             recon_v = elm.reconstruct(
                 form.order,
@@ -1176,15 +1161,13 @@ def solve_system_2d(
             shape = (-1, 2) if form.order == 1 else (-1,)
             build[form].append(np.reshape(recon_v, shape))
 
-    out: dict[kforms.KFormUnknown, npt.NDArray[np.float64]] = dict()
-
-    x = np.concatenate(xvals)
-    y = np.concatenate(yvals)
-
     grid = pv.UnstructuredGrid(
         np.concatenate(node_array),
         np.full(len(node_array), pv.CellType.LAGRANGE_QUADRILATERAL),
-        np.stack((x, y, np.zeros_like(x)), axis=-1),
+        np.pad(
+            np.stack((np.concatenate(xvals), np.concatenate(yvals)), axis=1),
+            ((0, 0), (0, 1)),
+        ),
     )
 
     grid.cell_data["order"] = np.array([e.order for e in leaf_elements], np.uint32)
@@ -1192,23 +1175,31 @@ def solve_system_2d(
     # Build the outputs
     for form in build:
         vf = np.concatenate(build[form], axis=0, dtype=np.float64)
-        out[form] = vf
         grid.point_data[form.label] = vf
+    return grid
 
-    if timed:
-        base_timer.stop("Reconstruction took {} seconds.")
-        base_timer.set()
 
-    stats = SolutionStatistics(
-        element_orders=dict(element_tree.order_counts),
-        n_total_dofs=element_tree.n_dof,
-        n_lagrange=n_lagrange_eq,
-        n_elems=len(element_tree.elements),
-        n_leaves=len(leaf_elements),
-        n_leaf_dofs=element_tree.n_dof_leaves,
-    )
+def constraint_equations_to_matrix(
+    continuity_equations: Sequence[ConstraintEquation],
+) -> tuple[sp.csc_array, npt.NDArray[np.float64]]:
+    """Create a sparse matrix and right side vector from continuity equations."""
+    lag_rows: list[npt.NDArray[np.uint32]] = list()
+    lag_cols: list[npt.NDArray[np.uint32]] = list()
+    lag_vals: list[npt.NDArray[np.float64]] = list()
+    lag_rhs: list[np.float64] = list()
 
-    return (x, y, out, grid, stats)
+    for ieq, lag_eq in enumerate(continuity_equations):
+        lag_rows.append(np.full_like(lag_eq.indices, ieq))
+        lag_cols.append(lag_eq.indices)
+        lag_vals.append(lag_eq.values)
+        lag_rhs.append(lag_eq.rhs)
+
+    mat_rows = np.concatenate(lag_rows, dtype=int)
+    mat_cols = np.concatenate(lag_cols, dtype=int)
+    mat_vals = np.concatenate(lag_vals)
+
+    lagrange_mat = sp.csc_array((mat_vals, (mat_rows, mat_cols)), dtype=np.float64)
+    return lagrange_mat, np.array(lag_rhs, np.float64)
 
 
 def element_boundary_projection(
@@ -1301,7 +1292,6 @@ def element_boundary_projection(
             v_11 = np.array((), np.float64)
             d_11 = np.array((), np.uint64)
 
-        # offset += e.child_tr.total_dof_count(form_orders)
         return np.concatenate((v_00, v_01, v_10, v_11), dtype=np.float64), np.concatenate(
             (d_00, d_01, d_10, d_11), dtype=np.uint64
         )
@@ -1311,9 +1301,9 @@ def element_boundary_projection(
 
 def element_matrix(
     e: Element2D,
-    unknown_form_orders: tuple[int, ...],
-    cont_indices_edges: list[int],
-    cont_indices_nodes: list[int],
+    unknown_form_orders: Sequence[int],
+    cont_indices_edges: Sequence[int],
+    cont_indices_nodes: Sequence[int],
     element_tree: ElementTree,
     element_matrices: dict[int, npt.NDArray[np.float64] | jax.Array],
     element_vecs: dict[int, npt.NDArray[np.float64]],
@@ -1419,8 +1409,8 @@ def element_matrix(
 
 def parent_child_equations(
     unknown_form_orders: Sequence[int],
-    cont_indices_edges: list[int],
-    cont_indices_nodes: list[int],
+    cont_indices_edges: Sequence[int],
+    cont_indices_nodes: Sequence[int],
     element: ElementNode2D,
     offset_parent: int,
     offset_00: int,
@@ -1434,9 +1424,9 @@ def parent_child_equations(
     ----------
     unknown_form_orders : Sequence of int
         Order of unknown differential forms.
-    const_indices_edges : list of int
+    const_indices_edges : Sequence of int
         List of 1-form indices for which continuity must be ensured.
-    const_indices_nodes : list of int
+    const_indices_nodes : Sequence of int
         List of 0-form indices for which continuity must be ensured.
     element_offsets : array
         Array of offsets of element DoFs.
@@ -1788,7 +1778,7 @@ def parent_child_equations(
 
 def continuity_0_form_corner(
     unknown_form_orders: Sequence[int],
-    cont_indices: list[int],
+    cont_indices: Sequence[int],
     e_other: Element2D,
     e_self: Element2D,
     side_other: int,
@@ -1843,7 +1833,7 @@ def continuity_0_form_corner(
 
 def continuity_0_forms_inner(
     unknown_form_orders: Sequence[int],
-    cont_indices: list[int],
+    cont_indices: Sequence[int],
     e_other: Element2D,
     e_self: Element2D,
     side_other: int,
@@ -1933,7 +1923,7 @@ def continuity_0_forms_inner(
 
 def continuity_element_1_forms(
     unknown_form_orders: Sequence[int],
-    cont_indices: list[int],
+    cont_indices: Sequence[int],
     e_other: Element2D,
     e_self: Element2D,
     side_other: int,
@@ -2022,7 +2012,7 @@ def continuity_element_1_forms(
 
 def continuity_parent_child_nodes(
     unknown_form_orders: Sequence[int],
-    cont_indices: list[int],
+    cont_indices: Sequence[int],
     e_parent: ElementNode2D,
     e_child: Element2D,
     offset_parent: int,
@@ -2094,7 +2084,7 @@ def continuity_parent_child_nodes(
 
 def continuity_parent_child_edges(
     unknown_form_orders: Sequence[int],
-    cont_indices: list[int],
+    cont_indices: Sequence[int],
     e_parent: ElementNode2D,
     e_child: Element2D,
     offset_parent: int,

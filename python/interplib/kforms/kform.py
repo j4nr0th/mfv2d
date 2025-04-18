@@ -1231,3 +1231,25 @@ class KFormSystem:
                 + " [0]\n"
             )
         return s[:-1]  # strip the trailing new line.
+
+    def get_form_indices_by_order(self, order: int) -> tuple[int, ...]:
+        """Return indices of forms with specified order.
+
+        Parameters
+        ----------
+        order : int
+            Order of the differential forms for which the indices should be returned.
+
+        Returns
+        -------
+        tuple of int
+            Tuple of indices of all unknown differential forms in the system of equations
+            which have the specified order.
+        """
+        order = int(order)
+        if order < 0 or order > 2:
+            raise ValueError(
+                "Specified order can not be less than 0 or more than 2, but it was"
+                f" {order}."
+            )
+        return tuple(i for i, f in enumerate(self.unknown_forms) if f.order == order)

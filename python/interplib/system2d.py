@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
 from itertools import accumulate
@@ -27,7 +27,7 @@ from interplib._mimetic import (
 )
 from interplib.kforms.eval import MatOp, MatOpCode, _ctranslate, translate_equation
 from interplib.kforms.jax_eval import compute_element_matrices_3
-from interplib.kforms.kform import KBoundaryProjection
+from interplib.kforms.kform import KBoundaryProjection, VectorFieldFunction
 from interplib.mimetic.mimetic2d import (
     BasisCache,
     Element2D,
@@ -263,6 +263,14 @@ class SolutionStatistics:
     n_leaves: int
 
 
+@dataclass(frozen=True)
+class SolutionStatisticsNonLin(SolutionStatistics):
+    """Information about the non-linear solution."""
+
+    iter_count: int
+    change_history_max: npt.NDArray[np.float64]
+
+
 @cache
 def continuity_matrices(
     n1: int, n2: int
@@ -456,7 +464,7 @@ def find_strong_bc_edge_indices(
 def apply_weak_boundary_conditions(
     system: kforms.KFormSystem,
     mesh: Mesh2D,
-    strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]],
+    strong_indices: Mapping[kforms.KFormUnknown, npt.NDArray[np.uint64]],
     element_tree: ElementTree,
     unknown_form_orders: Sequence[int],
     cache: dict[int, BasisCache],
@@ -831,7 +839,14 @@ def solve_system_2d(
     if recon_order is not None and recon_order not in cache:
         cache[int(recon_order)] = BasisCache(int(recon_order), int(recon_order))
 
-    vector_fields = system.vector_fields
+    vector_fields: list[VectorFieldFunction] = list()
+    for vf in system.vector_fields:
+        if not callable(vf) or isinstance(vf, kforms.KFormUnknown):
+            raise TypeError(
+                f"Vector field represented by {vf} is not a callable function."
+            )
+        vector_fields.append(vf)
+
     e: Element2D
 
     bytecodes = [
@@ -1059,12 +1074,399 @@ def solve_system_2d(
     return grid, stats
 
 
+def solve_system_2d_nonlinear(
+    system: kforms.KFormSystem,
+    mesh: Mesh2D,
+    boundaray_conditions: Sequence[kforms.BoundaryCondition2DStrong] | None = None,
+    refinement_levels: int = 0,
+    div_predicate: Callable[[ElementLeaf2D, int], bool] | None = None,
+    max_iterations: int = 100,
+    atol: float = 1e-6,
+    rtol: float = 1e-5,
+    *,
+    division_function: OrderDivisionFunction | None = None,
+    recon_order: int | None = None,
+) -> tuple[pv.UnstructuredGrid, SolutionStatisticsNonLin]:
+    """Solve the non-linear system on the specified mesh.
+
+    Parameters
+    ----------
+    system : kforms.KFormSystem
+        System of equations to solve.
+
+    mesh : Mesh2D
+        Mesh on which to solve the system on.
+
+    rec_order : int
+        Order of reconstruction returned.
+
+    boundary_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
+        Sequence of boundary conditions to be applied to the system.
+
+    refinement_levels : int, default: 0
+        Number of mesh refinement levels which can be done. When zero
+        (default value) no refinement is done.
+
+    div_predicate : Callable (Element2D) -> bool
+        Callable used to determine if an element should be divided further.
+
+    division_function : OrderDivisionFunction, optional
+        Function which determines order of the parent and child elements resulting from
+        the division of the element. When not specified, the "old" method is used.
+
+    timed : bool, default: False
+        Report time taken for different parts of the code.
+
+    recon_order : int, optional
+        When specified, all elements will be reconstructed using this polynomial order.
+        Otherwise, they are reconstructed with their own order.
+
+
+    Returns
+    -------
+    grid : pyvista.UnstructuredGrid
+        Reconstructed solution as an unstructured grid of VTK's "lagrange quadrilateral"
+        cells. This reconstruction is done on the nodal basis for all unknowns.
+    stats : SolutionStatisticsNonLin
+        Statistics about the solution. This can be used for convergence tests or timing.
+    """
+    strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]] = (
+        find_strong_bc_edge_indices(system, refinement_levels, boundaray_conditions, mesh)
+    )
+
+    unknown_form_orders = tuple(form.order for form in system.unknown_forms)
+
+    if division_function is None:
+        division_function = divide_old
+
+    # Make elements into a rectree
+    element_tree = ElementTree(
+        list(mesh.get_element(ie) for ie in range(mesh.n_elements)),
+        div_predicate,
+        division_function,
+        refinement_levels,
+        system.unknown_forms,
+    )
+
+    leaf_elements: list[ElementLeaf2D] = list(element_tree.iter_leaves())
+
+    # Make element matrices and vectors
+    cache: dict[int, BasisCache] = dict()
+    for order in element_tree.unique_orders:
+        cache[order] = BasisCache(order, order + 2)
+
+    if recon_order is not None and recon_order not in cache:
+        cache[int(recon_order)] = BasisCache(int(recon_order), int(recon_order))
+
+    vector_fields = system.vector_fields
+
+    bytecodes = [
+        translate_equation(eq.left, vector_fields, simplify=True)
+        for eq in system.equations
+    ]
+
+    codes: list[list[None | list[MatOpCode | float | int]]] = list()
+    for bite in bytecodes:
+        row: list[list[MatOpCode | float | int] | None] = list()
+        expr_row: list[tuple[MatOp, ...] | None] = list()
+        for f in system.unknown_forms:
+            if f in bite:
+                row.append(_ctranslate(*bite[f]))
+                expr_row.append(tuple(bite[f]))
+            else:
+                row.append(None)
+                expr_row.append(None)
+
+        codes.append(row)
+
+    bl = np.array([e.bottom_left for e in leaf_elements])
+    br = np.array([e.bottom_right for e in leaf_elements])
+    tr = np.array([e.top_right for e in leaf_elements])
+    tl = np.array([e.top_left for e in leaf_elements])
+    orde = np.array([e.order for e in leaf_elements], np.uint32)
+    c_ser = tuple(cache[int(o)].c_serialization() for o in element_tree.unique_orders)
+
+    # Release cache element memory. If they will be needed in the future,
+    # they will be recomputed, but they consume LOTS of memory
+    for o in element_tree.unique_orders:
+        cache[o].clean()
+
+    leaf_indices = element_tree.leaf_indices()
+
+    element_vectors: dict[int, npt.NDArray[np.float64]] = {
+        int(ileaf): element_rhs(system, e, cache[e.order])
+        for ileaf, e in zip(leaf_indices, leaf_elements, strict=True)
+    }
+
+    element_matrices: dict[int, npt.NDArray[np.float64]]
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_offsets, vec_fields = compute_vector_fields_nonlin(
+        system, leaf_elements, element_tree, cache, vector_fields
+    )
+
+    element_matrices = {
+        int(ileaf): m
+        for ileaf, m in zip(
+            leaf_indices,
+            compute_element_matrices_2(
+                [f.order for f in system.unknown_forms],
+                codes,
+                bl,
+                br,
+                tr,
+                tl,
+                orde,
+                vec_fields,
+                vec_field_offsets,
+                c_ser,
+            ),
+            strict=True,
+        )
+    }
+
+    base_element_offsets, element_begin, main_mat, main_vec = (
+        assemble_global_element_matrix(
+            system, unknown_form_orders, element_tree, element_matrices, element_vectors
+        )
+    )
+
+    del element_matrices
+
+    apply_weak_boundary_conditions(
+        system,
+        mesh,
+        strong_indices,
+        element_tree,
+        unknown_form_orders,
+        cache,
+        element_begin,
+        main_vec,
+    )
+
+    # Apply lagrange multipliers for continuity
+    lag_res = lagrange_multiplier_system(
+        system,
+        mesh,
+        boundaray_conditions,
+        unknown_form_orders,
+        element_tree,
+        cache,
+        base_element_offsets,
+        element_begin,
+    )
+
+    if lag_res is not None:
+        n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
+        main_mat = sp.block_array([[main_mat, lagrange_mat.T], [lagrange_mat, None]])
+
+        main_vec = np.concatenate((main_vec, lag_rhs))
+    else:
+        n_lagrange_eq = 0
+
+    main_mat = sp.csc_array(main_mat)
+    solution = np.asarray(sla.spsolve(main_mat, main_vec), dtype=np.float64, copy=None)
+
+    iter_cnt = 1
+    changes: list[float] = list()
+    max_change = np.inf
+    max_mag = np.abs(solution).max()
+
+    while max_change > atol and max_change > max_mag * rtol and iter_cnt < max_iterations:
+        # Recompute vector fields
+        # Compute vector fields at integration points for leaf elements
+        vec_field_offsets, vec_fields = compute_vector_fields_nonlin(
+            system,
+            leaf_elements,
+            element_tree,
+            cache,
+            vector_fields,
+            solution,
+            element_begin,
+        )
+
+        element_matrices = {
+            int(ileaf): m
+            for ileaf, m in zip(
+                leaf_indices,
+                compute_element_matrices_2(
+                    [f.order for f in system.unknown_forms],
+                    codes,
+                    bl,
+                    br,
+                    tr,
+                    tl,
+                    orde,
+                    vec_fields,
+                    vec_field_offsets,
+                    c_ser,
+                ),
+                strict=True,
+            )
+        }
+
+        _, _, main_mat, main_vec = assemble_global_element_matrix(
+            system,
+            unknown_form_orders,
+            element_tree,
+            element_matrices,
+            element_vectors,
+        )
+
+        if lag_res is not None:
+            n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
+            main_mat = sp.block_array([[main_mat, lagrange_mat.T], [lagrange_mat, None]])
+
+        main_mat = sp.csc_array(main_mat)
+        new_solution = np.asarray(
+            sla.spsolve(main_mat, main_vec), dtype=np.float64, copy=None
+        )
+
+        max_change = np.abs(new_solution - solution).max()
+        changes.append(float(max_change))
+        max_mag = float(np.abs(new_solution).max())
+        solution = new_solution
+        iter_cnt += 1
+
+    del c_ser, bl, br, tr, tl, orde
+    del main_mat, main_vec
+
+    # Prepare to build up the 1D Splines
+    grid = reconstruct_mesh_from_solution(
+        system,
+        recon_order,
+        element_tree,
+        leaf_elements,
+        cache,
+        leaf_indices,
+        element_begin,
+        solution,
+    )
+
+    stats = SolutionStatisticsNonLin(
+        element_orders=dict(element_tree.order_counts),
+        n_total_dofs=element_tree.n_dof,
+        n_lagrange=n_lagrange_eq,
+        n_elems=len(element_tree.elements),
+        n_leaves=len(leaf_elements),
+        n_leaf_dofs=element_tree.n_dof_leaves,
+        iter_count=iter_cnt,
+        change_history_max=np.array(changes, np.float64),
+    )
+
+    return grid, stats
+
+
+def lagrange_multiplier_system(
+    system: kforms.KFormSystem,
+    mesh: Mesh2D,
+    boundaray_conditions: Sequence[kforms.BoundaryCondition2DStrong] | None,
+    unknown_form_orders: Sequence[int],
+    element_tree: ElementTree,
+    cache: dict[int, BasisCache],
+    base_element_offsets: npt.NDArray[np.uint32],
+    element_begin: npt.NDArray[np.uint32],
+) -> tuple[int, sp.csc_array, npt.NDArray[np.float64]] | None:
+    """Return the boundary conditions system."""
+    continuity_equations: list[ConstraintEquation] = list()
+
+    # Continuity of 1-forms on top level
+    if system.get_form_indices_by_order(1):
+        continuity_equations.extend(
+            top_level_continuity_1(
+                system, element_tree, mesh, unknown_form_orders, base_element_offsets
+            )
+        )
+
+    continuity_equations.extend(
+        top_level_continuity_0(
+            system, element_tree, mesh, unknown_form_orders, base_element_offsets
+        )
+    )
+
+    # Strong boundary conditions
+    if boundaray_conditions is not None:
+        continuity_equations.extend(
+            strong_boundary_condition_equations(
+                boundaray_conditions,
+                system,
+                element_tree,
+                mesh,
+                base_element_offsets,
+                cache,
+            )
+        )
+
+    n_lagrange_eq = len(continuity_equations)
+
+    if continuity_equations:
+        lagrange_mat, lag_rhs = constraint_equations_to_matrix(continuity_equations)
+        lagrange_mat.resize(n_lagrange_eq, element_begin[-1])
+        return n_lagrange_eq, lagrange_mat, lag_rhs
+    return None
+
+
+def compute_vector_fields_nonlin(
+    system: kforms.KFormSystem,
+    leaf_elements: Sequence[ElementLeaf2D],
+    element_tree: ElementTree,
+    cache: Mapping[int, BasisCache],
+    vector_fields: Sequence[VectorFieldFunction | kforms.KFormUnknown],
+    solution: npt.NDArray[np.float64] | None = None,
+    element_begin: npt.NDArray[np.uint32] | None = None,
+) -> tuple[npt.NDArray[np.uint64], tuple[npt.NDArray[np.float64], ...]]:
+    """Evaluate vector fields which may be non-linear."""
+    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+        list() for _ in vector_fields
+    )
+    vec_field_offsets = np.zeros(len(leaf_elements) + 1, np.uint64)
+
+    for idx, e in enumerate(leaf_elements):
+        e_cache = cache[e.order]
+
+        # Extract element DoFs
+        x = e.poly_x(e_cache.int_nodes_1d[None, :], e_cache.int_nodes_1d[:, None])
+        y = e.poly_y(e_cache.int_nodes_1d[None, :], e_cache.int_nodes_1d[:, None])
+        for i, vec_fld in enumerate(vector_fields):
+            if isinstance(vec_fld, kforms.KFormUnknown):
+                if solution is not None:
+                    assert element_begin is not None
+                    i_form = system.unknown_forms.index(vec_fld)
+                    element_dofs = solution[element_begin[idx] : element_begin[idx + 1]]
+                    form_offset = element_tree.dof_offsets[i_form][idx]
+                    form_offset_end = element_tree.dof_offsets[i_form + 1][idx]
+                    form_dofs = element_dofs[form_offset:form_offset_end]
+                    vf = e.reconstruct(
+                        1,
+                        form_dofs,
+                        e_cache.int_nodes_1d[None, :],
+                        e_cache.int_nodes_1d[:, None],
+                        e_cache,
+                    )
+                else:
+                    vf = np.zeros(
+                        (e_cache.integration_order + 1, e_cache.integration_order + 1, 2),
+                        np.float64,
+                    )
+            else:
+                vf = vec_fld(x, y)
+            vec_field_lists[i].append(np.reshape(vf, (-1, 2)))
+        vec_field_offsets[idx + 1] = (
+            vec_field_offsets[idx] + (e_cache.integration_order + 1) ** 2
+        )
+    vec_fields = tuple(
+        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+    )
+    del vec_field_lists
+    return vec_field_offsets, vec_fields
+
+
 def assemble_global_element_matrix(
     system: kforms.KFormSystem,
     unknown_form_orders: Sequence[int],
     element_tree: ElementTree,
-    element_matrices: dict[int, npt.NDArray[np.float64] | jax.Array],
-    element_vectors: dict[int, npt.NDArray[np.float64]],
+    element_matrices: Mapping[int, npt.NDArray[np.float64] | jax.Array],
+    element_vectors: Mapping[int, npt.NDArray[np.float64]],
 ) -> tuple[
     npt.NDArray[np.uint32], npt.NDArray[np.uint32], sp.coo_array, npt.NDArray[np.float64]
 ]:
@@ -1103,7 +1505,7 @@ def reconstruct_mesh_from_solution(
     recon_order: int | None,
     element_tree: ElementTree,
     leaf_elements: Sequence[ElementLeaf2D],
-    cache: dict[int, BasisCache],
+    cache: Mapping[int, BasisCache],
     leaf_indices: npt.NDArray[np.uint32],
     element_begin: npt.NDArray[np.uint32],
     solution: npt.NDArray[np.float64],
@@ -1305,8 +1707,8 @@ def element_matrix(
     cont_indices_edges: Sequence[int],
     cont_indices_nodes: Sequence[int],
     element_tree: ElementTree,
-    element_matrices: dict[int, npt.NDArray[np.float64] | jax.Array],
-    element_vecs: dict[int, npt.NDArray[np.float64]],
+    element_matrices: Mapping[int, npt.NDArray[np.float64] | jax.Array],
+    element_vecs: Mapping[int, npt.NDArray[np.float64]],
 ) -> tuple[
     npt.NDArray[np.uint32],
     sp.coo_array,
@@ -2156,7 +2558,7 @@ def element_inverse(
     cont_indices_edges: list[int],
     cont_indices_nodes: list[int],
     element_tree: ElementTree,
-    element_matrices: dict[int, npt.NDArray[np.float64] | jax.Array],
+    element_matrices: Mapping[int, npt.NDArray[np.float64] | jax.Array],
 ) -> tuple[
     npt.NDArray[np.uint32],
     LiLMatrix,

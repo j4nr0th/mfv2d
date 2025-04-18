@@ -10,6 +10,7 @@ from interplib.kforms.kform import (
     KHodge,
     KInnerProduct,
     KInteriorProduct,
+    KInteriorProductNonlinear,
     KSum,
     KWeight,
     Term,
@@ -247,7 +248,9 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
 
 
 def translate_equation(
-    form: Term, vec_fields: Sequence[VectorFieldFunction], simplify: bool = True
+    form: Term,
+    vec_fields: Sequence[VectorFieldFunction | KFormUnknown],
+    simplify: bool = True,
 ) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
@@ -272,7 +275,7 @@ def translate_equation(
 
 
 def _translate_equation(
-    form: Term, vec_fields: Sequence[VectorFieldFunction]
+    form: Term, vec_fields: Sequence[VectorFieldFunction | KFormUnknown]
 ) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
@@ -390,8 +393,25 @@ def _translate_equation(
                     InterProd(form.form.order, vec_fields.index(form.vector_field), True)
                 )
                 vr.append(MassMat(form.primal_order, True))
+        return res
+
+    if type(form) is KInteriorProductNonlinear:
+        res = _translate_equation(form.form, vec_fields)
+        for k in res:
+            vr = res[k]
+            if form.form.is_primal:
+                vr.append(
+                    InterProd(form.form.order, vec_fields.index(form.form_field), False)
+                )
+            else:
+                vr.append(MassMat(form.primal_order - 1, True))
+                vr.append(
+                    InterProd(form.form.order, vec_fields.index(form.form_field), True)
+                )
+                vr.append(MassMat(form.primal_order, True))
 
         return res
+
     raise TypeError("Unknown type")
 
 

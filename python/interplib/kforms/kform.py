@@ -1313,7 +1313,9 @@ class KFormSystem:
         out_dual = [str(d) for d in self.dual_forms]
         out_v = [str(iv) for iv in self.unknown_forms]
 
-        w_mat = max(max(len(s) for s in row) for row in out_mat)
+        width_mat = tuple(
+            max(len(row[i]) for row in out_mat) for i in range(len(self.equations))
+        )
         w_v = max(len(s) for s in out_v)
         w_d = max(len(s) for s in out_dual)
         w_r = max(len(s) for s in rhs)
@@ -1321,7 +1323,9 @@ class KFormSystem:
         s = ""
         for ie in range(len(self.equations)):
             row = out_mat[ie]
-            row_str = " | ".join(rs.rjust(w_mat) for rs in row)
+            row_str = " | ".join(
+                rs.rjust(w) for w, rs in zip(width_mat, row, strict=True)
+            )
             s += (
                 f"[{out_dual[ie].rjust(w_d)}]"
                 + ("    (" if ie != 0 else "^T  (")

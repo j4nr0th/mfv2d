@@ -251,7 +251,8 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
 def translate_equation(
     form: Term,
     vec_fields: Sequence[VectorFieldFunction | KFormUnknown],
-    simplify: bool = True,
+    newton: bool,
+    simplify: bool,
 ) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
@@ -259,6 +260,12 @@ def translate_equation(
     ---------
     form : Term
         Form to evaluate.
+    vec_fields : Sequence of VectorFieldFunction or KFormUnknown
+        Sequence to use when determining the index of vector fields passed to evaluation
+        function.
+    newton : bool
+        When ``True``, non-linear terms will yield terms two terms used to determine the
+        derivative. Otherwise, only the terms to evaluate the value are returned.
     simplify : bool, default: True
         Simplify the expressions at the top level
 
@@ -268,7 +275,7 @@ def translate_equation(
         Dictionary mapping forms to either a matrix that represents the operation to
         perform on them, or ``float``, if it should be multiplication with a constant.
     """
-    v = _translate_equation(form, vec_fields)
+    v = _translate_equation(form, vec_fields, newton)
     if simplify:
         for k in v:
             v[k] = simplify_expression(*v[k])
@@ -276,7 +283,7 @@ def translate_equation(
 
 
 def _translate_equation(
-    form: Term, vec_fields: Sequence[VectorFieldFunction | KFormUnknown]
+    form: Term, vec_fields: Sequence[VectorFieldFunction | KFormUnknown], newton: bool
 ) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
@@ -284,6 +291,12 @@ def _translate_equation(
     ---------
     form : Term
         Form to evaluate.
+    vec_fields : Sequence of VectorFieldFunction or KFormUnknown
+        Sequence to use when determining the index of vector fields passed to evaluation
+        function.
+    newton : bool
+        When ``True``, non-linear terms will yield terms two terms used to determine the
+        derivative. Otherwise, only the terms to evaluate the value are returned.
 
     Returns
     -------
@@ -297,7 +310,7 @@ def _translate_equation(
         accum: dict[Term, list[MatOp]] = {}
         counts: dict[Term, int] = {}
         for c, ip in form.pairs:
-            right = _translate_equation(ip, vec_fields)
+            right = _translate_equation(ip, vec_fields, newton)
             if c != 1.0:
                 for f in right:
                     right[f].append(Scale(c))
@@ -325,8 +338,8 @@ def _translate_equation(
         # if isinstance(form.function, KHodge):
         #     unknown = _translate_equation(form.function.base_form)
         # else:
-        unknown = _translate_equation(form.function, vec_fields)
-        weight = _translate_equation(form.weight, vec_fields)
+        unknown = _translate_equation(form.function, vec_fields, newton)
+        weight = _translate_equation(form.weight, vec_fields, newton)
         assert len(weight) == 1
         dv = tuple(v for v in weight.keys())[0]
         for k in unknown:
@@ -358,14 +371,14 @@ def _translate_equation(
         return unknown
 
     if type(form) is KFormDerivative:
-        res = _translate_equation(form.form, vec_fields)
+        res = _translate_equation(form.form, vec_fields, newton)
         for k in res:
             vr = res[k]
             vr.append(Incidence(form.form.order, not form.form.is_primal))
         return res
 
     if type(form) is KHodge:
-        unknown = _translate_equation(form.base_form, vec_fields)
+        unknown = _translate_equation(form.base_form, vec_fields, newton)
         prime_order = form.primal_order
         for k in unknown:
             mass = MassMat(prime_order, not form.base_form.is_primal)
@@ -381,7 +394,7 @@ def _translate_equation(
         return {form: [Identity()]}
 
     if (type(form) is KInteriorProduct) or (type(form) is KInteriorProductNonlinear):
-        res = _translate_equation(form.form, vec_fields)
+        res = _translate_equation(form.form, vec_fields, newton)
 
         if type(form) is KInteriorProduct:
             idx = vec_fields.index(form.vector_field)
@@ -403,7 +416,7 @@ def _translate_equation(
         for k in res:
             res[k].extend(prod_instruct)
 
-        if type(form) is KInteriorProductNonlinear:
+        if type(form) is KInteriorProductNonlinear and newton:
             other_form = form.form_field
             if other_form in res:
                 raise ValueError(

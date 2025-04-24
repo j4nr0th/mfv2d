@@ -60,7 +60,7 @@ def test_bytecode():
     b = KFormUnknown(2, "b", 1)
 
     operations = translate_equation(
-        u.derivative * a.derivative - 2 * (u.derivative * ~b), ()
+        u.derivative * a.derivative - 2 * (u.derivative * ~b), (), False, True
     )
     for form in operations:
         ops = operations[form]
@@ -71,7 +71,10 @@ def test_bytecode():
             assert b1 == b2
     v = b.weight
     operations = translate_equation(
-        -1 * (v.derivative * b.derivative) + 2.0 * ((~v).derivative * (~b).derivative), ()
+        -1 * (v.derivative * b.derivative) + 2.0 * ((~v).derivative * (~b).derivative),
+        (),
+        False,
+        True,
     )
     for form in operations:
         ops = operations[form]

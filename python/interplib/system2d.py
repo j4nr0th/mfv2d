@@ -23,7 +23,7 @@ from interplib._mimetic import (
     LiLMatrix,
     SparseVector,
     Surface,
-    compute_element_matrices_2,
+    compute_element_matrices,
 )
 from interplib.kforms.eval import MatOp, MatOpCode, _ctranslate, translate_equation
 from interplib.kforms.jax_eval import compute_element_matrices_3
@@ -850,7 +850,7 @@ def solve_system_2d(
     e: Element2D
 
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=False, simplify=True)
         for eq in system.equations
     ]
 
@@ -930,7 +930,7 @@ def solve_system_2d(
             int(ileaf): m
             for ileaf, m in zip(
                 leaf_indices,
-                compute_element_matrices_2(
+                compute_element_matrices(
                     [f.order for f in system.unknown_forms],
                     codes,
                     bl,
@@ -1161,7 +1161,7 @@ def solve_system_2d_nonlinear(
     vector_fields = system.vector_fields
 
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -1209,7 +1209,7 @@ def solve_system_2d_nonlinear(
         int(ileaf): m
         for ileaf, m in zip(
             leaf_indices,
-            compute_element_matrices_2(
+            compute_element_matrices(
                 [f.order for f in system.unknown_forms],
                 codes,
                 bl,
@@ -1289,7 +1289,7 @@ def solve_system_2d_nonlinear(
             int(ileaf): m
             for ileaf, m in zip(
                 leaf_indices,
-                compute_element_matrices_2(
+                compute_element_matrices(
                     [f.order for f in system.unknown_forms],
                     codes,
                     bl,

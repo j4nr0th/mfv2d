@@ -4,7 +4,7 @@ from typing import Callable
 
 import numpy as np
 import numpy.typing as npt
-from interplib._mimetic import compute_element_matrices_2
+from interplib._mimetic import compute_element_matrices
 from interplib.kforms import KFormSystem, KFormUnknown
 from interplib.kforms.eval import MatOp, MatOpCode, _ctranslate, translate_equation
 from interplib.mimetic import ElementLeaf2D
@@ -107,7 +107,7 @@ def test_advect_21_undeformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -148,7 +148,7 @@ def test_advect_21_undeformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -248,7 +248,7 @@ def test_advect_10_undeformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -289,7 +289,7 @@ def test_advect_10_undeformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -377,7 +377,7 @@ def test_advect_21_regular_deformed_1() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -418,7 +418,7 @@ def test_advect_21_regular_deformed_1() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -517,7 +517,7 @@ def test_advect_21_regular_deformed_2() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -558,7 +558,7 @@ def test_advect_21_regular_deformed_2() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -662,7 +662,7 @@ def test_advect_10_refgular_deformed_1() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -703,7 +703,7 @@ def test_advect_10_refgular_deformed_1() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -795,7 +795,7 @@ def test_advect_10_refgular_deformed_2() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -836,7 +836,7 @@ def test_advect_10_refgular_deformed_2() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -923,7 +923,7 @@ def test_advect_21_irregular_deformed_1() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -964,7 +964,7 @@ def test_advect_21_irregular_deformed_1() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -1067,7 +1067,7 @@ def test_advect_10_irrefgular_deformed_1() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -1108,7 +1108,7 @@ def test_advect_10_irrefgular_deformed_1() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -1198,7 +1198,7 @@ def test_div_21_irregular_deformed_1() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -1241,7 +1241,7 @@ def test_div_21_irregular_deformed_1() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -1323,7 +1323,7 @@ def test_dual_advect_21_undeformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -1364,7 +1364,7 @@ def test_dual_advect_21_undeformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -1467,7 +1467,7 @@ def test_dual_advect_21_rotated() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -1508,7 +1508,7 @@ def test_dual_advect_21_rotated() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -1611,7 +1611,7 @@ def test_dual_advect_21_irregular_deformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -1652,7 +1652,7 @@ def test_dual_advect_21_irregular_deformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -1756,7 +1756,7 @@ def test_dual_advect_10_undeformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -1797,7 +1797,7 @@ def test_dual_advect_10_undeformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -1887,7 +1887,7 @@ def test_dual_advect_10_rotated() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -1928,7 +1928,7 @@ def test_dual_advect_10_rotated() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -2018,7 +2018,7 @@ def test_dual_advect_10_irregular_deformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -2059,7 +2059,7 @@ def test_dual_advect_10_irregular_deformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -2152,7 +2152,7 @@ def test_advect_non_linear_10_irregular_deformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -2200,7 +2200,7 @@ def test_advect_non_linear_10_irregular_deformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -2278,7 +2278,7 @@ def test_advect_dual_non_linear_10_irregular_deformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -2326,7 +2326,7 @@ def test_advect_dual_non_linear_10_irregular_deformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -2397,7 +2397,7 @@ def test_advect_non_linear_21_irregular_deformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -2446,7 +2446,7 @@ def test_advect_non_linear_21_irregular_deformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),
@@ -2517,7 +2517,7 @@ def test_advect_dual_non_linear_21_irregular_deformed() -> None:
 
     vector_fields = system.vector_fields
     bytecodes = [
-        translate_equation(eq.left, vector_fields, simplify=True)
+        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
         for eq in system.equations
     ]
 
@@ -2566,7 +2566,7 @@ def test_advect_dual_non_linear_21_irregular_deformed() -> None:
     )
     del vec_field_lists
 
-    mats = compute_element_matrices_2(
+    mats = compute_element_matrices(
         tuple(form.order for form in system.unknown_forms),
         codes,
         np.array([e.bottom_left], np.float64),

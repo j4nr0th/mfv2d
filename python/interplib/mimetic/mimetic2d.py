@@ -730,11 +730,27 @@ class Element2D:
         """Get non-offset indices of node DoFs on the boundary of an element."""
         raise NotImplementedError
 
-    def total_dof_count(self, form_orders: Sequence[int]) -> int:
+    def total_dof_count(
+        self, form_orders: Sequence[int], lagrange: bool, children: bool
+    ) -> int:
         """Return the number of all DoFs needed by the element.
 
         Lagrange multipliers involved in the continuity between child and parent elements
-        are included in this.
+        can included in this.
+
+        Parameters
+        ----------
+        form_orders : Sequence of int
+            Orders of differential forms defined in the element.
+        lagrange : bool
+            Include Lagrange multiplier related degrees of freedom.
+        children : bool
+            Include all child degrees of freedom.
+
+        Returns
+        -------
+        int
+            Number of specified degrees of freedom.
         """
         raise NotImplementedError
 
@@ -802,45 +818,73 @@ class ElementNode2D(Element2D):
 
         return tuple(sizes)
 
-    def total_dof_count(self, form_orders: Sequence[int]) -> int:
+    def total_dof_count(
+        self, form_orders: Sequence[int], lagrange: bool, children: bool
+    ) -> int:
         """Return the number of all DoFs needed by the element.
 
         Lagrange multipliers involved in the continuity between child and parent elements
-        are included in this.
+        can included in this.
+
+        Parameters
+        ----------
+        form_orders : Sequence of int
+            Orders of differential forms defined in the element.
+        lagrange : bool
+            Include Lagrange multiplier related degrees of freedom.
+        children : bool
+            Include all child degrees of freedom.
+
+        Returns
+        -------
+        int
+            Number of specified degrees of freedom.
         """
         n_lagrange = 0
-        for order in form_orders:
-            if order == 2:
-                continue
+        if lagrange:
+            for order in form_orders:
+                if order == 2:
+                    continue
 
-            # There's always the same number of parent-child as the order of the child on
-            # that boundary
-            n_btm = self.child_bl.order_on_side(0) + self.child_br.order_on_side(0)
-            n_rth = self.child_br.order_on_side(1) + self.child_tr.order_on_side(1)
-            n_top = self.child_tr.order_on_side(2) + self.child_tl.order_on_side(2)
-            n_lft = self.child_tl.order_on_side(3) + self.child_bl.order_on_side(3)
+                # There's always the same number of parent-child as the order of the child
+                # on that boundary
+                n_btm = self.child_bl.order_on_side(0) + self.child_br.order_on_side(0)
+                n_rth = self.child_br.order_on_side(1) + self.child_tr.order_on_side(1)
+                n_top = self.child_tr.order_on_side(2) + self.child_tl.order_on_side(2)
+                n_lft = self.child_tl.order_on_side(3) + self.child_bl.order_on_side(3)
 
-            n_lagrange += n_btm + n_rth + n_top + n_lft
+                n_lagrange += n_btm + n_rth + n_top + n_lft
 
-            n_bl_br = max(self.child_bl.order_on_side(1), self.child_br.order_on_side(3))
-            n_br_tr = max(self.child_br.order_on_side(2), self.child_tr.order_on_side(0))
-            n_tr_tl = max(self.child_tr.order_on_side(3), self.child_tl.order_on_side(1))
-            n_tl_bl = max(self.child_tl.order_on_side(0), self.child_bl.order_on_side(2))
+                n_bl_br = max(
+                    self.child_bl.order_on_side(1), self.child_br.order_on_side(3)
+                )
+                n_br_tr = max(
+                    self.child_br.order_on_side(2), self.child_tr.order_on_side(0)
+                )
+                n_tr_tl = max(
+                    self.child_tr.order_on_side(3), self.child_tl.order_on_side(1)
+                )
+                n_tl_bl = max(
+                    self.child_tl.order_on_side(0), self.child_bl.order_on_side(2)
+                )
 
-            n_lagrange += n_bl_br + n_br_tr + n_tr_tl + n_tl_bl
+                n_lagrange += n_bl_br + n_br_tr + n_tr_tl + n_tl_bl
 
-            if order == 0:
-                # Add the center node connectivity relations (but not cyclical)
-                n_lagrange += 3
+                if order == 0:
+                    # Add the center node connectivity relations (but not cyclical)
+                    n_lagrange += 3
 
-        return (
-            sum(self.dof_sizes(form_orders))
-            + self.child_bl.total_dof_count(form_orders)
-            + self.child_br.total_dof_count(form_orders)
-            + self.child_tl.total_dof_count(form_orders)
-            + self.child_tr.total_dof_count(form_orders)
-            + n_lagrange
-        )
+        count = sum(self.dof_sizes(form_orders)) + n_lagrange
+
+        if children:
+            count += (
+                self.child_bl.total_dof_count(form_orders, lagrange, children)
+                + self.child_br.total_dof_count(form_orders, lagrange, children)
+                + self.child_tl.total_dof_count(form_orders, lagrange, children)
+                + self.child_tr.total_dof_count(form_orders, lagrange, children)
+            )
+
+        return count
 
     def element_edge_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
         """Get non-offset indices of edge DoFs on the boundary of an element."""
@@ -1016,12 +1060,29 @@ class ElementLeaf2D(Element2D):
 
         return tuple(sizes)
 
-    def total_dof_count(self, form_orders: Sequence[int]) -> int:
+    def total_dof_count(
+        self, form_orders: Sequence[int], lagrange: bool, children: bool
+    ) -> int:
         """Return the number of all DoFs needed by the element.
 
         Lagrange multipliers involved in the continuity between child and parent elements
-        are included in this.
+        can included in this.
+
+        Parameters
+        ----------
+        form_orders : Sequence of int
+            Orders of differential forms defined in the element.
+        lagrange : bool
+            Include Lagrange multiplier related degrees of freedom.
+        children : bool
+            Include all child degrees of freedom.
+
+        Returns
+        -------
+        int
+            Number of specified degrees of freedom.
         """
+        del lagrange, children
         return sum(self.dof_sizes(form_orders))
 
     def poly_x(self, xi: npt.ArrayLike, eta: npt.ArrayLike) -> npt.NDArray[np.float64]:

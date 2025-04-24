@@ -961,10 +961,11 @@ def solve_system_2d(
         base_timer.stop("Computing the RHS took {} seconds.")
         base_timer.set()
 
-    base_element_offsets, element_begin, main_mat, main_vec = (
-        assemble_global_element_matrix(
-            system, unknown_form_orders, element_tree, element_matrices, element_vectors
-        )
+    main_mat, main_vec = assemble_global_element_matrix(
+        system, unknown_form_orders, element_tree, element_matrices, element_vectors
+    )
+    base_element_offsets, element_begin = compute_element_offsets(
+        unknown_form_orders, element_tree
     )
 
     if timed:
@@ -1225,10 +1226,11 @@ def solve_system_2d_nonlinear(
         )
     }
 
-    base_element_offsets, element_begin, main_mat, main_vec = (
-        assemble_global_element_matrix(
-            system, unknown_form_orders, element_tree, element_matrices, element_vectors
-        )
+    base_element_offsets, element_begin = compute_element_offsets(
+        unknown_form_orders, element_tree
+    )
+    main_mat, main_vec = assemble_global_element_matrix(
+        system, unknown_form_orders, element_tree, element_matrices, element_vectors
     )
 
     del element_matrices
@@ -1305,7 +1307,7 @@ def solve_system_2d_nonlinear(
             )
         }
 
-        _, _, main_mat, main_vec = assemble_global_element_matrix(
+        main_mat, main_vec = assemble_global_element_matrix(
             system,
             unknown_form_orders,
             element_tree,
@@ -1463,25 +1465,77 @@ def compute_vector_fields_nonlin(
     return vec_field_offsets, vec_fields
 
 
+def local_element_offsets(
+    unknown_form_orders: Sequence[int], element: Element2D
+) -> tuple[int, npt.NDArray[np.uint32]]:
+    """Compute local element offsets."""
+    if type(element) is ElementLeaf2D:
+        return element.total_dof_count(unknown_form_orders, True, True), np.zeros(
+            1, np.uint32
+        )
+
+    if type(element) is ElementNode2D:
+        base_size = element.total_dof_count(
+            unknown_form_orders, lagrange=False, children=False
+        )
+        size = base_size
+        all_offsets: list[npt.NDArray[np.uint32]] = [np.zeros(1, np.uint32)]
+        for child in (
+            element.child_bl,
+            element.child_br,
+            element.child_tl,
+            element.child_tr,
+        ):
+            cs, co = local_element_offsets(unknown_form_orders, child)
+            all_offsets.append(co + size)
+            size += cs
+
+        size += (
+            element.total_dof_count(unknown_form_orders, lagrange=True, children=False)
+            - base_size
+        )
+        return size, np.concatenate(all_offsets)
+
+    raise TypeError(f"Unknown element type {type(element)}.")
+
+
+def compute_element_offsets(
+    unknown_form_orders: Sequence[int], element_tree: ElementTree
+) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.uint32]]:
+    """Compute offsets of base elements and all elements in the global DoF vectors."""
+    base_element_offsets = np.zeros(element_tree.n_base_elements + 1, np.uint32)
+    element_begin = np.zeros(element_tree.n_elements + 1, np.uint32)
+    element_size = 0
+    for i, i_top in enumerate(element_tree.top_indices):
+        element_size, element_offsets = local_element_offsets(
+            unknown_form_orders, element_tree.elements[i_top]
+        )
+        base_element_offsets[i + 1] = base_element_offsets[i] + element_tree.elements[
+            i_top
+        ].total_dof_count(unknown_form_orders, lagrange=True, children=True)
+        nc = element_offsets.size
+        element_begin[element_tree.top_indices[i] : element_tree.top_indices[i] + nc] = (
+            element_offsets + base_element_offsets[i]
+        )
+        assert base_element_offsets[i + 1] - base_element_offsets[i] == element_size
+    element_begin[-1] = base_element_offsets[-1]
+
+    return base_element_offsets, element_begin
+
+
 def assemble_global_element_matrix(
     system: kforms.KFormSystem,
     unknown_form_orders: Sequence[int],
     element_tree: ElementTree,
     element_matrices: Mapping[int, npt.NDArray[np.float64] | jax.Array],
     element_vectors: Mapping[int, npt.NDArray[np.float64]],
-) -> tuple[
-    npt.NDArray[np.uint32], npt.NDArray[np.uint32], sp.coo_array, npt.NDArray[np.float64]
-]:
+) -> tuple[sp.coo_array, npt.NDArray[np.float64]]:
     """Assemble the element matrices together into the global element matrix."""
-    base_element_offsets = np.zeros(element_tree.n_base_elements + 1, np.uint32)
     matrices: list[sp.coo_array] = list()
     vec: list[npt.NDArray[np.float64]] = list()
-    element_begin = np.zeros(
-        element_tree.n_elements + 1, np.uint32
-    )  # Element beginning offsets
     for i, itop in enumerate(element_tree.top_indices):
         elm_top = element_tree.elements[itop]
-        bvals, em, ev = element_matrix(
+        em, ev = element_matrix(
             elm_top,
             unknown_form_orders,
             system.get_form_indices_by_order(1),
@@ -1492,14 +1546,11 @@ def assemble_global_element_matrix(
         )
         matrices.append(em)
         vec.append(ev)
-        n_bvals = len(bvals)
-        element_begin[itop + 1 : itop + n_bvals + 1] = element_begin[itop] + bvals
-        base_element_offsets[i + 1] = base_element_offsets[i] + ev.size
 
     main_mat = sp.block_diag(matrices)
     main_vec = np.concatenate(vec)
     assert isinstance(main_mat, sp.coo_array)
-    return base_element_offsets, element_begin, main_mat, main_vec
+    return main_mat, main_vec
 
 
 def reconstruct_mesh_from_solution(
@@ -1663,7 +1714,7 @@ def element_boundary_projection(
             v_00 = np.array((), np.float64)
             d_00 = np.array((), np.uint64)
 
-        offset += e.child_bl.total_dof_count(form_orders)
+        offset += e.child_bl.total_dof_count(form_orders, lagrange=True, children=True)
 
         if i_side == 0 or i_side == 1:
             v_01, d_01 = element_boundary_projection(
@@ -1674,7 +1725,7 @@ def element_boundary_projection(
             v_01 = np.array((), np.float64)
             d_01 = np.array((), np.uint64)
 
-        offset += e.child_br.total_dof_count(form_orders)
+        offset += e.child_br.total_dof_count(form_orders, lagrange=True, children=True)
 
         if i_side == 3 or i_side == 2:
             v_10, d_10 = element_boundary_projection(
@@ -1685,7 +1736,7 @@ def element_boundary_projection(
             v_10 = np.array((), np.float64)
             d_10 = np.array((), np.uint64)
 
-        offset += e.child_tl.total_dof_count(form_orders)
+        offset += e.child_tl.total_dof_count(form_orders, lagrange=True, children=True)
 
         if i_side == 1 or i_side == 2:
             v_11, d_11 = element_boundary_projection(
@@ -1711,15 +1762,10 @@ def element_matrix(
     element_tree: ElementTree,
     element_matrices: Mapping[int, npt.NDArray[np.float64] | jax.Array],
     element_vecs: Mapping[int, npt.NDArray[np.float64]],
-) -> tuple[
-    npt.NDArray[np.uint32],
-    sp.coo_array,
-    npt.NDArray[np.float64],
-]:
+) -> tuple[sp.coo_array, npt.NDArray[np.float64]]:
     """Add element matrix of the element with the specified index."""
     # Add offset for the next element
     size = sum(e.dof_sizes(unknown_form_orders))
-    curr_size = np.array([size], np.uint32)
 
     # Check if leaf element
     if isinstance(e, ElementLeaf2D):
@@ -1730,7 +1776,7 @@ def element_matrix(
         v = element_vecs[i]
         assert m.shape[0] == m.shape[1] and m.shape[0] == size
         assert m.shape[0] == v.size
-        return (curr_size, sp.coo_array(m), v)
+        return (sp.coo_array(m), v)
 
     assert isinstance(e, ElementNode2D)
 
@@ -1754,7 +1800,7 @@ def element_matrix(
         npt.NDArray[np.float64],
     ]
 
-    sizes, mats, vecs = zip(
+    mats, vecs = zip(
         *(
             element_matrix(
                 ce,
@@ -1803,12 +1849,7 @@ def element_matrix(
 
     vec.append(np.array(rhs, np.float64))
 
-    size_list = [curr_size]
-    for s in sizes:
-        size_list.append(s + size_list[-1][-1])
-    size_list[-1][-1] += len(cont)
-
-    return np.concatenate(size_list), resulting, np.concatenate(vec)
+    return resulting, np.concatenate(vec)
 
 
 def parent_child_equations(

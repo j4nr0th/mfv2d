@@ -80,6 +80,7 @@ class InterProd(MatOp):
     starting_order: int
     field_index: int
     dual: bool
+    adjoint: bool
 
 
 def simplify_expression(*operations: MatOp) -> list[MatOp]:
@@ -379,36 +380,48 @@ def _translate_equation(
     if type(form) is KWeight:
         return {form: [Identity()]}
 
-    if type(form) is KInteriorProduct:
+    if (type(form) is KInteriorProduct) or (type(form) is KInteriorProductNonlinear):
         res = _translate_equation(form.form, vec_fields)
-        for k in res:
-            vr = res[k]
-            if form.form.is_primal:
-                vr.append(
-                    InterProd(form.form.order, vec_fields.index(form.vector_field), False)
-                )
-            else:
-                vr.append(MassMat(form.primal_order - 1, True))
-                vr.append(
-                    InterProd(form.form.order, vec_fields.index(form.vector_field), True)
-                )
-                vr.append(MassMat(form.primal_order, True))
-        return res
 
-    if type(form) is KInteriorProductNonlinear:
-        res = _translate_equation(form.form, vec_fields)
+        if type(form) is KInteriorProduct:
+            idx = vec_fields.index(form.vector_field)
+
+        if type(form) is KInteriorProductNonlinear:
+            idx = vec_fields.index(form.form_field)
+
+        prod_instruct: list[MatOp] = [
+            InterProd(form.form.order, idx, not form.form.is_primal, False)
+        ]
+
+        if not form.form.is_primal:
+            prod_instruct = (
+                [MassMat(form.primal_order - 1, True)]
+                + prod_instruct
+                + [MassMat(form.primal_order, True)]
+            )
+
         for k in res:
-            vr = res[k]
-            if form.form.is_primal:
-                vr.append(
-                    InterProd(form.form.order, vec_fields.index(form.form_field), False)
+            res[k].extend(prod_instruct)
+
+        if type(form) is KInteriorProductNonlinear:
+            other_form = form.form_field
+            if other_form in res:
+                raise ValueError(
+                    "Can not translate equation which would require sum with adjoint "
+                    "non-linear product."
                 )
+            if type(form.form) is KHodge:
+                base = form.form.base_form
             else:
-                vr.append(MassMat(form.primal_order - 1, True))
-                vr.append(
-                    InterProd(form.form.order, vec_fields.index(form.form_field), True)
-                )
-                vr.append(MassMat(form.primal_order, True))
+                base = form.form
+
+            qidx = vec_fields.index(base)
+            extra_op: list[MatOp] = [
+                InterProd(form.form.order, qidx, not form.form.is_primal, True)
+            ]
+            if not form.form.is_primal:
+                extra_op += [MassMat(form.primal_order, True)]
+            res[other_form] = extra_op
 
         return res
 
@@ -560,6 +573,7 @@ def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
             out.append(op.starting_order)
             out.append(op.field_index)
             out.append(op.dual)
+            out.append(op.adjoint)
         else:
             raise TypeError("Unknown instruction")
 

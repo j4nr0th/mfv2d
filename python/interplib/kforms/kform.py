@@ -127,7 +127,7 @@ class KFormUnknown(KForm):
 
     dual: bool = False
 
-    def __xor__(self, other: KForm):
+    def __xor__(self, other: KFormUnknown | KHodge):
         """Return a non-linear interior product term."""
         return KInteriorProductNonlinear(
             self.manifold,
@@ -414,12 +414,27 @@ class KInteriorProduct(KForm):
 class KInteriorProductNonlinear(KForm):
     """Represents an interior product of a K-form with a lowered 1-form."""
 
-    form: KForm
+    form: KFormUnknown | KHodge
     form_field: KFormUnknown
 
     def __post_init__(self) -> None:
         """Enforce the conditions for allowing interior product."""
         # The form can not be a zero-form
+        if not (
+            type(self.form) is KFormUnknown
+            or (type(self.form) is KHodge and type(self.form.base_form) is KFormUnknown)
+        ):
+            raise TypeError(
+                "Form with which the interior product is taken can be only an unknown or"
+                f" its Hodge (instead it was {type(self.form)})."
+            )
+
+        if type(self.form_field) is not KFormUnknown:
+            raise TypeError(
+                "Form field must be an unknown 1-form (instead it was"
+                f" {type(self.form_field)})."
+            )
+
         if self.form.order == 0:
             raise ValueError("Interior product can not be applied to a 0-form.")
         if self.form_field.order != 1:
@@ -823,7 +838,7 @@ def _extract_forms(
     list of KForm
         List of weak form terms.
     set of VectorFieldFunction
-        Set of interior product functions.
+        Set of interior product functions and forms.
     """
     if type(form) is KFormDerivative:
         return _extract_forms(form.form)
@@ -865,11 +880,16 @@ def _extract_forms(
     if type(form) is KInteriorProductNonlinear:
         f1 = _extract_forms(form.form)
         f2 = _extract_forms(form.form_field)
+        if type(form.form) is KHodge:
+            f_other = form.form.base_form
+        else:
+            f_other = form.form
+        assert type(f_other) is KFormUnknown
         return (
             f1[0] | f2[0],
             f1[1] | f2[1],
             f1[2] + f2[2],
-            f1[3] | f2[3] | {form.form_field},
+            f1[3] | f2[3] | {form.form_field, f_other},
         )
 
     raise TypeError(f"Invalid type {type(form)}")
@@ -975,9 +995,11 @@ def _parse_form(form: Term) -> dict[Term, str | None]:
                     mtx_name = f"M({form.weight.primal_order})^{{-1}}"
 
             primal[k] = (
-                (f"({vd})^T @ " if vd is not None else "")
+                (f"({vd})^T" if vd is not None else "")
+                + (" @ " if vd is not None and mtx_name else "")
                 + mtx_name
-                + (f" @ {vp}" if vp is not None else "")
+                + (" @ " if vp is not None and mtx_name else "")
+                + (f"{vp}" if vp is not None else "")
             )
         primal[dv] = None
         return primal
@@ -1004,6 +1026,17 @@ def _parse_form(form: Term) -> dict[Term, str | None]:
         mtx_name = f"M({form.order}, {form.form.order}; {form.form_field.label})"
         for k in res:
             res[k] = mtx_name + (f" @ {res[k]}" if res[k] is not None else "")
+
+        assert form.form_field not in res
+        if type(form.form) is KHodge:
+            res[form.form_field] = (
+                f"N({form.order}, {form.form.order}; {form.form.base_form.label})"
+            )
+        else:
+            res[form.form_field] = (
+                f"N({form.order}, {form.form.order}; {form.form.label})"
+            )
+
         return res
 
     if type(form) is KHodge:
@@ -1084,19 +1117,19 @@ class KFormSystem:
             weak |= set(w)
             unknowns |= p
             if len(d) != 1:
-                raise ValueError(f"Equation {ie} has more that one dual weight.")
-            dual = d.pop()
-            if dual != equation.right.weight:
+                raise ValueError(f"Equation {ie} has more that one weight.")
+            weight = d.pop()
+            if weight != equation.right.weight:
                 raise ValueError(
-                    f"The dual forms of the left and right sides of the equation {ie} "
-                    f"don't match ({dual} vs {equation.right.weight})."
+                    f"The weight forms of the left and right sides of the equation {ie} "
+                    f"don't match ({weight} vs {equation.right.weight})."
                 )
-            if dual in weights:
+            if weight in weights:
                 raise ValueError(
-                    f"Dual form is not unique to the equation {ie}, as it already appears"
-                    f" in equation {weights.index(dual)}."
+                    f"Weight form is not unique to the equation {ie}, as it already"
+                    f" appears in equation {weights.index(weight)}."
                 )
-            weights.append(dual)
+            weights.append(weight)
             equation_list.append(equation)
         self.weak_forms = weak
         if sorting is not None:

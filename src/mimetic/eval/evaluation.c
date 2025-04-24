@@ -587,13 +587,310 @@ static eval_result_t operation_sum(const void *operations[static MATOP_COUNT], e
                         vector_fields, n_stack, stack_pos, stack, allocator, current);
 }
 
+typedef enum
+{
+    MIXED_MATRIX_01 = 1,
+    MIXED_MATRIX_11 = 2,
+    MIXED_MATRIX_12 = 3,
+} mixed_matrix_t;
+
+static eval_result_t compute_mixed_matrix(matrix_t *p_out, const allocator_callbacks *allocator,
+                                          const precompute_t *precomp, const double *field, int b_reorder,
+                                          mixed_matrix_t type, double coeff)
+{
+    const unsigned n_int = precomp->basis->n_int, n_basis = precomp->basis->order;
+    const jacobian_t *const jac = precomp->jacobian;
+    unsigned rows, cols;
+    const double *ptr = NULL;
+    switch (type)
+    {
+    case MIXED_MATRIX_01:
+        rows = (n_basis + 1) * (n_basis + 1);
+        cols = 2 * (n_basis + 1) * n_basis;
+        ptr = precomp->basis->mix_10;
+        break;
+    case MIXED_MATRIX_11:
+        rows = 2 * (n_basis + 1) * n_basis;
+        cols = 2 * (n_basis + 1) * n_basis;
+        break;
+    case MIXED_MATRIX_12:
+        rows = 2 * (n_basis + 1) * n_basis;
+        cols = n_basis * n_basis;
+        ptr = precomp->basis->mix_21;
+        break;
+    }
+
+    unsigned o_r, o_c;
+    if (b_reorder)
+    {
+        o_r = cols;
+        o_c = rows;
+    }
+    else
+    {
+        o_r = rows;
+        o_c = cols;
+    }
+
+    const matrix_full_t mat = {.base = {.type = MATRIX_TYPE_FULL, .rows = o_r, .cols = o_c},
+                               .data = allocate(allocator, sizeof *mat.data * rows * cols)};
+    if (!mat.data)
+        return EVAL_FAILED_ALLOC;
+
+    switch (type)
+    {
+    case MIXED_MATRIX_01:
+        // Mix 10
+        //  Left half, which is involved with eta basis
+        for (unsigned row = 0; row < (n_basis + 1) * (n_basis + 1); ++row)
+        {
+            for (unsigned col = 0; col < n_basis * (n_basis + 1); ++col)
+            {
+                const unsigned offset = (row * cols + col) * n_int * n_int;
+                double val = 0.0;
+                for (unsigned i = 0; i < n_int; ++i)
+                {
+                    for (unsigned j = 0; j < n_int; ++j)
+                    {
+                        const jacobian_t *const p_jac = jac + (i * n_int + j);
+                        const double vector_comp = field[i * (2 * n_int) + 2 * j + 0] * p_jac->j11 -
+                                                   field[i * (2 * n_int) + 2 * j + 1] * p_jac->j01;
+                        val += ptr[offset + i * n_int + j] * vector_comp;
+                    }
+                }
+                if (b_reorder)
+                {
+                    mat.data[col * rows + row] = val;
+                }
+                else
+                {
+
+                    mat.data[row * cols + col] = val;
+                }
+            }
+        }
+        //  Right half, which is involved with xi basis
+        for (unsigned row = 0; row < (n_basis + 1) * (n_basis + 1); ++row)
+        {
+            for (unsigned col = n_basis * (n_basis + 1); col < 2 * n_basis * (n_basis + 1); ++col)
+            {
+                const unsigned offset = (row * cols + col) * n_int * n_int;
+                double val = 0.0;
+                for (unsigned i = 0; i < n_int; ++i)
+                {
+                    for (unsigned j = 0; j < n_int; ++j)
+                    {
+                        const jacobian_t *const p_jac = jac + (i * n_int + j);
+                        const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 1] * p_jac->j00 -
+                                                     field[i * (2 * n_int) + 2 * j + 0] * p_jac->j10);
+                        val += ptr[offset + i * n_int + j] * vector_comp;
+                    }
+                }
+                if (b_reorder)
+                {
+                    mat.data[col * rows + row] = val;
+                }
+                else
+                {
+
+                    mat.data[row * cols + col] = val;
+                }
+            }
+        }
+        break;
+    case MIXED_MATRIX_12:
+        // Mix 21
+        //  Top half, which is involved with eta basis
+        for (unsigned row = 0; row < rows / 2; ++row)
+        {
+            for (unsigned col = 0; col < cols; ++col)
+            {
+                const unsigned offset = (row * cols + col) * n_int * n_int;
+                double val = 0.0;
+                for (unsigned i = 0; i < n_int; ++i)
+                {
+                    for (unsigned j = 0; j < n_int; ++j)
+                    {
+                        const jacobian_t *const p_jac = jac + (i * n_int + j);
+                        const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 0] * p_jac->j01 +
+                                                     field[i * (2 * n_int) + 2 * j + 1] * p_jac->j11) /
+                                                   p_jac->det;
+
+                        val += ptr[offset + i * n_int + j] * vector_comp;
+                    }
+                }
+                if (b_reorder)
+                {
+                    mat.data[col * rows + row] = val;
+                }
+                else
+                {
+
+                    mat.data[row * cols + col] = val;
+                }
+            }
+        }
+        //  Bottom half, which is involved with xi basis
+        for (unsigned row = rows / 2; row < rows; ++row)
+        {
+            for (unsigned col = 0; col < cols; ++col)
+            {
+                const unsigned offset = (row * cols + col) * n_int * n_int;
+                double val = 0.0;
+                for (unsigned i = 0; i < n_int; ++i)
+                {
+                    for (unsigned j = 0; j < n_int; ++j)
+                    {
+                        const jacobian_t *const p_jac = jac + (i * n_int + j);
+                        const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 0] * p_jac->j00 +
+                                                     field[i * (2 * n_int) + 2 * j + 1] * p_jac->j10) /
+                                                   p_jac->det;
+                        val += ptr[offset + i * n_int + j] * vector_comp;
+                    }
+                }
+                if (b_reorder)
+                {
+                    mat.data[col * rows + row] = val;
+                }
+                else
+                {
+
+                    mat.data[row * cols + col] = val;
+                }
+            }
+        }
+        break;
+    case MIXED_MATRIX_11:
+        // Compute edge mass matrix (00) part
+        const unsigned n_edge = n_basis * (n_basis + 1);
+        if (!b_reorder)
+        {
+            for (unsigned row = 0; row < n_edge; ++row)
+            {
+                for (unsigned col = 0; col <= row; ++col)
+                {
+                    const unsigned offset = (row * n_edge + col) * n_int * n_int;
+                    double val = 0.0;
+                    for (unsigned i = 0; i < n_int; ++i)
+                    {
+                        for (unsigned j = 0; j < n_int; ++j)
+                        {
+                            const double jac_term =
+                                field[i * (2 * n_int) + 2 * j + 0] * (jac[i * n_int + j].j11 * jac[i * n_int + j].j11 +
+                                                                      jac[i * n_int + j].j01 * jac[i * n_int + j].j01);
+                            val += precomp->basis->mass_edge_00[offset + i * n_int + j] * jac_term /
+                                   jac[i * n_int + j].det;
+                        }
+                    }
+                    // Use symmetry
+                    {
+                        mat.data[row * cols + col] = val;
+                        mat.data[col * cols + row] = val;
+                    }
+                }
+            }
+
+            // Compute edge mass matrix (01) part
+            for (unsigned row = 0; row < n_edge; ++row)
+            {
+                for (unsigned col = 0; col < n_edge; ++col)
+                {
+                    const unsigned offset = (row * n_edge + col) * n_int * n_int;
+                    double val = 0.0;
+                    for (unsigned i = 0; i < n_int; ++i)
+                    {
+                        for (unsigned j = 0; j < n_int; ++j)
+                        {
+                            const double jac_term =
+                                field[i * (2 * n_int) + 2 * j + 0] * (jac[i * n_int + j].j10 * jac[i * n_int + j].j11 +
+                                                                      jac[i * n_int + j].j00 * jac[i * n_int + j].j01);
+                            val += precomp->basis->mass_edge_01[offset + i * n_int + j] * jac_term /
+                                   jac[i * n_int + j].det;
+                        }
+                    }
+                    // Use symmetry
+                    {
+                        mat.data[(n_edge + row) * cols + col] = val;
+                        mat.data[col * cols + (n_edge + row)] = val;
+                    }
+                }
+            }
+
+            // Compute edge mass matrix (11) part
+            for (unsigned row = 0; row < n_edge; ++row)
+            {
+                for (unsigned col = 0; col <= row; ++col)
+                {
+                    const unsigned offset = (row * n_edge + col) * n_int * n_int;
+                    double val = 0.0;
+                    for (unsigned i = 0; i < n_int; ++i)
+                    {
+                        for (unsigned j = 0; j < n_int; ++j)
+                        {
+                            const double jac_term =
+                                field[i * (2 * n_int) + 2 * j + 0] * (jac[i * n_int + j].j10 * jac[i * n_int + j].j10 +
+                                                                      jac[i * n_int + j].j00 * jac[i * n_int + j].j00);
+                            val += precomp->basis->mass_edge_11[offset + i * n_int + j] * jac_term /
+                                   jac[i * n_int + j].det;
+                        }
+                    }
+                    {
+                        mat.data[(n_edge + row) * cols + (n_edge + col)] = val;
+                        mat.data[(n_edge + col) * cols + (n_edge + row)] = val;
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (unsigned row = 0; row < n_edge; ++row)
+            {
+                for (unsigned col = 0; col < n_edge; ++col)
+                {
+                    // Zeroing the (00) block
+                    mat.data[row * cols + col] = 0;
+                    // Zeroing the (11) block
+                    mat.data[(row + n_edge) * cols + (col + n_edge)] = 0;
+                }
+            }
+            // Compute edge mass matrix (01) part
+            for (unsigned row = 0; row < n_edge; ++row)
+            {
+                for (unsigned col = 0; col < n_edge; ++col)
+                {
+                    const unsigned offset = (row * n_edge + col) * n_int * n_int;
+                    double val = 0.0;
+                    for (unsigned i = 0; i < n_int; ++i)
+                    {
+                        for (unsigned j = 0; j < n_int; ++j)
+                        {
+                            val += precomp->basis->mass_edge_01[offset + i * n_int + j] *
+                                   field[i * (2 * n_int) + 2 * j + 0];
+                        }
+                    }
+                    // Use anti-symmetry
+                    {
+                        mat.data[(n_edge + row) * cols + col] = -val;
+                        mat.data[col * cols + (n_edge + row)] = val;
+                    }
+                }
+            }
+        }
+        break;
+    }
+
+    *p_out = (matrix_t){.coefficient = coeff, .full = mat};
+
+    return EVAL_SUCCESS;
+}
+
 static eval_result_t operation_interprod(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                          unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                          precompute_t *precomp, const field_information_t *vector_fields,
                                          unsigned n_stack, unsigned stack_pos, matrix_t stack[restrict n_stack],
                                          const allocator_callbacks *allocator, matrix_t *current)
 {
-    if (remaining < 3)
+    if (remaining < 4)
     {
         EVAL_ERROR(error_stack, EVAL_OUT_OF_INSTRUCTIONS,
                    "InterProd instruction with less than 3 instructions remaining.");
@@ -605,6 +902,8 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
     const unsigned field_index = code->u32;
     code += 1;
     const unsigned dual = code->u32;
+    code += 1;
+    const unsigned adjoint = code->u32;
     code += 1;
     if (starting_index != 1 && starting_index != 2)
     {
@@ -622,258 +921,79 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
     const double *const restrict field = vector_fields->fields[field_index];
 
     matrix_t this = {.type = MATRIX_TYPE_FULL, .coefficient = 1.0};
+    int reorder;
+    mixed_matrix_t type;
+    double coeff;
+
+    if (!adjoint)
     {
-        const unsigned n_int = precomp->basis->n_int, n_basis = precomp->basis->order;
-        const jacobian_t *const jac = precomp->jacobian;
-
-        unsigned rows = 0, cols = 0;
-        const double *ptr = NULL;
-
-        // IDK what it's shitting itself over, I range check right before.
         if (!dual)
         {
-            switch (starting_index)
+            if (starting_index == 1)
             {
-            case 1:
-                rows = (n_basis + 1) * (n_basis + 1);
-                cols = n_basis * (n_basis + 1) * 2;
-                ptr = precomp->basis->mix_10;
-                break;
-            case 2:
-                rows = n_basis * (n_basis + 1) * 2;
-                cols = n_basis * n_basis;
-                ptr = precomp->basis->mix_21;
-                break;
+                type = MIXED_MATRIX_01;
+                reorder = 0;
+                coeff = 1.0;
+            }
+            else if (starting_index == 2)
+            {
+                type = MIXED_MATRIX_12;
+                reorder = 0;
+                coeff = 1.0;
             }
         }
         else
         {
-            switch (starting_index)
+            if (starting_index == 1)
             {
-            case 1:
-                rows = n_basis * n_basis;
-                cols = n_basis * (n_basis + 1) * 2;
-                ptr = precomp->basis->mix_21;
-                break;
-            case 2:
-                rows = n_basis * (n_basis + 1) * 2;
-                cols = (n_basis + 1) * (n_basis + 1);
-                ptr = precomp->basis->mix_10;
-                break;
+                type = MIXED_MATRIX_12;
+                reorder = 1;
+                coeff = -1.0;
+            }
+            else if (starting_index == 2)
+            {
+                type = MIXED_MATRIX_01;
+                reorder = 1;
+                coeff = 1.0;
             }
         }
-
-        const matrix_full_t mat = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
-                                   .data = allocate(allocator, sizeof *mat.data * rows * cols)};
-        if (!mat.data)
-        {
-            EVAL_ERROR(error_stack, EVAL_FAILED_ALLOC,
-                       "Could not allocate a new mixed (%u, %u) matrix with %zu elements.", starting_index - 1,
-                       starting_index, (size_t)rows * cols);
-            return EVAL_FAILED_ALLOC;
-        }
-
-        if (!dual)
-        {
-            switch (starting_index)
-            {
-            case 1:
-                // Mix 10
-                //  Left half, which is involved with eta basis
-                for (unsigned row = 0; row < (n_basis + 1) * (n_basis + 1); ++row)
-                {
-                    for (unsigned col = 0; col < n_basis * (n_basis + 1); ++col)
-                    {
-                        const unsigned offset = (row * cols + col) * n_int * n_int;
-                        double val = 0.0;
-                        for (unsigned i = 0; i < n_int; ++i)
-                        {
-                            for (unsigned j = 0; j < n_int; ++j)
-                            {
-                                const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                const double vector_comp = field[i * (2 * n_int) + 2 * j + 0] * p_jac->j11 -
-                                                           field[i * (2 * n_int) + 2 * j + 1] * p_jac->j01;
-                                val += ptr[offset + i * n_int + j] * vector_comp;
-                            }
-                        }
-                        mat.data[row * cols + col] = val;
-                    }
-                }
-                //  Right half, which is involved with xi basis
-                for (unsigned row = 0; row < (n_basis + 1) * (n_basis + 1); ++row)
-                {
-                    for (unsigned col = n_basis * (n_basis + 1); col < 2 * n_basis * (n_basis + 1); ++col)
-                    {
-                        const unsigned offset = (row * cols + col) * n_int * n_int;
-                        double val = 0.0;
-                        for (unsigned i = 0; i < n_int; ++i)
-                        {
-                            for (unsigned j = 0; j < n_int; ++j)
-                            {
-                                const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 1] * p_jac->j00 -
-                                                             field[i * (2 * n_int) + 2 * j + 0] * p_jac->j10);
-                                val += ptr[offset + i * n_int + j] * vector_comp;
-                            }
-                        }
-                        mat.data[row * cols + col] = val;
-                    }
-                }
-                break;
-            case 2:
-                // Mix 21
-                //  Top half, which is involved with eta basis
-                for (unsigned row = 0; row < rows / 2; ++row)
-                {
-                    for (unsigned col = 0; col < cols; ++col)
-                    {
-                        const unsigned offset = (row * cols + col) * n_int * n_int;
-                        double val = 0.0;
-                        for (unsigned i = 0; i < n_int; ++i)
-                        {
-                            for (unsigned j = 0; j < n_int; ++j)
-                            {
-                                const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                // const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j11 -
-                                //                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j01) /
-                                //                            p_jac->det;
-                                const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 0] * p_jac->j01 +
-                                                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j11) /
-                                                           p_jac->det;
-
-                                val += ptr[offset + i * n_int + j] * vector_comp;
-                            }
-                        }
-                        mat.data[row * cols + col] = val;
-                    }
-                }
-                //  Bottom half, which is involved with xi basis
-                for (unsigned row = rows / 2; row < rows; ++row)
-                {
-                    for (unsigned col = 0; col < cols; ++col)
-                    {
-                        const unsigned offset = (row * cols + col) * n_int * n_int;
-                        double val = 0.0;
-                        for (unsigned i = 0; i < n_int; ++i)
-                        {
-                            for (unsigned j = 0; j < n_int; ++j)
-                            {
-                                const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                // const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j10 -
-                                //                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j00) /
-                                //                           p_jac->det;
-                                const double vector_comp = -(field[i * (2 * n_int) + 2 * j + 0] * p_jac->j00 +
-                                                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j10) /
-                                                           p_jac->det;
-                                val += ptr[offset + i * n_int + j] * vector_comp;
-                            }
-                        }
-                        mat.data[row * cols + col] = val;
-                    }
-                }
-                break;
-            }
-        }
-        else
-        {
-            switch (starting_index)
-            {
-            case 2:
-                // Mix 10 transposed
-                //  Top half, which is involved with eta basis
-                for (unsigned row = 0; row < rows / 2; ++row)
-                {
-                    for (unsigned col = 0; col < cols; ++col)
-                    {
-                        const unsigned offset = (col * rows + row) * n_int * n_int;
-                        double val = 0.0;
-                        for (unsigned i = 0; i < n_int; ++i)
-                        {
-                            for (unsigned j = 0; j < n_int; ++j)
-                            {
-                                const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                const double vector_comp = field[i * (2 * n_int) + 2 * j + 0] * p_jac->j11 -
-                                                           field[i * (2 * n_int) + 2 * j + 1] * p_jac->j01;
-                                val += ptr[offset + i * n_int + j] * vector_comp;
-                            }
-                        }
-                        mat.data[row * cols + col] = val;
-                    }
-                }
-                //  Bottom half, which is involved with xi basis
-                for (unsigned row = rows / 2; row < rows; ++row)
-                {
-                    for (unsigned col = 0; col < cols; ++col)
-                    {
-                        const unsigned offset = (col * rows + row) * n_int * n_int;
-
-                        double val = 0.0;
-                        for (unsigned i = 0; i < n_int; ++i)
-                        {
-                            for (unsigned j = 0; j < n_int; ++j)
-                            {
-                                const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                const double vector_comp = -(-field[i * (2 * n_int) + 2 * j + 0] * p_jac->j10 +
-                                                             field[i * (2 * n_int) + 2 * j + 1] * p_jac->j00);
-                                val += ptr[offset + i * n_int + j] * vector_comp;
-                            }
-                        }
-                        mat.data[row * cols + col] = val;
-                    }
-                }
-                break;
-            case 1:
-                // Mix 21 Transpose
-                //  Left half, which is involved with eta basis
-                for (unsigned row = 0; row < rows; ++row)
-                {
-                    for (unsigned col = 0; col < cols / 2; ++col)
-                    {
-                        const unsigned offset = (col * rows + row) * n_int * n_int;
-                        double val = 0.0;
-                        for (unsigned i = 0; i < n_int; ++i)
-                        {
-                            for (unsigned j = 0; j < n_int; ++j)
-                            {
-                                const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j01 +
-                                                            field[i * (2 * n_int) + 2 * j + 1] * p_jac->j11) /
-                                                           p_jac->det;
-                                val += ptr[offset + i * n_int + j] * vector_comp;
-                            }
-                        }
-                        mat.data[row * cols + col] = val;
-                    }
-                }
-                //  Right half, which is involved with xi basis
-                for (unsigned row = 0; row < rows; ++row)
-                {
-                    for (unsigned col = cols / 2; col < cols; ++col)
-                    {
-                        const unsigned offset = (col * rows + row) * n_int * n_int;
-
-                        double val = 0.0;
-                        for (unsigned i = 0; i < n_int; ++i)
-                        {
-                            for (unsigned j = 0; j < n_int; ++j)
-                            {
-                                const jacobian_t *const p_jac = jac + (i * n_int + j);
-                                const double vector_comp = (field[i * (2 * n_int) + 2 * j + 0] * p_jac->j00 +
-                                                            field[i * (2 * n_int) + 2 * j + 1] * p_jac->j10) /
-                                                           p_jac->det;
-                                val += ptr[offset + i * n_int + j] * vector_comp;
-                            }
-                        }
-                        mat.data[row * cols + col] = val;
-                    }
-                }
-                break;
-            }
-        }
-
-        this.full = mat;
     }
-    eval_result_t res;
+    else
+    {
+        if (!dual)
+        {
+            if (starting_index == 1)
+            {
+                type = MIXED_MATRIX_01;
+                reorder = 0;
+                coeff = -1.0;
+            }
+            else if (starting_index == 2)
+            {
+                type = MIXED_MATRIX_11;
+                reorder = 0;
+                coeff = -1.0;
+            }
+        }
+        else
+        {
+            if (starting_index == 1)
+            {
+                type = MIXED_MATRIX_12;
+                reorder = 1;
+                coeff = -1.0;
+            }
+            else if (starting_index == 2)
+            {
+                type = MIXED_MATRIX_11;
+                reorder = 1;
+                coeff = 1.0;
+            }
+        }
+    }
+
+    eval_result_t res = compute_mixed_matrix(&this, allocator, precomp, field, reorder, type, coeff);
+    this.coefficient = coeff;
     switch (current->type)
     {
     case MATRIX_TYPE_INVALID:
@@ -910,8 +1030,9 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
         break;
     }
     matrix_cleanup(&this, allocator);
+    current->coefficient *= coeff;
 
-    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 3, code, precomp,
+    return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 4, code, precomp,
                         vector_fields, n_stack, stack_pos, stack, allocator, current);
 }
 

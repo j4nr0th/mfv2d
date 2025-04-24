@@ -142,6 +142,7 @@ def test_advect_21_undeformed() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -164,7 +165,7 @@ def test_advect_21_undeformed() -> None:
 
     emat = mats[0]
     emat = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
-    # print(emat)
+    print(emat.shape)
 
     # from matplotlib import pyplot as plt
 
@@ -284,6 +285,7 @@ def test_advect_10_undeformed() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -414,6 +416,7 @@ def test_advect_21_regular_deformed_1() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -555,6 +558,7 @@ def test_advect_21_regular_deformed_2() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -701,6 +705,7 @@ def test_advect_10_refgular_deformed_1() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -835,6 +840,7 @@ def test_advect_10_refgular_deformed_2() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -964,6 +970,7 @@ def test_advect_21_irregular_deformed_1() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -1109,6 +1116,7 @@ def test_advect_10_irrefgular_deformed_1() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -1243,6 +1251,7 @@ def test_div_21_irregular_deformed_1() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -1367,6 +1376,7 @@ def test_dual_advect_21_undeformed() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -1512,6 +1522,7 @@ def test_dual_advect_21_rotated() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -1657,6 +1668,7 @@ def test_dual_advect_21_irregular_deformed() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -1803,6 +1815,7 @@ def test_dual_advect_10_undeformed() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -1935,6 +1948,7 @@ def test_dual_advect_10_rotated() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -2067,6 +2081,7 @@ def test_dual_advect_10_irregular_deformed() -> None:
     x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
     for i, vec_fld in enumerate(vector_fields):
+        assert callable(vec_fld)
         vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
     vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
     vec_fields = tuple(
@@ -2124,3 +2139,513 @@ def test_dual_advect_10_irregular_deformed() -> None:
     # plt.show()
     # print(np.max(np.abs(lhs - rhs)))
     assert np.max(np.abs(lhs - rhs)) < 1e-14
+
+
+def test_advect_non_linear_10_irregular_deformed() -> None:
+    """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
+
+    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
+            (v0**2 * v1, -v0 * v1**3),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            (v0 * v1**3, -(v0**2) * v1),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
+
+    omega = KFormUnknown(man, "omega", 1)
+    v = omega.weight
+    g = KFormUnknown(man, "g", 0)
+    w = g.weight
+    u = KFormUnknown(man, "u", 1)
+    h = u.weight
+
+    system = KFormSystem(
+        (w * (u ^ omega)) == w @ 0,
+        (v * g.derivative) == v @ 0,
+        (h * g.derivative) == h @ 0,
+        sorting=lambda f: f.order + ord(f.label[0]),
+    )
+    # print(system)
+
+    vector_fields = system.vector_fields
+    bytecodes = [
+        translate_equation(eq.left, vector_fields, simplify=True)
+        for eq in system.equations
+    ]
+
+    codes: list[list[None | list[MatOpCode | float | int]]] = list()
+    for bite in bytecodes:
+        row: list[list[MatOpCode | float | int] | None] = list()
+        expr_row: list[tuple[MatOp, ...] | None] = list()
+        for f in system.unknown_forms:
+            if f in bite:
+                row.append(_ctranslate(*bite[f]))
+                expr_row.append(tuple(bite[f]))
+            else:
+                row.append(None)
+                expr_row.append(None)
+
+        codes.append(row)
+
+    N = 6
+    N2 = 10
+
+    cache = BasisCache(N, N2)
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+        list() for _ in vector_fields
+    )
+    vec_field_offsets = np.zeros(2, np.uint64)
+    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
+
+    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    func_dict = {omega: omega_exact, u: u_exact}
+    for i, vec_fld in enumerate(vector_fields):
+        assert type(vec_fld) is KFormUnknown
+        assert not callable(vec_fld)
+        fn = func_dict[vec_fld]
+        vf = fn(x, y)
+        if vec_fld.order != 1:
+            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
+        vf = np.reshape(vf, (-1, 2))
+        vec_field_lists[i].append(vf)
+    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
+    vec_fields = tuple(
+        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+    )
+    del vec_field_lists
+
+    mats = compute_element_matrices_2(
+        tuple(form.order for form in system.unknown_forms),
+        codes,
+        np.array([e.bottom_left], np.float64),
+        np.array([e.bottom_right], np.float64),
+        np.array([e.top_right], np.float64),
+        np.array([e.top_left], np.float64),
+        np.array((e.order,), np.uint32),
+        vec_fields,
+        vec_field_offsets,
+        (cache.c_serialization(),),
+    )
+
+    emat = mats[0]
+    fmat = emat[: (N + 1) * (N + 1), -2 * (N + 1) * N :]
+    emat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) : -2 * (N + 1) * N]
+    # print(emat)
+
+    # from matplotlib import pyplot as plt
+
+    # plt.figure()
+    # plt.imshow(emat)
+    # plt.colorbar()
+    # plt.show()
+
+    omega_proj = np.linalg.solve(
+        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+    )
+
+    u_proj = np.linalg.solve(
+        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ u_exact, e, cache)
+    )
+    v1 = emat @ omega_proj
+    v2 = fmat @ u_proj
+    assert np.max(np.abs(v1 - v2)) < 1e-15
+
+
+def test_advect_dual_non_linear_10_irregular_deformed() -> None:
+    """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
+
+    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
+            (v0**2 * v1, -v0 * v1**3),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            (v0 * v1**3, -(v0**2) * v1),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
+
+    omega = KFormUnknown(man, "omega", 1)
+    v = omega.weight
+    g = KFormUnknown(man, "g", 2)
+    w = g.weight
+    u = KFormUnknown(man, "u", 1)
+    h = u.weight
+
+    system = KFormSystem(
+        (w * (u ^ ~omega)) == w @ 0,
+        (v.derivative * g) == v @ 0,
+        (h.derivative * g) == h @ 0,
+        sorting=lambda f: f.order + ord(f.label[0]),
+    )
+    # print(system)
+
+    vector_fields = system.vector_fields
+    bytecodes = [
+        translate_equation(eq.left, vector_fields, simplify=True)
+        for eq in system.equations
+    ]
+
+    codes: list[list[None | list[MatOpCode | float | int]]] = list()
+    for bite in bytecodes:
+        row: list[list[MatOpCode | float | int] | None] = list()
+        expr_row: list[tuple[MatOp, ...] | None] = list()
+        for f in system.unknown_forms:
+            if f in bite:
+                row.append(_ctranslate(*bite[f]))
+                expr_row.append(tuple(bite[f]))
+            else:
+                row.append(None)
+                expr_row.append(None)
+
+        codes.append(row)
+
+    N = 6
+    N2 = 10
+
+    cache = BasisCache(N, N2)
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+        list() for _ in vector_fields
+    )
+    vec_field_offsets = np.zeros(2, np.uint64)
+    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
+
+    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    func_dict = {omega: omega_exact, u: u_exact}
+    for i, vec_fld in enumerate(vector_fields):
+        assert type(vec_fld) is KFormUnknown
+        assert not callable(vec_fld)
+        fn = func_dict[vec_fld]
+        vf = fn(x, y)
+        if vec_fld.order != 1:
+            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
+        vf = np.reshape(vf, (-1, 2))
+        vec_field_lists[i].append(vf)
+    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
+    vec_fields = tuple(
+        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+    )
+    del vec_field_lists
+
+    mats = compute_element_matrices_2(
+        tuple(form.order for form in system.unknown_forms),
+        codes,
+        np.array([e.bottom_left], np.float64),
+        np.array([e.bottom_right], np.float64),
+        np.array([e.top_right], np.float64),
+        np.array([e.top_left], np.float64),
+        np.array((e.order,), np.uint32),
+        vec_fields,
+        vec_field_offsets,
+        (cache.c_serialization(),),
+    )
+
+    emat = mats[0]
+    fmat = emat[: N * N, -2 * (N + 1) * N :]
+    emat = emat[: N * N, N * N : -2 * (N + 1) * N]
+    # print(emat)
+
+    # from matplotlib import pyplot as plt
+
+    # plt.figure()
+    # plt.imshow(emat)
+    # plt.colorbar()
+    # plt.show()
+
+    omega_proj = np.linalg.solve(
+        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+    )
+
+    u_proj = np.linalg.solve(
+        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ u_exact, e, cache)
+    )
+    v1 = emat @ omega_proj
+    v2 = fmat @ u_proj
+    assert np.max(np.abs(v1 - v2)) < 1e-13
+
+
+def test_advect_non_linear_21_irregular_deformed() -> None:
+    """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
+
+    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
+            (v0**2 * v1, -v0 * v1**3),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.astype(v0 * v1**3, np.float64, copy=False)
+
+    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
+
+    omega = KFormUnknown(man, "omega", 2)
+    v = omega.weight
+    u = KFormUnknown(man, "u", 1)
+    h = u.weight
+
+    system = KFormSystem(
+        (h * (u ^ omega)) == h @ 0,
+        (v * u.derivative) == v @ 0,
+        sorting=lambda f: f.order,
+    )
+    print(system)
+
+    vector_fields = system.vector_fields
+    bytecodes = [
+        translate_equation(eq.left, vector_fields, simplify=True)
+        for eq in system.equations
+    ]
+
+    codes: list[list[None | list[MatOpCode | float | int]]] = list()
+    for bite in bytecodes:
+        row: list[list[MatOpCode | float | int] | None] = list()
+        expr_row: list[tuple[MatOp, ...] | None] = list()
+        for f in system.unknown_forms:
+            if f in bite:
+                row.append(_ctranslate(*bite[f]))
+                expr_row.append(tuple(bite[f]))
+            else:
+                row.append(None)
+                expr_row.append(None)
+
+        codes.append(row)
+
+    N = 6
+    N2 = 10
+
+    cache = BasisCache(N, N2)
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+        list() for _ in vector_fields
+    )
+    vec_field_offsets = np.zeros(2, np.uint64)
+    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
+    # e = ElementLeaf2D(None, N, (-2, -2), (+2, -2), (+2, +2), (-2, +2))
+
+    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    func_dict = {omega: omega_exact, u: u_exact}
+    for i, vec_fld in enumerate(vector_fields):
+        assert type(vec_fld) is KFormUnknown
+        assert not callable(vec_fld)
+        fn = func_dict[vec_fld]
+        vf = fn(x, y)
+        if vec_fld.order != 1:
+            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
+        vf = np.reshape(vf, (-1, 2))
+        vec_field_lists[i].append(vf)
+    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
+    vec_fields = tuple(
+        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+    )
+    del vec_field_lists
+
+    mats = compute_element_matrices_2(
+        tuple(form.order for form in system.unknown_forms),
+        codes,
+        np.array([e.bottom_left], np.float64),
+        np.array([e.bottom_right], np.float64),
+        np.array([e.top_right], np.float64),
+        np.array([e.top_left], np.float64),
+        np.array((e.order,), np.uint32),
+        vec_fields,
+        vec_field_offsets,
+        (cache.c_serialization(),),
+    )
+
+    emat = mats[0]
+    fmat = emat[: N**2, : 2 * (N + 1) * N]
+    emat = emat[: N**2, 2 * (N + 1) * N :]
+    # print(emat)
+
+    # from matplotlib import pyplot as plt
+
+    # plt.figure()
+    # plt.imshow(emat)
+    # plt.colorbar()
+    # plt.show()
+
+    omega_proj = np.linalg.solve(
+        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+    )
+
+    u_proj = np.linalg.solve(
+        e.mass_matrix_edge(cache), rhs_2d_element_projection(h @ u_exact, e, cache)
+    )
+    v1 = emat @ omega_proj
+    v2 = fmat @ u_proj
+    assert np.max(np.abs(v1 - v2)) < 1e-13
+
+
+def test_advect_dual_non_linear_21_irregular_deformed() -> None:
+    """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
+
+    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
+            (1 + 0 * v0**2 * v1, -1 + 0 * -v0 * v1**3),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.astype(1 + 0 * v0 * v1**3, np.float64, copy=False)
+
+    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
+
+    omega = KFormUnknown(man, "omega", 0)
+    v = omega.weight
+    u = KFormUnknown(man, "u", 1)
+    h = u.weight
+
+    system = KFormSystem(
+        (h * (u ^ ~omega)) == h @ 0,
+        (v.derivative * u) == v @ 0,
+        sorting=lambda f: f.order,
+    )
+    # print(system)
+
+    vector_fields = system.vector_fields
+    bytecodes = [
+        translate_equation(eq.left, vector_fields, simplify=True)
+        for eq in system.equations
+    ]
+
+    codes: list[list[None | list[MatOpCode | float | int]]] = list()
+    for bite in bytecodes:
+        row: list[list[MatOpCode | float | int] | None] = list()
+        expr_row: list[tuple[MatOp, ...] | None] = list()
+        for f in system.unknown_forms:
+            if f in bite:
+                row.append(_ctranslate(*bite[f]))
+                expr_row.append(tuple(bite[f]))
+            else:
+                row.append(None)
+                expr_row.append(None)
+
+        codes.append(row)
+
+    N = 6
+    N2 = 10
+
+    cache = BasisCache(N, N2)
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+        list() for _ in vector_fields
+    )
+    vec_field_offsets = np.zeros(2, np.uint64)
+    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
+    # e = ElementLeaf2D(None, N, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
+
+    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
+    func_dict = {omega: omega_exact, u: u_exact}
+    for i, vec_fld in enumerate(vector_fields):
+        assert type(vec_fld) is KFormUnknown
+        assert not callable(vec_fld)
+        fn = func_dict[vec_fld]
+        vf = fn(x, y)
+        if vec_fld.order != 1:
+            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
+        vf = np.reshape(vf, (-1, 2))
+        vec_field_lists[i].append(vf)
+    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
+    vec_fields = tuple(
+        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+    )
+    del vec_field_lists
+
+    mats = compute_element_matrices_2(
+        tuple(form.order for form in system.unknown_forms),
+        codes,
+        np.array([e.bottom_left], np.float64),
+        np.array([e.bottom_right], np.float64),
+        np.array([e.top_right], np.float64),
+        np.array([e.top_left], np.float64),
+        np.array((e.order,), np.uint32),
+        vec_fields,
+        vec_field_offsets,
+        (cache.c_serialization(),),
+    )
+
+    emat = mats[0]
+    fmat = emat[(N + 1) ** 2 :, (N + 1) ** 2 :]
+    emat = emat[(N + 1) ** 2 :, : (N + 1) ** 2]
+    # print(emat)
+
+    # from matplotlib import pyplot as plt
+
+    # plt.figure()
+    # plt.imshow(emat)
+    # plt.colorbar()
+    # plt.figure()
+    # plt.imshow(fmat)
+    # plt.colorbar()
+    # plt.figure()
+    # plt.imshow(e.mass_matrix_edge(cache))
+    # plt.colorbar()
+    # plt.show()
+
+    omega_proj = np.linalg.solve(
+        e.mass_matrix_node(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+    )
+
+    u_proj = np.linalg.solve(
+        e.mass_matrix_edge(cache), rhs_2d_element_projection(h @ u_exact, e, cache)
+    )
+    v1 = emat @ omega_proj
+    v2 = fmat @ u_proj
+
+    # p1 = np.linalg.solve(e.mass_matrix_edge(cache), v1)
+    # p2 = np.linalg.solve(e.mass_matrix_edge(cache), v2)
+
+    assert np.max(np.abs(v1 - v2)) < 1e-13

@@ -1437,12 +1437,14 @@ def compute_vector_fields_nonlin(
                     form_offset_end = element_tree.dof_offsets[i_form + 1][idx]
                     form_dofs = element_dofs[form_offset:form_offset_end]
                     vf = e.reconstruct(
-                        1,
+                        vec_fld.order,
                         form_dofs,
                         e_cache.int_nodes_1d[None, :],
                         e_cache.int_nodes_1d[:, None],
                         e_cache,
                     )
+                    if vec_fld.order != 1:
+                        vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
                 else:
                     vf = np.zeros(
                         (e_cache.integration_order + 1, e_cache.integration_order + 1, 2),

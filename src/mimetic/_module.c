@@ -754,8 +754,8 @@ static PyObject *compute_element_matrices_2(PyObject *Py_UNUSED(module), PyObjec
     {
         PyErr_Format(PyExc_ValueError, "Execution failed with error code %s.", eval_result_str(common_res));
         // Failed allocation of matrix stack.
-        Py_DECREF(p_out);
-        p_out = NULL;
+        Py_DECREF(ret_val);
+        ret_val = NULL;
     }
 
     // Clean up the array of output pointers

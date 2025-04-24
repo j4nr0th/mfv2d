@@ -67,7 +67,7 @@ eval_result_t matrix_full_add_inplace(const matrix_full_t *in, matrix_full_t *ou
     {
         for (unsigned col = 0; col < in->base.cols; ++col)
         {
-            out->data[row * out->base.cols + col] += out->data[row * out->base.cols + col];
+            out->data[row * out->base.cols + col] += in->data[row * out->base.cols + col];
         }
     }
 
@@ -185,6 +185,7 @@ eval_result_t matrix_multiply(error_stack_t *error_stack, const unsigned order, 
     return res;
 }
 
+// TODO: THIS SHOULD ADD, NOT MULTIPLY!!!
 eval_result_t matrix_add(const unsigned order, matrix_t *right, matrix_t *left, matrix_t *out,
                          const allocator_callbacks *allocator)
 {
@@ -224,7 +225,15 @@ eval_result_t matrix_add(const unsigned order, matrix_t *right, matrix_t *left, 
 
         if (left->type == MATRIX_TYPE_FULL)
         {
-            return matrix_full_multiply(&left->full, &right->full, &out->full, allocator);
+            eval_result_t res = matrix_full_copy(&right->full, &out->full, allocator);
+            if (res != EVAL_SUCCESS)
+            {
+                return res;
+            }
+            out->coefficient = 1.0;
+            out->type = MATRIX_TYPE_FULL;
+            res = matrix_full_add_inplace(&left->full, &out->full);
+            return res;
         }
     }
 

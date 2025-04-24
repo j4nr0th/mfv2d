@@ -10,8 +10,6 @@ from typing import Any, Literal, overload
 import numpy as np
 import numpy.typing as npt
 
-from interplib._mimetic import Manifold
-
 VectorFieldFunction = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 
 
@@ -23,7 +21,7 @@ class Term:
     type hints.
     """
 
-    manifold: Manifold
+    dimension: int
     label: str
 
     def __str__(self) -> str:
@@ -50,10 +48,10 @@ class KForm(Term):
 
     def __post_init__(self) -> None:
         """Check that the order of the form is not too high."""
-        if self.manifold.dimension < self.order:
+        if self.dimension < self.order:
             raise ValueError(
                 f"Can not create a {self.order}-form on a manifold of dimension"
-                f" {self.manifold.dimension}"
+                f" {self.dimension}"
             )
 
     def __str__(self) -> str:
@@ -72,7 +70,7 @@ class KForm(Term):
             return KInnerProduct(other, self)
         if callable(other):
             return KInteriorProduct(
-                self.manifold,
+                self.dimension,
                 f"i_{{{other.__name__}}}({self.label})",
                 self.order - 1,
                 self,
@@ -130,7 +128,7 @@ class KFormUnknown(KForm):
     def __xor__(self, other: KFormUnknown | KHodge):
         """Return a non-linear interior product term."""
         return KInteriorProductNonlinear(
-            self.manifold,
+            self.dimension,
             f"i_({self.label})({other.label})",
             self.order - 1,
             other,
@@ -140,7 +138,7 @@ class KFormUnknown(KForm):
     @property
     def weight(self) -> KWeight:
         """Create a weight based on this form."""
-        return KWeight(self.manifold, self.label, self.order, self)
+        return KWeight(self.dimension, self.label, self.order, self)
 
     @property
     def is_weight(self) -> bool:
@@ -152,7 +150,7 @@ class KFormUnknown(KForm):
         """Order of the mass matrix which needs to be used."""
         if self.is_primal:
             return self.order
-        return self.manifold.dimension - self.order
+        return self.dimension - self.order
 
     @property
     def is_primal(self) -> bool:
@@ -211,9 +209,7 @@ class KHodge(KForm):
     base_form: KForm
 
     def __init__(self, form: KForm) -> None:
-        super().__init__(
-            form.manifold, "~" + form.label, form.manifold.dimension - form.order
-        )
+        super().__init__(form.dimension, "~" + form.label, form.dimension - form.order)
         object.__setattr__(self, "base_form", form)
 
     @property
@@ -226,7 +222,7 @@ class KHodge(KForm):
         """Order of the mass matrix which needs to be used."""
         if self.is_primal:
             return self.order
-        return self.manifold.dimension - self.order
+        return self.dimension - self.order
 
     @property
     def is_weight(self) -> bool:
@@ -318,7 +314,7 @@ class KWeight(KForm):
         """Order of the mass matrix which needs to be used."""
         if self.is_primal:
             return self.order
-        return self.manifold.dimension - self.order
+        return self.dimension - self.order
 
     @property
     def is_primal(self) -> bool:
@@ -358,7 +354,7 @@ class KFormDerivative(KForm):
 
     def __init__(self, form: KForm) -> None:
         object.__setattr__(self, "form", form)
-        super().__init__(form.manifold, "d" + form.label, form.order + 1)
+        super().__init__(form.dimension, "d" + form.label, form.order + 1)
 
     @property
     def is_primal(self) -> bool:
@@ -495,14 +491,14 @@ class KInnerProduct(Term):
             raise ValueError(
                 f"The K forms are not of the same order ({wg_order} vs {fn_order})"
             )
-        if weight.manifold is not function.manifold:
+        if weight.dimension is not function.dimension:
             raise ValueError(
                 "Inner product can only be taken between differential forms defined on "
-                "the same manifold."
+                "the space with same number of dimensions."
             )
         object.__setattr__(self, "weight", weight)
         object.__setattr__(self, "function", function)
-        super().__init__(weight.manifold, f"<{weight.label}, {function.label}>")
+        super().__init__(weight.dimension, f"<{weight.label}, {function.label}>")
 
     def __add__(self, other: KInnerProduct | KSum, /) -> KSum:
         """Add the inner products together."""
@@ -565,12 +561,14 @@ class KSum(Term):
     pairs: tuple[tuple[float, KInnerProduct], ...]
 
     def __init__(self, *pairs: tuple[float, KInnerProduct]) -> None:
-        manifold: Manifold | None = None
+        dimension: int | None = None
         for _, ip in pairs:
-            if manifold is None:
-                manifold = ip.manifold
-            elif manifold is not ip.manifold:
-                raise ValueError("Can not sum inner products from different manifolds.")
+            if dimension is None:
+                manifold = ip.dimension
+            elif manifold != ip.dimension:
+                raise ValueError(
+                    "Can not sum inner products from different dimensional spaces."
+                )
         if len(pairs) < 1:
             raise TypeError("Can not create a sum object with no members.")
         assert manifold is not None

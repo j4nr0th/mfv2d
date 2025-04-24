@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._mimetic import Line, Manifold2D, Surface, check_bytecode, element_matrices
+from interplib._mimetic import check_bytecode, element_matrices
 from interplib.kforms.eval import _ctranslate, translate_equation
 from interplib.kforms.kform import KFormUnknown
 from interplib.mimetic.mimetic2d import BasisCache, ElementLeaf2D
@@ -55,12 +55,9 @@ def test_weird(order: int):
 
 def test_bytecode():
     """Check that bytecode conversion works."""
-    dummy_man = Manifold2D.from_regular(
-        3, [Line(1, 2), Line(2, 3), Line(3, 1)], [Surface(1, 2, 3)]
-    )
-    a = KFormUnknown(dummy_man, "a", 0)
+    a = KFormUnknown(2, "a", 0)
     u = a.weight
-    b = KFormUnknown(dummy_man, "b", 1)
+    b = KFormUnknown(2, "b", 1)
 
     operations = translate_equation(
         u.derivative * a.derivative - 2 * (u.derivative * ~b), ()

@@ -7,7 +7,7 @@ import numpy.typing as npt
 from interplib._mimetic import compute_element_matrices_2
 from interplib.kforms import KFormSystem, KFormUnknown
 from interplib.kforms.eval import MatOp, MatOpCode, _ctranslate, translate_equation
-from interplib.mimetic import ElementLeaf2D, Manifold2D
+from interplib.mimetic import ElementLeaf2D
 from interplib.mimetic.mimetic2d import BasisCache, rhs_2d_element_projection
 
 type Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
@@ -93,11 +93,9 @@ def test_advect_21_undeformed() -> None:
         v1 = np.asarray(y)
         return v0 - v1**3
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 2)
+    omega = KFormUnknown(2, "omega", 2)
     v = omega.weight
-    g = KFormUnknown(man, "g", 1)
+    g = KFormUnknown(2, "g", 1)
     w = g.weight
 
     system = KFormSystem(
@@ -236,11 +234,9 @@ def test_advect_10_undeformed() -> None:
             dtype=np.float64,
         )
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 1)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(man, "g", 0)
+    g = KFormUnknown(2, "g", 0)
     w = g.weight
 
     system = KFormSystem(
@@ -367,11 +363,9 @@ def test_advect_21_regular_deformed_1() -> None:
         v1 = np.asarray(y)
         return v0 - v1**3
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 2)
+    omega = KFormUnknown(2, "omega", 2)
     v = omega.weight
-    g = KFormUnknown(man, "g", 1)
+    g = KFormUnknown(2, "g", 1)
     w = g.weight
 
     system = KFormSystem(
@@ -509,11 +503,9 @@ def test_advect_21_regular_deformed_2() -> None:
         v1 = np.asarray(y)
         return v0 - v1**3
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 2)
+    omega = KFormUnknown(2, "omega", 2)
     v = omega.weight
-    g = KFormUnknown(man, "g", 1)
+    g = KFormUnknown(2, "g", 1)
     w = g.weight
 
     system = KFormSystem(
@@ -656,11 +648,9 @@ def test_advect_10_refgular_deformed_1() -> None:
             dtype=np.float64,
         )
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 1)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(man, "g", 0)
+    g = KFormUnknown(2, "g", 0)
     w = g.weight
 
     system = KFormSystem(
@@ -791,11 +781,9 @@ def test_advect_10_refgular_deformed_2() -> None:
             dtype=np.float64,
         )
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 1)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(man, "g", 0)
+    g = KFormUnknown(2, "g", 0)
     w = g.weight
 
     system = KFormSystem(
@@ -921,11 +909,9 @@ def test_advect_21_irregular_deformed_1() -> None:
         v1 = np.asarray(y)
         return v0 - v1**3
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 2)
+    omega = KFormUnknown(2, "omega", 2)
     v = omega.weight
-    g = KFormUnknown(man, "g", 1)
+    g = KFormUnknown(2, "g", 1)
     w = g.weight
 
     system = KFormSystem(
@@ -1067,11 +1053,9 @@ def test_advect_10_irrefgular_deformed_1() -> None:
             dtype=np.float64,
         )
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 1)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(man, "g", 0)
+    g = KFormUnknown(2, "g", 0)
     w = g.weight
 
     system = KFormSystem(
@@ -1203,9 +1187,7 @@ def test_div_21_irregular_deformed_1() -> None:
         v1 = np.asarray(y)
         return 3 * v0**2 * v1 - 2 * v0 * v1**4 - 3 * v0**2 * v1**2 + 6 * v0 * v1**5
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 2)
+    omega = KFormUnknown(2, "omega", 2)
     v = omega.weight
 
     system = KFormSystem(
@@ -1328,11 +1310,9 @@ def test_dual_advect_21_undeformed() -> None:
         return v0 - v1**3
         # return 1 + 0 * (v0 - v1**3)
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 0)
+    omega = KFormUnknown(2, "omega", 0)
     v = omega.weight
-    g = KFormUnknown(man, "g", 1)
+    g = KFormUnknown(2, "g", 1)
     w = g.weight
     system = KFormSystem(
         (w * (u_exact * (~omega))) == w @ 0,
@@ -1474,11 +1454,9 @@ def test_dual_advect_21_rotated() -> None:
         return v0 - v1**3
         # return 1 + 0 * (v0 - v1**3)
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 0)
+    omega = KFormUnknown(2, "omega", 0)
     v = omega.weight
-    g = KFormUnknown(man, "g", 1)
+    g = KFormUnknown(2, "g", 1)
     w = g.weight
     system = KFormSystem(
         (w * (u_exact * (~omega))) == w @ 0,
@@ -1620,11 +1598,9 @@ def test_dual_advect_21_irregular_deformed() -> None:
         return v0 - v1**3
         # return 1 + 0 * (v0 - v1**3)
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 0)
+    omega = KFormUnknown(2, "omega", 0)
     v = omega.weight
-    g = KFormUnknown(man, "g", 1)
+    g = KFormUnknown(2, "g", 1)
     w = g.weight
     system = KFormSystem(
         (w * (u_exact * (~omega))) == w @ 0,
@@ -1766,11 +1742,9 @@ def test_dual_advect_10_undeformed() -> None:
             dtype=np.float64,
         )
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 1)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(man, "g", 2)
+    g = KFormUnknown(2, "g", 2)
     w = g.weight
 
     system = KFormSystem(
@@ -1899,11 +1873,9 @@ def test_dual_advect_10_rotated() -> None:
             dtype=np.float64,
         )
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 1)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(man, "g", 2)
+    g = KFormUnknown(2, "g", 2)
     w = g.weight
 
     system = KFormSystem(
@@ -2032,11 +2004,9 @@ def test_dual_advect_10_irregular_deformed() -> None:
             dtype=np.float64,
         )
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 1)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(man, "g", 2)
+    g = KFormUnknown(2, "g", 2)
     w = g.weight
 
     system = KFormSystem(
@@ -2165,13 +2135,11 @@ def test_advect_non_linear_10_irregular_deformed() -> None:
             dtype=np.float64,
         )
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 1)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(man, "g", 0)
+    g = KFormUnknown(2, "g", 0)
     w = g.weight
-    u = KFormUnknown(man, "u", 1)
+    u = KFormUnknown(2, "u", 1)
     h = u.weight
 
     system = KFormSystem(
@@ -2293,13 +2261,11 @@ def test_advect_dual_non_linear_10_irregular_deformed() -> None:
             dtype=np.float64,
         )
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 1)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(man, "g", 2)
+    g = KFormUnknown(2, "g", 2)
     w = g.weight
-    u = KFormUnknown(man, "u", 1)
+    u = KFormUnknown(2, "u", 1)
     h = u.weight
 
     system = KFormSystem(
@@ -2417,11 +2383,9 @@ def test_advect_non_linear_21_irregular_deformed() -> None:
         v1 = np.asarray(y)
         return np.astype(v0 * v1**3, np.float64, copy=False)
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 2)
+    omega = KFormUnknown(2, "omega", 2)
     v = omega.weight
-    u = KFormUnknown(man, "u", 1)
+    u = KFormUnknown(2, "u", 1)
     h = u.weight
 
     system = KFormSystem(
@@ -2539,11 +2503,9 @@ def test_advect_dual_non_linear_21_irregular_deformed() -> None:
         v1 = np.asarray(y)
         return np.astype(1 + 0 * v0 * v1**3, np.float64, copy=False)
 
-    man = Manifold2D.from_regular(4, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
-
-    omega = KFormUnknown(man, "omega", 0)
+    omega = KFormUnknown(2, "omega", 0)
     v = omega.weight
-    u = KFormUnknown(man, "u", 1)
+    u = KFormUnknown(2, "u", 1)
     h = u.weight
 
     system = KFormSystem(

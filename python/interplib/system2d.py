@@ -1082,11 +1082,14 @@ def solve_system_2d_nonlinear(
     refinement_levels: int = 0,
     div_predicate: Callable[[ElementLeaf2D, int], bool] | None = None,
     max_iterations: int = 100,
+    relax: float = 1.0,
     atol: float = 1e-6,
     rtol: float = 1e-5,
     *,
     division_function: OrderDivisionFunction | None = None,
     recon_order: int | None = None,
+    print_residual: bool = False,
+    zeroed_forms: Sequence[kforms.KFormUnknown] | None = None,
 ) -> tuple[pv.UnstructuredGrid, SolutionStatisticsNonLin]:
     """Solve the non-linear system on the specified mesh.
 
@@ -1098,10 +1101,7 @@ def solve_system_2d_nonlinear(
     mesh : Mesh2D
         Mesh on which to solve the system on.
 
-    rec_order : int
-        Order of reconstruction returned.
-
-    boundary_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
+    boundaray_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
         Sequence of boundary conditions to be applied to the system.
 
     refinement_levels : int, default: 0
@@ -1111,17 +1111,37 @@ def solve_system_2d_nonlinear(
     div_predicate : Callable (Element2D) -> bool
         Callable used to determine if an element should be divided further.
 
+    max_iterations : int, default: 100
+        Maximum number of Newton-Raphson iterations solver performs.
+
+    relax : float, default: 1.0
+        Fraction of Newton-Raphson increment to use.
+
+    atol : float, default: 1e-6
+        Maximum value of the residual must meet in order for the solution
+        to be considered converged.
+
+    rtol : float, default: 1e-5
+        Maximum fraction of the maximum of the right side of the equation the residual
+        must meet in order for the solution to be considered converged.
+
     division_function : OrderDivisionFunction, optional
         Function which determines order of the parent and child elements resulting from
         the division of the element. When not specified, the "old" method is used.
-
-    timed : bool, default: False
-        Report time taken for different parts of the code.
 
     recon_order : int, optional
         When specified, all elements will be reconstructed using this polynomial order.
         Otherwise, they are reconstructed with their own order.
 
+    print_residual : bool, default: False
+        Print the maximum of the absolute value of the residual for each iteration of the
+        Newton-Raphson method.
+
+    zeroed_forms : Sequence of KFormUnknown, optional
+        Sequence of unknowns which must be zeroed each iteration. These can arrise form
+        the system having a non-unique solution, such as pressure for incompressible
+        Navier-Stokes. These can only be forms without any strong boundary conditions
+        specified on them.
 
     Returns
     -------
@@ -1131,9 +1151,25 @@ def solve_system_2d_nonlinear(
     stats : SolutionStatisticsNonLin
         Statistics about the solution. This can be used for convergence tests or timing.
     """
+    if zeroed_forms is None:
+        zeroed_forms = tuple()
+
     strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]] = (
         find_strong_bc_edge_indices(system, refinement_levels, boundaray_conditions, mesh)
     )
+    zeroing_indices: tuple[npt.NDArray[np.uint32], ...] = tuple()
+
+    for form in zeroed_forms:
+        if form not in system.unknown_forms:
+            raise ValueError(
+                f"Form {form} which is to be zeroed is not involved in the system."
+            )
+
+        if boundaray_conditions and form in (bc.form for bc in boundaray_conditions):
+            raise ValueError(
+                f"Form {form} can not be zeroed because it is involved in a strong "
+                "boundary condition."
+            )
 
     unknown_form_orders = tuple(form.order for form in system.unknown_forms)
 
@@ -1148,8 +1184,33 @@ def solve_system_2d_nonlinear(
         refinement_levels,
         system.unknown_forms,
     )
-
     leaf_elements: list[ElementLeaf2D] = list(element_tree.iter_leaves())
+    leaf_indices = element_tree.leaf_indices()
+
+    base_element_offsets, element_begin = compute_element_offsets(
+        unknown_form_orders, element_tree
+    )
+
+    to_zero: list[npt.NDArray[np.uint32]] = list()
+    for form in zeroed_forms:
+        i_form = system.unknown_forms.index(form)
+        form_indices: list[npt.NDArray[np.uint32]] = list()
+
+        ie_leaf: int
+        for ie_leaf in leaf_indices:
+            offset_base = element_begin[ie_leaf]
+            form_begin = element_tree.dof_offsets[i_form][ie_leaf]
+            form_end = element_tree.dof_offsets[i_form + 1][ie_leaf]
+            form_indices.append(
+                np.arange(form_begin, form_end, dtype=np.uint32) + offset_base
+            )
+            del offset_base, form_begin, form_end
+
+        to_zero.append(np.concatenate(form_indices, dtype=np.uint32))
+        del form_indices
+
+    zeroing_indices = tuple(to_zero)
+    del to_zero
 
     # Make element matrices and vectors
     cache: dict[int, BasisCache] = dict()
@@ -1161,24 +1222,8 @@ def solve_system_2d_nonlinear(
 
     vector_fields = system.vector_fields
 
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(_ctranslate(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
+    codes_newton = translate_system(system, vector_fields, True)
+    codes_values = translate_system(system, vector_fields, False)
 
     bl = np.array([e.bottom_left for e in leaf_elements])
     br = np.array([e.bottom_right for e in leaf_elements])
@@ -1191,8 +1236,6 @@ def solve_system_2d_nonlinear(
     # they will be recomputed, but they consume LOTS of memory
     for o in element_tree.unique_orders:
         cache[o].clean()
-
-    leaf_indices = element_tree.leaf_indices()
 
     element_vectors: dict[int, npt.NDArray[np.float64]] = {
         int(ileaf): element_rhs(system, e, cache[e.order])
@@ -1212,7 +1255,7 @@ def solve_system_2d_nonlinear(
             leaf_indices,
             compute_element_matrices(
                 [f.order for f in system.unknown_forms],
-                codes,
+                codes_newton,
                 bl,
                 br,
                 tr,
@@ -1225,10 +1268,6 @@ def solve_system_2d_nonlinear(
             strict=True,
         )
     }
-
-    base_element_offsets, element_begin = compute_element_offsets(
-        unknown_form_orders, element_tree
-    )
     main_mat, main_vec = assemble_global_element_matrix(
         system, unknown_form_orders, element_tree, element_matrices, element_vectors
     )
@@ -1267,14 +1306,18 @@ def solve_system_2d_nonlinear(
         n_lagrange_eq = 0
 
     main_mat = sp.csc_array(main_mat)
-    solution = np.asarray(sla.spsolve(main_mat, main_vec), dtype=np.float64, copy=None)
+    solution = np.asarray(
+        sla.spsolve(main_mat, main_vec, permc_spec="NATURAL"), dtype=np.float64, copy=None
+    )
+    for indices in zeroing_indices:
+        solution[indices] -= np.mean(solution[indices])
 
     iter_cnt = 1
     changes: list[float] = list()
-    max_change = np.inf
-    max_mag = np.abs(solution).max()
+    max_residual = np.inf
+    max_mag = np.abs(main_vec).max()
 
-    while max_change > atol and max_change > max_mag * rtol and iter_cnt < max_iterations:
+    while iter_cnt < max_iterations:
         # Recompute vector fields
         # Compute vector fields at integration points for leaf elements
         vec_field_offsets, vec_fields = compute_vector_fields_nonlin(
@@ -1287,13 +1330,59 @@ def solve_system_2d_nonlinear(
             element_begin,
         )
 
+        element_values = {
+            int(ileaf): m
+            @ solution[element_begin[ileaf] : element_begin[ileaf] + m.shape[1]]
+            for ileaf, m in zip(
+                leaf_indices,
+                compute_element_matrices(
+                    [f.order for f in system.unknown_forms],
+                    codes_values,
+                    bl,
+                    br,
+                    tr,
+                    tl,
+                    orde,
+                    vec_fields,
+                    vec_field_offsets,
+                    c_ser,
+                ),
+                strict=True,
+            )
+        }
+        main_value = assemble_global_element_values(
+            system,
+            unknown_form_orders,
+            element_tree,
+            element_values,
+            solution,
+            element_begin,
+        )
+
+        if lag_res is not None:
+            n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
+            main_value += lagrange_mat.T @ solution[-n_lagrange_eq:]
+            main_value = np.concatenate(
+                (main_value, lagrange_mat @ solution[:-n_lagrange_eq]), dtype=np.float64
+            )
+
+        residual = main_vec - main_value
+        max_residual = np.abs(residual).max()
+        changes.append(float(max_residual))
+        if print_residual:
+            print(f"Iteration {iter_cnt} has residual of {max_residual:.4e}", end="\r")
+
+        if not (max_residual > atol and max_residual > max_mag * rtol):
+            break
+        # print(np.linalg.norm(residual), np.abs(residual).max())
+
         element_matrices = {
             int(ileaf): m
             for ileaf, m in zip(
                 leaf_indices,
                 compute_element_matrices(
                     [f.order for f in system.unknown_forms],
-                    codes,
+                    codes_newton,
                     bl,
                     br,
                     tr,
@@ -1307,7 +1396,7 @@ def solve_system_2d_nonlinear(
             )
         }
 
-        main_mat, main_vec = assemble_global_element_matrix(
+        main_mat, _ = assemble_global_element_matrix(
             system,
             unknown_form_orders,
             element_tree,
@@ -1318,16 +1407,19 @@ def solve_system_2d_nonlinear(
         if lag_res is not None:
             n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
             main_mat = sp.block_array([[main_mat, lagrange_mat.T], [lagrange_mat, None]])
+            # main_vec = np.concatenate((main_vec, lag_rhs), dtype=np.float64)
 
         main_mat = sp.csc_array(main_mat)
-        new_solution = np.asarray(
-            sla.spsolve(main_mat, main_vec), dtype=np.float64, copy=None
+        # print(f"Residual magninutde: {np.linalg.norm(residual)}")
+        d_solution = np.asarray(
+            sla.spsolve(main_mat, residual, "NATURAL"), dtype=np.float64, copy=None
         )
 
-        max_change = np.abs(new_solution - solution).max()
-        changes.append(float(max_change))
-        max_mag = float(np.abs(new_solution).max())
-        solution = new_solution
+        solution += relax * d_solution
+
+        # for indices in zeroing_indices:
+        #     solution[indices] -= np.mean(solution[indices])
+
         iter_cnt += 1
 
     del c_ser, bl, br, tr, tl, orde
@@ -1357,6 +1449,30 @@ def solve_system_2d_nonlinear(
     )
 
     return grid, stats
+
+
+def translate_system(
+    system: kforms.KFormSystem,
+    vector_fields: Sequence[VectorFieldFunction | kforms.KFormUnknown],
+    newton: bool,
+) -> tuple[tuple[tuple[MatOpCode | float | int, ...] | None, ...], ...]:
+    """Create the two dimensional instruction array for the C code to execute."""
+    bytecodes = [
+        translate_equation(eq.left, vector_fields, newton=newton, simplify=True)
+        for eq in system.equations
+    ]
+
+    codes: list[tuple[None | tuple[MatOpCode | float | int, ...], ...]] = list()
+    for bite in bytecodes:
+        row: list[tuple[MatOpCode | float | int, ...] | None] = list()
+        for f in system.unknown_forms:
+            if f in bite:
+                row.append(tuple(_ctranslate(*bite[f])))
+            else:
+                row.append(None)
+
+        codes.append(tuple(row))
+    return tuple(codes)
 
 
 def lagrange_multiplier_system(
@@ -1551,6 +1667,34 @@ def assemble_global_element_matrix(
     main_vec = np.concatenate(vec)
     assert isinstance(main_mat, sp.coo_array)
     return main_mat, main_vec
+
+
+def assemble_global_element_values(
+    system: kforms.KFormSystem,
+    unknown_form_orders: Sequence[int],
+    element_tree: ElementTree,
+    element_vecs: Mapping[int, npt.NDArray[np.float64]],
+    dofs: npt.NDArray[np.float64],
+    element_begin: npt.NDArray[np.uint32],
+) -> npt.NDArray[np.float64]:
+    """Assemble the element matrices together into the global element matrix."""
+    vec: list[npt.NDArray[np.float64]] = list()
+    for i, itop in enumerate(element_tree.top_indices):
+        elm_top = element_tree.elements[itop]
+        _, ev = element_values(
+            elm_top,
+            unknown_form_orders,
+            system.get_form_indices_by_order(1),
+            system.get_form_indices_by_order(0),
+            element_tree,
+            element_vecs,
+            dofs,
+            element_begin,
+        )
+        vec.append(ev)
+
+    main_vec = np.concatenate(vec)
+    return main_vec
 
 
 def reconstruct_mesh_from_solution(
@@ -1850,6 +1994,89 @@ def element_matrix(
     vec.append(np.array(rhs, np.float64))
 
     return resulting, np.concatenate(vec)
+
+
+def element_values(
+    e: Element2D,
+    unknown_form_orders: Sequence[int],
+    cont_indices_edges: Sequence[int],
+    cont_indices_nodes: Sequence[int],
+    element_tree: ElementTree,
+    element_vecs: Mapping[int, npt.NDArray[np.float64]],
+    dofs: npt.NDArray[np.float64],
+    element_begin: npt.NDArray[np.uint32],
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute element equation values."""
+    # Add offset for the next element
+    size = sum(e.dof_sizes(unknown_form_orders))
+
+    i = element_tree.elements.index(e)  # TODO: change this later
+    # Check if leaf element
+    if isinstance(e, ElementLeaf2D):
+        # Leaf element, meaning only the element matrix is added
+
+        m = element_vecs[i]
+        assert m.shape[0] == size and m.ndim == 1
+        return dofs[element_begin[i] : element_begin[i + 1]], m
+
+    assert isinstance(e, ElementNode2D)
+
+    vec: list[npt.NDArray[np.float64]] = list()
+    # A non-leaf element, meaning its four children must be found
+    vec.append(np.zeros(size, np.float64))
+    # Add the bottom left
+    children = (e.child_bl, e.child_br, e.child_tl, e.child_tr)
+
+    child_dofs, vecs = zip(
+        *(
+            element_values(
+                ce,
+                unknown_form_orders,
+                cont_indices_edges,
+                cont_indices_nodes,
+                element_tree,
+                element_vecs,
+                dofs,
+                element_begin,
+            )
+            for ce in children
+        )
+    )
+    local_dofs = np.concatenate(
+        (dofs[element_begin[i] : element_begin[i + 1]], *child_dofs)
+    )
+
+    rhs = np.concatenate((vec, *vecs), dtype=np.float64)
+    offsets = np.pad(np.cumsum([size] + [v.size for v in vecs]), (1, 0))
+
+    # Get the continuity equations
+    cont = parent_child_equations(
+        unknown_form_orders, cont_indices_edges, cont_indices_nodes, e, *offsets[:-1]
+    )
+
+    vals: list[npt.NDArray[np.float64]] = list()
+    rows: list[npt.NDArray[np.uint32]] = list()
+    cols: list[npt.NDArray[np.uint32]] = list()
+    for j, eq in enumerate(cont):
+        vals.append(eq.values)
+        cols.append(eq.indices)
+        rows.append(np.full_like(eq.indices, j))
+
+    vv = np.concatenate(vals)
+    rv = np.concatenate(rows)
+    cv = np.concatenate(cols)
+
+    lag_mat = sp.coo_array((vv, (rv, cv)))
+    lag_mat.resize((len(cont), offsets[-1]))
+
+    lag_dofs = dofs[
+        element_begin[i] + offsets[-1] : element_begin[i] + offsets[-1] + len(cont)
+    ]
+    rhs += lag_mat.T @ lag_dofs
+    rhs = np.concatenate((rhs, lag_mat @ local_dofs), dtype=np.float64)
+    local_dofs = np.concatenate((local_dofs, lag_dofs), dtype=np.float64)
+
+    return local_dofs, rhs
 
 
 def parent_child_equations(

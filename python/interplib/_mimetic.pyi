@@ -330,10 +330,83 @@ def compute_element_matrices(
     serialized_caches: Sequence[_SerializedBasisCache],
     thread_stack_size: int = (1 << 24),
 ) -> tuple[npt.NDArray[np.float64]]:
-    """Compuate element matrices based on the given instructions with tail calls.
+    """Compute element matrices based on the given instructions with tail calls.
 
     Parameters
     ----------
+    form_orders : Sequence of int
+        Orders of the unknown differential forms.
+
+    expressions : 2D matrix of (Sequence of (MatOpCode, int, and float) or None)
+        Two dimensional matrix of instructions to compute the entry of the element matrix.
+        It can be left as None, which means there is no contribution.
+
+    pos_bl : (N, 2) array
+        Array of position vectors for the bottom left corners of elements.
+
+    pos_br : (N, 2) array
+        Array of position vectors for the bottom right corners of elements.
+
+    pos_tr : (N, 2) array
+        Array of position vectors for the top right corners of elements.
+
+    pos_tl : (N, 2) array
+        Array of position vectors for the top left corners of elements.
+
+    element_orders : (N,) array
+        Array of orders of the elements. There must be an entry for this in
+        the ``serialized_caches``.
+
+    vector_fields : tuple of arrays
+        Tuple of vector field values used for interior products. These are compuated at
+        integration nodes for each element, then flattened, and packed in a tuple. The
+        ordering of the fields in the tuple must match that of the system instructions
+        were generated from.
+
+    element_field_offsets : array
+        Array of offsets that indicates where the vector fields for each element begins.
+        It should contain one more entry than the element count.
+
+    serialized_caches : Sequence of _SerializedBasisCache
+        All the serialized caches to use for the elements. Only one is allowed
+        per element order.
+
+    thread_stack_size : int, default: 2 ** 24
+        Default amount of memory allocated to each worker thread for the element they're
+        working on.
+
+    Returns
+    -------
+    tuple of N arrays
+        Tuple of element matices.
+    """
+    ...
+
+def compute_element_explicit(
+    dofs: npt.NDArray[np.float64],
+    offsets: npt.NDArray[np.uint32],
+    form_orders: Sequence[int],
+    expressions: Sequence[Sequence[Sequence[MatOpCode | int | float] | None]],
+    pos_bl: npt.NDArray[np.float64],
+    pos_br: npt.NDArray[np.float64],
+    pos_tr: npt.NDArray[np.float64],
+    pos_tl: npt.NDArray[np.float64],
+    element_orders: npt.NDArray[np.uint32],
+    vector_fields: tuple[npt.NDArray[np.float64], ...],
+    element_field_offsets: npt.NDArray[np.uint64],
+    serialized_caches: Sequence[_SerializedBasisCache],
+    thread_stack_size: int = (1 << 24),
+) -> tuple[npt.NDArray[np.float64]]:
+    """Compute element equations based on degrees of freedom given.
+
+    Parameters
+    ----------
+    dofs : array
+        Array containing degrees of freedom for all elements.
+
+    offsets : (N,) array
+        Array of offsets into the ``dofs`` array for each element.
+
     form_orders : Sequence of int
         Orders of the unknown differential forms.
 

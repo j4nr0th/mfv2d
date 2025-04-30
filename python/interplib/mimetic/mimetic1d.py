@@ -15,12 +15,12 @@ from interplib._mimetic import Line, Manifold, Manifold1D
 from interplib.kforms.kform import (
     KBoundaryProjection,
     KElementProjection,
+    KExplicit,
     KForm,
     KFormDerivative,
     KFormSystem,
     KHodge,
     KInnerProduct,
-    KProjectionCombination,
     KSum,
     KWeight,
     Term,
@@ -197,7 +197,7 @@ class Element1D:
             write = np.reshape(out, (-1,))
             write[0 : -1 : n_in + 1] = -1
             write[1 :: n_in + 1] = +1
-        return out
+        return np.astype(out, np.float64, copy=False)
 
 
 def rhs_1d_boundary(
@@ -279,7 +279,7 @@ def rhs_1d_element(
 
 
 def _extract_rhs_1d(
-    right: KProjectionCombination, element: Element1D
+    right: Sequence[tuple[float, KExplicit]], weight: KWeight, element: Element1D
 ) -> npt.NDArray[np.float64]:
     """Evaluate the differential form projections on the 1D element.
 
@@ -295,10 +295,8 @@ def _extract_rhs_1d(
     array of :class:`numpy.float64`
         The resulting projection vector.
     """
-    out = np.zeros(element.order + 1 - right.weight.order)
-    for coeff, proj in filter(
-        lambda v: isinstance(v[1], KElementProjection), right.pairs
-    ):
+    out = np.zeros(element.order + 1 - weight.order)
+    for coeff, proj in filter(lambda v: isinstance(v[1], KElementProjection), right):
         assert isinstance(proj, KElementProjection)
         rhs = rhs_1d_element(proj, element)
         if coeff != 1.0:
@@ -349,20 +347,20 @@ def _equation_1d(
         return left
     if type(form) is KInnerProduct:
         primal: dict[Term, npt.NDArray[np.float64] | np.float64]
-        if isinstance(form.function, KHodge):
-            primal = _equation_1d(form.function.base_form, element)
+        if isinstance(form.unknown_form, KHodge):
+            primal = _equation_1d(form.unknown_form.base_form, element)
         else:
-            primal = _equation_1d(form.function, element)
+            primal = _equation_1d(form.unknown_form, element)
         dual = _equation_1d(form.weight, element)
         dv = tuple(v for v in dual.keys())[0]
         for k in primal:
             vd = dual[dv]
             vp = primal[k]
-            order_p = form.function.order
+            order_p = form.unknown_form.order
             order_d = form.weight.order
             assert order_p == order_d
             mass: npt.NDArray[np.float64]
-            if not form.function.is_primal:
+            if not form.unknown_form.is_primal:
                 mass = np.eye(element.order + 1 - order_p)
             elif order_p == 0 and order_d == 0:
                 mass = element.mass_node  # type: ignore
@@ -370,7 +368,7 @@ def _equation_1d(
                 mass = element.mass_edge  # type: ignore
             else:
                 raise ValueError(
-                    f"Order {form.function.order} can't be used on a 1D mesh."
+                    f"Order {form.unknown_form.order} can't be used on a 1D mesh."
                 )
             if vd.ndim != 0:
                 assert isinstance(vd, np.ndarray)
@@ -463,7 +461,7 @@ def element_system(
                 offset_forms[idx] : offset_forms[idx + 1],
             ] = val
         system_vector[offset_equations[ie] : offset_equations[ie + 1]] = _extract_rhs_1d(
-            equation.right, element
+            equation.right.explicit_terms, equation.weight, element
         )
 
     return system_matrix, system_vector

@@ -338,31 +338,31 @@ def _translate_equation(
         # if isinstance(form.function, KHodge):
         #     unknown = _translate_equation(form.function.base_form)
         # else:
-        unknown = _translate_equation(form.function, vec_fields, newton)
-        weight = _translate_equation(form.weight, vec_fields, newton)
+        unknown = _translate_equation(form.unknown_form, vec_fields, newton)
+        weight = _translate_equation(form.weight_form, vec_fields, newton)
         assert len(weight) == 1
         dv = tuple(v for v in weight.keys())[0]
         for k in unknown:
             vd = weight[dv]
             vp = unknown[k]
-            order_p = form.function.primal_order
-            order_d = form.weight.primal_order
+            order_p = form.unknown_form.primal_order
+            order_d = form.weight_form.primal_order
             assert order_p == order_d
 
             if order_p == order_d:
-                if form.function.is_primal:
-                    if form.weight.is_primal:
+                if form.unknown_form.is_primal:
+                    if form.weight_form.is_primal:
                         mass = MassMat(order_p, False)
                     else:
                         mass = Identity()
                 else:
-                    if form.weight.is_primal:
+                    if form.weight_form.is_primal:
                         mass = Identity()
                     else:
                         mass = MassMat(0, True)
             else:
                 raise ValueError(
-                    f"Order {form.function.order} can't be used on a 2D mesh."
+                    f"Order {form.unknown_form.order} can't be used on a 2D mesh."
                 )
 
             result = vp + [mass, Push()] + vd + [Transpose(), MatMul()]

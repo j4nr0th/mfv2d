@@ -26,8 +26,9 @@ from interplib.kforms.eval import (
 from interplib.kforms.kform import (
     KBoundaryProjection,
     KElementProjection,
+    KExplicit,
     KFormSystem,
-    KProjectionCombination,
+    KWeight,
 )
 
 
@@ -1619,21 +1620,24 @@ def rhs_2d_boundary_projection(
 
 
 def _extract_rhs_2d(
-    proj: KProjectionCombination, element: ElementLeaf2D, cache: BasisCache
+    proj: Sequence[tuple[float, KExplicit]],
+    weight: KWeight,
+    element: ElementLeaf2D,
+    cache: BasisCache,
 ) -> npt.NDArray[np.float64]:
     """Extract the rhs resulting from element projections."""
-    if proj.weight.order == 0:
+    if weight.order == 0:
         n_out = (element.order + 1) ** 2
-    elif proj.weight.order == 1:
+    elif weight.order == 1:
         n_out = 2 * (element.order + 1) * element.order
-    elif proj.weight.order == 2:
+    elif weight.order == 2:
         n_out = element.order**2
     else:
         assert False
 
     vec = np.zeros(n_out)
 
-    for k, f in filter(lambda v: isinstance(v[1], KElementProjection), proj.pairs):
+    for k, f in filter(lambda v: isinstance(v[1], KElementProjection), proj):
         assert isinstance(f, KElementProjection)
         rhs = rhs_2d_element_projection(f, element, cache)
         if k != 1.0:
@@ -1666,7 +1670,11 @@ def element_rhs(
     vecs: list[npt.NDArray[np.float64]] = list()
 
     for equation in system.equations:
-        vecs.append(_extract_rhs_2d(equation.right, element, cache))
+        vecs.append(
+            _extract_rhs_2d(
+                equation.right.explicit_terms, equation.weight, element, cache
+            )
+        )
 
     return np.concatenate(vecs)
 

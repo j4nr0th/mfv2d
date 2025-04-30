@@ -39,6 +39,8 @@ def solve_system_1d(
                         f" of the equations (which have forms {system.unknown_forms})."
                     )
         elif isinstance(bcs_left, kforms.BoundaryCondition1DWeak):
+            raise NotImplementedError
+
             if bcs_left.form not in system.weak_forms:
                 raise ValueError(
                     f"Form in the left weak condition ({bcs_left.form}) does not appear"
@@ -55,11 +57,12 @@ def solve_system_1d(
                         f" {system.unknown_forms})."
                     )
         elif isinstance(bcs_right, kforms.BoundaryCondition1DWeak):
-            if bcs_right.form not in system.weak_forms:
-                raise ValueError(
-                    f"Form in the right weak condition ({bcs_right.form}) does not"
-                    f" appear in the system {system.weak_forms}."
-                )
+            # if bcs_right.form not in system.weak_forms:
+            #     raise ValueError(
+            #         f"Form in the right weak condition ({bcs_right.form}) does not"
+            #         f" appear in the system {system.weak_forms}."
+            #     )
+            raise NotImplementedError
 
     cont_indices: list[int] = []
     # d_cont_indices: list[int] = []
@@ -156,6 +159,8 @@ def solve_system_1d(
             lagrange_idx += 1
 
         elif isinstance(bcs_left, kforms.BoundaryCondition1DWeak):
+            raise NotImplementedError
+
             for ie, eq in enumerate(system.equations):
                 for p_form in eq.weak_forms:
                     if bcs_left.form != p_form:
@@ -189,6 +194,8 @@ def solve_system_1d(
             lagrange_idx += 1
 
         elif isinstance(bcs_right, kforms.BoundaryCondition1DWeak):
+            raise NotImplementedError
+
             for ie, eq in enumerate(system.equations):
                 for p_form in eq.weak_forms:
                     if bcs_right.form != p_form:

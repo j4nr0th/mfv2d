@@ -357,7 +357,7 @@ static PyObject *compute_element_matrices(PyObject *Py_UNUSED(module), PyObject 
                     matrix_full_t mat;
                     res = evaluate_element_term_sibling(err_stack, system_template.form_orders[row], order, bytecode,
                                                         &precomp, &element_field_information, system_template.max_stack,
-                                                        matrix_stack, &allocator_stack->base, &mat);
+                                                        matrix_stack, &allocator_stack->base, &mat, NULL);
                     if (res != EVAL_SUCCESS)
                     {
                         EVAL_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
@@ -798,16 +798,19 @@ static PyObject *compute_element_explicit(PyObject *Py_UNUSED(module), PyObject 
                         element_field_information.fields[idx] += 2 * element_field_information.offsets[i_elem];
                     }
 
+                    const double *restrict const dof = dofs + local_dof_offsets;
                     matrix_full_t mat;
+                    const matrix_full_t input = {.base = {.type = MATRIX_TYPE_FULL, .cols = 1, .rows = col_len},
+                                                 .data = (double *)dof};
                     res = evaluate_element_term_sibling(err_stack, system_template.form_orders[row], order, bytecode,
                                                         &precomp, &element_field_information, system_template.max_stack,
-                                                        matrix_stack, &allocator_stack->base, &mat);
+                                                        matrix_stack, &allocator_stack->base, &mat, &input);
                     if (res != EVAL_SUCCESS)
                     {
                         EVAL_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
                         break;
                     }
-                    if (row_len != mat.base.rows || col_len != mat.base.cols)
+                    if (row_len != mat.base.rows || 1 != mat.base.cols)
                     {
                         EVAL_ERROR(err_stack, EVAL_DIMS_MISMATCH,
                                    "Output matrix arrays don't match expected dims (got %u x %u when needed %u x %u).",
@@ -815,16 +818,19 @@ static PyObject *compute_element_explicit(PyObject *Py_UNUSED(module), PyObject 
                         res = EVAL_DIMS_MISMATCH;
                         break;
                     }
-                    const double *restrict const dof = dofs + local_dof_offsets;
+                    // printf("Block (%u, %u) input:\n\t[", row, col);
+                    // for (unsigned i_out = 0; i_out < col_len; ++i_out)
+                    // {
+                    //     printf("%g, ", input.data[i_out]);
+                    // }
+                    // printf("]\nBlock (%u, %u) output:\n\t[", row, col);
                     for (unsigned i_out = 0; i_out < row_len; ++i_out)
                     {
-                        double v = 0.0;
-                        for (unsigned i_col = 0; i_col < col_len; ++i_col)
-                        {
-                            v += mat.data[i_out * col_len + i_col] * dof[i_col];
-                        }
-                        output_mat[i_out + row_offset] += v;
+                        output_mat[i_out + row_offset] += mat.data[i_out];
+
+                        // printf("%g, ", mat.data[i_out]);
                     }
+                    // printf("]\n\n");
 
                     deallocate(&allocator_stack->base, mat.data);
                     col_offset += col_len;

@@ -57,6 +57,6 @@ eval_result_t evaluate_element_term_sibling(error_stack_t *error_stack, form_ord
                                             const bytecode_t *code, precompute_t *precomp,
                                             const field_information_t *vector_fields, unsigned n_stack,
                                             matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
-                                            matrix_full_t *p_out);
+                                            matrix_full_t *p_out, const matrix_full_t *initial);
 
 #endif // EVALUATION_H

@@ -221,13 +221,14 @@ typedef eval_result_t (*const bytecode_operation)(const void *operations[static 
                                                   const bytecode_t code[static remaining], precompute_t *precomp,
                                                   const field_information_t *vector_fields, unsigned n_stack,
                                                   unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                                  const allocator_callbacks *allocator, matrix_t *current);
+                                                  const allocator_callbacks *allocator, matrix_t *current,
+                                                  const matrix_full_t *initial);
 
 static eval_result_t execute_next(const bytecode_operation operations[static MATOP_COUNT], error_stack_t *error_stack,
                                   unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                   precompute_t *precomp, const field_information_t *vector_fields, unsigned n_stack,
                                   unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                  const allocator_callbacks *allocator, matrix_t *current)
+                                  const allocator_callbacks *allocator, matrix_t *current, const matrix_full_t *initial)
 {
     if (remaining == 0)
     {
@@ -242,14 +243,15 @@ static eval_result_t execute_next(const bytecode_operation operations[static MAT
     const bytecode_operation fn = operations[op];
 
     return fn((void *)operations, error_stack, order, remaining - 1, code + 1, precomp, vector_fields, n_stack,
-              stack_pos, stack, allocator, current);
+              stack_pos, stack, allocator, current, initial);
 }
 
 static eval_result_t operation_identity(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                         unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                         precompute_t *precomp, const field_information_t *vector_fields,
                                         unsigned n_stack, unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                        const allocator_callbacks *allocator, matrix_t *current)
+                                        const allocator_callbacks *allocator, matrix_t *current,
+                                        const matrix_full_t *initial)
 {
     if (current->type == MATRIX_TYPE_INVALID)
     {
@@ -257,14 +259,15 @@ static eval_result_t operation_identity(const void *operations[static MATOP_COUN
         current->coefficient = 1.0;
     }
     return execute_next((const bytecode_operation *)operations, error_stack, order, remaining, code, precomp,
-                        vector_fields, n_stack, stack_pos, stack, allocator, current);
+                        vector_fields, n_stack, stack_pos, stack, allocator, current, initial);
 }
 
 static eval_result_t operation_scale(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                      unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                      precompute_t *precomp, const field_information_t *vector_fields, unsigned n_stack,
                                      unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                     const allocator_callbacks *allocator, matrix_t *current)
+                                     const allocator_callbacks *allocator, matrix_t *current,
+                                     const matrix_full_t *initial)
 {
     if (remaining < 1)
     {
@@ -282,14 +285,15 @@ static eval_result_t operation_scale(const void *operations[static MATOP_COUNT],
     }
     code += 1;
     return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 1, code, precomp,
-                        vector_fields, n_stack, stack_pos, stack, allocator, current);
+                        vector_fields, n_stack, stack_pos, stack, allocator, current, initial);
 }
 
 static eval_result_t operation_transpose(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                          unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                          precompute_t *precomp, const field_information_t *vector_fields,
                                          unsigned n_stack, unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                         const allocator_callbacks *allocator, matrix_t *current)
+                                         const allocator_callbacks *allocator, matrix_t *current,
+                                         const matrix_full_t *initial)
 {
     const unsigned tmp = current->base.rows;
     current->base.rows = current->base.cols;
@@ -340,14 +344,15 @@ static eval_result_t operation_transpose(const void *operations[static MATOP_COU
         return EVAL_BAD_ENUM;
     }
     return execute_next((const bytecode_operation *)operations, error_stack, order, remaining, code, precomp,
-                        vector_fields, n_stack, stack_pos, stack, allocator, current);
+                        vector_fields, n_stack, stack_pos, stack, allocator, current, initial);
 }
 
 static eval_result_t operation_push(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                     unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                     precompute_t *precomp, const field_information_t *vector_fields, unsigned n_stack,
                                     unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                    const allocator_callbacks *allocator, matrix_t *current)
+                                    const allocator_callbacks *allocator, matrix_t *current,
+                                    const matrix_full_t *initial)
 {
     if (stack_pos == n_stack)
     {
@@ -360,15 +365,26 @@ static eval_result_t operation_push(const void *operations[static MATOP_COUNT], 
         .type = MATRIX_TYPE_INVALID,
         .coefficient = 0.0,
     };
+    if (initial)
+    {
+        current->coefficient = 1.0;
+        const eval_result_t res = matrix_full_copy(initial, &current->full, allocator);
+        if (res != EVAL_SUCCESS)
+        {
+            EVAL_ERROR(error_stack, res, "Could not create copy of the initial state.");
+            return res;
+        }
+    }
     return execute_next((const bytecode_operation *)operations, error_stack, order, remaining, code, precomp,
-                        vector_fields, n_stack, stack_pos, stack, allocator, current);
+                        vector_fields, n_stack, stack_pos, stack, allocator, current, initial);
 }
 
 static eval_result_t operation_incidence(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                          unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                          precompute_t *precomp, const field_information_t *vector_fields,
                                          unsigned n_stack, unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                         const allocator_callbacks *allocator, matrix_t *current)
+                                         const allocator_callbacks *allocator, matrix_t *current,
+                                         const matrix_full_t *initial)
 {
     if (remaining < 2)
     {
@@ -437,14 +453,15 @@ static eval_result_t operation_incidence(const void *operations[static MATOP_COU
     }
 
     return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 2, code, precomp,
-                        vector_fields, n_stack, stack_pos, stack, allocator, current);
+                        vector_fields, n_stack, stack_pos, stack, allocator, current, initial);
 }
 
 static eval_result_t operation_mass(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                     unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                     precompute_t *precomp, const field_information_t *vector_fields, unsigned n_stack,
                                     unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                    const allocator_callbacks *allocator, matrix_t *current)
+                                    const allocator_callbacks *allocator, matrix_t *current,
+                                    const matrix_full_t *initial)
 {
     if (remaining < 2)
     {
@@ -515,14 +532,15 @@ static eval_result_t operation_mass(const void *operations[static MATOP_COUNT], 
     }
 
     return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 2, code, precomp,
-                        vector_fields, n_stack, stack_pos, stack, allocator, current);
+                        vector_fields, n_stack, stack_pos, stack, allocator, current, initial);
 }
 
 static eval_result_t operation_matmul(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                       unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                       precompute_t *precomp, const field_information_t *vector_fields, unsigned n_stack,
                                       unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                      const allocator_callbacks *allocator, matrix_t *current)
+                                      const allocator_callbacks *allocator, matrix_t *current,
+                                      const matrix_full_t *initial)
 {
     if (stack_pos == 0)
     {
@@ -546,14 +564,15 @@ static eval_result_t operation_matmul(const void *operations[static MATOP_COUNT]
     *current = new_mat;
 
     return execute_next((const bytecode_operation *)operations, error_stack, order, remaining, code, precomp,
-                        vector_fields, n_stack, stack_pos, stack, allocator, current);
+                        vector_fields, n_stack, stack_pos, stack, allocator, current, initial);
 }
 
 static eval_result_t operation_sum(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                    unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                    precompute_t *precomp, const field_information_t *vector_fields, unsigned n_stack,
                                    unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                   const allocator_callbacks *allocator, matrix_t *current)
+                                   const allocator_callbacks *allocator, matrix_t *current,
+                                   const matrix_full_t *initial)
 {
     if (remaining < 1)
     {
@@ -586,7 +605,7 @@ static eval_result_t operation_sum(const void *operations[static MATOP_COUNT], e
     }
 
     return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 1, code, precomp,
-                        vector_fields, n_stack, stack_pos, stack, allocator, current);
+                        vector_fields, n_stack, stack_pos, stack, allocator, current, initial);
 }
 
 typedef enum
@@ -890,7 +909,8 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
                                          unsigned order, unsigned remaining, const bytecode_t code[static remaining],
                                          precompute_t *precomp, const field_information_t *vector_fields,
                                          unsigned n_stack, unsigned stack_pos, matrix_t stack[restrict n_stack],
-                                         const allocator_callbacks *allocator, matrix_t *current)
+                                         const allocator_callbacks *allocator, matrix_t *current,
+                                         const matrix_full_t *initial)
 {
     if (remaining < 4)
     {
@@ -1035,7 +1055,7 @@ static eval_result_t operation_interprod(const void *operations[static MATOP_COU
     current->coefficient *= coeff;
 
     return execute_next((const bytecode_operation *)operations, error_stack, order, remaining - 4, code, precomp,
-                        vector_fields, n_stack, stack_pos, stack, allocator, current);
+                        vector_fields, n_stack, stack_pos, stack, allocator, current, initial);
 }
 
 INTERPLIB_INTERNAL
@@ -1043,7 +1063,7 @@ eval_result_t evaluate_element_term_sibling(error_stack_t *error_stack, form_ord
                                             const bytecode_t *code, precompute_t *precomp,
                                             const field_information_t *vector_fields, unsigned n_stack,
                                             matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
-                                            matrix_full_t *p_out)
+                                            matrix_full_t *p_out, const matrix_full_t *initial)
 {
     const unsigned n_ops = code[0].u32;
     code += 1;
@@ -1053,6 +1073,16 @@ eval_result_t evaluate_element_term_sibling(error_stack_t *error_stack, form_ord
         .type = MATRIX_TYPE_INVALID,
         .coefficient = 0.0,
     };
+    if (initial)
+    {
+        current.coefficient = 1.0;
+        const eval_result_t res = matrix_full_copy(initial, &current.full, allocator);
+        if (res != EVAL_SUCCESS)
+        {
+            EVAL_ERROR(error_stack, res, "Could not initialize matrix.");
+            return res;
+        }
+    }
 
     const bytecode_operation operations[MATOP_COUNT] = {
         [MATOP_INVALID] = NULL,          [MATOP_IDENTITY] = operation_identity,
@@ -1063,7 +1093,7 @@ eval_result_t evaluate_element_term_sibling(error_stack_t *error_stack, form_ord
     };
 
     const eval_result_t res = execute_next(operations, error_stack, order, n_ops, code, precomp, vector_fields, n_stack,
-                                           0, stack, allocator, &current);
+                                           0, stack, allocator, &current, initial);
     clean_stack(stack, n_stack, allocator);
     if (res != EVAL_SUCCESS)
     {

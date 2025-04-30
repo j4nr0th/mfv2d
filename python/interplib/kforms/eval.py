@@ -6,6 +6,7 @@ from enum import IntEnum
 
 from interplib.kforms.kform import (
     KFormDerivative,
+    KFormSystem,
     KFormUnknown,
     KHodge,
     KInnerProduct,
@@ -635,3 +636,27 @@ def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
             raise TypeError("Unknown instruction")
 
     return out
+
+
+def translate_system(
+    system: KFormSystem,
+    vector_fields: Sequence[VectorFieldFunction | KFormUnknown],
+    newton: bool,
+) -> tuple[tuple[tuple[MatOpCode | float | int, ...] | None, ...], ...]:
+    """Create the two dimensional instruction array for the C code to execute."""
+    bytecodes = [
+        translate_equation(eq.left, vector_fields, newton=newton, simplify=True)
+        for eq in system.equations
+    ]
+
+    codes: list[tuple[None | tuple[MatOpCode | float | int, ...], ...]] = list()
+    for bite in bytecodes:
+        row: list[tuple[MatOpCode | float | int, ...] | None] = list()
+        for f in system.unknown_forms:
+            if f in bite:
+                row.append(tuple(_ctranslate(*bite[f])))
+            else:
+                row.append(None)
+
+        codes.append(tuple(row))
+    return tuple(codes)

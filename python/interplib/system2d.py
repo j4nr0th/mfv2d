@@ -25,7 +25,13 @@ from interplib._mimetic import (
     Surface,
     compute_element_matrices,
 )
-from interplib.kforms.eval import MatOp, MatOpCode, _ctranslate, translate_equation
+from interplib.kforms.eval import (
+    MatOp,
+    MatOpCode,
+    _ctranslate,
+    translate_equation,
+    translate_system,
+)
 from interplib.kforms.jax_eval import compute_element_matrices_3
 from interplib.kforms.kform import KBoundaryProjection, VectorFieldFunction
 from interplib.mimetic.mimetic2d import (
@@ -1449,30 +1455,6 @@ def solve_system_2d_nonlinear(
     )
 
     return grid, stats
-
-
-def translate_system(
-    system: kforms.KFormSystem,
-    vector_fields: Sequence[VectorFieldFunction | kforms.KFormUnknown],
-    newton: bool,
-) -> tuple[tuple[tuple[MatOpCode | float | int, ...] | None, ...], ...]:
-    """Create the two dimensional instruction array for the C code to execute."""
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=newton, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[tuple[None | tuple[MatOpCode | float | int, ...], ...]] = list()
-    for bite in bytecodes:
-        row: list[tuple[MatOpCode | float | int, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(tuple(_ctranslate(*bite[f])))
-            else:
-                row.append(None)
-
-        codes.append(tuple(row))
-    return tuple(codes)
 
 
 def lagrange_multiplier_system(

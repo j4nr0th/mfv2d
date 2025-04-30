@@ -5,7 +5,7 @@ import numpy.typing as npt
 import pytest
 from interplib._mimetic import compute_element_explicit, compute_element_matrices
 from interplib.kforms import KFormSystem, KFormUnknown
-from interplib.kforms.eval import MatOp, MatOpCode, _ctranslate, translate_equation
+from interplib.kforms.eval import translate_system
 from interplib.mimetic.mimetic2d import (
     BasisCache,
     ElementLeaf2D,
@@ -15,7 +15,7 @@ from interplib.mimetic.mimetic2d import (
 
 def test_explicit_evaluation():
     """Check that C function for explicit evaluation works fine."""
-    RE = 1
+    RE = 1.5
 
     def vel_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Exact velocity field."""
@@ -57,24 +57,7 @@ def test_explicit_evaluation():
     # print(system)
 
     vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=False, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(_ctranslate(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
+    codes = translate_system(system, vector_fields, newton=False)
 
     N = 11
     N2 = 12

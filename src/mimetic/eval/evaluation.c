@@ -389,7 +389,7 @@ static eval_result_t operation_incidence(const void *operations[static MATOP_COU
     }
     if (dual)
     {
-        t = ((t - 1) ^ 1) + 1;
+        t = 3 - t; // ((t - 1) ^ 1) + 1;
     }
 
     switch (current->type)
@@ -418,7 +418,9 @@ static eval_result_t operation_incidence(const void *operations[static MATOP_COU
         res = apply_incidence_to_full_left(t, order, &current->full, &new_mat.full, allocator);
         if (res != EVAL_SUCCESS)
         {
-            EVAL_ERROR(error_stack, res, "Could apply an incidence matrix to a full matrix.");
+            EVAL_ERROR(error_stack, res,
+                       "Could apply an incidence matrix (type %u) to a full matrix of dimensions  (%u, %u).",
+                       (unsigned)t, current->full.base.rows, current->full.base.cols);
             return res;
         }
         new_mat.coefficient = current->coefficient;

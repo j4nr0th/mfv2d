@@ -20,7 +20,6 @@ from interplib.kforms.eval import (
     Push,
     Scale,
     Sum,
-    Transpose,
 )
 from interplib.mimetic.mimetic2d import BasisCache
 
@@ -574,9 +573,9 @@ def evaluate_element_matrix(
 
             val = matmul(order, val, mat)
 
-        elif type(op) is Transpose:
-            if val is None:
-                raise ValueError("Invalid Transpose operation.")
+            # elif type(op) is Transpose:
+            #     if val is None:
+            #         raise ValueError("Invalid Transpose operation.")
 
             if type(val) is MatrixBase:
                 # No Op

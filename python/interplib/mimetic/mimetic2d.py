@@ -21,7 +21,6 @@ from interplib.kforms.eval import (
     Push,
     Scale,
     Sum,
-    Transpose,
 )
 from interplib.kforms.kform import (
     KBoundaryProjection,
@@ -1866,12 +1865,12 @@ def eval_expression(
             else:
                 val = (c, s @ m)
 
-        elif type(op) is Transpose:
-            if val is None:
-                raise ValueError("Invalid Transpose operation.")
-            c, s = val
-            if s is not None:
-                val = (c, s.T)
+        # elif type(op) is Transpose:
+        #     if val is None:
+        #         raise ValueError("Invalid Transpose operation.")
+        #     c, s = val
+        #     if s is not None:
+        #         val = (c, s.T)
 
         elif type(op) is Sum:
             n = op.count

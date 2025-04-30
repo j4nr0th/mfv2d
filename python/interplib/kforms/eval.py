@@ -61,9 +61,9 @@ class Scale(MatOp):
     k: float
 
 
-@dataclass(frozen=True)
-class Transpose(MatOp):
-    """Transpose of the matrix."""
+# @dataclass(frozen=True)
+# class Transpose(MatOp):
+#     """Transpose of the matrix."""
 
 
 @dataclass(frozen=True)
@@ -93,6 +93,16 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
         initial_nops = int(nops)
         r: Identity | Scale
         while i < nops:
+            if (
+                nops - i >= 2
+                and type(ops[i]) is Identity
+                and (type(ops[i + 1]) is not Sum and type(ops[i + 1]) is not Push)
+                and (i != 0 or type(ops[i - 1]) is not Push)
+            ):
+                del ops[i]
+                nops -= 1
+                continue
+
             if nops - i >= 2 and (
                 type(ops[i]) is MassMat and type(ops[i + 1]) is MassMat
             ):
@@ -106,14 +116,14 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
                     nops -= 1
                     continue
 
-            if nops - i >= 2 and (
-                type(ops[i]) is Transpose and type(ops[i + 1]) is Transpose
-            ):
-                # Double transpose does nothing
-                del ops[i + 1]
-                del ops[i]
-                nops -= 2
-                continue
+            # if nops - i >= 2 and (
+            #     type(ops[i]) is Transpose and type(ops[i + 1]) is Transpose
+            # ):
+            #     # Double transpose does nothing
+            #     del ops[i + 1]
+            #     del ops[i]
+            #     nops -= 2
+            #     continue
 
             if nops - i >= 2 and (
                 type(ops[i]) is Identity
@@ -130,23 +140,23 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
                 nops -= 1
                 continue
 
-            if nops - i >= 2 and (
-                type(ops[i]) is Identity and (type(ops[i + 1]) is Transpose)
-            ):
-                # Transpose of identity does nothing
-                del ops[i + 1]
-                nops -= 1
-                continue
+            # if nops - i >= 2 and (
+            #     type(ops[i]) is Identity and (type(ops[i + 1]) is Transpose)
+            # ):
+            #     # Transpose of identity does nothing
+            #     del ops[i + 1]
+            #     nops -= 1
+            #     continue
 
-            if nops - i >= 3 and (
-                type(ops[i]) is Push
-                and type(ops[i + 1]) is Scale
-                and type(ops[i + 2]) is Transpose
-            ):
-                # Transpose of a fresh scale does nothing
-                del ops[i + 2]
-                nops -= 1
-                continue
+            # if nops - i >= 3 and (
+            #     type(ops[i]) is Push
+            #     and type(ops[i + 1]) is Scale
+            #     and type(ops[i + 2]) is Transpose
+            # ):
+            #     # Transpose of a fresh scale does nothing
+            #     del ops[i + 2]
+            #     nops -= 1
+            #     continue
 
             if nops - i >= 2 and (
                 (type(ops[i]) is Scale or type(ops[i]) is Identity)
@@ -275,15 +285,23 @@ def translate_equation(
         Dictionary mapping forms to either a matrix that represents the operation to
         perform on them, or ``float``, if it should be multiplication with a constant.
     """
-    v = _translate_equation(form, vec_fields, newton)
+    v = _translate_equation(
+        form=form, vec_fields=vec_fields, newton=newton, transpose=False
+    )
     if simplify:
         for k in v:
             v[k] = simplify_expression(*v[k])
+
+    # We no longer use the Transpose instruction :)
+    # assert Transpose() not in v
     return v
 
 
 def _translate_equation(
-    form: Term, vec_fields: Sequence[VectorFieldFunction | KFormUnknown], newton: bool
+    form: Term,
+    vec_fields: Sequence[VectorFieldFunction | KFormUnknown],
+    newton: bool,
+    transpose: bool,
 ) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
@@ -297,6 +315,8 @@ def _translate_equation(
     newton : bool
         When ``True``, non-linear terms will yield terms two terms used to determine the
         derivative. Otherwise, only the terms to evaluate the value are returned.
+    transpose : bool
+        Should instructions be transposed.
 
     Returns
     -------
@@ -310,7 +330,9 @@ def _translate_equation(
         accum: dict[Term, list[MatOp]] = {}
         counts: dict[Term, int] = {}
         for c, ip in form.pairs:
-            right = _translate_equation(ip, vec_fields, newton)
+            right = _translate_equation(
+                form=ip, vec_fields=vec_fields, newton=newton, transpose=transpose
+            )
             if c != 1.0:
                 for f in right:
                     right[f].append(Scale(c))
@@ -338,8 +360,12 @@ def _translate_equation(
         # if isinstance(form.function, KHodge):
         #     unknown = _translate_equation(form.function.base_form)
         # else:
-        unknown = _translate_equation(form.unknown_form, vec_fields, newton)
-        weight = _translate_equation(form.weight_form, vec_fields, newton)
+        unknown = _translate_equation(
+            form=form.unknown_form, vec_fields=vec_fields, newton=newton, transpose=False
+        )
+        weight = _translate_equation(
+            form=form.weight_form, vec_fields=vec_fields, newton=newton, transpose=True
+        )
         assert len(weight) == 1
         dv = tuple(v for v in weight.keys())[0]
         for k in unknown:
@@ -364,26 +390,38 @@ def _translate_equation(
                 raise ValueError(
                     f"Order {form.unknown_form.order} can't be used on a 2D mesh."
                 )
-
-            result = vp + [mass, Push()] + vd + [Transpose(), MatMul()]
-
+            if not transpose:
+                result = vp + [mass] + vd
+            else:
+                result = vd + [mass] + vp
             unknown[k] = result
         return unknown
 
     if type(form) is KFormDerivative:
-        res = _translate_equation(form.form, vec_fields, newton)
+        res = _translate_equation(form.form, vec_fields, newton, transpose=transpose)
         for k in res:
             vr = res[k]
-            vr.append(Incidence(form.form.order, not form.form.is_primal))
+            if not transpose:
+                vr.append(Incidence(form.form.order, not form.form.is_primal))
+            else:
+                res[k] = [
+                    Incidence(1 - form.form.order, form.form.is_primal),
+                    Scale(-1),
+                ] + vr
         return res
 
     if type(form) is KHodge:
-        unknown = _translate_equation(form.base_form, vec_fields, newton)
+        unknown = _translate_equation(
+            form=form.base_form, vec_fields=vec_fields, newton=newton, transpose=transpose
+        )
         prime_order = form.primal_order
         for k in unknown:
             mass = MassMat(prime_order, not form.base_form.is_primal)
             uv = unknown[k]
-            uv.append(mass)
+            if not transpose:
+                uv.append(mass)
+            else:
+                uv = [mass] + uv
             unknown[k] = uv
         return unknown
 
@@ -394,7 +432,12 @@ def _translate_equation(
         return {form: [Identity()]}
 
     if (type(form) is KInteriorProduct) or (type(form) is KInteriorProductNonlinear):
-        res = _translate_equation(form.form, vec_fields, newton)
+        if transpose:
+            ValueError("Can not transpose interior product instructions (yet?).")
+
+        res = _translate_equation(
+            form=form.form, vec_fields=vec_fields, newton=newton, transpose=transpose
+        )
 
         if type(form) is KInteriorProduct:
             idx = vec_fields.index(form.vector_field)
@@ -483,12 +526,12 @@ def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
             c, s = val
             val = (c * k, s + " @ " + mat)
 
-        elif type(op) is Transpose:
-            if val is None:
-                raise ValueError("Invalid Transpose operation.")
-            c, s = val
-            s = "(" + s + ")^T"
-            val = (c, s)
+        # elif type(op) is Transpose:
+        #     if val is None:
+        #         raise ValueError("Invalid Transpose operation.")
+        #     c, s = val
+        #     s = "(" + s + ")^T"
+        #     val = (c, s)
 
         elif type(op) is Sum:
             n = op.count
@@ -521,8 +564,9 @@ def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
                 )
             if val is None:
                 val = (1.0, mat)
-            c, s = val
-            val = (c, mat + " @ " + s)
+            else:
+                c, s = val
+                val = (c, mat + " @ " + s)
 
         else:
             raise TypeError("Unknown operation.")
@@ -550,7 +594,7 @@ class MatOpCode(IntEnum):
     PUSH = 4
     MATMUL = 5
     SCALE = 6
-    TRANSPOSE = 7
+    # TRANSPOSE = 7
     SUM = 8
     INTERPROD = 9
 
@@ -574,8 +618,8 @@ def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
         elif type(op) is Scale:
             out.append(MatOpCode.SCALE)
             out.append(op.k)
-        elif type(op) is Transpose:
-            out.append(MatOpCode.TRANSPOSE)
+        # elif type(op) is Transpose:
+        #     out.append(MatOpCode.TRANSPOSE)
         elif type(op) is Sum:
             out.append(MatOpCode.SUM)
             out.append(op.count)

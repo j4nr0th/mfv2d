@@ -23,6 +23,7 @@ from interplib._mimetic import (
     LiLMatrix,
     SparseVector,
     Surface,
+    compute_element_explicit,
     compute_element_matrices,
 )
 from interplib.kforms.eval import (
@@ -33,7 +34,11 @@ from interplib.kforms.eval import (
     translate_system,
 )
 from interplib.kforms.jax_eval import compute_element_matrices_3
-from interplib.kforms.kform import KBoundaryProjection, VectorFieldFunction
+from interplib.kforms.kform import (
+    KBoundaryProjection,
+    KSum,
+    VectorFieldFunction,
+)
 from interplib.mimetic.mimetic2d import (
     BasisCache,
     Element2D,
@@ -860,20 +865,16 @@ def solve_system_2d(
         for eq in system.equations
     ]
 
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
+    codes = translate_system(system, vector_fields, newton=False)
     expr_array: list[tuple[None | tuple[MatOp, ...], ...]] = list()
     for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
-                row.append(None)
                 expr_row.append(None)
 
-        codes.append(row)
         expr_array.append(tuple(expr_row))
     expr_mat = tuple(expr_array)
     del expr_array
@@ -1081,6 +1082,93 @@ def solve_system_2d(
     return grid, stats
 
 
+@dataclass(frozen=True, init=False)
+class CompiledSystem:
+    """System of equations compiled."""
+
+    lhs_full: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...]
+    rhs_codes: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...] | None
+    linear_codes: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...]
+    nonlin_codes: (
+        tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...] | None
+    )
+
+    @staticmethod
+    def _compile_system_part(
+        system: kforms.KFormSystem, expr: KSum | None, newton: bool
+    ) -> tuple[tuple[MatOpCode | int | float, ...] | None, ...]:
+        """Compile an expression and fit it into the row of the expression matrix."""
+        if expr is None:
+            return (None,) * len(system.unknown_forms)
+
+        bytecode = translate_equation(expr, system.vector_fields, newton, True)
+
+        return tuple(
+            (tuple(_ctranslate(*bytecode[form])) if form in bytecode else None)
+            for form in system.unknown_forms
+        )
+
+    def __init__(self, system: kforms.KFormSystem) -> None:
+        # Split the system into the explicit, linear implicit, and non-linear implicit
+        # explicit: list[tuple[tuple[float, KExplicit], ...] | None] = list()
+        implicit_rhs: list[KSum | None] = list()
+        linear_lhs: list[KSum | None] = list()
+        nonlin_lhs: list[KSum | None] = list()
+
+        # Loop over equations
+        for equation in system.equations:
+            assert not equation.left.explicit_terms
+            # rhs_expl = equation.right.explicit_terms
+            # explicit.append(rhs_expl if rhs_expl else None)
+            rhs_impl = equation.right.implicit_terms
+            implicit_rhs.append(KSum(*rhs_impl) if rhs_impl else None)
+            linear, nonlinear = equation.left.split_terms_linear_nonlinear()
+            linear_lhs.append(linear)
+            nonlin_lhs.append(nonlinear)
+
+        rhs_codes = tuple(
+            CompiledSystem._compile_system_part(system, expr, newton=False)
+            for expr in implicit_rhs
+        )
+
+        object.__setattr__(
+            self,
+            "rhs_codes",
+            rhs_codes
+            if any(any(e is not None for e in row) for row in rhs_codes)
+            else None,
+        )
+
+        linear_codes = tuple(
+            CompiledSystem._compile_system_part(system, expr, newton=False)
+            for expr in linear_lhs
+        )
+
+        object.__setattr__(self, "linear_codes", linear_codes)
+
+        nonlinear_codes = tuple(
+            CompiledSystem._compile_system_part(system, expr, newton=True)
+            for expr in nonlin_lhs
+        )
+        object.__setattr__(
+            self,
+            "nonlin_codes",
+            nonlinear_codes
+            if any(any(e is not None for e in row) for row in nonlinear_codes)
+            else None,
+        )
+        object.__setattr__(
+            self,
+            "lhs_full",
+            tuple(
+                CompiledSystem._compile_system_part(system, eq.left, newton=False)
+                for eq in system.equations
+            ),
+        )
+
+        # object.__setattr__(self, "explicit", tuple(explicit))
+
+
 def solve_system_2d_nonlinear(
     system: kforms.KFormSystem,
     mesh: Mesh2D,
@@ -1197,6 +1285,7 @@ def solve_system_2d_nonlinear(
         unknown_form_orders, element_tree
     )
 
+    # Check the degrees of freedom to zero out
     to_zero: list[npt.NDArray[np.uint32]] = list()
     for form in zeroed_forms:
         i_form = system.unknown_forms.index(form)
@@ -1228,9 +1317,14 @@ def solve_system_2d_nonlinear(
 
     vector_fields = system.vector_fields
 
-    codes_newton = translate_system(system, vector_fields, True)
-    codes_values = translate_system(system, vector_fields, False)
+    compiled_system = CompiledSystem(system)
+    # codes_newton = translate_system(system, vector_fields, True)
+    # codes_values = translate_system(system, vector_fields, False)
 
+    # Explicit right side
+    explicit_vec: npt.NDArray[np.float64]
+
+    # Prepare for evaluation of matrices/vectors
     bl = np.array([e.bottom_left for e in leaf_elements])
     br = np.array([e.bottom_right for e in leaf_elements])
     tr = np.array([e.top_right for e in leaf_elements])
@@ -1243,25 +1337,27 @@ def solve_system_2d_nonlinear(
     for o in element_tree.unique_orders:
         cache[o].clean()
 
-    element_vectors: dict[int, npt.NDArray[np.float64]] = {
+    linear_vectors: dict[int, npt.NDArray[np.float64]] = {
         int(ileaf): element_rhs(system, e, cache[e.order])
         for ileaf, e in zip(leaf_indices, leaf_elements, strict=True)
     }
 
-    element_matrices: dict[int, npt.NDArray[np.float64]]
+    linear_element_matrices: dict[int, npt.NDArray[np.float64]]
 
     # Compute vector fields at integration points for leaf elements
     vec_field_offsets, vec_fields = compute_vector_fields_nonlin(
         system, leaf_elements, element_tree, cache, vector_fields
     )
 
-    element_matrices = {
+    assert compiled_system.linear_codes
+
+    linear_element_matrices = {
         int(ileaf): m
         for ileaf, m in zip(
             leaf_indices,
             compute_element_matrices(
                 [f.order for f in system.unknown_forms],
-                codes_newton,
+                compiled_system.linear_codes,
                 bl,
                 br,
                 tr,
@@ -1275,10 +1371,12 @@ def solve_system_2d_nonlinear(
         )
     }
     main_mat, main_vec = assemble_global_element_matrix(
-        system, unknown_form_orders, element_tree, element_matrices, element_vectors
+        system,
+        unknown_form_orders,
+        element_tree,
+        linear_element_matrices,
+        linear_vectors,
     )
-
-    del element_matrices
 
     apply_weak_boundary_conditions(
         system,
@@ -1311,9 +1409,13 @@ def solve_system_2d_nonlinear(
     else:
         n_lagrange_eq = 0
 
-    main_mat = sp.csc_array(main_mat)
+    linear_matrix = sp.csc_array(main_mat)
+    explicit_vec = main_vec
+    del main_mat, main_vec
     solution = np.asarray(
-        sla.spsolve(main_mat, main_vec, permc_spec="NATURAL"), dtype=np.float64, copy=None
+        sla.spsolve(linear_matrix, explicit_vec, permc_spec="NATURAL"),
+        dtype=np.float64,
+        copy=None,
     )
     for indices in zeroing_indices:
         solution[indices] -= np.mean(solution[indices])
@@ -1321,7 +1423,7 @@ def solve_system_2d_nonlinear(
     iter_cnt = 1
     changes: list[float] = list()
     max_residual = np.inf
-    max_mag = np.abs(main_vec).max()
+    max_mag = np.abs(explicit_vec).max()
 
     while iter_cnt < max_iterations:
         # Recompute vector fields
@@ -1336,14 +1438,15 @@ def solve_system_2d_nonlinear(
             element_begin,
         )
 
-        element_values = {
+        equation_values = {
             int(ileaf): m
-            @ solution[element_begin[ileaf] : element_begin[ileaf] + m.shape[1]]
             for ileaf, m in zip(
                 leaf_indices,
-                compute_element_matrices(
+                compute_element_explicit(
+                    solution,
+                    element_begin[:-1],
                     [f.order for f in system.unknown_forms],
-                    codes_values,
+                    compiled_system.lhs_full,
                     bl,
                     br,
                     tr,
@@ -1360,10 +1463,36 @@ def solve_system_2d_nonlinear(
             system,
             unknown_form_orders,
             element_tree,
-            element_values,
+            equation_values,
             solution,
             element_begin,
         )
+
+        if compiled_system.rhs_codes is not None:
+            main_vec = np.array(explicit_vec, copy=True)  # Make a copy
+            # Update RHS implicit terms
+            for ileaf, m in zip(
+                leaf_indices,
+                compute_element_explicit(
+                    solution,
+                    element_begin[:-1],
+                    [f.order for f in system.unknown_forms],
+                    compiled_system.rhs_codes,
+                    bl,
+                    br,
+                    tr,
+                    tl,
+                    orde,
+                    vec_fields,
+                    vec_field_offsets,
+                    c_ser,
+                ),
+                strict=True,
+            ):
+                main_vec[element_begin[ileaf] : element_begin[ileaf] + m.size] -= m
+
+        else:
+            main_vec = explicit_vec
 
         if lag_res is not None:
             n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
@@ -1381,39 +1510,42 @@ def solve_system_2d_nonlinear(
         if not (max_residual > atol and max_residual > max_mag * rtol):
             break
         # print(np.linalg.norm(residual), np.abs(residual).max())
-
-        element_matrices = {
-            int(ileaf): m
-            for ileaf, m in zip(
-                leaf_indices,
-                compute_element_matrices(
-                    [f.order for f in system.unknown_forms],
-                    codes_newton,
-                    bl,
-                    br,
-                    tr,
-                    tl,
-                    orde,
-                    vec_fields,
-                    vec_field_offsets,
-                    c_ser,
-                ),
-                strict=True,
+        if compiled_system.nonlin_codes is not None:
+            element_matrices = {
+                int(ileaf): m + linear_element_matrices[int(ileaf)]
+                for ileaf, m in zip(
+                    leaf_indices,
+                    compute_element_matrices(
+                        [f.order for f in system.unknown_forms],
+                        compiled_system.nonlin_codes,
+                        bl,
+                        br,
+                        tr,
+                        tl,
+                        orde,
+                        vec_fields,
+                        vec_field_offsets,
+                        c_ser,
+                    ),
+                    strict=True,
+                )
+            }
+            main_mat, _ = assemble_global_element_matrix(
+                system,
+                unknown_form_orders,
+                element_tree,
+                element_matrices,
+                linear_vectors,
             )
-        }
+            if lag_res is not None:
+                n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
+                main_mat = sp.block_array(
+                    [[main_mat, lagrange_mat.T], [lagrange_mat, None]]
+                )
+                # main_vec = np.concatenate((main_vec, lag_rhs), dtype=np.float64)
 
-        main_mat, _ = assemble_global_element_matrix(
-            system,
-            unknown_form_orders,
-            element_tree,
-            element_matrices,
-            element_vectors,
-        )
-
-        if lag_res is not None:
-            n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
-            main_mat = sp.block_array([[main_mat, lagrange_mat.T], [lagrange_mat, None]])
-            # main_vec = np.concatenate((main_vec, lag_rhs), dtype=np.float64)
+        else:
+            main_mat = linear_matrix
 
         main_mat = sp.csc_array(main_mat)
         # print(f"Residual magninutde: {np.linalg.norm(residual)}")
@@ -1621,6 +1753,7 @@ def compute_element_offsets(
     return base_element_offsets, element_begin
 
 
+# TODO: split the matrix and vector parts
 def assemble_global_element_matrix(
     system: kforms.KFormSystem,
     unknown_form_orders: Sequence[int],

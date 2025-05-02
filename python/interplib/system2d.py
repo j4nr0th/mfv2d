@@ -1094,7 +1094,7 @@ def solve_system_2d_nonlinear(
     division_function: OrderDivisionFunction | None = None,
     recon_order: int | None = None,
     print_residual: bool = False,
-    zeroed_forms: Sequence[kforms.KFormUnknown] | None = None,
+    constrained_forms: Sequence[tuple[float, kforms.KFormUnknown]] | None = None,
 ) -> tuple[pv.UnstructuredGrid, SolutionStatisticsNonLin]:
     """Solve the non-linear system on the specified mesh.
 
@@ -1142,11 +1142,14 @@ def solve_system_2d_nonlinear(
         Print the maximum of the absolute value of the residual for each iteration of the
         Newton-Raphson method.
 
-    zeroed_forms : Sequence of KFormUnknown, optional
-        Sequence of unknowns which must be zeroed each iteration. These can arrise form
-        the system having a non-unique solution, such as pressure for incompressible
-        Navier-Stokes. These can only be forms without any strong boundary conditions
-        specified on them.
+    constrained_forms : Sequence of (float, KFormUnknown), optional
+        Sequence of 2-form unknowns which must be constrained. These can arrise form
+        cases where a continuous variable acts as a Lagrange multiplier on the continuous
+        level and only appears in the PDE as a gradient. In that case it will result
+        in a singular system if not constrained manually to a fixed value.
+
+        An example of such a case is pressure in Stokes flow or incompressible
+        Navier-Stokes equations.
 
     Returns
     -------
@@ -1156,15 +1159,15 @@ def solve_system_2d_nonlinear(
     stats : SolutionStatisticsNonLin
         Statistics about the solution. This can be used for convergence tests or timing.
     """
-    if zeroed_forms is None:
-        zeroed_forms = tuple()
+    if constrained_forms is None:
+        constrained_forms = tuple()
 
     strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]] = (
         find_strong_bc_edge_indices(system, refinement_levels, boundaray_conditions, mesh)
     )
-    zeroing_indices: tuple[npt.NDArray[np.uint32], ...] = tuple()
+    constraining_indices: tuple[npt.NDArray[np.uint32], ...] = tuple()
 
-    for form in zeroed_forms:
+    for _, form in constrained_forms:
         if form not in system.unknown_forms:
             raise ValueError(
                 f"Form {form} which is to be zeroed is not involved in the system."
@@ -1197,8 +1200,8 @@ def solve_system_2d_nonlinear(
     )
 
     # Check the degrees of freedom to zero out
-    to_zero: list[npt.NDArray[np.uint32]] = list()
-    for form in zeroed_forms:
+    to_constrain: list[npt.NDArray[np.uint32]] = list()
+    for _, form in constrained_forms:
         i_form = system.unknown_forms.index(form)
         form_indices: list[npt.NDArray[np.uint32]] = list()
 
@@ -1212,11 +1215,11 @@ def solve_system_2d_nonlinear(
             )
             del offset_base, form_begin, form_end
 
-        to_zero.append(np.concatenate(form_indices, dtype=np.uint32))
+        to_constrain.append(np.concatenate(form_indices, dtype=np.uint32))
         del form_indices
 
-    zeroing_indices = tuple(to_zero)
-    del to_zero
+    constraining_indices = tuple(to_constrain)
+    del to_constrain
 
     # Make element matrices and vectors
     cache: dict[int, BasisCache] = dict()
@@ -1308,7 +1311,12 @@ def solve_system_2d_nonlinear(
         cache,
         base_element_offsets,
         element_begin,
+        tuple(
+            (c, i)
+            for (c, _), i in zip(constrained_forms, constraining_indices, strict=True)
+        ),
     )
+    del constrained_forms, constraining_indices
 
     if lag_res is not None:
         n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
@@ -1321,14 +1329,14 @@ def solve_system_2d_nonlinear(
     linear_matrix = sp.csc_array(main_mat)
     explicit_vec = main_vec
     del main_mat, main_vec
-    system_decomp = sla.splu(linear_matrix, permc_spec="NATURAL")
+    system_decomp = sla.splu(linear_matrix)
     solution = np.asarray(
         system_decomp.solve(explicit_vec),
         dtype=np.float64,
         copy=None,
     )
-    for indices in zeroing_indices:
-        solution[indices] -= np.mean(solution[indices])
+    # for indices in constraining_indices:
+    #     solution[indices] -= np.mean(solution[indices])
 
     iter_cnt = 1
     changes: list[float] = list()
@@ -1455,7 +1463,7 @@ def solve_system_2d_nonlinear(
             else:
                 main_mat = main_mat.tocsc()
 
-            system_decomp = sla.splu(main_mat, permc_spec="NATURAL")
+            system_decomp = sla.splu(main_mat)
             del main_mat
 
         d_solution = np.asarray(
@@ -1497,6 +1505,7 @@ def solve_system_2d_nonlinear(
     return grid, stats
 
 
+# TODO: add constrained forms.
 def lagrange_multiplier_system(
     system: kforms.KFormSystem,
     mesh: Mesh2D,
@@ -1506,6 +1515,7 @@ def lagrange_multiplier_system(
     cache: dict[int, BasisCache],
     base_element_offsets: npt.NDArray[np.uint32],
     element_begin: npt.NDArray[np.uint32],
+    constraining_pairs: Sequence[tuple[float, npt.NDArray[np.uint32]]],
 ) -> tuple[int, sp.csc_array, npt.NDArray[np.float64]] | None:
     """Return the boundary conditions system."""
     continuity_equations: list[ConstraintEquation] = list()
@@ -1535,6 +1545,11 @@ def lagrange_multiplier_system(
                 base_element_offsets,
                 cache,
             )
+        )
+
+    for value, indices in constraining_pairs:
+        continuity_equations.append(
+            ConstraintEquation(indices, np.ones_like(indices), value)
         )
 
     n_lagrange_eq = len(continuity_equations)

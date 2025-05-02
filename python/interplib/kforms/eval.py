@@ -4,6 +4,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import IntEnum
 
+from interplib import kforms
 from interplib.kforms.kform import (
     KFormDerivative,
     KFormSystem,
@@ -660,3 +661,88 @@ def translate_system(
 
         codes.append(tuple(row))
     return tuple(codes)
+
+
+@dataclass(frozen=True, init=False)
+class CompiledSystem:
+    """System of equations compiled."""
+
+    lhs_full: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...]
+    rhs_codes: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...] | None
+    linear_codes: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...]
+    nonlin_codes: (
+        tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...] | None
+    )
+
+    @staticmethod
+    def _compile_system_part(
+        system: kforms.KFormSystem, expr: KSum | None, newton: bool
+    ) -> tuple[tuple[MatOpCode | int | float, ...] | None, ...]:
+        """Compile an expression and fit it into the row of the expression matrix."""
+        if expr is None:
+            return (None,) * len(system.unknown_forms)
+
+        bytecode = translate_equation(expr, system.vector_fields, newton, True)
+
+        return tuple(
+            (tuple(_ctranslate(*bytecode[form])) if form in bytecode else None)
+            for form in system.unknown_forms
+        )
+
+    def __init__(self, system: kforms.KFormSystem) -> None:
+        # Split the system into the explicit, linear implicit, and non-linear implicit
+        # explicit: list[tuple[tuple[float, KExplicit], ...] | None] = list()
+        implicit_rhs: list[KSum | None] = list()
+        linear_lhs: list[KSum | None] = list()
+        nonlin_lhs: list[KSum | None] = list()
+
+        # Loop over equations
+        for equation in system.equations:
+            assert not equation.left.explicit_terms
+            # rhs_expl = equation.right.explicit_terms
+            # explicit.append(rhs_expl if rhs_expl else None)
+            rhs_impl = equation.right.implicit_terms
+            implicit_rhs.append(KSum(*rhs_impl) if rhs_impl else None)
+            linear, nonlinear = equation.left.split_terms_linear_nonlinear()
+            linear_lhs.append(linear)
+            nonlin_lhs.append(nonlinear)
+
+        rhs_codes = tuple(
+            CompiledSystem._compile_system_part(system, expr, newton=False)
+            for expr in implicit_rhs
+        )
+
+        object.__setattr__(
+            self,
+            "rhs_codes",
+            rhs_codes
+            if any(any(e is not None for e in row) for row in rhs_codes)
+            else None,
+        )
+
+        linear_codes = tuple(
+            CompiledSystem._compile_system_part(system, expr, newton=False)
+            for expr in linear_lhs
+        )
+
+        object.__setattr__(self, "linear_codes", linear_codes)
+
+        nonlinear_codes = tuple(
+            CompiledSystem._compile_system_part(system, expr, newton=True)
+            for expr in nonlin_lhs
+        )
+        object.__setattr__(
+            self,
+            "nonlin_codes",
+            nonlinear_codes
+            if any(any(e is not None for e in row) for row in nonlinear_codes)
+            else None,
+        )
+        object.__setattr__(
+            self,
+            "lhs_full",
+            tuple(
+                CompiledSystem._compile_system_part(system, eq.left, newton=False)
+                for eq in system.equations
+            ),
+        )

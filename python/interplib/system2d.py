@@ -27,16 +27,14 @@ from interplib._mimetic import (
     compute_element_matrices,
 )
 from interplib.kforms.eval import (
+    CompiledSystem,
     MatOp,
-    MatOpCode,
-    _ctranslate,
     translate_equation,
     translate_system,
 )
 from interplib.kforms.jax_eval import compute_element_matrices_3
 from interplib.kforms.kform import (
     KBoundaryProjection,
-    KSum,
     VectorFieldFunction,
 )
 from interplib.mimetic.mimetic2d import (
@@ -1082,93 +1080,6 @@ def solve_system_2d(
     return grid, stats
 
 
-@dataclass(frozen=True, init=False)
-class CompiledSystem:
-    """System of equations compiled."""
-
-    lhs_full: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...]
-    rhs_codes: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...] | None
-    linear_codes: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...]
-    nonlin_codes: (
-        tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...] | None
-    )
-
-    @staticmethod
-    def _compile_system_part(
-        system: kforms.KFormSystem, expr: KSum | None, newton: bool
-    ) -> tuple[tuple[MatOpCode | int | float, ...] | None, ...]:
-        """Compile an expression and fit it into the row of the expression matrix."""
-        if expr is None:
-            return (None,) * len(system.unknown_forms)
-
-        bytecode = translate_equation(expr, system.vector_fields, newton, True)
-
-        return tuple(
-            (tuple(_ctranslate(*bytecode[form])) if form in bytecode else None)
-            for form in system.unknown_forms
-        )
-
-    def __init__(self, system: kforms.KFormSystem) -> None:
-        # Split the system into the explicit, linear implicit, and non-linear implicit
-        # explicit: list[tuple[tuple[float, KExplicit], ...] | None] = list()
-        implicit_rhs: list[KSum | None] = list()
-        linear_lhs: list[KSum | None] = list()
-        nonlin_lhs: list[KSum | None] = list()
-
-        # Loop over equations
-        for equation in system.equations:
-            assert not equation.left.explicit_terms
-            # rhs_expl = equation.right.explicit_terms
-            # explicit.append(rhs_expl if rhs_expl else None)
-            rhs_impl = equation.right.implicit_terms
-            implicit_rhs.append(KSum(*rhs_impl) if rhs_impl else None)
-            linear, nonlinear = equation.left.split_terms_linear_nonlinear()
-            linear_lhs.append(linear)
-            nonlin_lhs.append(nonlinear)
-
-        rhs_codes = tuple(
-            CompiledSystem._compile_system_part(system, expr, newton=False)
-            for expr in implicit_rhs
-        )
-
-        object.__setattr__(
-            self,
-            "rhs_codes",
-            rhs_codes
-            if any(any(e is not None for e in row) for row in rhs_codes)
-            else None,
-        )
-
-        linear_codes = tuple(
-            CompiledSystem._compile_system_part(system, expr, newton=False)
-            for expr in linear_lhs
-        )
-
-        object.__setattr__(self, "linear_codes", linear_codes)
-
-        nonlinear_codes = tuple(
-            CompiledSystem._compile_system_part(system, expr, newton=True)
-            for expr in nonlin_lhs
-        )
-        object.__setattr__(
-            self,
-            "nonlin_codes",
-            nonlinear_codes
-            if any(any(e is not None for e in row) for row in nonlinear_codes)
-            else None,
-        )
-        object.__setattr__(
-            self,
-            "lhs_full",
-            tuple(
-                CompiledSystem._compile_system_part(system, eq.left, newton=False)
-                for eq in system.equations
-            ),
-        )
-
-        # object.__setattr__(self, "explicit", tuple(explicit))
-
-
 def solve_system_2d_nonlinear(
     system: kforms.KFormSystem,
     mesh: Mesh2D,
@@ -1318,8 +1229,6 @@ def solve_system_2d_nonlinear(
     vector_fields = system.vector_fields
 
     compiled_system = CompiledSystem(system)
-    # codes_newton = translate_system(system, vector_fields, True)
-    # codes_values = translate_system(system, vector_fields, False)
 
     # Explicit right side
     explicit_vec: npt.NDArray[np.float64]
@@ -1412,8 +1321,9 @@ def solve_system_2d_nonlinear(
     linear_matrix = sp.csc_array(main_mat)
     explicit_vec = main_vec
     del main_mat, main_vec
+    system_decomp = sla.splu(linear_matrix, permc_spec="NATURAL")
     solution = np.asarray(
-        sla.spsolve(linear_matrix, explicit_vec, permc_spec="NATURAL"),
+        system_decomp.solve(explicit_vec),
         dtype=np.float64,
         copy=None,
     )
@@ -1489,7 +1399,7 @@ def solve_system_2d_nonlinear(
                 ),
                 strict=True,
             ):
-                main_vec[element_begin[ileaf] : element_begin[ileaf] + m.size] -= m
+                main_vec[element_begin[ileaf] : element_begin[ileaf] + m.size] += m
 
         else:
             main_vec = explicit_vec
@@ -1509,7 +1419,7 @@ def solve_system_2d_nonlinear(
 
         if not (max_residual > atol and max_residual > max_mag * rtol):
             break
-        # print(np.linalg.norm(residual), np.abs(residual).max())
+
         if compiled_system.nonlin_codes is not None:
             element_matrices = {
                 int(ileaf): m + linear_element_matrices[int(ileaf)]
@@ -1540,28 +1450,26 @@ def solve_system_2d_nonlinear(
             if lag_res is not None:
                 n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
                 main_mat = sp.block_array(
-                    [[main_mat, lagrange_mat.T], [lagrange_mat, None]]
+                    [[main_mat, lagrange_mat.T], [lagrange_mat, None]], format="csc"
                 )
-                # main_vec = np.concatenate((main_vec, lag_rhs), dtype=np.float64)
+            else:
+                main_mat = main_mat.tocsc()
 
-        else:
-            main_mat = linear_matrix
+            system_decomp = sla.splu(main_mat, permc_spec="NATURAL")
+            del main_mat
 
-        main_mat = sp.csc_array(main_mat)
-        # print(f"Residual magninutde: {np.linalg.norm(residual)}")
         d_solution = np.asarray(
-            sla.spsolve(main_mat, residual, "NATURAL"), dtype=np.float64, copy=None
+            system_decomp.solve(residual),
+            dtype=np.float64,
+            copy=None,
         )
 
         solution += relax * d_solution
 
-        # for indices in zeroing_indices:
-        #     solution[indices] -= np.mean(solution[indices])
-
         iter_cnt += 1
 
+        del main_vec
     del c_ser, bl, br, tr, tl, orde
-    del main_mat, main_vec
 
     # Prepare to build up the 1D Splines
     grid = reconstruct_mesh_from_solution(

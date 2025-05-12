@@ -33,10 +33,7 @@ from interplib.kforms.eval import (
     translate_system,
 )
 from interplib.kforms.jax_eval import compute_element_matrices_3
-from interplib.kforms.kform import (
-    KBoundaryProjection,
-    VectorFieldFunction,
-)
+from interplib.kforms.kform import KBoundaryProjection, KWeight, VectorFieldFunction
 from interplib.mimetic.mimetic2d import (
     BasisCache,
     Element2D,
@@ -277,7 +274,15 @@ class SolutionStatisticsNonLin(SolutionStatistics):
     """Information about the non-linear solution."""
 
     iter_count: int
-    change_history_max: npt.NDArray[np.float64]
+    final_residual: float
+
+
+@dataclass(frozen=True)
+class SolutionStatisticsUnsteady(SolutionStatistics):
+    """Information about the unsteady solution."""
+
+    iter_history: npt.NDArray[np.uint32]
+    residual_history: npt.NDArray[np.float64]
 
 
 @cache
@@ -425,7 +430,7 @@ def find_boundary_id(s: Surface, i: int) -> Literal[0, 1, 2, 3]:
 def find_strong_bc_edge_indices(
     system: kforms.KFormSystem,
     refinement_levels: int,
-    boundaray_conditions: None | Sequence[kforms.BoundaryCondition2DStrong],
+    boundaray_conditions: None | Sequence[kforms.BoundaryCondition2D],
     mesh: Mesh2D,
 ) -> dict[kforms.KFormUnknown, npt.NDArray[np.uint64]]:
     """Return a dictionary containing indices of edges with strong boundary conditions."""
@@ -491,7 +496,7 @@ def apply_weak_boundary_conditions(
             edges = mesh.boundary_indices
             if w_form in strong_indices:
                 edges = np.astype(
-                    np.setdiff1d(edges, strong_indices[w_form]),  # type: ignore
+                    np.setdiff1d(edges, strong_indices[w_form]),
                     np.int32,
                     copy=False,
                 )
@@ -520,7 +525,7 @@ def apply_weak_boundary_conditions(
 
 
 def strong_boundary_condition_equations(
-    boundaray_conditions: Sequence[kforms.BoundaryCondition2DStrong],
+    boundaray_conditions: Sequence[kforms.BoundaryCondition2DSteady],
     system: kforms.KFormSystem,
     element_tree: ElementTree,
     mesh: Mesh2D,
@@ -760,7 +765,7 @@ def top_level_continuity_1(
 def solve_system_2d(
     system: kforms.KFormSystem,
     mesh: Mesh2D,
-    boundaray_conditions: Sequence[kforms.BoundaryCondition2DStrong] | None = None,
+    boundaray_conditions: Sequence[kforms.BoundaryCondition2DSteady] | None = None,
     refinement_levels: int = 0,
     div_predicate: Callable[[ElementLeaf2D, int], bool] | None = None,
     *,
@@ -1083,7 +1088,7 @@ def solve_system_2d(
 def solve_system_2d_nonlinear(
     system: kforms.KFormSystem,
     mesh: Mesh2D,
-    boundaray_conditions: Sequence[kforms.BoundaryCondition2DStrong] | None = None,
+    boundaray_conditions: Sequence[kforms.BoundaryCondition2DSteady] | None = None,
     refinement_levels: int = 0,
     div_predicate: Callable[[ElementLeaf2D, int], bool] | None = None,
     max_iterations: int = 100,
@@ -1200,26 +1205,10 @@ def solve_system_2d_nonlinear(
     )
 
     # Check the degrees of freedom to zero out
-    to_constrain: list[npt.NDArray[np.uint32]] = list()
-    for _, form in constrained_forms:
-        i_form = system.unknown_forms.index(form)
-        form_indices: list[npt.NDArray[np.uint32]] = list()
-
-        ie_leaf: int
-        for ie_leaf in leaf_indices:
-            offset_base = element_begin[ie_leaf]
-            form_begin = element_tree.dof_offsets[i_form][ie_leaf]
-            form_end = element_tree.dof_offsets[i_form + 1][ie_leaf]
-            form_indices.append(
-                np.arange(form_begin, form_end, dtype=np.uint32) + offset_base
-            )
-            del offset_base, form_begin, form_end
-
-        to_constrain.append(np.concatenate(form_indices, dtype=np.uint32))
-        del form_indices
-
-    constraining_indices = tuple(to_constrain)
-    del to_constrain
+    constraining_indices = tuple(
+        find_form_dof_indices(system, form, element_tree, leaf_indices, element_begin)
+        for _, form in constrained_forms
+    )
 
     # Make element matrices and vectors
     cache: dict[int, BasisCache] = dict()
@@ -1335,13 +1324,525 @@ def solve_system_2d_nonlinear(
         dtype=np.float64,
         copy=None,
     )
-    # for indices in constraining_indices:
-    #     solution[indices] -= np.mean(solution[indices])
 
-    iter_cnt = 1
-    changes: list[float] = list()
-    max_residual = np.inf
     max_mag = np.abs(explicit_vec).max()
+
+    max_residual, iter_cnt, solution = non_linear_solve_run(
+        system,
+        max_iterations,
+        relax,
+        atol,
+        rtol,
+        print_residual,
+        unknown_form_orders,
+        element_tree,
+        leaf_elements,
+        leaf_indices,
+        element_begin,
+        cache,
+        compiled_system,
+        explicit_vec,
+        bl,
+        br,
+        tr,
+        tl,
+        orde,
+        c_ser,
+        linear_vectors,
+        linear_element_matrices,
+        None,
+        None,
+        lag_res,
+        solution,
+        max_mag,
+        system_decomp,
+    )
+    del c_ser, bl, br, tr, tl, orde
+
+    # Prepare to build up the 1D Splines
+    grid = reconstruct_mesh_from_solution(
+        system,
+        recon_order,
+        element_tree,
+        leaf_elements,
+        cache,
+        leaf_indices,
+        element_begin,
+        solution,
+    )
+
+    stats = SolutionStatisticsNonLin(
+        element_orders=dict(element_tree.order_counts),
+        n_total_dofs=element_tree.n_dof,
+        n_lagrange=n_lagrange_eq,
+        n_elems=len(element_tree.elements),
+        n_leaves=len(leaf_elements),
+        n_leaf_dofs=element_tree.n_dof_leaves,
+        iter_count=iter_cnt,
+        final_residual=float(max_residual),
+    )
+
+    return grid, stats
+
+
+def solve_system_2d_unsteady(
+    system: kforms.KFormSystem,
+    mesh: Mesh2D,
+    dt: float,
+    nt: int,
+    time_march_relations: dict[KWeight, kforms.KFormUnknown],
+    boundaray_conditions: Sequence[kforms.BoundaryCondition2DSteady] | None = None,
+    refinement_levels: int = 0,
+    div_predicate: Callable[[ElementLeaf2D, int], bool] | None = None,
+    max_iterations: int = 100,
+    relax: float = 1.0,
+    atol: float = 1e-6,
+    rtol: float = 1e-5,
+    *,
+    division_function: OrderDivisionFunction | None = None,
+    recon_order: int | None = None,
+    print_residual: bool = False,
+    constrained_forms: Sequence[tuple[float, kforms.KFormUnknown]] | None = None,
+) -> tuple[Sequence[pv.UnstructuredGrid], SolutionStatisticsUnsteady]:
+    """Solve the unsteady system on the specified mesh.
+
+    Parameters
+    ----------
+    system : kforms.KFormSystem
+        System of equations to solve.
+
+    mesh : Mesh2D
+        Mesh on which to solve the system on.
+
+    dt : float
+        Time step to take.
+
+    nt : int
+        Number of time steps to simulate.
+
+    time_march_relations : dict of (KWeight, KFormUnknown)
+        Pairs of weights and unknowns, which determine what equations are treated as time
+        marching equations for which unknowns. At least one should be present.
+
+    boundaray_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
+        Sequence of boundary conditions to be applied to the system.
+
+    refinement_levels : int, default: 0
+        Number of mesh refinement levels which can be done. When zero
+        (default value) no refinement is done.
+
+    div_predicate : Callable (Element2D) -> bool, optional
+        Callable used to determine if an element should be divided further.
+
+    max_iterations : int, default: 100
+        Maximum number of Newton-Raphson iterations solver performs.
+
+    relax : float, default: 1.0
+        Fraction of Newton-Raphson increment to use.
+
+    atol : float, default: 1e-6
+        Maximum value of the residual must meet in order for the solution
+        to be considered converged.
+
+    rtol : float, default: 1e-5
+        Maximum fraction of the maximum of the right side of the equation the residual
+        must meet in order for the solution to be considered converged.
+
+    division_function : OrderDivisionFunction, optional
+        Function which determines order of the parent and child elements resulting from
+        the division of the element. When not specified, the "old" method is used.
+
+    recon_order : int, optional
+        When specified, all elements will be reconstructed using this polynomial order.
+        Otherwise, they are reconstructed with their own order.
+
+    print_residual : bool, default: False
+        Print the maximum of the absolute value of the residual for each iteration of the
+        Newton-Raphson method.
+
+    constrained_forms : Sequence of (float, KFormUnknown), optional
+        Sequence of 2-form unknowns which must be constrained. These can arrise form
+        cases where a continuous variable acts as a Lagrange multiplier on the continuous
+        level and only appears in the PDE as a gradient. In that case it will result
+        in a singular system if not constrained manually to a fixed value.
+
+        An example of such a case is pressure in Stokes flow or incompressible
+        Navier-Stokes equations.
+
+    Returns
+    -------
+    grid : pyvista.UnstructuredGrid
+        Reconstructed solution as an unstructured grid of VTK's "lagrange quadrilateral"
+        cells. This reconstruction is done on the nodal basis for all unknowns.
+    stats : SolutionStatisticsNonLin
+        Statistics about the solution. This can be used for convergence tests or timing.
+    """
+    if constrained_forms is None:
+        constrained_forms = tuple()
+
+    if len(time_march_relations) < 1:
+        raise ValueError("Problem has no time march relations.")
+
+    for w, u in time_march_relations.items():
+        if u not in system.unknown_forms:
+            raise ValueError(f"Unknown form {u} is not in the system.")
+        if w not in system.weight_forms:
+            raise ValueError(f"Weight form {w} is not in the system.")
+        if u.primal_order != w.primal_order:
+            raise ValueError(
+                f"Forms {u} and {w} in the time march relation can not be used, as they "
+                f"have differing primal orders ({u.primal_order} vs {w.primal_order})."
+            )
+
+    time_march_indices = tuple(
+        (
+            system.unknown_forms.index(time_march_relations[eq.weight])
+            if eq.weight in time_march_relations
+            else None
+        )
+        for eq in system.equations
+    )
+
+    strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]] = (
+        find_strong_bc_edge_indices(system, refinement_levels, boundaray_conditions, mesh)
+    )
+    constraining_indices: tuple[npt.NDArray[np.uint32], ...] = tuple()
+
+    for _, form in constrained_forms:
+        if form not in system.unknown_forms:
+            raise ValueError(
+                f"Form {form} which is to be zeroed is not involved in the system."
+            )
+
+        if boundaray_conditions and form in (bc.form for bc in boundaray_conditions):
+            raise ValueError(
+                f"Form {form} can not be zeroed because it is involved in a strong "
+                "boundary condition."
+            )
+
+    unknown_form_orders = tuple(form.order for form in system.unknown_forms)
+
+    if division_function is None:
+        division_function = divide_old
+
+    # Make elements into a rectree
+    element_tree = ElementTree(
+        list(mesh.get_element(ie) for ie in range(mesh.n_elements)),
+        div_predicate,
+        division_function,
+        refinement_levels,
+        system.unknown_forms,
+    )
+    leaf_elements: list[ElementLeaf2D] = list(element_tree.iter_leaves())
+    leaf_indices = element_tree.leaf_indices()
+
+    base_element_offsets, element_begin = compute_element_offsets(
+        unknown_form_orders, element_tree
+    )
+
+    # Make element matrices and vectors
+    cache: dict[int, BasisCache] = dict()
+    for order in element_tree.unique_orders:
+        cache[order] = BasisCache(order, order + 2)
+
+    if recon_order is not None and recon_order not in cache:
+        cache[int(recon_order)] = BasisCache(int(recon_order), int(recon_order))
+
+    vector_fields = system.vector_fields
+
+    # Create modified system to make it work with time marching.
+    new_equations: list[kforms.KEquation] = list()
+    project_equations: list[kforms.KEquation] = list()
+    for ie, (eq, m_idx) in enumerate(zip(system.equations, time_march_indices)):
+        if m_idx is None:
+            new_equations.append(eq)
+        else:
+            new_equations.append(
+                eq.left
+                + 2 / dt * (system.weight_forms[m_idx] * system.unknown_forms[m_idx])
+                == eq.right
+            )
+        project_equations.append(eq.weight * eq.weight.base_form == 0)
+
+    system = kforms.KFormSystem(*new_equations)
+
+    projection = CompiledSystem(kforms.KFormSystem(*project_equations)).linear_codes
+    del project_equations, new_equations
+    compiled_system = CompiledSystem(system)
+
+    # Explicit right side
+    explicit_vec: npt.NDArray[np.float64]
+
+    # Prepare for evaluation of matrices/vectors
+    bl = np.array([e.bottom_left for e in leaf_elements])
+    br = np.array([e.bottom_right for e in leaf_elements])
+    tr = np.array([e.top_right for e in leaf_elements])
+    tl = np.array([e.top_left for e in leaf_elements])
+    orde = np.array([e.order for e in leaf_elements], np.uint32)
+    c_ser = tuple(cache[int(o)].c_serialization() for o in element_tree.unique_orders)
+
+    # Release cache element memory. If they will be needed in the future,
+    # they will be recomputed, but they consume LOTS of memory
+    for o in element_tree.unique_orders:
+        cache[o].clean()
+
+    linear_vectors: dict[int, npt.NDArray[np.float64]] = {
+        int(ileaf): element_rhs(system, e, cache[e.order])
+        for ileaf, e in zip(leaf_indices, leaf_elements, strict=True)
+    }
+
+    linear_element_matrices: dict[int, npt.NDArray[np.float64]]
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_offsets, vec_fields = compute_vector_fields_nonlin(
+        system, leaf_elements, element_tree, cache, vector_fields
+    )
+
+    assert compiled_system.linear_codes
+
+    linear_element_matrices = {
+        int(ileaf): m
+        for ileaf, m in zip(
+            leaf_indices,
+            compute_element_matrices(
+                [f.order for f in system.unknown_forms],
+                compiled_system.linear_codes,
+                bl,
+                br,
+                tr,
+                tl,
+                orde,
+                vec_fields,
+                vec_field_offsets,
+                c_ser,
+            ),
+            strict=True,
+        )
+    }
+    main_mat, main_vec = assemble_global_element_matrix(
+        system,
+        unknown_form_orders,
+        element_tree,
+        linear_element_matrices,
+        linear_vectors,
+    )
+
+    apply_weak_boundary_conditions(
+        system,
+        mesh,
+        strong_indices,
+        element_tree,
+        unknown_form_orders,
+        cache,
+        element_begin,
+        main_vec,
+    )
+
+    # Check the degrees of freedom to zero out
+    constraining_indices = tuple(
+        find_form_dof_indices(system, form, element_tree, leaf_indices, element_begin)
+        for _, form in constrained_forms
+    )
+
+    time_carry_indices = np.sort(
+        np.concatenate(
+            [
+                find_form_dof_indices(
+                    system, form.base_form, element_tree, leaf_indices, element_begin
+                )
+                for form in time_march_relations
+            ]
+        )
+    )
+
+    time_carry_indices_nolag = np.sort(
+        np.concatenate(
+            [
+                find_form_dof_indices_no_lagrange(
+                    system, form.base_form, element_tree, leaf_indices
+                )
+                for form in time_march_relations
+            ]
+        )
+    )
+    time_carry_term = main_vec[
+        time_carry_indices
+    ]  # np.zeros(time_carry_indices.size, np.float64)
+
+    # Apply lagrange multipliers for continuity
+    lag_res = lagrange_multiplier_system(
+        system,
+        mesh,
+        boundaray_conditions,
+        unknown_form_orders,
+        element_tree,
+        cache,
+        base_element_offsets,
+        element_begin,
+        tuple(
+            (c, i)
+            for (c, _), i in zip(constrained_forms, constraining_indices, strict=True)
+        ),
+    )
+    del constrained_forms, constraining_indices
+
+    if lag_res is not None:
+        n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
+        main_mat = sp.block_array([[main_mat, lagrange_mat.T], [lagrange_mat, None]])
+
+        main_vec = np.concatenate((main_vec, lag_rhs))
+    else:
+        n_lagrange_eq = 0
+
+    linear_matrix = sp.csc_array(main_mat)
+    explicit_vec = main_vec
+    del main_mat, main_vec
+    system_decomp = sla.splu(linear_matrix)
+    # solution = np.asarray(
+    #     system_decomp.solve(explicit_vec),
+    #     dtype=np.float64,
+    #     copy=None,
+    # )
+    solution = np.zeros_like(explicit_vec)
+    old_solution_carry = solution[time_carry_indices]
+
+    changes = np.zeros(nt, np.float64)
+    iters = np.zeros(nt, np.uint32)
+    resulting_grids: list[pv.UnstructuredGrid] = list()
+    max_mag = np.abs(explicit_vec).max()
+
+    for time_index in range(nt):
+        max_residual = np.inf
+
+        new_solution, iter_cnt, max_residual = non_linear_solve_run(
+            system,
+            max_iterations,
+            relax,
+            atol,
+            rtol,
+            print_residual,
+            unknown_form_orders,
+            element_tree,
+            leaf_elements,
+            leaf_indices,
+            element_begin,
+            cache,
+            compiled_system,
+            explicit_vec,
+            bl,
+            br,
+            tr,
+            tl,
+            orde,
+            c_ser,
+            linear_vectors,
+            linear_element_matrices,
+            time_carry_indices,
+            2 / dt * old_solution_carry + time_carry_term,
+            lag_res,
+            solution,
+            max_mag,
+            system_decomp,
+        )
+
+        changes[time_index] = max_residual
+        iters[time_index] = iter_cnt
+        projected_solution = np.concatenate(
+            compute_element_explicit(
+                new_solution,
+                element_begin[:-1],
+                [f.order for f in system.unknown_forms],
+                projection,
+                bl,
+                br,
+                tr,
+                tl,
+                orde,
+                vec_fields,
+                vec_field_offsets,
+                c_ser,
+            )
+        )
+
+        new_solution_carry = projected_solution[time_carry_indices_nolag]
+
+        new_time_carry_term = (
+            2 / dt * (new_solution_carry - old_solution_carry) - time_carry_term
+        )
+        solution = new_solution
+        time_carry_term = new_time_carry_term
+        old_solution_carry = new_solution_carry
+        del new_solution_carry, new_time_carry_term, new_solution, projected_solution
+
+        # Prepare to build up the 1D Splines
+        resulting_grids.append(
+            reconstruct_mesh_from_solution(
+                system,
+                recon_order,
+                element_tree,
+                leaf_elements,
+                cache,
+                leaf_indices,
+                element_begin,
+                solution,
+            )
+        )
+
+    del c_ser, bl, br, tr, tl, orde
+    stats = SolutionStatisticsUnsteady(
+        element_orders=dict(element_tree.order_counts),
+        n_total_dofs=element_tree.n_dof,
+        n_lagrange=n_lagrange_eq,
+        n_elems=len(element_tree.elements),
+        n_leaves=len(leaf_elements),
+        n_leaf_dofs=element_tree.n_dof_leaves,
+        iter_history=iters,
+        residual_history=changes,
+    )
+
+    return tuple(resulting_grids), stats
+
+
+def non_linear_solve_run(
+    system: kforms.KFormSystem,
+    max_iterations: int,
+    relax: float,
+    atol: float,
+    rtol: float,
+    print_residual: bool,
+    unknown_form_orders: Sequence[int],
+    element_tree: ElementTree,
+    leaf_elements: Sequence[ElementLeaf2D],
+    leaf_indices: npt.NDArray[np.uint32],
+    element_begin: npt.NDArray[np.uint32],
+    cache: dict[int, BasisCache],
+    compiled_system: CompiledSystem,
+    explicit_vec: npt.NDArray[np.float64],
+    bl: npt.NDArray[np.float64],
+    br: npt.NDArray[np.float64],
+    tr: npt.NDArray[np.float64],
+    tl: npt.NDArray[np.float64],
+    orde: npt.NDArray[np.uint32],
+    c_ser,
+    linear_vectors: dict[int, npt.NDArray[np.float64]],
+    linear_element_matrices: dict[int, npt.NDArray[np.float64]],
+    time_carry_indices: npt.NDArray[np.uint32] | None,
+    time_carry: npt.NDArray[np.float64] | None,
+    lag_res: None | tuple[int, sp.csc_array, npt.NDArray[np.float64]],
+    solution: npt.NDArray[np.float64],
+    max_mag: float,
+    system_decomp: sla.SuperLU,
+):
+    """Run the iterative non-linear solver.
+
+    Based on how the compiled system looks, this may only take a single iteration,
+    otherwise, it may run for as long as it needs to converge.
+    """
+    iter_cnt = 0
+    base_vec = np.array(explicit_vec, copy=True)  # Make a copy
+    if time_carry is not None:
+        assert time_carry_indices is not None
+        base_vec[time_carry_indices] += time_carry
 
     while iter_cnt < max_iterations:
         # Recompute vector fields
@@ -1351,7 +1852,7 @@ def solve_system_2d_nonlinear(
             leaf_elements,
             element_tree,
             cache,
-            vector_fields,
+            system.vector_fields,
             solution,
             element_begin,
         )
@@ -1387,7 +1888,7 @@ def solve_system_2d_nonlinear(
         )
 
         if compiled_system.rhs_codes is not None:
-            main_vec = np.array(explicit_vec, copy=True)  # Make a copy
+            main_vec = np.array(base_vec, copy=True)  # Make a copy
             # Update RHS implicit terms
             for ileaf, m in zip(
                 leaf_indices,
@@ -1408,20 +1909,19 @@ def solve_system_2d_nonlinear(
                 strict=True,
             ):
                 main_vec[element_begin[ileaf] : element_begin[ileaf] + m.size] += m
-
         else:
-            main_vec = explicit_vec
+            main_vec = base_vec
 
         if lag_res is not None:
-            n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
+            n_lagrange_eq, lagrange_mat, _ = lag_res
             main_value += lagrange_mat.T @ solution[-n_lagrange_eq:]
             main_value = np.concatenate(
-                (main_value, lagrange_mat @ solution[:-n_lagrange_eq]), dtype=np.float64
+                (main_value, lagrange_mat @ solution[:-n_lagrange_eq]),
+                dtype=np.float64,
             )
 
         residual = main_vec - main_value
         max_residual = np.abs(residual).max()
-        changes.append(float(max_residual))
         if print_residual:
             print(f"Iteration {iter_cnt} has residual of {max_residual:.4e}", end="\r")
 
@@ -1456,7 +1956,7 @@ def solve_system_2d_nonlinear(
                 linear_vectors,
             )
             if lag_res is not None:
-                n_lagrange_eq, lagrange_mat, lag_rhs = lag_res
+                n_lagrange_eq, lagrange_mat, _ = lag_res
                 main_mat = sp.block_array(
                     [[main_mat, lagrange_mat.T], [lagrange_mat, None]], format="csc"
                 )
@@ -1477,39 +1977,59 @@ def solve_system_2d_nonlinear(
         iter_cnt += 1
 
         del main_vec
-    del c_ser, bl, br, tr, tl, orde
-
-    # Prepare to build up the 1D Splines
-    grid = reconstruct_mesh_from_solution(
-        system,
-        recon_order,
-        element_tree,
-        leaf_elements,
-        cache,
-        leaf_indices,
-        element_begin,
-        solution,
-    )
-
-    stats = SolutionStatisticsNonLin(
-        element_orders=dict(element_tree.order_counts),
-        n_total_dofs=element_tree.n_dof,
-        n_lagrange=n_lagrange_eq,
-        n_elems=len(element_tree.elements),
-        n_leaves=len(leaf_elements),
-        n_leaf_dofs=element_tree.n_dof_leaves,
-        iter_count=iter_cnt,
-        change_history_max=np.array(changes, np.float64),
-    )
-
-    return grid, stats
+    return solution, iter_cnt, max_residual
 
 
-# TODO: add constrained forms.
+def find_form_dof_indices(
+    system: kforms.KFormSystem,
+    form: kforms.KFormUnknown,
+    element_tree: ElementTree,
+    leaf_indices: npt.NDArray[np.uint32],
+    element_begin: npt.NDArray[np.uint32],
+) -> npt.NDArray[np.uint32]:
+    """Find indices of degrees of freedom corresponding to a form."""
+    i_form = system.unknown_forms.index(form)
+    form_indices: list[npt.NDArray[np.uint32]] = list()
+
+    ie_leaf: int
+    for ie_leaf in leaf_indices:
+        offset_base = element_begin[ie_leaf]
+        form_begin = element_tree.dof_offsets[i_form][ie_leaf]
+        form_end = element_tree.dof_offsets[i_form + 1][ie_leaf]
+        form_indices.append(
+            np.arange(form_begin, form_end, dtype=np.uint32) + offset_base
+        )
+        del offset_base, form_begin, form_end
+
+    return np.concatenate(form_indices, dtype=np.uint32)
+
+
+def find_form_dof_indices_no_lagrange(
+    system: kforms.KFormSystem,
+    form: kforms.KFormUnknown,
+    element_tree: ElementTree,
+    leaf_indices: npt.NDArray[np.uint32],
+) -> npt.NDArray[np.uint32]:
+    """Find indices of DoFs corresponding to form without lagrange multipliers."""
+    i_form = system.unknown_forms.index(form)
+    form_indices: list[npt.NDArray[np.uint32]] = list()
+
+    ie_leaf: int
+    n = 0
+    for ie_leaf in leaf_indices:
+        form_begin = element_tree.dof_offsets[i_form][ie_leaf]
+        form_end = element_tree.dof_offsets[i_form + 1][ie_leaf]
+        form_indices.append(np.arange(form_begin, form_end, dtype=np.uint32) + n)
+        n += element_tree.dof_offsets[-1][ie_leaf]
+        del form_begin, form_end
+
+    return np.concatenate(form_indices, dtype=np.uint32)
+
+
 def lagrange_multiplier_system(
     system: kforms.KFormSystem,
     mesh: Mesh2D,
-    boundaray_conditions: Sequence[kforms.BoundaryCondition2DStrong] | None,
+    boundaray_conditions: Sequence[kforms.BoundaryCondition2DSteady] | None,
     unknown_form_orders: Sequence[int],
     element_tree: ElementTree,
     cache: dict[int, BasisCache],

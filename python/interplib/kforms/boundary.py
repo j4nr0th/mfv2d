@@ -1,6 +1,6 @@
 """File containing implementation of boundary conditions."""
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 import numpy as np
@@ -62,23 +62,48 @@ class BoundaryCondition1DWeak(BoundaryCondition1D):
             raise ValueError("Only 1-forms can used for boundary conditions.")
 
 
-@dataclass(init=False, frozen=True)
-class BoundaryCondition2DStrong:
-    """Boundary condition for a 2D problem."""
+@dataclass(frozen=True, init=False)
+class BoundaryCondition2D:
+    """Base class for 2D boundary conditions."""
 
     form: KFormUnknown
-    func: Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
     indices: npt.NDArray[np.uint64]
 
-    def __init__(
-        self,
-        form: KFormUnknown,
-        func: Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]],
-        indices: Sequence[int] | npt.ArrayLike,
-    ) -> None:
+    def __init__(self, form: KFormUnknown, indices: npt.ArrayLike) -> None:
         object.__setattr__(self, "form", form)
-        object.__setattr__(self, "func", func)
         object.__setattr__(self, "indices", np.array(indices, np.uint64))
         if self.indices.ndim != 1:
             raise ValueError("Indices array is not a 1D array.")
         object.__setattr__(self, "indices", np.unique(self.indices))
+
+
+@dataclass(frozen=True)
+class BoundaryCondition2DSteady(BoundaryCondition2D):
+    """Boundary condition for a 2D problem."""
+
+    func: Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
+
+    def __init__(
+        self,
+        form: KFormUnknown,
+        indices: npt.ArrayLike,
+        func: Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]],
+    ) -> None:
+        super().__init__(form, indices)
+        object.__setattr__(self, "func", func)
+
+
+@dataclass(init=False, frozen=True)
+class BoundaryCondition2DUnsteady(BoundaryCondition2D):
+    """Unsteady boundary condition for a 2D problem."""
+
+    func: Callable[[float, npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
+
+    def __init__(
+        self,
+        form: KFormUnknown,
+        indices: npt.ArrayLike,
+        func: Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]],
+    ) -> None:
+        super().__init__(form, indices)
+        object.__setattr__(self, "func", func)

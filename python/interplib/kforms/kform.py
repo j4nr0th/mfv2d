@@ -274,7 +274,7 @@ class KWeight(KForm):
         Form, which the weight is based on.
     """
 
-    base_form: KForm
+    base_form: KFormUnknown
 
     def __str__(self) -> str:
         """Return print-friendly representation of the object."""
@@ -366,6 +366,41 @@ class KWeight(KForm):
     def is_linear(self) -> bool:
         """Check if the form is linear."""
         return True
+
+
+# @dataclass(frozen=True)
+# class KTimeDerivative(KForm):
+#     """Time derivative of a K-form.
+
+#     This term means that an equation must used for time stepping.
+#     """
+
+#     base_form: KFormUnknown
+
+#     @property
+#     def is_primal(self) -> bool:
+#         """Check if the form is primal."""
+#         return self.base_form.is_primal
+
+#     @property
+#     def is_weight(self) -> bool:
+#         """Check if the form is a weight."""
+#         return False
+
+#     @property
+#     def primal_order(self) -> int:
+#         """Order in primal basis."""
+#         return self.base_form.primal_order
+
+#     @property
+#     def core_form(self) -> KWeight | KFormUnknown:
+#         """Most basic form, be it unknown or weight."""
+#         return self.base_form
+
+#     @property
+#     def is_linear(self) -> bool:
+#         """Check if the form is linear."""
+#         return True
 
 
 @dataclass(init=False, frozen=True, eq=False)
@@ -659,6 +694,9 @@ def _extract_unknowns(form: KForm) -> list[KFormUnknown]:
     if type(form) is KFormUnknown:
         return [form]
 
+    # if type(form) is KTimeDerivative:
+    #     return [form.base_form]
+
     if type(form) is KFormDerivative:
         return _extract_unknowns(form.form)
 
@@ -673,7 +711,7 @@ def _extract_unknowns(form: KForm) -> list[KFormUnknown]:
             form.form_field,
         ]
 
-    raise TypeError(f"Vector fields can not be extracted from the form {form}.")
+    raise TypeError(f"Unknown forms can not be extracted from the form {form}.")
 
 
 @dataclass(init=False, frozen=True, eq=False)
@@ -1132,16 +1170,13 @@ class KFormSystem:
             vfs |= set(equation.left.vector_fields + equation.right.vector_fields)
 
         if sorting is not None:
-            self.unknown_forms = tuple(sorted(unknowns, key=sorting))
+            self.weight_forms = tuple(sorted(weights, key=sorting))
         else:
-            self.unknown_forms = tuple(unknowns)
+            self.weight_forms = tuple(weights)
 
-        self.weight_forms = tuple(
-            weights[self.unknown_forms.index(d.base_form)] for d in weights
-        )
-        self.equations = tuple(
-            equation_list[self.unknown_forms.index(d.base_form)] for d in weights
-        )
+        self.unknown_forms = tuple(w.base_form for w in self.weight_forms)
+
+        self.equations = tuple(equation_list[self.weight_forms.index(w)] for w in weights)
         self.vector_fields = tuple(vec_field for vec_field in vfs)
 
     @overload
@@ -1394,3 +1429,37 @@ class KFormSystem:
                 f" {order}."
             )
         return tuple(i for i, f in enumerate(self.unknown_forms) if f.order == order)
+
+    # def convert_to_time_march(self, march: Literal["cn"] = "cn") -> KFormSystem:
+    #     """Convert the system to a system of equations for time marching."""
+    #     if march != "cn":
+    #         raise ValueError("Time march type can now only be cn.")
+
+    #     new_equations: list[KEquation] = list()
+
+    #     for i_eq, eq in enumerate(self.equations):
+    #         time_derivative_cnt = 0
+    #         coeff = 0.0
+    #         form: KFormUnknown | None = None
+    #         for c, term in eq.left.pairs:
+    #             if (
+    #                 type(term) is not KInnerProduct
+    #                 or type(term.unknown_form) is not KTimeDerivative
+    #             ):
+    #                 continue
+
+    #             time_derivative_cnt += 1
+    #             coeff = c
+    #             form = term.unknown_form.base_form
+
+    #         if time_derivative_cnt == 0:
+    #             continue
+
+    #         if time_derivative_cnt != 1:
+    #             raise ValueError(
+    #                 f"Equation {i_eq} has more than one time derivative term."
+    #             )
+
+    #         new_equations.append(
+
+    #         )

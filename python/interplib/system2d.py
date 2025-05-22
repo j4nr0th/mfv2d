@@ -1327,7 +1327,7 @@ def solve_system_2d_nonlinear(
 
     max_mag = np.abs(explicit_vec).max()
 
-    max_residual, iter_cnt, solution = non_linear_solve_run(
+    solution, iter_cnt, max_residual = non_linear_solve_run(
         system,
         max_iterations,
         relax,
@@ -1391,6 +1391,11 @@ def solve_system_2d_unsteady(
     dt: float,
     nt: int,
     time_march_relations: dict[KWeight, kforms.KFormUnknown],
+    initial_conditions: Mapping[
+        kforms.KFormUnknown,
+        Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
+    ]
+    | None = None,
     boundaray_conditions: Sequence[kforms.BoundaryCondition2DSteady] | None = None,
     refinement_levels: int = 0,
     div_predicate: Callable[[ElementLeaf2D, int], bool] | None = None,
@@ -1398,6 +1403,7 @@ def solve_system_2d_unsteady(
     relax: float = 1.0,
     atol: float = 1e-6,
     rtol: float = 1e-5,
+    sample_rate: int | None = None,
     *,
     division_function: OrderDivisionFunction | None = None,
     recon_order: int | None = None,
@@ -1424,6 +1430,9 @@ def solve_system_2d_unsteady(
         Pairs of weights and unknowns, which determine what equations are treated as time
         marching equations for which unknowns. At least one should be present.
 
+    intial_conditions : Mapping of (KFormUnknown, Callable), optional
+        Functions which give initial conditions for different forms.
+
     boundaray_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
         Sequence of boundary conditions to be applied to the system.
 
@@ -1447,6 +1456,10 @@ def solve_system_2d_unsteady(
     rtol : float, default: 1e-5
         Maximum fraction of the maximum of the right side of the equation the residual
         must meet in order for the solution to be considered converged.
+
+    sample_rate : int, optional
+        How often the output is saved. If not specified, every time step is saved. First
+        and last steps are always saved.
 
     division_function : OrderDivisionFunction, optional
         Function which determines order of the parent and child elements resulting from
@@ -1477,6 +1490,14 @@ def solve_system_2d_unsteady(
     stats : SolutionStatisticsNonLin
         Statistics about the solution. This can be used for convergence tests or timing.
     """
+    if sample_rate is None:
+        sample_rate = 1
+    else:
+        sample_rate = int(sample_rate)
+
+        if sample_rate < 1:
+            raise ValueError("Sample rate can not be less than 1.")
+
     if constrained_forms is None:
         constrained_forms = tuple()
 
@@ -1562,11 +1583,20 @@ def solve_system_2d_unsteady(
                 + 2 / dt * (system.weight_forms[m_idx] * system.unknown_forms[m_idx])
                 == eq.right
             )
-        project_equations.append(eq.weight * eq.weight.base_form == 0)
+        base_form = eq.weight.base_form
+        proj_rhs = (
+            0
+            if initial_conditions is None or base_form not in initial_conditions
+            else eq.weight @ initial_conditions[base_form]
+        )
+        proj_lhs = eq.weight * eq.weight.base_form
+        project_equations.append(proj_lhs == proj_rhs)  # type: ignore
 
     system = kforms.KFormSystem(*new_equations)
 
-    projection = CompiledSystem(kforms.KFormSystem(*project_equations)).linear_codes
+    projection_system = kforms.KFormSystem(*project_equations)
+    projection_compiled = CompiledSystem(projection_system)
+    projection_codes = projection_compiled.linear_codes
     del project_equations, new_equations
     compiled_system = CompiledSystem(system)
 
@@ -1665,9 +1695,7 @@ def solve_system_2d_unsteady(
             ]
         )
     )
-    time_carry_term = main_vec[
-        time_carry_indices
-    ]  # np.zeros(time_carry_indices.size, np.float64)
+    time_carry_term = main_vec[time_carry_indices]
 
     # Apply lagrange multipliers for continuity
     lag_res = lagrange_multiplier_system(
@@ -1698,17 +1726,65 @@ def solve_system_2d_unsteady(
     explicit_vec = main_vec
     del main_mat, main_vec
     system_decomp = sla.splu(linear_matrix)
-    # solution = np.asarray(
-    #     system_decomp.solve(explicit_vec),
-    #     dtype=np.float64,
-    #     copy=None,
-    # )
+
     solution = np.zeros_like(explicit_vec)
-    old_solution_carry = solution[time_carry_indices]
+    old_solution_carry = np.zeros_like(explicit_vec)
+
+    if initial_conditions is not None:
+        initial_vector = np.concatenate(
+            [element_rhs(projection_system, e, cache[e.order]) for e in leaf_elements]
+        )
+
+        projection_matrix_decomp = sla.splu(
+            sp.block_diag(
+                compute_element_matrices(
+                    [f.order for f in system.unknown_forms],
+                    projection_compiled.linear_codes,
+                    bl,
+                    br,
+                    tr,
+                    tl,
+                    orde,
+                    vec_fields,
+                    vec_field_offsets,
+                    c_ser,
+                ),
+                format="csc",
+            )
+        )
+        initial_solution = np.asarray(
+            projection_matrix_decomp.solve(initial_vector), np.float64, copy=None
+        )
+        del projection_matrix_decomp
+        off = 0
+        for i_leaf in leaf_indices:
+            begin = element_begin[i_leaf]
+            end = element_begin[i_leaf + 1]
+            length = end - begin
+            solution[begin:end] = initial_solution[off : off + length]
+            old_solution_carry[begin:end] = initial_vector[off : off + length]
+            off += length
+        del initial_vector, initial_solution
+
+    old_solution_carry = old_solution_carry[time_carry_indices]
+
+    resulting_grids: list[pv.UnstructuredGrid] = list()
+
+    grid = reconstruct_mesh_from_solution(
+        system,
+        recon_order,
+        element_tree,
+        leaf_elements,
+        cache,
+        leaf_indices,
+        element_begin,
+        solution,
+    )
+    grid.field_data["time"] = 0.0
+    resulting_grids.append(grid)
 
     changes = np.zeros(nt, np.float64)
     iters = np.zeros(nt, np.uint32)
-    resulting_grids: list[pv.UnstructuredGrid] = list()
     max_mag = np.abs(explicit_vec).max()
 
     for time_index in range(nt):
@@ -1752,7 +1828,7 @@ def solve_system_2d_unsteady(
                 new_solution,
                 element_begin[:-1],
                 [f.order for f in system.unknown_forms],
-                projection,
+                projection_codes,
                 bl,
                 br,
                 tr,
@@ -1774,9 +1850,9 @@ def solve_system_2d_unsteady(
         old_solution_carry = new_solution_carry
         del new_solution_carry, new_time_carry_term, new_solution, projected_solution
 
-        # Prepare to build up the 1D Splines
-        resulting_grids.append(
-            reconstruct_mesh_from_solution(
+        if (time_index % sample_rate) == 0 or time_index + 1 == nt:
+            # Prepare to build up the 1D Splines
+            grid = reconstruct_mesh_from_solution(
                 system,
                 recon_order,
                 element_tree,
@@ -1786,7 +1862,14 @@ def solve_system_2d_unsteady(
                 element_begin,
                 solution,
             )
-        )
+            grid.field_data["time"] = (time_index + 1) * dt
+            resulting_grids.append(grid)
+
+        if print_residual:
+            print(
+                f"Time step {time_index:d} finished in {iter_cnt:d} iterations with"
+                " residual of {max_residual:.5e}"
+            )
 
     del c_ser, bl, br, tr, tl, orde
     stats = SolutionStatisticsUnsteady(

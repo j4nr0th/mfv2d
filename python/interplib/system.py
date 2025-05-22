@@ -266,7 +266,7 @@ def solve_system_1d(
             k = polynomial.coefficients
             bad_len = max_coeffs - k.size
             if bad_len != 0:
-                build[form].append(np.pad(k, (0, max_coeffs - k.size)))
+                build[form].append(np.pad(k, (0, int(max_coeffs - k.size))))
             else:
                 build[form].append(k)
 

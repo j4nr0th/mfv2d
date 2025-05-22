@@ -438,32 +438,57 @@ def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.int32]:
 
 
 class BasisCache:
-    """Cache for basis evaluation to allow for faster evaluation of mass matrices."""
+    """Cache for basis evaluation to allow for faster evaluation of mass matrices.
+
+    Parameters
+    ----------
+    basis_order : int
+        Order of basis on this element.
+
+    integration_order : int
+        Order of Gauss-Lobatto integration rule used to compute integrals.
+
+    higher : int, default: 1
+        Order difference of basis used for VMS.
+    """
 
     basis_order: int
+    higher_order: int
     integration_order: int
     nodal_1d: npt.NDArray[np.double]
     edge_1d: npt.NDArray[np.double]
+    higer_nodal_1d: npt.NDArray[np.double]
+    higher_edge_1d: npt.NDArray[np.double]
     nodes_1d: npt.NDArray[np.float64]
     int_nodes_1d: npt.NDArray[np.float64]
     int_weights_1d: npt.NDArray[np.float64]
     _precomp_node: npt.NDArray[np.float64] | None = None
+    _precomp_node_higher: npt.NDArray[np.float64] | None = None
     _precomp_edge: npt.NDArray[np.float64] | None = None
+    _precomp_edge_higher: npt.NDArray[np.float64] | None = None
     _precomp_surf: npt.NDArray[np.float64] | None = None
+    _precomp_surf_higher: npt.NDArray[np.float64] | None = None
     _precomp_mix01: npt.NDArray[np.float64] | None = None
     _precomp_mix12: npt.NDArray[np.float64] | None = None
 
-    def __init__(self, basis_order: int, integration_order: int, /) -> None:
+    def __init__(
+        self, basis_order: int, integration_order: int, higher: int = 1, /
+    ) -> None:
         self.basis_order = int(basis_order)
+        self.higher_order = int(basis_order + higher)
         self.integration_order = int(integration_order)
         n, _ = compute_gll(self.basis_order)
         self.nodes_1d = n
         ni, wi = compute_gll(self.integration_order)
         self.int_nodes_1d = ni
         self.int_weights_1d = wi
+        nh, _ = compute_gll(self.basis_order + higher)
         self.nodal_1d = lagrange1d(self.nodes_1d, self.int_nodes_1d)
+        self.higher_nodal_1d = lagrange1d(nh, self.int_nodes_1d)
         dvals = dlagrange1d(self.nodes_1d, self.int_nodes_1d)
+        dvals2 = dlagrange1d(nh, self.int_nodes_1d)
         self.edge_1d = np.cumsum(-dvals[..., :-1], axis=-1)
+        self.higher_edge_1d = np.cumsum(-dvals2[..., :-1], axis=-1)
         self.int_weights_2d = wi[:, None] * wi[None, :]
 
     @property
@@ -493,6 +518,45 @@ class BasisCache:
                 mat[i, j, ...] = mat[j, i, ...] = res
 
         self._precomp_node = mat
+        return mat
+
+    @property
+    def mass_node_precomp_higher(self) -> npt.NDArray[np.float64]:
+        """Precomputed entries for nodal mass matrix which just need to be scaled."""
+        if self._precomp_node_higher is not None:
+            return self._precomp_node_higher
+
+        n1 = self.basis_order + 1
+        n2 = self.higher_order + 1
+        m = self.integration_order + 1
+        mat = np.empty((n1**2, n2**2, m, m), np.float64)
+        values = self.nodal_1d
+        hvalues = self.higher_nodal_1d
+        weights_2d = self.int_weights_2d
+
+        basis_vals: list[npt.NDArray] = list()
+        hbasis_vals: list[npt.NDArray] = list()
+
+        for i1 in range(n1):
+            v1 = values[..., i1]
+            for j1 in range(n1):
+                u1 = values[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_vals.append(basis1)
+
+        for i1 in range(n2):
+            v1 = hvalues[..., i1]
+            for j1 in range(n2):
+                u1 = hvalues[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                hbasis_vals.append(basis1)
+
+        for i in range(n1**2):
+            for j in range(n2**2):
+                res = basis_vals[i] * hbasis_vals[j] * weights_2d
+                mat[i, j, ...] = res
+
+        self._precomp_node_higher = mat
         return mat
 
     @property
@@ -546,6 +610,81 @@ class BasisCache:
         return mat
 
     @property
+    def mass_edge_precomp_higher(self) -> npt.NDArray[np.float64]:
+        """Precomputed entries for edge mass matrix which just need to be scaled."""
+        if self._precomp_edge_higher is not None:
+            return self._precomp_edge_higher
+
+        n1 = self.basis_order
+        n2 = self.higher_order
+        m = self.integration_order + 1
+        mat = np.empty((2 * n1 * (n1 + 1), 2 * n2 * (n2 + 1), m, m), np.float64)
+        values = self.nodal_1d
+        dvalues = self.edge_1d
+        hvalues = self.higher_nodal_1d
+        hdvalues = self.higher_edge_1d
+        weights_2d = self.int_weights_2d
+
+        basis_eta: list[npt.NDArray] = list()
+        basis_xi: list[npt.NDArray] = list()
+        hbasis_eta: list[npt.NDArray] = list()
+        hbasis_xi: list[npt.NDArray] = list()
+
+        for i1 in range(n1 + 1):
+            v1 = values[..., i1]
+            for j1 in range(n1):
+                u1 = dvalues[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_eta.append(basis1)
+
+        for i1 in range(n2 + 1):
+            v1 = hvalues[..., i1]
+            for j1 in range(n2):
+                u1 = hdvalues[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                hbasis_eta.append(basis1)
+
+        for i1 in range(n1):
+            v1 = dvalues[..., i1]
+            for j1 in range(n1 + 1):
+                u1 = values[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_xi.append(basis1)
+
+        for i1 in range(n2):
+            v1 = hdvalues[..., i1]
+            for j1 in range(n2 + 1):
+                u1 = hvalues[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                hbasis_xi.append(basis1)
+
+        nb1 = n1 * (n1 + 1)
+        nb2 = n2 * (n2 + 1)
+
+        for i in range(nb1):
+            for j in range(nb2):
+                res = weights_2d * basis_eta[i] * hbasis_eta[j]
+                mat[i, j, ...] = res
+
+        for i in range(nb1):
+            for j in range(nb2):
+                res = weights_2d * basis_xi[i] * hbasis_xi[j]
+                mat[nb1 + i, nb2 + j, ...] = res
+
+        for i in range(nb1):
+            for j in range(nb2):
+                res = weights_2d * basis_eta[i] * hbasis_xi[j]
+                mat[nb1 + i, j, ...] = res
+
+        for i in range(nb1):
+            for j in range(nb2):
+                res = weights_2d * basis_xi[i] * hbasis_eta[j]
+                mat[i, nb2 + j, ...] = res
+
+        self._precomp_edge_higher = mat
+        return mat
+
+    @property
     def mass_surf_precomp(self) -> npt.NDArray[np.float64]:
         """Precomputed entries for surface mass matrix which just need to be scaled."""
         if self._precomp_surf is not None:
@@ -572,6 +711,45 @@ class BasisCache:
                 mat[i, j, ...] = mat[j, i, ...] = res
 
         self._precomp_surf = mat
+        return mat
+
+    @property
+    def mass_surf_precomp_higher(self) -> npt.NDArray[np.float64]:
+        """Precomputed entries for surface mass matrix which just need to be scaled."""
+        if self._precomp_surf_higher is not None:
+            return self._precomp_surf_higher
+
+        n1 = self.basis_order
+        n2 = self.higher_order
+        m = self.integration_order + 1
+        mat = np.empty((n1**2, n2**2, m, m), np.float64)
+        values = self.edge_1d
+        hvalues = self.higher_edge_1d
+        weights_2d = self.int_weights_2d
+
+        basis_vals: list[npt.NDArray] = list()
+        hbasis_vals: list[npt.NDArray] = list()
+
+        for i1 in range(n1):
+            v1 = values[..., i1]
+            for j1 in range(n1):
+                u1 = values[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                basis_vals.append(basis1)
+
+        for i1 in range(n1):
+            v1 = hvalues[..., i1]
+            for j1 in range(n1):
+                u1 = hvalues[..., j1]
+                basis1 = v1[:, None] * u1[None, :]
+                hbasis_vals.append(basis1)
+
+        for i in range(n1**2):
+            for j in range(n2**2):
+                res = basis_vals[i] * hbasis_vals[j] * weights_2d
+                mat[i, j, ...] = res
+
+        self._precomp_surf_higher = mat
         return mat
 
     @property
@@ -927,6 +1105,10 @@ class ElementNode2D(Element2D):
     def top_left(self) -> tuple[float, float]:
         """Coordinates of the top left corner."""
         return self.child_tl.top_left
+
+    def children(self) -> tuple[Element2D, Element2D, Element2D, Element2D]:
+        """Return children of the element ordered."""
+        return (self.child_bl, self.child_br, self.child_tl, self.child_tr)
 
 
 @dataclass(frozen=True, eq=False)

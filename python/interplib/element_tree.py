@@ -6,9 +6,38 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
-from interplib import kforms
+import interplib.kforms as kforms
 from interplib.mimetic.mimetic2d import Element2D, ElementLeaf2D
 from interplib.system2d import OrderDivisionFunction
+
+
+def check_and_refine(
+    pred: Callable[[ElementLeaf2D, int], bool] | None,
+    order_div: OrderDivisionFunction,
+    e: ElementLeaf2D,
+    level: int,
+    max_level: int,
+) -> list[Element2D]:
+    """Return element and potentially its children."""
+    out: list[Element2D]
+    if level < max_level and pred is not None and pred(e, level):
+        # TODO: Make this nicer without this stupid Method mumbo jumbo
+        parent_order, child_orders = order_div(e.order, level, max_level)
+        new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders, parent_order)
+        cbl = check_and_refine(pred, order_div, ebl, level + 1, max_level)
+        cbr = check_and_refine(pred, order_div, ebr, level + 1, max_level)
+        ctl = check_and_refine(pred, order_div, etl, level + 1, max_level)
+        ctr = check_and_refine(pred, order_div, etr, level + 1, max_level)
+        object.__setattr__(new_e, "child_bl", cbl[0])
+        object.__setattr__(new_e, "child_br", cbr[0])
+        object.__setattr__(new_e, "child_tl", ctl[0])
+        object.__setattr__(new_e, "child_tr", ctr[0])
+        out = [new_e] + cbl + cbr + ctl + ctr
+
+    else:
+        out = [e]
+
+    return out
 
 
 @dataclass(init=False)
@@ -44,40 +73,12 @@ class ElementTree:
         all_elems: list[Element2D] = list()
         self.n_base_elements = len(elements)
 
-        def check_refinement(
-            pred: Callable[[ElementLeaf2D, int], bool] | None,
-            order_div: OrderDivisionFunction,
-            e: ElementLeaf2D,
-            level: int,
-            max_level: int,
-        ) -> list[Element2D]:
-            """Return element and potentially its children."""
-            out: list[Element2D]
-            if level < max_level and pred is not None and pred(e, level):
-                # TODO: Make this nicer without this stupid Method mumbo jumbo
-                parent_order, child_orders = order_div(e.order, level, max_level)
-                new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders, parent_order)
-                cbl = check_refinement(pred, order_div, ebl, level + 1, max_level)
-                cbr = check_refinement(pred, order_div, ebr, level + 1, max_level)
-                ctl = check_refinement(pred, order_div, etl, level + 1, max_level)
-                ctr = check_refinement(pred, order_div, etr, level + 1, max_level)
-                object.__setattr__(new_e, "child_bl", cbl[0])
-                object.__setattr__(new_e, "child_br", cbr[0])
-                object.__setattr__(new_e, "child_tl", ctl[0])
-                object.__setattr__(new_e, "child_tr", ctr[0])
-                out = [new_e] + cbl + cbr + ctl + ctr
-
-            else:
-                out = [e]
-
-            return out
-
         # Depth-first refinement
         top_indices: list[int] = list()
 
         for e in elements:
             top_indices.append(len(all_elems))
-            all_elems += check_refinement(predicate, division_function, e, 0, max_levels)
+            all_elems += check_and_refine(predicate, division_function, e, 0, max_levels)
 
         self.elements = tuple(all_elems)
         del all_elems

@@ -8,7 +8,10 @@ import numpy.typing as npt
 
 import interplib.kforms as kforms
 from interplib.mimetic.mimetic2d import Element2D, ElementLeaf2D
-from interplib.system2d import OrderDivisionFunction
+
+OrderDivisionFunction = Callable[
+    [int, int, int], tuple[int | None, tuple[int, int, int, int]]
+]
 
 
 def check_and_refine(

@@ -26,7 +26,7 @@ from interplib._mimetic import (
     compute_element_explicit,
     compute_element_matrices,
 )
-from interplib.element_tree import ElementTree
+from interplib.element_tree import ElementTree, OrderDivisionFunction
 from interplib.kforms.eval import (
     CompiledSystem,
     MatOp,
@@ -86,11 +86,6 @@ class ConstraintEquation:
             and np.all(self.indices == other.indices)
             and np.all(self.values == other.values)
         )
-
-
-OrderDivisionFunction = Callable[
-    [int, int, int], tuple[int | None, tuple[int, int, int, int]]
-]
 
 
 def divide_old(
@@ -291,7 +286,6 @@ def find_boundary_id(s: Surface, i: int) -> Literal[0, 1, 2, 3]:
 
 def find_strong_bc_edge_indices(
     system: kforms.KFormSystem,
-    refinement_levels: int,
     boundaray_conditions: None | Sequence[kforms.BoundaryCondition2D],
     mesh: Mesh2D,
 ) -> dict[kforms.KFormUnknown, npt.NDArray[np.uint64]]:
@@ -305,12 +299,6 @@ def find_strong_bc_edge_indices(
                 "-form."
             )
         strong_boundary_edges[primal] = []
-
-    refinement_levels = int(refinement_levels)
-    if refinement_levels < 0:
-        raise ValueError(
-            f"Can not have less than 0 refinement levels ({refinement_levels} was given)."
-        )
 
     # Check boundary conditions are sensible
     if boundaray_conditions is not None:
@@ -684,8 +672,13 @@ def solve_system_2d(
     """
     base_timer = PerfTimer()
 
+    refinement_levels = int(refinement_levels)
+    if refinement_levels < 0:
+        raise ValueError(
+            f"Can not have less than 0 refinement levels ({refinement_levels} was given)."
+        )
     strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]] = (
-        find_strong_bc_edge_indices(system, refinement_levels, boundaray_conditions, mesh)
+        find_strong_bc_edge_indices(system, boundaray_conditions, mesh)
     )
 
     unknown_form_orders = tuple(form.order for form in system.unknown_forms)
@@ -1029,8 +1022,13 @@ def solve_system_2d_nonlinear(
     if constrained_forms is None:
         constrained_forms = tuple()
 
+    refinement_levels = int(refinement_levels)
+    if refinement_levels < 0:
+        raise ValueError(
+            f"Can not have less than 0 refinement levels ({refinement_levels} was given)."
+        )
     strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]] = (
-        find_strong_bc_edge_indices(system, refinement_levels, boundaray_conditions, mesh)
+        find_strong_bc_edge_indices(system, boundaray_conditions, mesh)
     )
     constraining_indices: tuple[npt.NDArray[np.uint32], ...] = tuple()
 
@@ -1386,8 +1384,13 @@ def solve_system_2d_unsteady(
         for eq in system.equations
     )
 
+    refinement_levels = int(refinement_levels)
+    if refinement_levels < 0:
+        raise ValueError(
+            f"Can not have less than 0 refinement levels ({refinement_levels} was given)."
+        )
     strong_indices: dict[kforms.KFormUnknown, npt.NDArray[np.uint64]] = (
-        find_strong_bc_edge_indices(system, refinement_levels, boundaray_conditions, mesh)
+        find_strong_bc_edge_indices(system, boundaray_conditions, mesh)
     )
     constraining_indices: tuple[npt.NDArray[np.uint32], ...] = tuple()
 
@@ -1642,7 +1645,7 @@ def solve_system_2d_unsteady(
         element_begin,
         solution,
     )
-    grid.field_data["time"] = 0.0
+    grid.field_data["time"] = (0.0,)
     resulting_grids.append(grid)
 
     changes = np.zeros(nt, np.float64)
@@ -1724,13 +1727,13 @@ def solve_system_2d_unsteady(
                 element_begin,
                 solution,
             )
-            grid.field_data["time"] = (time_index + 1) * dt
+            grid.field_data["time"] = (float((time_index + 1) * dt),)
             resulting_grids.append(grid)
 
         if print_residual:
             print(
                 f"Time step {time_index:d} finished in {iter_cnt:d} iterations with"
-                " residual of {max_residual:.5e}"
+                f" residual of {max_residual:.5e}"
             )
 
     del c_ser, bl, br, tr, tl, orde

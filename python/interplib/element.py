@@ -1,6 +1,8 @@
 """Implementation of elements."""
 
-from collections.abc import Callable, Sequence
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Concatenate, Generic, ParamSpec, SupportsIndex, TypeVar
@@ -47,6 +49,10 @@ class ElementArrayBase(Generic[_ElementDataType]):
         """Find unique values within the array."""
         return np.unique(self.values)
 
+    def __iter__(self) -> Iterator[npt.NDArray[_ElementDataType]]:
+        """Iterate over all elements."""
+        return iter(self.values)
+
 
 @dataclass(frozen=True)
 class FixedElementArray(ElementArrayBase[_ElementDataType]):
@@ -75,7 +81,6 @@ class FlexibleElementArray(
 ):
     """Array with values and variable shape per element."""
 
-    com: ArrayCom
     shapes: FixedElementArray[_IntegerDataType]
     values: tuple[npt.NDArray[_ElementDataType], ...] = field(init=False)
 
@@ -99,6 +104,15 @@ class FlexibleElementArray(
             ),
         )
 
+    def copy(
+        self,
+    ) -> FlexibleElementArray[_ElementDataType, _IntegerDataType]:
+        """Create a copy of itself."""
+        out = FlexibleElementArray(self.com, self.dtype, self.shapes)
+        for vin, vout in zip(out, self):
+            vout[:] = vin[:]
+        return out
+
 
 class ElementSide(IntEnum):
     """Enum specifying the side of an element."""
@@ -115,13 +129,21 @@ def _order_elements(
     ordering: FixedElementArray[np.uint32],
     child_array: FlexibleElementArray[np.uint32, np.uint32],
 ) -> int:
-    """Order elements."""
-    ordering[ie] = i_current
-    i_current += 1
+    """Order elements such that children come before their parent."""
     for child in child_array[ie]:
         i_current = _order_elements(int(child), i_current, ordering, child_array)
+    ordering[ie] = i_current
+    i_current += 1
 
     return i_current
+
+
+class UnknownFormOrder(IntEnum):
+    """Orders of unknown differential forms."""
+
+    FORM_ORDER_0 = 1
+    FORM_ORDER_1 = 2
+    FORM_ORDER_2 = 3
 
 
 class ElementCollection:
@@ -199,8 +221,9 @@ class ElementCollection:
     def get_element_order_on_side(self, i: int, side: ElementSide, /) -> int:
         """Return the order of an element on the side."""
         side = ElementSide(side)
-        if self.orders_array[i] != 0:
-            return int(self.orders_array[i][1 - (side.value & 1)])
+        order = int(self.orders_array[i][1 - (side.value & 1)])
+        if order != 0:
+            return order
 
         children = self.child_array[i]
         c1 = int(children[side.value - 1])
@@ -209,6 +232,90 @@ class ElementCollection:
         return self.get_element_order_on_side(c1, side) + self.get_element_order_on_side(
             c2, side
         )
+
+    def get_boundary_dofs(
+        self, ie: int, /, order: UnknownFormOrder, side: ElementSide
+    ) -> npt.NDArray[np.uint32]:
+        """Return degrees of freedom on the side of the element."""
+        if order == UnknownFormOrder.FORM_ORDER_2:
+            return np.zeros(0, np.uint32)
+
+        if self.child_count_array[ie] == 0:
+            # This is a leaf
+            n1, n2 = self.orders_array[ie]
+            if order == UnknownFormOrder.FORM_ORDER_1:
+                if side == ElementSide.SIDE_BOTTOM:
+                    return np.arange(0, n1, dtype=np.uint32)
+                if side == ElementSide.SIDE_RIGHT:
+                    return np.astype(
+                        (n1 * (n2 + 1))
+                        + n2
+                        + np.arange(0, n2, dtype=np.uint32) * (n1 + 1),
+                        np.uint32,
+                        copy=False,
+                    )
+                if side == ElementSide.SIDE_TOP:
+                    return np.astype(
+                        np.flip(n1 * n2 + np.arange(0, n1, dtype=np.uint32)),
+                        np.uint32,
+                        copy=False,
+                    )
+                if side == ElementSide.SIDE_LEFT:
+                    return np.astype(
+                        np.flip(
+                            (n1 * (n2 + 1)) + np.arange(0, n2, dtype=np.uint32) * (n1 + 1)
+                        ),
+                        np.uint32,
+                        copy=False,
+                    )
+            if order == UnknownFormOrder.FORM_ORDER_0:
+                if side == ElementSide.SIDE_BOTTOM:
+                    return np.arange(0, n1 + 1, dtype=np.uint32)
+                if side == ElementSide.SIDE_RIGHT:
+                    return np.astype(
+                        n1 + np.arange(0, n2 + 1, dtype=np.uint32) * (n1 + 1),
+                        np.uint32,
+                        copy=False,
+                    )
+                if side == ElementSide.SIDE_TOP:
+                    return np.astype(
+                        np.flip((n1 + 1) * n2 + np.arange(0, n1 + 1, dtype=np.uint32)),
+                        np.uint32,
+                        copy=False,
+                    )
+                if side == ElementSide.SIDE_LEFT:
+                    return np.astype(
+                        np.flip(np.arange(0, n2 + 1, dtype=np.uint32) * (n1 + 1)),
+                        np.uint32,
+                        copy=False,
+                    )
+
+        else:
+            # This is a node
+            if order == UnknownFormOrder.FORM_ORDER_1:
+                offset = sum(
+                    self.get_element_order_on_side(ie, ElementSide(i_side))
+                    for i_side in range(ElementSide.SIDE_BOTTOM, side)
+                )
+                count = self.get_element_order_on_side(ie, side)
+                return np.astype(
+                    offset + np.arange(count, dtype=np.uint32), np.uint32, copy=False
+                )
+            if order == UnknownFormOrder.FORM_ORDER_0:
+                offset = sum(
+                    self.get_element_order_on_side(ie, ElementSide(i_side))
+                    for i_side in range(ElementSide.SIDE_BOTTOM, side)
+                )
+                count = self.get_element_order_on_side(ie, side) + 1
+                res = np.astype(
+                    offset + np.arange(count, dtype=np.uint32), np.uint32, copy=False
+                )
+                if side == ElementSide.SIDE_LEFT:
+                    res[-1] = 0
+
+                return res
+
+        raise ValueError(f"Invalid value of either {order=} or {side=}.")
 
 
 def call_per_element_flex(
@@ -245,14 +352,6 @@ def call_per_element_fix(
     return results
 
 
-class UnknownFormOrder(IntEnum):
-    """Orders of unknown differential forms."""
-
-    FORM_ORDER_0 = 1
-    FORM_ORDER_1 = 2
-    FORM_ORDER_2 = 3
-
-
 @dataclass(frozen=True)
 class UnknownOrderings:
     """Type for storing ordering of unknowns within an element."""
@@ -266,7 +365,7 @@ class UnknownOrderings:
 
     def __init__(self, *orders: int) -> None:
         object.__setattr__(
-            self, "form_order", tuple(UnknownFormOrder(i + 1) for i in orders)
+            self, "form_orders", tuple(UnknownFormOrder(i + 1) for i in orders)
         )
 
 

@@ -152,7 +152,7 @@ def compute_vector_fields_nonlin(
     )
     vec_field_offsets = np.zeros(len(leaf_elements) + 1, np.uint64)
 
-    for e in leaf_elements:
+    for i_out, e in enumerate(leaf_elements):
         order_1, order_2 = orders[e]
         e_cache_1 = cache[order_1]
         e_cache_2 = cache[order_2]
@@ -201,9 +201,9 @@ def compute_vector_fields_nonlin(
             else:
                 vf = vec_fld(x, y)
             vec_field_lists[i].append(np.reshape(vf, (-1, 2)))
-        vec_field_offsets[e + 1] = vec_field_offsets[e] + (
+        vec_field_offsets[i_out + 1] = vec_field_offsets[i_out] + (
             e_cache_1.integration_order + 1
-        ) * (e_cache_1.integration_order + 2)
+        ) * (e_cache_2.integration_order + 1)
     vec_fields = tuple(
         np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
     )
@@ -451,7 +451,9 @@ def _continuity_element_1_forms(
     # This here is magic to see if the vector degrees of freedom are aligned or opposed.
     # If they are opposed, then one pair of coefficients needs a negative sign.
     trans_table = (-1, +1, +1, -1)
-    orientation_coefficient = trans_table[side_self] * trans_table[side_other]
+    orientation_coefficient = (
+        trans_table[side_self.value - 1] * trans_table[side_other.value - 1]
+    )
 
     for var_idx in (
         iform
@@ -613,6 +615,7 @@ def _continuity_element_0_forms_corner(
     tuple of Constraint
         List of constraint equations, which enforce continuity of 0 forms.
     """
+    # BUG: Wrong signs somehow
     equations: list[Constraint] = list()
 
     base_other_dofs = elements.get_boundary_dofs(
@@ -791,8 +794,8 @@ def _parent_child_equations(
     ie: int,
     child_bl: int,
     child_br: int,
-    child_tr: int,
     child_tl: int,
+    child_tr: int,
 ) -> tuple[Constraint, ...]:
     """Create constraint equations for the parent-child and child-child continuity.
 
@@ -958,8 +961,8 @@ def _parent_child_equations(
                 dof_offsets,
                 child_bl,
                 child_tl,
-                ElementSide.SIDE_LEFT,
-                ElementSide.SIDE_RIGHT,
+                ElementSide.SIDE_TOP,
+                ElementSide.SIDE_BOTTOM,
             )
             # Glue the corner they all share
             child_child += _continuity_element_0_forms_corner(
@@ -1141,6 +1144,7 @@ def _compute_element_matrix(
     ]
     sizes = [mat.shape[0] for mat in child_matrices]
     offsets = {int(ic): int(np.sum(sizes[:i])) for i, ic in enumerate(children)}
+    offsets[ie] = sum(sizes)
 
     # Lagrange muliplier block
     constraint_equations = _parent_child_equations(
@@ -1159,13 +1163,13 @@ def _compute_element_matrix(
 
     lagmat = sp.csr_array(
         (np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))),
-        shape=(len(constraint_equations), sum(sizes)),
+        shape=(len(constraint_equations), sum(sizes) + dof_offsets[-1]),
     )
 
     return cast(
         sp.csr_array,
         sp.block_array(
-            ((sp.block_diag((*child_matrices, self_matrix)), lagmat.T), (lagmat.T, None)),
+            ((sp.block_diag((*child_matrices, self_matrix)), lagmat.T), (lagmat, None)),
             format="csr",
         ),
     )
@@ -1182,15 +1186,14 @@ def assemble_matrix(
     for ie, i_parent in enumerate(collection.parent_array):
         if int(i_parent[0]) != 0:
             continue
-        matrices.append(
-            _compute_element_matrix(
-                unknown_ordering,
-                collection,
-                ie,
-                dof_offsets_array,
-                leaf_matrices,
-            )
+        mat = _compute_element_matrix(
+            unknown_ordering,
+            collection,
+            ie,
+            dof_offsets_array,
+            leaf_matrices,
         )
+        matrices.append(mat)
     return cast(sp.csr_array, sp.block_diag(matrices, format="csr"))
 
 
@@ -1225,7 +1228,7 @@ def _compute_element_vector(
     ]
     lagvals = np.zeros(lagrange_dof_count_array[ie])
 
-    return np.concatenate((self_vec, *child_vectors, lagvals), dtype=np.float64)
+    return np.concatenate((*child_vectors, self_vec, lagvals), dtype=np.float64)
 
 
 def assemble_vector(
@@ -1272,7 +1275,6 @@ def _compute_element_forcing(
 
     # Child element forcing
     forcing_arrays = {
-        ie: np.zeros(dof_offsets[-1], np.float64),
         **{
             ic: _compute_element_forcing(
                 unknown_ordering,
@@ -1284,6 +1286,7 @@ def _compute_element_forcing(
             )
             for ic in children
         },
+        ie: np.zeros(dof_offsets[-1], np.float64),
     }
 
     # Lagrange muliplier block
@@ -1300,11 +1303,11 @@ def _compute_element_forcing(
             sol = solution[ec.i_e]
             v += np.dot(ec.coeffs, sol[ec.dofs])
             forcing = forcing_arrays[ec.i_e]
-            forcing[ec.dofs] += np.dot(ec.coeffs, lagmul[ec.dofs])
+            forcing[ec.dofs] += ec.coeffs * lagmul[ic]
         vals.append(v)
 
     return np.concatenate(
-        [forcing_arrays[ie], *(forcing_arrays[ic] for ic in children), vals],
+        [*(forcing_arrays[ic] for ic in children), forcing_arrays[ie], vals],
         dtype=np.float64,
     )
 
@@ -1626,6 +1629,10 @@ def _element_strong_boundary_condition(
     if children.size != 0:
         # Node, has children
         current: tuple[ElementConstraint, ...] = tuple()
+        # For children skipping:
+        # Skip first if: (on start of the side AND skip_first is True) OR (end of side)
+        # Skip last if: on end of the side AND skip_last is True
+        # So only time first not skipped if: skip_first is True AND beginning of side
         if side == ElementSide.SIDE_LEFT or side == ElementSide.SIDE_BOTTOM:
             current += _element_strong_boundary_condition(
                 elements,
@@ -1636,9 +1643,9 @@ def _element_strong_boundary_condition(
                 dof_offsets,
                 strong_bc,
                 caches,
-                (skip_first and side == ElementSide.SIDE_LEFT)
-                or side == ElementSide.SIDE_BOTTOM,
-                skip_last and side == ElementSide.SIDE_BOTTOM,
+                (skip_first and side == ElementSide.SIDE_BOTTOM)
+                or side == ElementSide.SIDE_LEFT,
+                skip_last and side == ElementSide.SIDE_LEFT,
             )
         if side == ElementSide.SIDE_BOTTOM or side == ElementSide.SIDE_RIGHT:
             current += _element_strong_boundary_condition(
@@ -1650,9 +1657,9 @@ def _element_strong_boundary_condition(
                 dof_offsets,
                 strong_bc,
                 caches,
-                (skip_first and side == ElementSide.SIDE_BOTTOM)
-                or side == ElementSide.SIDE_RIGHT,
-                skip_last and side == ElementSide.SIDE_RIGHT,
+                (skip_first and side == ElementSide.SIDE_RIGHT)
+                or side == ElementSide.SIDE_BOTTOM,
+                skip_last and side == ElementSide.SIDE_BOTTOM,
             )
         if side == ElementSide.SIDE_RIGHT or side == ElementSide.SIDE_TOP:
             current += _element_strong_boundary_condition(
@@ -1664,9 +1671,9 @@ def _element_strong_boundary_condition(
                 dof_offsets,
                 strong_bc,
                 caches,
-                (skip_first and side == ElementSide.SIDE_RIGHT)
-                or side == ElementSide.SIDE_TOP,
-                skip_last and side == ElementSide.SIDE_TOP,
+                (skip_first and side == ElementSide.SIDE_TOP)
+                or side == ElementSide.SIDE_RIGHT,
+                skip_last and side == ElementSide.SIDE_RIGHT,
             )
         if side == ElementSide.SIDE_TOP or side == ElementSide.SIDE_LEFT:
             current += _element_strong_boundary_condition(
@@ -1678,9 +1685,9 @@ def _element_strong_boundary_condition(
                 dof_offsets,
                 strong_bc,
                 caches,
-                (skip_first and side == ElementSide.SIDE_TOP)
-                or side == ElementSide.SIDE_LEFT,
-                skip_last and side == ElementSide.SIDE_LEFT,
+                (skip_first and side == ElementSide.SIDE_LEFT)
+                or side == ElementSide.SIDE_TOP,
+                skip_last and side == ElementSide.SIDE_TOP,
             )
 
         return current
@@ -2047,7 +2054,7 @@ def non_linear_solve_run(
         combined_solution = np.concatenate(solution, dtype=np.float64)
         eq_vals = compute_element_explicit(
             combined_solution,
-            element_offsets[:-1],
+            element_offsets[leaf_elements],
             [f.order for f in system.unknown_forms],
             compiled_system.lhs_full,
             bl,
@@ -2075,7 +2082,7 @@ def non_linear_solve_run(
             # Update RHS implicit terms
             computed_explicit = compute_element_explicit(
                 combined_solution,
-                element_offsets[:-1],
+                element_offsets[leaf_elements],
                 [f.order for f in system.unknown_forms],
                 compiled_system.rhs_codes,
                 bl,
@@ -2091,7 +2098,7 @@ def non_linear_solve_run(
                 element_collection, 1, np.float64, computed_explicit
             )
             for ie, (off, cnt, vals) in enumerate(
-                zip(element_offsets, dof_offsets, explicit_values)
+                zip(element_offsets[leaf_elements], dof_offsets, explicit_values)
             ):
                 main_vec[off : off + cnt[-2]] += vals
         else:
@@ -2156,11 +2163,12 @@ def non_linear_solve_run(
             copy=None,
         )
         sol_updates = extract_from_flat(
-            element_collection, element_offsets, dof_offsets, relax * d_solution
+            element_collection, element_offsets, relax * d_solution
         )
         # update lagrange multipliers (haha pliers)
-        d_lag = d_solution[-global_lagrange.size :]
-        global_lagrange += relax * d_lag
+        if len(global_lagrange):
+            d_lag = d_solution[-global_lagrange.size :]
+            global_lagrange += relax * d_lag
 
         def _update_solution(
             ie: int,
@@ -2411,7 +2419,8 @@ def solve_system_2d_unsteady(
     br = corners[leaf_elements, 1]
     tr = corners[leaf_elements, 2]
     tl = corners[leaf_elements, 3]
-    orde = np.concatenate(element_collection.orders_array)[leaf_elements]
+    # NOTE: does not work with differing orders yet
+    orde = np.array(element_collection.orders_array)[leaf_elements, 0]
     c_ser = tuple(cache[o].c_serialization() for o in cache if o in orde)
 
     # Release cache element memory. If they will be needed in the future,
@@ -2532,13 +2541,10 @@ def solve_system_2d_unsteady(
     if boundary_conditions is None:
         boundary_conditions = list()
 
-    top_indices = np.array(
-        [
-            ie
-            for ie, nc in enumerate(element_collection.child_count_array)
-            if int(nc[0]) == 0
-        ],
-        dtype=np.uint32,
+    top_indices = np.astype(
+        np.flatnonzero(np.array(element_collection.parent_array) == 0),
+        np.uint32,
+        copy=False,
     )
 
     strong_bc_constraints, weak_bc_constraints = mesh_boundary_conditions(
@@ -2659,6 +2665,14 @@ def solve_system_2d_unsteady(
         lagrange_mat = None
         lagrange_vec = np.zeros(0, np.float64)
 
+    # # TODO: Delet dis
+    # from matplotlib import pyplot as plt
+
+    # plt.figure()
+    # plt.imshow(main_mat.toarray())
+    # # plt.spy(main_mat)
+    # plt.show()
+
     linear_matrix = sp.csc_array(main_mat)
     explicit_vec = main_vec
     # time_carry_term = FlexibleElementArray(
@@ -2709,12 +2723,16 @@ def solve_system_2d_unsteady(
             child_counts: FixedElementArray[np.uint32],
             mat: FlexibleElementArray[np.float64, np.uint32],
             vec: FlexibleElementArray[np.float64, np.uint32],
+            total_dofs: FixedElementArray[np.uint32],
         ) -> npt.NDArray[np.float64]:
             """Compute inverse for each leaf element."""
+            n_dofs = int(total_dofs[ie][0])
             if int(child_counts[ie][0]) != 0:
-                return np.zeros(0, np.float64)
+                return np.zeros(n_dofs, np.float64)
 
-            return np.astype(np.linalg.solve(mat[ie], vec[ie]), np.float64, copy=False)
+            res = np.astype(np.linalg.solve(mat[ie], vec[ie]), np.float64, copy=False)
+            assert res.size == n_dofs
+            return res
 
         initial_solution = call_per_element_flex(
             element_collection.com,
@@ -2724,6 +2742,7 @@ def solve_system_2d_unsteady(
             element_collection.child_count_array,
             distributed_projections,
             initial_vectors,
+            total_dof_counts,
         )
         # compute carry
         old_solution_carry = extract_carry(
@@ -2757,7 +2776,7 @@ def solve_system_2d_unsteady(
 
     for time_index in range(nt):
         max_residual = np.inf
-        # 2 / dt * old_solution_carry + time_carry_term,  # TODO: Compute this
+        # 2 / dt * old_solution_carry + time_carry_term
         current_carry = call_per_element_flex(
             element_collection.com,
             1,
@@ -2806,7 +2825,7 @@ def solve_system_2d_unsteady(
             np.float64,
             compute_element_explicit(
                 np.concatenate(new_solution, dtype=np.float64),
-                element_offset[:-1],
+                element_offset[leaf_elements],
                 [f.order for f in system.unknown_forms],
                 projection_codes,
                 bl,
@@ -2913,7 +2932,6 @@ def assign_leaves(
 def extract_from_flat(
     elements: ElementCollection,
     element_offsets: npt.NDArray[np.integer],
-    dof_offsets: FixedElementArray[np.uint32],
     v: npt.NDArray[_T],
 ) -> FlexibleElementArray[_T, np.uint32]:
     """Extract from flat vector to per-element values."""
@@ -2921,13 +2939,12 @@ def extract_from_flat(
     def _extract_single(
         ie: int,
         element_offsets: npt.NDArray[np.integer],
-        dof_offsets: FixedElementArray[np.uint32],
         v: npt.NDArray[_T],
     ) -> npt.NDArray[_T]:
         """Extract DoFs from the vector."""
-        offset = int(element_offsets[ie])
-        count = int(dof_offsets[ie][-1])
-        return v[offset : offset + count]
+        begin = int(element_offsets[ie])
+        end = int(element_offsets[ie + 1])
+        return v[begin:end]
 
     return call_per_element_flex(
         elements.com,
@@ -2935,6 +2952,5 @@ def extract_from_flat(
         cast(type[_T], v.dtype),
         _extract_single,
         element_offsets,
-        dof_offsets,
         v,
     )

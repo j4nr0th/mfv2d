@@ -382,9 +382,9 @@ def _compute_element_dofs(
             if form == UnknownFormOrder.FORM_ORDER_0:
                 sizes[i_f] = (order_1 + 1) * (order_2 + 1)
             elif form == UnknownFormOrder.FORM_ORDER_1:
-                sizes[i_f] = (order_1 + 1) * (order_2) + (order_1) * (order_2 + 1)
+                sizes[i_f] = (order_1 + 1) * order_2 + order_1 * (order_2 + 1)
             elif form == UnknownFormOrder.FORM_ORDER_2:
-                sizes[i_f] = (order_1 + 1) * (order_2) + (order_1) * (order_2 + 1)
+                sizes[i_f] = order_1 * order_2
             else:
                 raise ValueError(f"Unknown form order values {form}.")
 
@@ -452,16 +452,16 @@ def _compute_element_lagrange_multipliers(
 
     n_lagrange = 0
     for order in ordering.form_orders:
-        if order == 2:
+        if order == UnknownFormOrder.FORM_ORDER_2:
             continue
 
         n_lagrange += n_first_order
 
-        if order == 0:
+        if order == UnknownFormOrder.FORM_ORDER_0:
             # Add the center node connectivity relations (but not cyclical)
             n_lagrange += 3
 
-    raise NotImplementedError
+    return n_lagrange
 
 
 def compute_dof_sizes(
@@ -480,7 +480,7 @@ def compute_lagrange_sizes(
     return call_per_element_fix(
         elements.com,
         np.uint32,
-        ordering.count,
+        1,
         _compute_element_lagrange_multipliers,
         elements,
         ordering,

@@ -35,7 +35,7 @@ def check_and_refine(
         object.__setattr__(new_e, "child_br", cbr[0])
         object.__setattr__(new_e, "child_tl", ctl[0])
         object.__setattr__(new_e, "child_tr", ctr[0])
-        out = [new_e] + cbl + cbr + ctl + ctr
+        out = cbl + cbr + ctl + ctr + [new_e]
 
     else:
         out = [e]

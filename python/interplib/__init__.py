@@ -40,6 +40,12 @@ from interplib.lagrange import lagrange_function_samples as lagrange_function_sa
 # Product Basis
 from interplib.product_basis import BasisProduct2D as BasisProduct2D
 
+# Solve system
+from interplib.solve_system import NonlinearSolverSettings as NonlinearSolverSettings
+from interplib.solve_system import RefinementSettings as RefinementSettings
+from interplib.solve_system import SystemSettings as SystemSettings
+from interplib.solve_system import TimeSettings as TimeSettings
+
 # Splines
 from interplib.splines import SplineBC as SplineBC
 

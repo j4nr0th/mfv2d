@@ -2290,7 +2290,24 @@ def extract_from_flat(
 
 @dataclass(frozen=True)
 class TimeSettings:
-    """Type for defining time settings of the solver."""
+    """Type for defining time settings of the solver.
+
+    Parameters
+    ----------
+    dt : float
+        Time step to take.
+
+    nt : int
+        Number of time steps to simulate.
+
+    time_march_relations : dict of (KWeight, KFormUnknown)
+        Pairs of weights and unknowns, which determine what equations are treated as time
+        marching equations for which unknowns. At least one should be present.
+
+    sample_rate : int, optional
+        How often the output is saved. If not specified, every time step is saved. First
+        and last steps are always saved.
+    """
 
     dt: float
     nt: int
@@ -2300,7 +2317,28 @@ class TimeSettings:
 
 @dataclass(frozen=True)
 class SystemSettings:
-    """Type used to hold system information for solving."""
+    """Type used to hold system information for solving.
+
+    Parameters
+    ----------
+    system : kforms.KFormSystem
+        System of equations to solve.
+
+    boundaray_conditions: Sequence of kforms.BoundaryCondition2DSteady, optional
+        Sequence of boundary conditions to be applied to the system.
+
+    constrained_forms : Sequence of (float, KFormUnknown), optional
+        Sequence of 2-form unknowns which must be constrained. These can arrise form
+        cases where a continuous variable acts as a Lagrange multiplier on the continuous
+        level and only appears in the PDE as a gradient. In that case it will result
+        in a singular system if not constrained manually to a fixed value.
+
+        An example of such a case is pressure in Stokes flow or incompressible
+        Navier-Stokes equations.
+
+    intial_conditions : Mapping of (KFormUnknown, Callable), optional
+        Functions which give initial conditions for different forms.
+    """
 
     system: kforms.KFormSystem
     boundary_conditions: Sequence[kforms.BoundaryCondition2DSteady] = field(
@@ -2317,7 +2355,22 @@ class SystemSettings:
 
 @dataclass(frozen=True)
 class RefinementSettings:
-    """Type used to hold settings related to refinement information."""
+    """Type used to hold settings related to refinement information.
+
+    Parameters
+    ----------
+    refinement_levels : int
+        Number of mesh refinement levels which can be done. When zero,
+        no refinement is done.
+
+    division_predicate : Callable (Element2D, int) -> bool, optional
+        Callable used to determine if an element should be divided further. If
+        not specified, no refinement is done.
+
+    division_function : OrderDivisionFunction, optional
+        Function which determines order of the parent and child elements resulting from
+        the division of the element. When not specified, the "old" method is used.
+    """
 
     refinement_levels: int
     division_predicate: Callable[[ElementLeaf2D, int], bool] | None = None
@@ -2325,8 +2378,63 @@ class RefinementSettings:
 
 
 @dataclass(frozen=True)
-class NonlinearSolverSettings:
-    """Settings used by the non-linear solver."""
+class SolverSettings:
+    r"""Settings used by the non-linear solver.
+
+    Solver finds a solution to the system :eq:`solve_system_equation`, where
+    :math:`\mathbb{I}` is the implicit part of the system, :math:`\vec{E}` is the explicit
+    part of the system, and :math:`\vec{F}` is the constant part of the system.
+
+    This is done by computing updates to the state :math:`\Delta u` as per
+    :eq:`solve_system_iteration`. The iterations stop once the residual
+    :math:`\vec{E}\left({\vec{u}}^i\right) + \vec{F} + \vec{I}\left({\vec{u}}^i\right)`
+    falls under the specified criterion.
+
+    The stopping criterion has two tolerances - absolute and relative - which both need
+    to be met in order for the solver to stop. The absolute criterion checks if the
+    highest absolute value of the residual elements is bellow the value specified. The
+    relative first scales it by the maximum absolute value of the constant forcing.
+    Depending on the system and the solution, these may need to be adjusted. If the system
+    is linear, meaning that :math:`\vec{E} = 0` and :math:`\mathbb{I}` is
+    not dependant on math:`\vec{u}`, then the solver will terminate in a single iteration.
+
+    Last thing to consider is the relaxation. Sometimes, the system is very stiff and does
+    not converge nicely. This can be the case for steady-state calculations of non-linear
+    systems with bad initial guesses. In such cases, the correction can be too large and
+    overshoot the solution. In such cases, convergence may still be achieved if the update
+    is scaled by a "relaxation factor". Conversely, convergence may be slightly sped up
+    for some very stable problems if the increment is amplified, meaning the relaxation
+    factor is greater than 1.
+
+    .. math::
+        :label: solve_system_equation
+
+        \mathbb{I}\left({\vec{u}}\rigth)\right) {\vec{u}} = \vec{E}\left({\vec{u}}^i
+        \right) + \vec{F}
+
+
+    .. math::
+        :label: solve_system_iteration
+
+        \Delta {\vec{u}}^i = \left(\mathbb{I}\left({\vec{u}}^i\rigth)\right)^{-1} \left(
+        \vec{E}\left({\vec{u}}^i\right) + \vec{F} + \vec{I}\left({\vec{u}}^i\right)\right)
+
+    Parameters
+    ----------
+    maximum_iterations : int, default: 100
+        Maximum number of iterations the solver performs.
+
+    relaxation : float, default: 1.0
+        Fraction of solution increment to use.
+
+    absolute_tolerance : float, default: 1e-6
+        Maximum value of the residual must meet in order for the solution
+        to be considered converged.
+
+    relative_tolerance : float, default: 1e-5
+        Maximum fraction of the maximum of the right side of the equation the residual
+        must meet in order for the solution to be considered converged.
+    """
 
     maximum_iterations: int = 100
     relaxation: float = 1.0
@@ -2360,7 +2468,7 @@ def solve_system_2d_unsteady(
         division_predicate=None,
         division_function=divide_old,
     ),
-    solver_settings: NonlinearSolverSettings = NonlinearSolverSettings(
+    solver_settings: SolverSettings = SolverSettings(
         maximum_iterations=100,
         relaxation=1,
         absolute_tolerance=1e-6,
@@ -2375,56 +2483,22 @@ def solve_system_2d_unsteady(
 
     Parameters
     ----------
-    system : kforms.KFormSystem
-        System of equations to solve.
-
     mesh : Mesh2D
         Mesh on which to solve the system on.
 
-    dt : float
-        Time step to take.
+    system_settings : SystemSettings
+        Settings specifying the system of equations and boundary conditions to solve for.
 
-    nt : int
-        Number of time steps to simulate.
+    refinement_settings : RefinementSettings, optional
+        Settings specifying refinement of the mesh.
 
-    time_march_relations : dict of (KWeight, KFormUnknown)
-        Pairs of weights and unknowns, which determine what equations are treated as time
-        marching equations for which unknowns. At least one should be present.
+    solver_settings : SolverSettings, optional
+        Settings specifying the behavior of the solver
 
-    intial_conditions : Mapping of (KFormUnknown, Callable), optional
-        Functions which give initial conditions for different forms.
-
-    boundaray_conditions: Sequence of kforms.BoundaryCondition2DStrong, optional
-        Sequence of boundary conditions to be applied to the system.
-
-    refinement_levels : int, default: 0
-        Number of mesh refinement levels which can be done. When zero
-        (default value) no refinement is done.
-
-    div_predicate : Callable (Element2D) -> bool, optional
-        Callable used to determine if an element should be divided further.
-
-    max_iterations : int, default: 100
-        Maximum number of Newton-Raphson iterations solver performs.
-
-    relax : float, default: 1.0
-        Fraction of Newton-Raphson increment to use.
-
-    atol : float, default: 1e-6
-        Maximum value of the residual must meet in order for the solution
-        to be considered converged.
-
-    rtol : float, default: 1e-5
-        Maximum fraction of the maximum of the right side of the equation the residual
-        must meet in order for the solution to be considered converged.
-
-    sample_rate : int, optional
-        How often the output is saved. If not specified, every time step is saved. First
-        and last steps are always saved.
-
-    division_function : OrderDivisionFunction, optional
-        Function which determines order of the parent and child elements resulting from
-        the division of the element. When not specified, the "old" method is used.
+    time_settings : TimeSettings or None, default: None
+        When set to ``None``, the equations are solved without time dependence (steady
+        state). Otherwise, it specifies which equations are time derivative related and
+        time step count and size.
 
     recon_order : int, optional
         When specified, all elements will be reconstructed using this polynomial order.
@@ -2432,20 +2506,11 @@ def solve_system_2d_unsteady(
 
     print_residual : bool, default: False
         Print the maximum of the absolute value of the residual for each iteration of the
-        Newton-Raphson method.
-
-    constrained_forms : Sequence of (float, KFormUnknown), optional
-        Sequence of 2-form unknowns which must be constrained. These can arrise form
-        cases where a continuous variable acts as a Lagrange multiplier on the continuous
-        level and only appears in the PDE as a gradient. In that case it will result
-        in a singular system if not constrained manually to a fixed value.
-
-        An example of such a case is pressure in Stokes flow or incompressible
-        Navier-Stokes equations.
+        solver.
 
     Returns
     -------
-    grid : pyvista.UnstructuredGrid
+    grids : Sequence of pyvista.UnstructuredGrid
         Reconstructed solution as an unstructured grid of VTK's "lagrange quadrilateral"
         cells. This reconstruction is done on the nodal basis for all unknowns.
     stats : SolutionStatisticsNonLin

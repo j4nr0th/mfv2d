@@ -35,7 +35,6 @@ from interplib.element import (
     poly_x,
     poly_y,
 )
-from interplib.element_tree import check_and_refine
 from interplib.kforms.eval import CompiledSystem
 from interplib.kforms.kform import (
     KBoundaryProjection,
@@ -44,7 +43,7 @@ from interplib.kforms.kform import (
     KSum,
     KWeight,
 )
-from interplib.mimetic.mimetic2d import BasisCache, ElementLeaf2D, Mesh2D
+from interplib.mimetic.mimetic2d import BasisCache, Element2D, ElementLeaf2D, Mesh2D
 from interplib.system2d import (
     OrderDivisionFunction,
     SolutionStatisticsUnsteady,
@@ -55,6 +54,35 @@ from interplib.system2d import (
     vtk_lagrange_ordering,
     # find_strong_bc_edge_indices,
 )
+
+
+def check_and_refine(
+    pred: Callable[[ElementLeaf2D, int], bool] | None,
+    order_div: OrderDivisionFunction,
+    e: ElementLeaf2D,
+    level: int,
+    max_level: int,
+) -> list[Element2D]:
+    """Return element and potentially its children."""
+    out: list[Element2D]
+    if level < max_level and pred is not None and pred(e, level):
+        # TODO: Make this nicer without this stupid Method mumbo jumbo
+        parent_order, child_orders = order_div(e.order, level, max_level)
+        new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders, parent_order)
+        cbl = check_and_refine(pred, order_div, ebl, level + 1, max_level)
+        cbr = check_and_refine(pred, order_div, ebr, level + 1, max_level)
+        ctl = check_and_refine(pred, order_div, etl, level + 1, max_level)
+        ctr = check_and_refine(pred, order_div, etr, level + 1, max_level)
+        object.__setattr__(new_e, "child_bl", cbl[0])
+        object.__setattr__(new_e, "child_br", cbr[0])
+        object.__setattr__(new_e, "child_tl", ctl[0])
+        object.__setattr__(new_e, "child_tr", ctr[0])
+        out = cbl + cbr + ctl + ctr + [new_e]
+
+    else:
+        out = [e]
+
+    return out
 
 
 def reconstruct(

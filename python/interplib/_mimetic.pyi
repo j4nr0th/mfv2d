@@ -81,30 +81,6 @@ class Surface:
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
-# class Volume:
-#     """A geometrical object, which is bound by six surfaces.
-#
-#     left : GeoID
-#         Left boundary surface of the surface.
-#     back : GeoID
-#         Back boundary surface of the surface.
-#     bottom : GeoID
-#         Bottom boundary surface of the surface.
-#     right : GeoID
-#         Right boundary surface of the surface.
-#     front : GeoID
-#         Front boundary surface of the surface.
-#     top : GeoID
-#         Top boundary surface of the surface.
-#     """
-#
-#     left: GeoID
-#     back: GeoID
-#     bottom: GeoID
-#     right: GeoID
-#     front: GeoID
-#     top: GeoID
-
 class Manifold:
     """A manifold of a finite number of dimensions."""
 

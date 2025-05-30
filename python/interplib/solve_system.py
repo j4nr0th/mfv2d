@@ -8,6 +8,7 @@ from collections.abc import (
     Sequence,
 )
 from dataclasses import dataclass, field
+from functools import cache
 from itertools import accumulate
 from typing import TypeVar, cast
 
@@ -18,7 +19,7 @@ import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
 from interplib import kforms
-from interplib._interp import dlagrange1d, lagrange1d
+from interplib._interp import compute_gll, dlagrange1d, lagrange1d
 from interplib._mimetic import Surface, compute_element_explicit, compute_element_matrices
 from interplib.element import (
     ElementCollection,
@@ -35,6 +36,7 @@ from interplib.element import (
     poly_x,
     poly_y,
 )
+from interplib.element_tree import OrderDivisionFunction
 from interplib.kforms.eval import CompiledSystem
 from interplib.kforms.kform import (
     KBoundaryProjection,
@@ -42,17 +44,14 @@ from interplib.kforms.kform import (
     KExplicit,
     KSum,
     KWeight,
-)
-from interplib.mimetic.mimetic2d import BasisCache, Element2D, ElementLeaf2D, Mesh2D
-from interplib.system2d import (
-    OrderDivisionFunction,
-    SolutionStatisticsUnsteady,
     VectorFieldFunction,
-    continuity_child_matrices,
-    continuity_matrices,
-    divide_old,
+)
+from interplib.mimetic.mimetic2d import (
+    BasisCache,
+    Element2D,
+    ElementLeaf2D,
+    Mesh2D,
     vtk_lagrange_ordering,
-    # find_strong_bc_edge_indices,
 )
 
 
@@ -449,6 +448,57 @@ class Constraint:
         object.__setattr__(self, "element_constraints", element_constraints)
 
 
+@cache
+def continuity_matrices(
+    n1: int, n2: int
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute continuity equation coefficients for 0 and 1 forms between elements.
+
+    Parameters
+    ----------
+    n1 : int
+        Higher order.
+    n2 : int
+        Lower order.
+
+    Returns
+    -------
+    (n1 + 1, n2 + 1) array
+        Array of coefficients for 0-form continuity.
+
+    (n1, n2) array
+        Array of coefficients for 1-form continuity.
+    """
+    assert n1 > n2
+    nodes_n1, _ = compute_gll(n1)
+    nodes_n2, _ = compute_gll(n2)
+
+    # Axis 0: xi_j
+    # Axis 1: psi_i
+    nodal_basis = lagrange1d(nodes_n2, nodes_n1)
+
+    # Axis 0: [xi_{j + 1}, xi_j]
+    # Axis 1: psi_i
+    coeffs_1_form = np.zeros((n1, n2), np.float64)
+    for j in range(n1):
+        coeffs_1_form[j, 0] = nodal_basis[j, 0] - nodal_basis[j + 1, 0]
+        for i in range(1, n2):
+            coeffs_1_form[j, i] = coeffs_1_form[j, i - 1] + (
+                nodal_basis[j, i] - nodal_basis[j + 1, i]
+            )
+
+    diffs = nodal_basis[:-1, :] - nodal_basis[+1:, :]
+    coeffs_1_fast = np.stack(
+        [x for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))],
+        axis=-1,
+        dtype=np.float64,
+    )
+
+    assert np.allclose(coeffs_1_fast, coeffs_1_form)
+
+    return np.astype(nodal_basis, np.float64, copy=False), coeffs_1_form
+
+
 def _continuity_element_1_forms(
     unknown_ordering: UnknownOrderings,
     elements: ElementCollection,
@@ -673,6 +723,58 @@ def _continuity_element_0_forms_corner(
         )
 
     return tuple(equations)
+
+
+@cache
+def continuity_child_matrices(
+    nchild: int, nparent: int
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute continuity equation coefficients for 0 and 1 forms between elements.
+
+    Parameters
+    ----------
+    nc : int
+        Child's order.
+    nparent : int
+        Parent's order.
+
+    Returns
+    -------
+    (nc + 1, np + 1) array
+        Array of coefficients for 0-form continuity.
+
+    (nc, np) array
+        Array of coefficients for 1-form continuity.
+    """
+    # assert nchild >= nparent
+    nodes_child, _ = compute_gll(nchild)
+    nodes_parent, _ = compute_gll(nparent)
+    nodes_child = (nodes_child / 2) - 0.5  # Scale to [-1, 0]
+
+    # Axis 0: xi_j
+    # Axis 1: psi_i
+    nodal_basis = lagrange1d(nodes_parent, nodes_child)
+
+    # Axis 0: [xi_{j + 1}, xi_j]
+    # Axis 1: psi_i
+    coeffs_1_form = np.zeros((nchild, nparent), np.float64)
+    for j in range(nchild):
+        coeffs_1_form[j, 0] = nodal_basis[j, 0] - nodal_basis[j + 1, 0]
+        for i in range(1, nparent):
+            coeffs_1_form[j, i] = coeffs_1_form[j, i - 1] + (
+                nodal_basis[j, i] - nodal_basis[j + 1, i]
+            )
+
+    diffs = nodal_basis[:-1, :] - nodal_basis[+1:, :]
+    coeffs_1_fast = np.stack(
+        [x for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))],
+        axis=-1,
+        dtype=np.float64,
+    )
+
+    assert np.allclose(coeffs_1_fast, coeffs_1_form)
+
+    return np.astype(nodal_basis, np.float64, copy=False), coeffs_1_form
 
 
 def _continuity_parent_child_edges(
@@ -2353,6 +2455,15 @@ class SystemSettings:
     ] = field(default_factory=dict)
 
 
+def divide_old(
+    order: int, level: int, max_level: int
+) -> tuple[int | None, tuple[int, int, int, int]]:
+    """Keep child order equal to parent and set parent to double the child."""
+    del level, max_level
+    v = order
+    return 2 * order, (v, v, v, v)
+
+
 @dataclass(frozen=True)
 class RefinementSettings:
     """Type used to hold settings related to refinement information.
@@ -2460,7 +2571,27 @@ def _find_time_carry_indices(
     return np.concatenate(output, dtype=np.uint32)
 
 
-def solve_system_2d_unsteady(
+@dataclass(frozen=True)
+class SolutionStatistics:
+    """Information about the solution."""
+
+    element_orders: dict[int, int]
+    n_total_dofs: int
+    n_leaf_dofs: int
+    n_lagrange: int
+    n_elems: int
+    n_leaves: int
+
+
+@dataclass(frozen=True)
+class SolutionStatisticsUnsteady(SolutionStatistics):
+    """Information about the unsteady solution."""
+
+    iter_history: npt.NDArray[np.uint32]
+    residual_history: npt.NDArray[np.float64]
+
+
+def solve_system_2d(
     mesh: Mesh2D,
     system_settings: SystemSettings,
     refinement_settings: RefinementSettings = RefinementSettings(

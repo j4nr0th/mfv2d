@@ -62,8 +62,3 @@ from interplib.splines import nodal_interpolating_splinei as nodal_interpolating
 
 # System
 from interplib.system import solve_system_1d as solve_system_1d
-
-# System 2D
-from interplib.system2d import solve_system_2d as solve_system_2d
-from interplib.system2d import solve_system_2d_nonlinear as solve_system_2d_nonlinear
-from interplib.system2d import solve_system_2d_unsteady as solve_system_2d_unsteady

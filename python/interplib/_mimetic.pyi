@@ -6,7 +6,7 @@ from typing import Self, final, overload
 import numpy as np
 import numpy.typing as npt
 
-from interplib.kforms.eval import MatOpCode
+from interplib.kforms.eval import MatOpCode, _CompiledCodeMatrix
 
 @final
 class GeoID:
@@ -295,7 +295,7 @@ _SerializedBasisCache = tuple[
 
 def compute_element_matrices(
     form_orders: Sequence[int],
-    expressions: Sequence[Sequence[Sequence[MatOpCode | int | float] | None]],
+    expressions: _CompiledCodeMatrix,
     pos_bl: npt.NDArray[np.float64],
     pos_br: npt.NDArray[np.float64],
     pos_tr: npt.NDArray[np.float64],
@@ -796,3 +796,20 @@ class LiLMatrix:
             Positions of entries as ``(row, col)``.
         """
         ...
+
+def compute_element_matrix(
+    form_orders: Sequence[int],
+    expressions: _CompiledCodeMatrix,
+    corners: npt.NDArray[np.float64],
+    order: int,
+    vector_fields: Sequence[npt.NDArray[np.float64]],
+    basis_1_nodal: npt.NDArray[np.float64],
+    basis_1_edge: npt.NDArray[np.float64],
+    weights_1: npt.NDArray[np.float64],
+    basis_2_nodal: npt.NDArray[np.float64],
+    basis_2_edge: npt.NDArray[np.float64],
+    weights_2: npt.NDArray[np.float64],
+    stack_memory: np.ndarray,
+) -> npt.NDArray[np.float64]:
+    """Compute a single element matrix."""
+    ...

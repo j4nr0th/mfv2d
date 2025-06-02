@@ -10,7 +10,7 @@ from typing import Concatenate, Generic, ParamSpec, SupportsIndex, TypeVar
 import numpy as np
 import numpy.typing as npt
 
-from interplib.mimetic.mimetic2d import Element2D, ElementLeaf2D, ElementNode2D
+from interplib.mimetic.mimetic2d import Basis2D, Element2D, ElementLeaf2D, ElementNode2D
 
 
 @dataclass(frozen=True)
@@ -576,3 +576,298 @@ def poly_y(
         np.float64,
         copy=False,
     )
+
+
+def element_projections(
+    unknowns: UnknownOrderings,
+    corners: npt.ArrayLike,
+    basis_coarse: Basis2D,
+    basis_fine: Basis2D,
+) -> tuple[npt.NDArray[np.float64], ...]:
+    """Compute the mass matrix for the nodal basis."""
+    rule_xi = basis_coarse.basis_xi.rule
+    if rule_xi != basis_fine.basis_xi.rule:
+        raise ValueError(
+            "Order of integration must be constant for both coarse and fine xi basis."
+        )
+    nodes_xi = rule_xi.nodes
+    rule_eta = basis_coarse.basis_eta.rule
+    if rule_eta != basis_fine.basis_eta.rule:
+        raise ValueError(
+            "Order of integration must be constant for both coarse and fine eta basis."
+        )
+    nodes_eta = rule_eta.nodes
+
+    (j00, j01), (j10, j11) = jacobian(
+        np.asarray(corners, np.float64), nodes_xi[None, :], nodes_eta[:, None]
+    )
+    det = j00 * j11 - j01 * j10
+
+    output: list[npt.NDArray[np.float64]] = [np.zeros(0, np.float64)] * unknowns.count
+
+    for order in UnknownFormOrder:
+        if order not in unknowns.form_orders:
+            continue
+
+        # Compute mixed matrix
+
+        w_int = rule_xi.weights[None, :] * rule_eta.weights[:, None]
+        if order == UnknownFormOrder.FORM_ORDER_0:
+            # Nodal matrix
+            mat_n = _element_node_mass_mixed(
+                basis_coarse.basis_xi.node,
+                basis_coarse.basis_eta.node,
+                basis_fine.basis_xi.node,
+                basis_fine.basis_eta.node,
+                w_int * det,
+            )
+            mat_p = _element_node_mass_mixed(
+                basis_coarse.basis_xi.node,
+                basis_coarse.basis_eta.node,
+                basis_coarse.basis_xi.node,
+                basis_coarse.basis_eta.node,
+                w_int * det,
+            )
+
+        elif order == UnknownFormOrder.FORM_ORDER_1:
+            # Edge matrix
+            khh = j11**2 + j10**2
+            kvv = j01**2 + j00**2
+            kvh = j01 * j11 + j00 * j10
+            mat_n = _element_edge_mass_mixed(
+                basis_coarse.basis_xi.node,
+                basis_coarse.basis_eta.node,
+                basis_fine.basis_xi.node,
+                basis_fine.basis_eta.node,
+                basis_coarse.basis_xi.edge,
+                basis_coarse.basis_eta.edge,
+                basis_fine.basis_xi.edge,
+                basis_fine.basis_eta.edge,
+                w_int / det,
+                khh,
+                kvv,
+                kvh,
+            )
+            mat_p = _element_edge_mass_mixed(
+                basis_coarse.basis_xi.node,
+                basis_coarse.basis_eta.node,
+                basis_coarse.basis_xi.node,
+                basis_coarse.basis_eta.node,
+                basis_coarse.basis_xi.edge,
+                basis_coarse.basis_eta.edge,
+                basis_coarse.basis_xi.edge,
+                basis_coarse.basis_eta.edge,
+                w_int / det,
+                khh,
+                kvv,
+                kvh,
+            )
+
+        elif order == UnknownFormOrder.FORM_ORDER_2:
+            # Edge matrix
+            mat_n = _element_surf_mass_mixed(
+                basis_coarse.basis_xi.edge,
+                basis_coarse.basis_eta.edge,
+                basis_fine.basis_xi.edge,
+                basis_fine.basis_eta.edge,
+                w_int / det,
+            )
+            mat_p = _element_surf_mass_mixed(
+                basis_coarse.basis_xi.edge,
+                basis_coarse.basis_eta.edge,
+                basis_coarse.basis_xi.edge,
+                basis_coarse.basis_eta.edge,
+                w_int / det,
+            )
+
+        else:
+            raise ValueError(f"Unknown form order {order=}.")
+
+        m = np.astype(np.linalg.solve(mat_p, mat_n), np.float64, copy=False)
+        for i, form in enumerate(unknowns.form_orders):
+            if form == order:
+                output[i] = m
+        del m, mat_p, mat_n
+
+    return tuple(output)
+
+
+# NOTE: all these three mass_mixed functions can be easily JIT-ed by Jax if vectorized
+def _element_node_mass_mixed(
+    out_node_basis_xi: npt.NDArray[np.float64],
+    out_node_basis_eta: npt.NDArray[np.float64],
+    in_node_basis_xi: npt.NDArray[np.float64],
+    in_node_basis_eta: npt.NDArray[np.float64],
+    int_weights: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Compute element mass matrix for nodal basis."""
+    n_coarse = (out_node_basis_xi.shape[-1] + 1) * (out_node_basis_eta.shape[-1] + 1)
+    n_fine = (in_node_basis_xi.shape[-1] + 1) * (in_node_basis_eta.shape[-1] + 1)
+    mat_n = np.zeros((n_coarse, n_fine), np.float64)
+    for i_c in range(out_node_basis_xi.shape[-1] + 1):
+        bc_xi = out_node_basis_xi[:, i_c]
+        for j_c in range(out_node_basis_eta.shape[-1] + 1):
+            bc_eta = out_node_basis_eta[:, j_c]
+            for i_f in range(in_node_basis_xi.shape[-1] + 1):
+                bf_xi = in_node_basis_xi[:, i_f]
+                for j_f in range(in_node_basis_eta.shape[-1] + 1):
+                    bf_eta = in_node_basis_eta[:, j_f]
+                    mat_n[
+                        i_c * (out_node_basis_xi.shape[-1] + 1) + j_c,
+                        i_f * (in_node_basis_xi.shape[-1] + 1) + j_f,
+                    ] = np.sum(
+                        int_weights
+                        * bc_xi[None, :]
+                        * bc_eta[:, None]
+                        * bf_xi[None, :]
+                        * bf_eta[:, None]
+                    )
+
+    return mat_n
+
+
+def _element_edge_mass_mixed(
+    out_node_basis_xi: npt.NDArray[np.float64],
+    out_node_basis_eta: npt.NDArray[np.float64],
+    in_node_basis_xi: npt.NDArray[np.float64],
+    in_node_basis_eta: npt.NDArray[np.float64],
+    out_edge_basis_xi: npt.NDArray[np.float64],
+    out_edge_basis_eta: npt.NDArray[np.float64],
+    in_edge_basis_xi: npt.NDArray[np.float64],
+    in_edge_basis_eta: npt.NDArray[np.float64],
+    int_weights: npt.NDArray[np.float64],
+    khh: npt.NDArray[np.float64],
+    kvv: npt.NDArray[np.float64],
+    kvh: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Compute element mass matrix for edge basis."""
+    n_ceta = out_edge_basis_xi.shape[-1] * out_node_basis_eta.shape[-1]
+    n_cxi = out_node_basis_xi.shape[-1] * out_edge_basis_eta.shape[-1]
+    n_coarse = n_ceta + n_cxi
+    n_feta = in_edge_basis_xi.shape[-1] * in_node_basis_eta.shape[-1]
+    n_fxi = in_node_basis_xi.shape[-1] * in_edge_basis_eta.shape[-1]
+    n_fine = n_feta + n_fxi
+    mat_n = np.zeros((n_coarse, n_fine), np.float64)
+    block_00 = mat_n[0:n_ceta, 0:n_feta]
+    block_01 = mat_n[0:n_ceta, n_feta : n_feta + n_fxi]
+    block_10 = mat_n[n_ceta : n_ceta + n_cxi, 0:n_feta]
+    block_11 = mat_n[n_ceta : n_ceta + n_cxi, n_feta : n_feta + n_fxi]
+
+    # Block 00
+    for i_c in range(out_edge_basis_xi.shape[-1]):
+        bc_xi = out_edge_basis_xi[:, i_c]
+        for j_c in range(out_node_basis_eta.shape[-1]):
+            bc_eta = out_node_basis_eta[:, j_c]
+            for i_f in range(in_edge_basis_xi.shape[-1]):
+                bf_xi = in_edge_basis_xi[:, i_f]
+                for j_f in range(in_node_basis_eta.shape[-1]):
+                    bf_eta = in_node_basis_eta[:, j_f]
+                    block_00[
+                        i_c * out_node_basis_eta.shape[-1] + j_c,
+                        i_f * in_node_basis_eta.shape[-1] + j_f,
+                    ] = np.sum(
+                        int_weights
+                        * bc_xi[None, :]
+                        * bc_eta[:, None]
+                        * bf_xi[None, :]
+                        * bf_eta[:, None]
+                        * khh
+                    )
+
+    # Block 01
+    for i_c in range(out_edge_basis_xi.shape[-1]):
+        bc_xi = out_edge_basis_xi[:, i_c]
+        for j_c in range(out_node_basis_eta.shape[-1]):
+            bc_eta = out_node_basis_eta[:, j_c]
+            for i_f in range(in_node_basis_xi.shape[-1]):
+                bf_xi = in_node_basis_xi[:, i_f]
+                for j_f in range(in_edge_basis_eta.shape[-1]):
+                    bf_eta = in_edge_basis_eta[:, j_f]
+                    block_01[
+                        i_c * out_node_basis_eta.shape[-1] + j_c,
+                        i_f * in_edge_basis_eta.shape[-1] + j_f,
+                    ] = np.sum(
+                        int_weights
+                        * bc_xi[None, :]
+                        * bc_eta[:, None]
+                        * bf_xi[None, :]
+                        * bf_eta[:, None]
+                        * kvh
+                    )
+
+    # Block 10
+    for i_c in range(out_node_basis_xi.shape[-1]):
+        bc_xi = out_node_basis_xi[:, i_c]
+        for j_c in range(out_edge_basis_eta.shape[-1]):
+            bc_eta = out_edge_basis_eta[:, j_c]
+            for i_f in range(in_edge_basis_xi.shape[-1]):
+                bf_xi = in_edge_basis_xi[:, i_f]
+                for j_f in range(in_node_basis_eta.shape[-1]):
+                    bf_eta = in_node_basis_eta[:, j_f]
+                    block_10[
+                        i_c * out_edge_basis_eta.shape[-1] + j_c,
+                        i_f * in_node_basis_eta.shape[-1] + j_f,
+                    ] = np.sum(
+                        int_weights
+                        * bc_xi[None, :]
+                        * bc_eta[:, None]
+                        * bf_xi[None, :]
+                        * bf_eta[:, None]
+                        * kvh
+                    )
+
+    # Block 11
+    for i_c in range(out_node_basis_xi.shape[-1]):
+        bc_xi = out_node_basis_xi[:, i_c]
+        for j_c in range(out_edge_basis_eta.shape[-1]):
+            bc_eta = out_edge_basis_eta[:, j_c]
+            for i_f in range(in_node_basis_xi.shape[-1]):
+                bf_xi = in_node_basis_xi[:, i_f]
+                for j_f in range(in_edge_basis_eta.shape[-1]):
+                    bf_eta = in_edge_basis_eta[:, j_f]
+                    block_11[
+                        i_c * out_edge_basis_eta.shape[-1] + j_c,
+                        i_f * in_edge_basis_eta.shape[-1] + j_f,
+                    ] = np.sum(
+                        int_weights
+                        * bc_xi[None, :]
+                        * bc_eta[:, None]
+                        * bf_xi[None, :]
+                        * bf_eta[:, None]
+                        * kvv
+                    )
+
+    return mat_n
+
+
+def _element_surf_mass_mixed(
+    out_edge_basis_xi: npt.NDArray[np.float64],
+    out_edge_basis_eta: npt.NDArray[np.float64],
+    in_edge_basis_xi: npt.NDArray[np.float64],
+    in_edge_basis_eta: npt.NDArray[np.float64],
+    int_weights: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Compute element mass matrix for surface basis."""
+    n_coarse = (out_edge_basis_xi.shape[-1]) * (out_edge_basis_eta.shape[-1])
+    n_fine = (in_edge_basis_xi.shape[-1]) * (in_edge_basis_eta.shape[-1])
+    mat_n = np.zeros((n_coarse, n_fine), np.float64)
+    for i_c in range(out_edge_basis_xi.shape[-1]):
+        bc_xi = out_edge_basis_xi[:, i_c]
+        for j_c in range(out_edge_basis_eta.shape[-1]):
+            bc_eta = out_edge_basis_eta[:, j_c]
+            for i_f in range(in_edge_basis_xi.shape[-1]):
+                bf_xi = in_edge_basis_xi[:, i_f]
+                for j_f in range(in_edge_basis_eta.shape[-1]):
+                    bf_eta = in_edge_basis_eta[:, j_f]
+                    mat_n[
+                        i_c * (out_edge_basis_xi.shape[-1]) + j_c,
+                        i_f * (in_edge_basis_xi.shape[-1]) + j_f,
+                    ] = np.sum(
+                        int_weights
+                        * bc_xi[None, :]
+                        * bc_eta[:, None]
+                        * bf_xi[None, :]
+                        * bf_eta[:, None]
+                    )
+
+    return mat_n

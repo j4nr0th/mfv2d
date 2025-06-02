@@ -663,16 +663,17 @@ def translate_system(
     return tuple(codes)
 
 
+_CompiledCodeMatrix = Sequence[Sequence[Sequence[MatOpCode | int | float] | None]]
+
+
 @dataclass(frozen=True, init=False)
 class CompiledSystem:
     """System of equations compiled."""
 
-    lhs_full: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...]
-    rhs_codes: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...] | None
-    linear_codes: tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...]
-    nonlin_codes: (
-        tuple[tuple[tuple[MatOpCode | int | float, ...] | None, ...], ...] | None
-    )
+    lhs_full: _CompiledCodeMatrix
+    rhs_codes: _CompiledCodeMatrix | None
+    linear_codes: _CompiledCodeMatrix
+    nonlin_codes: _CompiledCodeMatrix | None
 
     @staticmethod
     def _compile_system_part(

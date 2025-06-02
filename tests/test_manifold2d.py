@@ -1,6 +1,6 @@
 """Check that the 2D manifold works as intended."""
 
-from interplib._mimetic import Line, Manifold2D, Surface
+from mfv2d._mfv2d import Line, Manifold2D, Surface
 
 
 def test_simple():

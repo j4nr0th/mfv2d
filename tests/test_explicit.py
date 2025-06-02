@@ -3,10 +3,10 @@
 import numpy as np
 import numpy.typing as npt
 import pytest
-from interplib._mimetic import compute_element_explicit, compute_element_matrices
-from interplib.kforms import KFormSystem, KFormUnknown
-from interplib.kforms.eval import translate_system
-from interplib.mimetic.mimetic2d import (
+from mfv2d._mfv2d import compute_element_explicit, compute_element_matrices
+from mfv2d.eval import translate_system
+from mfv2d.kform import KFormSystem, KFormUnknown
+from mfv2d.mimetic2d import (
     BasisCache,
     ElementLeaf2D,
     rhs_2d_element_projection,

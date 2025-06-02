@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._mimetic import SparseVector
+from mfv2d._mfv2d import SparseVector
 
 
 @pytest.mark.parametrize(("n", "m"), ((3, 2), (10, 3), (100, 99)))

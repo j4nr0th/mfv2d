@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._mimetic import LiLMatrix, SparseVector
+from mfv2d._mfv2d import LiLMatrix, SparseVector
 from scipy import sparse as sp
 
 
@@ -32,8 +32,8 @@ def test_decomposition(n: int) -> None:
     assert np.all(np.array(r) == a)
     q = r.qr_decompose()
 
-    for g in q:
-        a = g @ a
+    for ig in range(len(q)):
+        a = q[ig] @ a
 
     assert pytest.approx(a) == np.array(r)
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
 
 if (NOT DEFINED SKBUILD_PROJECT_NAME)
-    set(SKBUILD_PROJECT_NAME "InterpLib")
+    set(SKBUILD_PROJECT_NAME "mfv2d")
 endif ()
 
 project(${SKBUILD_PROJECT_NAME} LANGUAGES C)
@@ -16,124 +16,91 @@ execute_process(
         OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-set(COMMON_SOURCE_FILES
+set(MFV2D_SOURCE_FILES
+        # Common
+        src/_module.c
         src/common.c
-        src/error.c
+        # Basis
+        src/basis/lagrange.c
+        src/basis/gausslobatto.c
+        # Topology
+        src/geoidobject.c
+        src/lineobject.c
+        src/surfaceobject.c
+        src/manifold.c
+        src/manifold1d.c
+        src/manifold2d.c
+        # Evaluation
+        src/eval/allocator.c
+        src/eval/error.c
+        src/eval/evaluation.c
+        src/eval/incidence.c
+        src/eval/precomp.c
+        src/eval/bytecode.c
+        src/eval/matrix.c
+        src/eval/connectivity.c
+        # Solver
+        src/solve/qr_solve.c
+        src/solve/svector.c
+        src/solve/givens.c
+        src/solve/lil_matrix.c
 )
-set(COMMON_HEADER_FILES
+set(MFV2D_HEADER_FILES
+        # Common
+        src/module.h
         src/common.h
         src/common_defines.h
-        src/error.h
+        # Basis
+        src/basis/lagrange.h
+        src/basis/gausslobatto.h
+        # Topology
+        src/geoidobject.h
+        src/lineobject.h
+        src/surfaceobject.h
+        src/manifold.h
+        src/manifold1d.h
+        src/manifold2d.h
+        # Evaluation
+        src/eval/error.h
+        src/eval/allocator.h
+        src/eval/evaluation.h
+        src/eval/incidence.h
+        src/eval/precomp.h
+        src/eval/bytecode.h
+        src/eval/matrix.h
+        src/eval/connectivity.h
+        # Solver
+        src/solve/qr_solve.h
+        src/solve/svector.h
+        src/solve/givens.h
+        src/solve/lil_matrix.h
 )
 
-set(INTERP_SOURCE_FILES
-        src/interp/_module.c
-        src/interp/lagrange.c
-        src/interp/cubic_splines.c
-        src/interp/basis1d.c
-        src/interp/polynomial1d.c
-        src/interp/spline1d.c
-        src/interp/bernstein.c
-        src/interp/gausslobatto.c
-)
-set(INTERP_HEADER_FILES
-        src/interp/lagrange.h
-        src/interp/cubic_splines.h
-        src/interp/basis1d.h
-        src/interp/polynomial1d.h
-        src/interp/spline1d.h
-        src/interp/bernstein.h
-        src/interp/gausslobatto.h
-)
-
-set(MIMETIC_SOURCE_FILES
-        src/mimetic/_module.c
-        src/mimetic/geoidobject.c
-        src/mimetic/lineobject.c
-        src/mimetic/surfaceobject.c
-        src/mimetic/manifold.c
-        src/mimetic/manifold1d.c
-        src/mimetic/manifold2d.c
-)
-set(MIMETIC_HEADER_FILES
-        src/mimetic/module.h
-        src/mimetic/geoidobject.h
-        src/mimetic/lineobject.h
-        src/mimetic/surfaceobject.h
-        src/mimetic/manifold.h
-        src/mimetic/manifold1d.h
-        src/mimetic/manifold2d.h
-)
-
-set(EVAL_SOURCE_FILES
-        src/mimetic/eval/allocator.c
-        src/mimetic/eval/error.c
-        src/mimetic/eval/evaluation.c
-        src/mimetic/eval/incidence.c
-        src/mimetic/eval/precomp.c
-        src/mimetic/eval/bytecode.c
-        src/mimetic/eval/matrix.c
-        src/mimetic/eval/connectivity.c
-)
-set(EVAL_HEADER_FILES
-        src/mimetic/eval/error.h
-        src/mimetic/eval/allocator.h
-        src/mimetic/eval/evaluation.h
-        src/mimetic/eval/incidence.h
-        src/mimetic/eval/precomp.h
-        src/mimetic/eval/bytecode.h
-        src/mimetic/eval/matrix.h
-        src/mimetic/eval/connectivity.h
-)
-
-set(MAT_HEADER_FILES
-        src/mimetic/solve/qr_solve.h
-        src/mimetic/solve/svector.h
-        src/mimetic/solve/givens.h
-        src/mimetic/solve/lil_matrix.h
-)
-
-set(MAT_SOURCE_FILES
-        src/mimetic/solve/qr_solve.c
-        src/mimetic/solve/svector.c
-        src/mimetic/solve/givens.c
-        src/mimetic/solve/lil_matrix.c
-)
-
-Python_add_library(_interp MODULE ${INTERP_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
-Python_add_library(_mimetic
+Python_add_library(_mfv2d
         MODULE
-        ${MIMETIC_SOURCE_FILES}
-        ${EVAL_SOURCE_FILES}
-        ${MAT_SOURCE_FILES}
-        ${COMMON_SOURCE_FILES}
+        ${MFV2D_SOURCE_FILES}
         WITH_SOABI
-)# USE_SABI 3.10) STABLE API HATE!
-# Python_add_library(_eval MODULE ${EVAL_SOURCE_FILES} ${COMMON_SOURCE_FILES} WITH_SOABI)# USE_SABI 3.10) STABLE API HATE!
-install(TARGETS _interp _mimetic DESTINATION ${SKBUILD_PROJECT_NAME})
+)
+install(TARGETS _mfv2d DESTINATION ${SKBUILD_PROJECT_NAME})
 
 #if (CMAKE_BUILD_TYPE EQUAL Debug)
-target_compile_definitions(_interp PRIVATE INTERPLIB_ASSERTS)
-target_compile_definitions(_mimetic PRIVATE INTERPLIB_ASSERTS)
-# target_compile_definitions(_eval PRIVATE INTERPLIB_ASSERTS)
+target_compile_definitions(_mfv2d PRIVATE MFV2D_ASSERTS)
+# target_compile_definitions(_eval PRIVATE MFV2D_ASSERTS)
 #endif()
 if ("${NumPy_INCLUDE_DIRS}" STREQUAL "")
     message(FATAL_ERROR "NumPy_INCLUDE_DIRS was empty.")
 endif ()
-target_include_directories(_interp PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
-target_include_directories(_mimetic PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
+target_include_directories(_mfv2d PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
 # target_include_directories(_eval PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
 
 if (CMAKE_C_COMPILER_ID EQUAL "GNU")
-    target_compile_options(_interp PRIVATE -Wall -Wextra)
-    target_compile_options(_mimetic PRIVATE -Wall -Wextra -fwhole-program -flto=auto)# -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
-    # target_compile_options(_eval PRIVATE -Wall -Wextra -fwhole-program -flto=auto)# -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
+    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto)# -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
 endif ()
 
 if (OPENMP_FOUND)
-    target_compile_options(_mimetic PRIVATE ${OpenMP_C_FLAGS})
-    target_include_directories(_mimetic PRIVATE ${OpenMP_C_INCLUDE_DIRS})
-    target_link_libraries(_mimetic PRIVATE ${OpenMP_C_LIBRARIES})
+    target_compile_options(_mfv2d PRIVATE ${OpenMP_C_FLAGS})
+    target_include_directories(_mfv2d PRIVATE ${OpenMP_C_INCLUDE_DIRS})
+    target_link_libraries(_mfv2d PRIVATE ${OpenMP_C_LIBRARIES})
 endif ()
 
 enable_testing()

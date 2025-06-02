@@ -2,8 +2,8 @@
 
 import numpy as np
 import pytest
-from interplib._mimetic import check_incidence
-from interplib.mimetic.mimetic2d import incidence_10, incidence_21
+from mfv2d._mfv2d import check_incidence
+from mfv2d.mimetic2d import incidence_10, incidence_21
 
 
 @pytest.mark.parametrize("order", (1, 2, 3, 4, 5))

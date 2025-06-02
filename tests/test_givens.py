@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._mimetic import GivensRotation, GivensSeries, SparseVector
+from mfv2d._mfv2d import GivensRotation, GivensSeries, SparseVector
 
 
 def test_givens_manual_1() -> None:

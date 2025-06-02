@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib._interp import compute_gll
+from mfv2d._mfv2d import compute_gll
 
 
 @pytest.mark.parametrize("n", (1, 3, 5, 6, 8, 10, 20))

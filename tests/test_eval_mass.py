@@ -2,10 +2,10 @@
 
 import numpy as np
 import pytest
-from interplib._mimetic import check_bytecode, element_matrices
-from interplib.kforms.eval import _ctranslate, translate_equation
-from interplib.kforms.kform import KFormUnknown
-from interplib.mimetic.mimetic2d import BasisCache, ElementLeaf2D
+from mfv2d._mfv2d import check_bytecode, element_matrices
+from mfv2d.eval import _ctranslate, translate_equation
+from mfv2d.kform import KFormUnknown
+from mfv2d.mimetic2d import BasisCache, ElementLeaf2D
 
 
 @pytest.mark.parametrize("order", (1, 2, 3, 4))

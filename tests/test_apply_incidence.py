@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib.mimetic.mimetic2d import (
+from mfv2d.mimetic2d import (
     apply_e10,
     apply_e10_r,
     apply_e10_rt,

@@ -4,11 +4,10 @@ from typing import Callable
 
 import numpy as np
 import numpy.typing as npt
-from interplib._mimetic import compute_element_matrices
-from interplib.kforms import KFormSystem, KFormUnknown
-from interplib.kforms.eval import MatOp, MatOpCode, _ctranslate, translate_equation
-from interplib.mimetic import ElementLeaf2D
-from interplib.mimetic.mimetic2d import BasisCache, rhs_2d_element_projection
+from mfv2d._mfv2d import compute_element_matrices
+from mfv2d.eval import MatOp, MatOpCode, _ctranslate, translate_equation
+from mfv2d.kform import KFormSystem, KFormUnknown
+from mfv2d.mimetic2d import BasisCache, ElementLeaf2D, rhs_2d_element_projection
 
 type Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 

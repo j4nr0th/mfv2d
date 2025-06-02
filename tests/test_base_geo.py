@@ -1,7 +1,7 @@
 """Test basic mimetic geometry elements."""
 
 import numpy as np
-from interplib.mimetic import GeoID, Line, Surface
+from mfv2d._mfv2d import GeoID, Line, Surface
 
 
 def test_geo_id():

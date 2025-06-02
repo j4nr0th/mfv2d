@@ -32,7 +32,7 @@ static void free_system(void *state, void *ptr)
     PyMem_RawFree(ptr);
 }
 
-INTERPLIB_INTERNAL
+MFV2D_INTERNAL
 allocator_callbacks SYSTEM_ALLOCATOR = {
     .alloc = allocate_system,
     .free = free_system,
@@ -58,7 +58,7 @@ static void free_python(void *state, void *ptr)
     PyMem_Free(ptr);
 }
 
-INTERPLIB_INTERNAL
+MFV2D_INTERNAL
 allocator_callbacks PYTHON_ALLOCATOR = {
     .alloc = allocate_python,
     .free = free_python,

@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib.mimetic.mimetic2d import ElementLeaf2D
+from mfv2d.mimetic2d import ElementLeaf2D
 
 
 def check_e01():

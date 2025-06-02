@@ -1,10 +1,10 @@
 [project]
-name = "interplib"
+name = "mfv2d"
 version = "0.0.1a"
 authors = [{ name = "Jan Roth", email = "r0th.j4n@gmail.com" }]
-description = "Interpolation library designed to handle different topologies."
+description = "Mimetic Finite Element Solver for 2D."
 requires-python = ">=3.10"
-dependencies = ["numpy>=2.0.0", "scipy", "jax"]
+dependencies = ["numpy>=2.0.0", "scipy", "jax", "pyvista"]
 
 
 [build-system]
@@ -19,7 +19,6 @@ build.verbose = true
 logging.level = "INFO"
 editable.verbose = true
 editable.rebuild = false
-# wheel.py-api = "cp310"
 
 
 [project.optional-dependencies]
@@ -58,7 +57,7 @@ docs = [
 
 
 [tool.mypy]
-mypy_path = "python/interplib"
+mypy_path = "python/mfv2d"
 plugins = ["npt_promote", "numpy.typing.mypy_plugin"]
 ignore_missing_imports = true
 warn_unused_configs = true
@@ -94,7 +93,7 @@ exclude_also = ["if TYPE_CHECKING:", "@(abc\\.)?abstractmethod"]
 
 
 [tool.pytest.ini_options]
-addopts = "--doctest-modules -ra --cov=interplib"
+addopts = "--doctest-modules -ra --cov=mfv2d"
 testpaths = ["tests", "src"]
 console_output_style = "count"
 

@@ -11,17 +11,17 @@
 #endif
 
 #ifdef __GNUC__
-#define INTERPLIB_INTERNAL __attribute__((visibility("hidden")))
-#define INTERPLIB_EXTERNAL __attribute__((visibility("default")))
+#define MFV2D_INTERNAL __attribute__((visibility("hidden")))
+#define MFV2D_EXTERNAL __attribute__((visibility("default")))
 
-#define INTERPLIB_ARRAY_ARG(arr, sz) arr[sz]
+#define MFV2D_ARRAY_ARG(arr, sz) arr[sz]
 
-#define INTERPLIB_EXPECT_CONDITION(x) (__builtin_expect(x, 1))
+#define MFV2D_EXPECT_CONDITION(x) (__builtin_expect(x, 1))
 
 #endif
 
 #ifndef ASSERT
-#ifdef INTERPLIB_ASSERTS
+#ifdef MFV2D_ASSERTS
 /**
  * @brief is a macro, which tests a condition and only evaluates it once. If it
  * is false, then it is reported to stderr. The macro returns !(condition), so
@@ -52,20 +52,20 @@
 #endif
 #endif
 
-#ifndef INTERPLIB_EXPECT_CONDITION
-#define INTERPLIB_EXPECT_CONDITION(x) (x)
+#ifndef MFV2D_EXPECT_CONDITION
+#define MFV2D_EXPECT_CONDITION(x) (x)
 #endif
 
-#ifndef INTERPLIB_INTERNAL
-#define INTERPLIB_INTERNAL
+#ifndef MFV2D_INTERNAL
+#define MFV2D_INTERNAL
 #endif
 
-#ifndef INTERPLIB_EXTERNAL
-#define INTERPLIB_EXTERNAL
+#ifndef MFV2D_EXTERNAL
+#define MFV2D_EXTERNAL
 #endif
 
-#ifndef INTERPLIB_ARRAY_ARG
-#define INTERPLIB_ARRAY_ARG(arr, sz) *arr
+#ifndef MFV2D_ARRAY_ARG
+#define MFV2D_ARRAY_ARG(arr, sz) *arr
 #endif
 
 //  Python ssize define
@@ -80,7 +80,7 @@
 //  Prevent numpy from being re-imported
 #ifndef PY_ARRAY_UNIQUE_SYMBOL
 #define NO_IMPORT_ARRAY
-#define PY_ARRAY_UNIQUE_SYMBOL _interp
+#define PY_ARRAY_UNIQUE_SYMBOL _mfv2d
 #endif
 
 #include <Python.h>

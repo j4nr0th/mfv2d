@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from interplib.mimetic.mimetic2d import BasisCache
+from mfv2d.mimetic2d import BasisCache
 
 
 @pytest.mark.parametrize(("n", "m"), ((1, 3), (2, 10), (4, 20), (10, 31)))

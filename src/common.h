@@ -1,7 +1,3 @@
-//
-// Created by jan on 19.10.2024.
-//
-
 #ifndef COMMON_H
 #define COMMON_H
 #include "common_defines.h"
@@ -14,13 +10,13 @@ typedef struct
     void *state;
 } allocator_callbacks;
 
-INTERPLIB_INTERNAL
+MFV2D_INTERNAL
 extern allocator_callbacks SYSTEM_ALLOCATOR;
 
-INTERPLIB_INTERNAL
+MFV2D_INTERNAL
 extern allocator_callbacks PYTHON_ALLOCATOR;
 
-INTERPLIB_INTERNAL
+MFV2D_INTERNAL
 extern allocator_callbacks OBJECT_ALLOCATOR;
 
 static inline void *allocate(const allocator_callbacks *allocator, const size_t sz)

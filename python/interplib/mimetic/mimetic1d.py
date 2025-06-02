@@ -13,15 +13,16 @@ from scipy.special import roots_legendre
 from interplib._interp import Polynomial1D
 from interplib._mimetic import Line, Manifold, Manifold1D
 from interplib.kforms.kform import (
+    KBoundaryProjection,
+    KElementProjection,
+    KExplicit,
     KForm,
     KFormDerivative,
-    KFormProjection,
     KFormSystem,
     KHodge,
     KInnerProduct,
     KSum,
     KWeight,
-    KWeightDerivative,
     Term,
 )
 
@@ -196,11 +197,42 @@ class Element1D:
             write = np.reshape(out, (-1,))
             write[0 : -1 : n_in + 1] = -1
             write[1 :: n_in + 1] = +1
-        return out
+        return np.astype(out, np.float64, copy=False)
 
 
-def _extract_rhs_1d(
-    right: KFormProjection, element: Element1D
+def rhs_1d_boundary(
+    right: KBoundaryProjection, element: Element1D, bid: int, /
+) -> np.float64:
+    """Evaluate the differential form projections on the 1D element.
+
+    Parameters
+    ----------
+    right : KFormProjection
+        The projection onto a k-form.
+    element : Element1D
+        The element on which the projection is evaluated on.
+    bid : int
+        If 0, then the left boundary is used, if 1 the right
+        boundary is used.
+
+    Returns
+    -------
+    numpy.float64
+        The resulting value on the boundary.
+    """
+    fn = right.func
+    if fn is None:
+        return np.float64(0)
+    if bid == 0:
+        return np.float64(-fn(element.xleft))
+    elif bid == 1:
+        return np.float64(+fn(element.xleft))
+    else:
+        assert False
+
+
+def rhs_1d_element(
+    right: KElementProjection, element: Element1D, /
 ) -> npt.NDArray[np.float64]:
     """Evaluate the differential form projections on the 1D element.
 
@@ -246,6 +278,33 @@ def _extract_rhs_1d(
         return np.astype(mass @ np.astype(out_vec, np.float64), np.float64)
 
 
+def _extract_rhs_1d(
+    right: Sequence[tuple[float, KExplicit]], weight: KWeight, element: Element1D
+) -> npt.NDArray[np.float64]:
+    """Evaluate the differential form projections on the 1D element.
+
+    Parameters
+    ----------
+    right : KFormProjection
+        The projection onto a k-form.
+    element : Element1D
+        The element on which the projection is evaluated on.
+
+    Returns
+    -------
+    array of :class:`numpy.float64`
+        The resulting projection vector.
+    """
+    out = np.zeros(element.order + 1 - weight.order)
+    for coeff, proj in filter(lambda v: isinstance(v[1], KElementProjection), right):
+        assert isinstance(proj, KElementProjection)
+        rhs = rhs_1d_element(proj, element)
+        if coeff != 1.0:
+            rhs *= coeff
+        out += rhs
+    return out
+
+
 def _equation_1d(
     form: Term, element: Element1D
 ) -> dict[Term, npt.NDArray[np.float64] | np.float64]:
@@ -269,7 +328,7 @@ def _equation_1d(
             right = _equation_1d(ip, element)
             if c != 1.0:
                 for f in right:
-                    right[f] *= c  # type: ignore
+                    right[f] *= c
 
             for k in right:
                 vr = right[k]
@@ -287,26 +346,29 @@ def _equation_1d(
                     left[k] = right[k]  # k is not in left
         return left
     if type(form) is KInnerProduct:
-        primal = _equation_1d(form.function, element)
+        primal: dict[Term, npt.NDArray[np.float64] | np.float64]
+        if isinstance(form.unknown_form, KHodge):
+            primal = _equation_1d(form.unknown_form.base_form, element)
+        else:
+            primal = _equation_1d(form.unknown_form, element)
         dual = _equation_1d(form.weight, element)
         dv = tuple(v for v in dual.keys())[0]
         for k in primal:
             vd = dual[dv]
             vp = primal[k]
-            order_p = form.function.primal_order
+            order_p = form.unknown_form.order
             order_d = form.weight.order
+            assert order_p == order_d
             mass: npt.NDArray[np.float64]
-            if order_p == 0 and order_d == 0:
+            if not form.unknown_form.is_primal:
+                mass = np.eye(element.order + 1 - order_p)
+            elif order_p == 0 and order_d == 0:
                 mass = element.mass_node  # type: ignore
             elif order_p == 1 and order_d == 1:
                 mass = element.mass_edge  # type: ignore
-            elif order_p == 1 and order_d == 0:
-                mass = element.mass_node_edge  # type: ignore
-            elif order_p == 0 and order_d == 1:
-                mass = element.mass_node_edge.transpose()  # type: ignore
             else:
                 raise ValueError(
-                    f"Order {form.function.order} can't be used on a 1D mesh."
+                    f"Order {form.unknown_form.order} can't be used on a 1D mesh."
                 )
             if vd.ndim != 0:
                 assert isinstance(vd, np.ndarray)
@@ -324,7 +386,10 @@ def _equation_1d(
         return primal
     if type(form) is KFormDerivative:
         res = _equation_1d(form.form, element)
-        e = element.incidence_primal_0()
+        if form.is_primal:
+            e = element.incidence_primal_0()
+        else:
+            e = -element.incidence_primal_0().T
         for k in res:
             rk = res[k]
             if rk.ndim != 0:
@@ -334,17 +399,6 @@ def _equation_1d(
                 res[k] = np.astype(e * rk, np.float64)
         return res
 
-    if type(form) is KWeightDerivative:
-        res = _equation_1d(form.form, element)
-        e = element.incidence_primal_0()
-        for k in res:
-            rk = res[k]
-            if rk.ndim != 0:
-                res[k] = np.astype(e @ rk, np.float64)
-            else:
-                assert isinstance(rk, np.float64)
-                res[k] = np.astype(e * rk, np.float64)
-        return res
     if type(form) is KHodge:
         primal = _equation_1d(form.base_form, element)
         prime_order = form.primal_order
@@ -400,14 +454,14 @@ def element_system(
         form_matrices = _equation_1d(equation.left, element)
         for form in form_matrices:
             val = form_matrices[form]
-            idx = system.primal_forms.index(form)
+            idx = system.unknown_forms.index(form)
             assert val is not None
             system_matrix[
                 offset_equations[ie] : offset_equations[ie + 1],
                 offset_forms[idx] : offset_forms[idx + 1],
             ] = val
         system_vector[offset_equations[ie] : offset_equations[ie + 1]] = _extract_rhs_1d(
-            equation.right, element
+            equation.right.explicit_terms, equation.weight, element
         )
 
     return system_matrix, system_vector

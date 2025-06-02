@@ -163,7 +163,7 @@ be solved while meaningfully illustrating the way mimetic methods work.
 #
 import numpy as np
 import numpy.typing as npt
-from interplib import kforms, mimetic, solve_system_on_mesh
+from interplib import kforms, mimetic, solve_system_1d
 
 ALPHA = 1.2
 BETA = 0.2
@@ -218,13 +218,13 @@ mesh = mimetic.Mesh1D(
 # :class:`kforms.KFormPrimal` object.
 #
 ## Unknown forms
-phi = kforms.KForm(mesh.manifold, "phi", 0)
+phi = kforms.KFormUnknown(mesh.manifold, "phi", 0)
 v = phi.weight
 
 # %%
 #
 # With these defined, we can now formulate the equation that will be solved
-equation = (v.derivative * phi.derivative) == (v * f_exact)
+equation = (v.derivative * phi.derivative) == (v @ f_exact)
 
 # %%
 #
@@ -246,7 +246,7 @@ print(system)
 # The resulting piecewise polynomial reconstruction of the solution is returned for each
 # of the forms, though in this case, there's only :math:`\phi`.
 
-resulting_splines = solve_system_on_mesh(
+resulting_splines = solve_system_1d(
     system,
     mesh,
     continuous=[phi],

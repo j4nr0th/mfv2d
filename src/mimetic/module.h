@@ -27,15 +27,10 @@ typedef union {
     geo_id_t values[2];
 } line_t;
 
-typedef union {
-    struct
-    {
-        geo_id_t bottom;
-        geo_id_t right;
-        geo_id_t top;
-        geo_id_t left;
-    };
-    geo_id_t values[4];
+typedef struct
+{
+    unsigned n_lines;
+    geo_id_t *values;
 } surface_t;
 
 // typedef union

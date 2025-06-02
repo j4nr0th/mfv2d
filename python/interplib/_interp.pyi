@@ -7,11 +7,237 @@ import numpy.typing as npt
 
 def test() -> str: ...
 def lagrange1d(
-    x: npt.NDArray[np.float64], xp: npt.NDArray[np.float64]
-) -> npt.NDArray[np.float64]: ...
+    roots: npt.ArrayLike, x: npt.ArrayLike, out: npt.NDArray[np.double] | None = None, /
+) -> npt.NDArray[np.double]:
+    r"""Evaluate Lagrange polynomials.
+
+    This function efficiently evaluates Lagrange basis polynomials, defined by
+
+    .. math::
+
+       \mathcal{L}^n_i (x) = \prod\limits_{j=1, j \neq i}^{n} \frac{x - x_j}{x_i - x_j},
+
+    where the ``roots`` specifies the zeros of the Polynomials
+    :math:`\{x_1, \dots, x_n\}`.
+
+    Parameters
+    ----------
+    roots : array_like
+       Roots of Lagrange polynomials.
+    x : array_like
+       Points where the polynomials should be evaluated.
+    out : array, optional
+       Array where the results should be written to. If not given, a new one will be
+       created and returned. It should have the same shape as ``x``, but with an extra
+       dimension added, the length of which is ``len(roots)``.
+
+    Returns
+    -------
+    array
+       Array of Lagrange polynomial values at positions specified by ``x``.
+
+    Examples
+    --------
+    This example here shows the most basic use of the function to evaluate Lagrange
+    polynomials. First, let us define the roots.
+
+    .. jupyter-execute::
+
+        >>> import numpy as np
+        >>>
+        >>> order = 7
+        >>> roots = - np.cos(np.linspace(0, np.pi, order + 1))
+
+    Next, we can evaluate the polynomials at positions. Here the interval between the
+    roots is chosen.
+
+    .. jupyter-execute::
+
+        >>> from interplib import lagrange1d
+        >>>
+        >>> xpos = np.linspace(np.min(roots), np.max(roots), 128)
+        >>> yvals = lagrange1d(roots, xpos)
+
+    Note that if we were to give an output array to write to, it would also be the
+    return value of the function (as in no copy is made).
+
+    .. jupyter-execute::
+
+        >>> yvals is lagrange1d(roots, xpos, yvals)
+        True
+
+    Now we can plot these polynomials.
+
+    .. jupyter-execute::
+
+        >>> from matplotlib import pyplot as plt
+        >>>
+        >>> plt.figure()
+        >>> for i in range(order + 1):
+        ...     plt.plot(
+        ...         xpos,
+        ...         yvals[..., i],
+        ...         label=f"$\\mathcal{{L}}^{{{order}}}_{{{i + 1}}}$"
+        ...     )
+        >>> plt.gca().set(
+        ...     xlabel="$x$",
+        ...     ylabel="$y$",
+        ...     title=f"Lagrange polynomials of order {order}"
+        ... )
+        >>> plt.legend()
+        >>> plt.grid()
+        >>> plt.show()
+
+    Accuracy is retained even at very high polynomial order. The following
+    snippet shows that even at absurdly high order of 51, the results still
+    have high accuracy and don't suffer from rounding errors. It also performs
+    well (in this case, the 52 polynomials are each evaluated at 1025 points).
+
+    .. jupyter-execute::
+
+        >>> from time import perf_counter
+        >>> order = 51
+        >>> roots = - np.cos(np.linspace(0, np.pi, order + 1))
+        >>> xpos = np.linspace(np.min(roots), np.max(roots), 1025)
+        >>> t0 = perf_counter()
+        >>> yvals = lagrange1d(roots, xpos)
+        >>> t1 = perf_counter()
+        >>> print(f"Calculations took {t1 - t0: e} seconds.")
+        >>> plt.figure()
+        >>> for i in range(order + 1):
+        ...     plt.plot(
+        ...         xpos,
+        ...         yvals[..., i],
+        ...         label=f"$\\mathcal{{L}}^{{{order}}}_{{{i + 1}}}$"
+        ...     )
+        >>> plt.gca().set(
+        ...     xlabel="$x$",
+        ...     ylabel="$y$",
+        ...     title=f"Lagrange polynomials of order {order}"
+        ... )
+        >>> # plt.legend() # No, this is too long
+        >>> plt.grid()
+        >>> plt.show()
+    """
+    ...
+
 def dlagrange1d(
-    x: npt.NDArray[np.float64], xp: npt.NDArray[np.float64]
-) -> npt.NDArray[np.float64]: ...
+    roots: npt.ArrayLike, x: npt.ArrayLike, out: npt.NDArray[np.double] | None = None, /
+) -> npt.NDArray[np.double]:
+    r"""Evaluate derivatives of Lagrange polynomials.
+
+    This function efficiently evaluates Lagrange basis polynomials derivatives, defined by
+
+    .. math::
+
+       \frac{d \mathcal{L}^n_i (x)}{d x} =
+       \sum\limits_{j=0,j \neq i}^n \prod\limits_{k=0, k \neq i, k \neq j}^{n}
+       \frac{1}{x_i - x_j} \cdot \frac{x - x_k}{x_i - x_k},
+
+    where the ``roots`` specifies the zeros of the Polynomials
+    :math:`\{x_0, \dots, x_n\}`.
+
+    Parameters
+    ----------
+    roots : array_like
+       Roots of Lagrange polynomials.
+    x : array_like
+       Points where the derivatives of polynomials should be evaluated.
+    out : array, optional
+       Array where the results should be written to. If not given, a new one will be
+       created and returned. It should have the same shape as ``x``, but with an extra
+       dimension added, the length of which is ``len(roots)``.
+
+    Returns
+    -------
+    array
+       Array of Lagrange polynomial derivatives at positions specified by ``x``.
+
+    Examples
+    --------
+    This example here shows the most basic use of the function to evaluate derivatives of
+    Lagrange polynomials. First, let us define the roots.
+
+    .. jupyter-execute::
+
+        >>> import numpy as np
+        >>>
+        >>> order = 7
+        >>> roots = - np.cos(np.linspace(0, np.pi, order + 1))
+
+    Next, we can evaluate the polynomials at positions. Here the interval between the
+    roots is chosen.
+
+    .. jupyter-execute::
+
+        >>> from interplib import dlagrange1d
+        >>>
+        >>> xpos = np.linspace(np.min(roots), np.max(roots), 128)
+        >>> yvals = dlagrange1d(roots, xpos)
+
+    Note that if we were to give an output array to write to, it would also be the
+    return value of the function (as in no copy is made).
+
+    .. jupyter-execute::
+
+        >>> yvals is dlagrange1d(roots, xpos, yvals)
+        True
+
+    Now we can plot these polynomials.
+
+    .. jupyter-execute::
+
+        >>> from matplotlib import pyplot as plt
+        >>>
+        >>> plt.figure()
+        >>> for i in range(order + 1):
+        ...     plt.plot(
+        ...         xpos,
+        ...         yvals[..., i],
+        ...         label=f"${{\\mathcal{{L}}^{{{order}}}_{{{i}}}}}^\\prime$"
+        ...     )
+        >>> plt.gca().set(
+        ...     xlabel="$x$",
+        ...     ylabel="$y$",
+        ...     title=f"Lagrange polynomials of order {order}"
+        ... )
+        >>> plt.legend()
+        >>> plt.grid()
+        >>> plt.show()
+
+    Accuracy is retained even at very high polynomial order. The following
+    snippet shows that even at absurdly high order of 51, the results still
+    have high accuracy and don't suffer from rounding errors. It also performs
+    well (in this case, the 52 polynomials are each evaluated at 1025 points).
+
+    .. jupyter-execute::
+
+        >>> from time import perf_counter
+        >>> order = 51
+        >>> roots = - np.cos(np.linspace(0, np.pi, order + 1))
+        >>> xpos = np.linspace(np.min(roots), np.max(roots), 1025)
+        >>> t0 = perf_counter()
+        >>> yvals = dlagrange1d(roots, xpos)
+        >>> t1 = perf_counter()
+        >>> print(f"Calculations took {t1 - t0: e} seconds.")
+        >>> plt.figure()
+        >>> for i in range(order + 1):
+        ...     plt.plot(
+        ...         xpos,
+        ...         yvals[..., i],
+        ...         label=f"${{\\mathcal{{L}}^{{{order}}}_{{{i}}}}}^\\prime$"
+        ...     )
+        >>> plt.gca().set(
+        ...     xlabel="$x$",
+        ...     ylabel="$y$",
+        ...     title=f"Lagrange polynomials of order {order}"
+        ... )
+        >>> # plt.legend() # No, this is too long
+        >>> plt.grid()
+        >>> plt.show()
+    """
+    ...
+
 def d2lagrange1d(
     x: npt.NDArray[np.float64], xp: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]: ...
@@ -50,6 +276,31 @@ def bernstein_coefficients(x: npt.ArrayLike, /) -> npt.NDArray[np.double]:
     -------
     array
        Array of coefficients of Bernstein polynomial series.
+    """
+    ...
+
+def compute_gll(
+    order: int, max_iter: int = 10, tol: float = 1e-15
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute Gauss-Legendre-Lobatto integration nodes and weights.
+
+    If you are often re-using these, consider caching them.
+
+    Parameters
+    ----------
+    order : int
+       Order of the scheme. The number of node-weight pairs is one more.
+    max_iter : int, default: 10
+       Maximum number of iterations used to further refine the values.
+    tol : float, default: 1e-15
+       Tolerance for stopping the refinement of the nodes.
+
+    Returns
+    -------
+    array
+       Array of ``order + 1`` integration nodes on the interval :math:`[-1, +1]`.
+    array
+       Array of integration weights which correspond to the nodes.
     """
     ...
 

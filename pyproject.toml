@@ -4,11 +4,7 @@ version = "0.0.1a"
 authors = [{ name = "Jan Roth", email = "r0th.j4n@gmail.com" }]
 description = "Interpolation library designed to handle different topologies."
 requires-python = ">=3.10"
-dependencies = [
-    "numpy>=2.0.0",
-    "scipy",
-    # "rmsh @ git+https://github.com/j4nr0th/rmesh@master",
-]
+dependencies = ["numpy>=2.0.0", "scipy", "jax"]
 
 
 [build-system]

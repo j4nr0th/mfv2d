@@ -135,7 +135,7 @@ class BasisProduct2D(Function2D):
             return BasisProduct2D(self.b1 * other.b1, self.b2 * other.b2)
         try:
             v = float(other)
-            if v > 0:
+            if v >= 0:
                 root = np.sqrt(v)
                 return BasisProduct2D(self.b1 * root, self.b2 * root)
             else:
@@ -147,11 +147,6 @@ class BasisProduct2D(Function2D):
     def __rmul__(self, other: float | BasisProduct2D) -> BasisProduct2D:
         """Reversed multiply."""
         return self.__mul__(other)
-
-    def __add__(self, other: BasisProduct2D) -> BasisProduct2D:
-        """Add two basis product basis together."""
-        # BUG: WRONG!
-        return BasisProduct2D(self.b1 + other.b1, self.b2 + other.b2)
 
     def as_polynomial(self) -> Polynomial2D:
         """Convert the factored version into a polynomial."""

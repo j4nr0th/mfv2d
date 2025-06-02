@@ -17,7 +17,7 @@ from interplib._interp import lagrange1d as _lagrange1d
 
 def lagrange_function_samples(
     x: npt.ArrayLike, xp: npt.ArrayLike
-) -> npt.NDArray[np.float64]:
+) -> npt.NDArray[np.double]:
     """Compute interpolation matrix for function based on samples.
 
     Parameters
@@ -38,7 +38,7 @@ def lagrange_function_samples(
 
     flat_x = np.ravel(real_x, order="C")
 
-    interp_mtx = _lagrange1d(flat_x, real_xp)
+    interp_mtx = _lagrange1d(real_xp, flat_x)
 
     return interp_mtx
 
@@ -66,9 +66,9 @@ def lagrange_derivative_samples(
 
     flat_x = np.ravel(real_x, order="C")
 
-    interp_mtx = _dlagrange1d(flat_x, real_xp)
+    interp_mtx = _dlagrange1d(real_xp, flat_x)
 
-    return interp_mtx
+    return np.astype(interp_mtx, np.float64)
 
 
 def lagrange_2derivative_samples(

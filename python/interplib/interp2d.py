@@ -115,27 +115,24 @@ class Polynomial2D(Function2D):
         if x1 is not None and x2 is not None:
             v1 = np.asarray(x1, np.float64)
             v2 = np.asarray(x2, np.float64)
-            if v1.shape != v2.shape:
-                raise ValueError("The two arrays must have the same shape.")
+            # if v1.shape != v2.shape:
+            #     raise ValueError("The two arrays must have the same shape.")
 
-            out = np.zeros_like(v1)
+            out = 0.0 * v1 * v2
             for i, poly in enumerate(self.polynomials):
                 out += v2**i * poly(v1)
-            return out
+
+            return np.astype(out, np.float64)
 
         if x1 is None and x2 is not None:
-            if not isinstance(x2, (float, np.floating)):
-                raise TypeError("If the first argument is None, second must be a scalar.")
-            coeff = float(x2)
+            coeff = float(x2)  # type: ignore
             p_out = sum(coeff**i * p for i, p in enumerate(self.polynomials))
             assert isinstance(p_out, Polynomial1D)
             return p_out
 
         if x1 is not None and x2 is None:
-            if not isinstance(x1, (float, np.floating)):
-                raise TypeError("If the second argument is None, first must be a scalar.")
-            coeff = float(x1)
-            p_out = Polynomial1D([p(x1) for p in self.polynomials])
+            coeff = float(x1)  # type: ignore
+            p_out = Polynomial1D([p(coeff) for p in self.polynomials])
             return p_out
 
         raise ValueError("Both x1 and x2 may not be None.")
@@ -152,7 +149,7 @@ class Polynomial2D(Function2D):
 
         raise ValueError("Dimension can not be 2 or more.")
 
-    def antiderivative(self, dim: int, /) -> Function2D:
+    def antiderivative(self, dim: int, /) -> Polynomial2D:
         """Anti-derivative with respect to the specified dimension."""
         if dim == 0:
             return Polynomial2D(*(p.antiderivative for p in self.polynomials))
@@ -190,6 +187,33 @@ class Polynomial2D(Function2D):
     def __radd__(self, other: Polynomial2D | float) -> Polynomial2D:
         """Add two polynomials together."""
         return self.__add__(other)
+
+    def __sub__(self, other: Polynomial2D | float) -> Polynomial2D:
+        """Subtracts two polynomials."""
+        if isinstance(other, Polynomial2D):
+            out_polys: list[Polynomial1D] = list()
+
+            l1 = len(self.polynomials)
+            l2 = len(other.polynomials)
+            for p in range(min(l1, l2)):
+                out_polys.append(self.polynomials[p] + ((-1) * other.polynomials[p]))
+            if l1 > l2:
+                for i in range(l2, l1):
+                    out_polys.append(self.polynomials[i])
+            else:
+                for i in range(l1, l2):
+                    out_polys.append((-1) * other.polynomials[i])
+
+            return Polynomial2D(*out_polys)
+        try:
+            v = float(other)
+            return Polynomial2D(self.polynomials[0] + (-v), *self.polynomials[1:])
+        except Exception:
+            return NotImplemented
+
+    def __rsub__(self, other: Polynomial2D | float) -> Polynomial2D:
+        """Subtract polynomials."""
+        return self.__sub__(other)
 
     def __mul__(self, other: Polynomial2D | float) -> Polynomial2D:
         """Multiply with either another polynomial or a constant."""

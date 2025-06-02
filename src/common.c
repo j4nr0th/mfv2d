@@ -17,19 +17,19 @@ enum
 static void *allocate_system(void *state, size_t size)
 {
     ASSERT(state == (void *)SYSTEM_MAGIC, "Pointer value for system allocator did not match.");
-    return malloc(size);
+    return PyMem_RawMalloc(size);
 }
 
 static void *reallocate_system(void *state, void *ptr, size_t new_size)
 {
     ASSERT(state == (void *)SYSTEM_MAGIC, "Pointer value for system allocator did not match.");
-    return realloc(ptr, new_size);
+    return PyMem_RawRealloc(ptr, new_size);
 }
 
 static void free_system(void *state, void *ptr)
 {
     ASSERT(state == (void *)SYSTEM_MAGIC, "Pointer value for system allocator did not match.");
-    free(ptr);
+    PyMem_RawFree(ptr);
 }
 
 INTERPLIB_INTERNAL
@@ -65,10 +65,3 @@ allocator_callbacks PYTHON_ALLOCATOR = {
     .realloc = reallocate_python,
     .state = (void *)PYTHON_MAGIC,
 };
-
-INTERPLIB_INTERNAL
-int base_traverse_heap_typed(PyObject *self, visitproc visit, void *arg)
-{
-    Py_VISIT(PyObject_Type(self));
-    return 0;
-}

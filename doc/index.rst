@@ -19,4 +19,5 @@ be associated with different topological forms and be interpolated using basis f
    source/basis1d
    source/splines1d
    source/product_basis
+   source/numerics
    auto_examples/index

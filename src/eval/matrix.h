@@ -63,6 +63,22 @@ typedef struct
     double coefficient;
 } matrix_t;
 
+enum
+{
+    VECTOR_FIELDS_MAX = 16,
+};
+
+typedef struct
+{
+    unsigned n_fields;                       // Number of vector fields provided.
+    const npy_uint64 *offsets;               // Pointer to an array containing arrays of vector fields.
+    const double *fields[VECTOR_FIELDS_MAX]; // Array of offsets for elements.
+} field_information_t;
+
+typedef struct
+{
+    double j00, j01, j10, j11, det;
+} jacobian_t;
 MFV2D_INTERNAL
 void matrix_print(const matrix_t *mtx);
 

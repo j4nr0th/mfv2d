@@ -23,12 +23,10 @@ typedef enum
     MATOP_MATMUL = 5,
     // Scale by constant, which is the next bytecode value
     MATOP_SCALE = 6,
-    // Transpose the current matrix
-    MATOP_TRANSPOSE = 7,
     // Sum matrices with those on stack, the next bytecode value is says how many are to be popped from the stack.
-    MATOP_SUM = 8,
+    MATOP_SUM = 7,
     // Interior product with vector field.
-    MATOP_INTERPROD = 9,
+    MATOP_INTERPROD = 8,
     // Not an instruction, used to count how many instructions there are.
     MATOP_COUNT,
 } matrix_op_t;
@@ -52,6 +50,7 @@ typedef union {
  * @return Non-zero on success.
  */
 MFV2D_INTERNAL
-int convert_bytecode(unsigned n, bytecode_t bytecode[restrict n + 1], PyObject *items[static n], unsigned *p_max_stack);
+int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyObject *items[static n],
+                     unsigned *p_max_stack, const unsigned n_vec_fields);
 
 #endif // BYTECODE_H

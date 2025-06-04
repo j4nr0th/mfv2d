@@ -5,8 +5,8 @@
 #ifndef LINEOBJECT_H
 #define LINEOBJECT_H
 
-#include "common.h"
-#include "module.h"
+#include "../common.h"
+#include "../module.h"
 
 typedef struct
 {

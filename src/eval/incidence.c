@@ -483,20 +483,20 @@ eval_result_t incidence_to_full(const incidence_type_t type, const unsigned orde
     switch (type)
     {
     case INCIDENCE_TYPE_10:
-        n_row = form_degrees_of_freedom_count(FORM_ORDER_1, order);
-        n_col = form_degrees_of_freedom_count(FORM_ORDER_0, order);
+        n_row = form_degrees_of_freedom_count(FORM_ORDER_1, order, order);
+        n_col = form_degrees_of_freedom_count(FORM_ORDER_0, order, order);
         break;
     case INCIDENCE_TYPE_10_T:
-        n_row = form_degrees_of_freedom_count(FORM_ORDER_0, order);
-        n_col = form_degrees_of_freedom_count(FORM_ORDER_1, order);
+        n_row = form_degrees_of_freedom_count(FORM_ORDER_0, order, order);
+        n_col = form_degrees_of_freedom_count(FORM_ORDER_1, order, order);
         break;
     case INCIDENCE_TYPE_21:
-        n_row = form_degrees_of_freedom_count(FORM_ORDER_2, order);
-        n_col = form_degrees_of_freedom_count(FORM_ORDER_1, order);
+        n_row = form_degrees_of_freedom_count(FORM_ORDER_2, order, order);
+        n_col = form_degrees_of_freedom_count(FORM_ORDER_1, order, order);
         break;
     case INCIDENCE_TYPE_21_T:
-        n_row = form_degrees_of_freedom_count(FORM_ORDER_1, order);
-        n_col = form_degrees_of_freedom_count(FORM_ORDER_2, order);
+        n_row = form_degrees_of_freedom_count(FORM_ORDER_1, order, order);
+        n_col = form_degrees_of_freedom_count(FORM_ORDER_2, order, order);
         break;
     default:
         return 0;

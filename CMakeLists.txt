@@ -24,12 +24,12 @@ set(MFV2D_SOURCE_FILES
         src/basis/lagrange.c
         src/basis/gausslobatto.c
         # Topology
-        src/geoidobject.c
-        src/lineobject.c
-        src/surfaceobject.c
-        src/manifold.c
-        src/manifold1d.c
-        src/manifold2d.c
+        src/topology/geoidobject.c
+        src/topology/lineobject.c
+        src/topology/surfaceobject.c
+        src/topology/manifold.c
+        src/topology/manifold1d.c
+        src/topology/manifold2d.c
         # Evaluation
         src/eval/allocator.c
         src/eval/error.c
@@ -38,7 +38,9 @@ set(MFV2D_SOURCE_FILES
         src/eval/precomp.c
         src/eval/bytecode.c
         src/eval/matrix.c
-        src/eval/connectivity.c
+        src/eval/element_system.c
+        src/eval/system_template.c
+        src/eval/fem_space.c
         # Solver
         src/solve/qr_solve.c
         src/solve/svector.c
@@ -54,12 +56,12 @@ set(MFV2D_HEADER_FILES
         src/basis/lagrange.h
         src/basis/gausslobatto.h
         # Topology
-        src/geoidobject.h
-        src/lineobject.h
-        src/surfaceobject.h
-        src/manifold.h
-        src/manifold1d.h
-        src/manifold2d.h
+        src/topology/geoidobject.h
+        src/topology/lineobject.h
+        src/topology/surfaceobject.h
+        src/topology/manifold.h
+        src/topology/manifold1d.h
+        src/topology/manifold2d.h
         # Evaluation
         src/eval/error.h
         src/eval/allocator.h
@@ -68,7 +70,9 @@ set(MFV2D_HEADER_FILES
         src/eval/precomp.h
         src/eval/bytecode.h
         src/eval/matrix.h
-        src/eval/connectivity.h
+        src/eval/element_system.h
+        src/eval/system_template.h
+        src/eval/fem_space.h
         # Solver
         src/solve/qr_solve.h
         src/solve/svector.h
@@ -94,7 +98,7 @@ target_include_directories(_mfv2d PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE
 # target_include_directories(_eval PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
 
 if (CMAKE_C_COMPILER_ID EQUAL "GNU")
-    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto)# -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
+    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -g)# -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
 endif ()
 
 if (OPENMP_FOUND)

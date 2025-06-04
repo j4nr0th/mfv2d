@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 
 from mfv2d.kform import (
     KFormDerivative,
@@ -62,11 +62,6 @@ class Scale(MatOp):
     k: float
 
 
-# @dataclass(frozen=True)
-# class Transpose(MatOp):
-#     """Transpose of the matrix."""
-
-
 @dataclass(frozen=True)
 class Sum(MatOp):
     """Sum matrices together."""
@@ -117,15 +112,6 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
                     nops -= 1
                     continue
 
-            # if nops - i >= 2 and (
-            #     type(ops[i]) is Transpose and type(ops[i + 1]) is Transpose
-            # ):
-            #     # Double transpose does nothing
-            #     del ops[i + 1]
-            #     del ops[i]
-            #     nops -= 2
-            #     continue
-
             if nops - i >= 2 and (
                 type(ops[i]) is Identity
                 and (
@@ -140,24 +126,6 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
                 del ops[i]
                 nops -= 1
                 continue
-
-            # if nops - i >= 2 and (
-            #     type(ops[i]) is Identity and (type(ops[i + 1]) is Transpose)
-            # ):
-            #     # Transpose of identity does nothing
-            #     del ops[i + 1]
-            #     nops -= 1
-            #     continue
-
-            # if nops - i >= 3 and (
-            #     type(ops[i]) is Push
-            #     and type(ops[i + 1]) is Scale
-            #     and type(ops[i + 2]) is Transpose
-            # ):
-            #     # Transpose of a fresh scale does nothing
-            #     del ops[i + 2]
-            #     nops -= 1
-            #     continue
 
             if nops - i >= 2 and (
                 (type(ops[i]) is Scale or type(ops[i]) is Identity)
@@ -294,7 +262,6 @@ def translate_equation(
             v[k] = simplify_expression(*v[k])
 
     # We no longer use the Transpose instruction :)
-    # assert Transpose() not in v
     return v
 
 
@@ -485,6 +452,17 @@ def _translate_equation(
     raise TypeError("Unknown type")
 
 
+class MassMatrixRequired(IntFlag):
+    """Flags used to indicate which mass matrices need to be computed."""
+
+    MASS_NODE = 1 << 0
+    MASS_EDGE = 1 << 1
+    MASS_SURF = 1 << 2
+    MASS_INDE = 1 << 3
+    MASS_IEDG = 1 << 4
+    MASS_ISRF = 1 << 5
+
+
 def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
     """Print how the terms would be evaluated."""
     stack: list[tuple[float, str]] = []
@@ -526,13 +504,6 @@ def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
 
             c, s = val
             val = (c * k, s + " @ " + mat)
-
-        # elif type(op) is Transpose:
-        #     if val is None:
-        #         raise ValueError("Invalid Transpose operation.")
-        #     c, s = val
-        #     s = "(" + s + ")^T"
-        #     val = (c, s)
 
         elif type(op) is Sum:
             n = op.count
@@ -595,9 +566,8 @@ class MatOpCode(IntEnum):
     PUSH = 4
     MATMUL = 5
     SCALE = 6
-    # TRANSPOSE = 7
-    SUM = 8
-    INTERPROD = 9
+    SUM = 7
+    INTERPROD = 8
 
 
 def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
@@ -619,8 +589,6 @@ def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
         elif type(op) is Scale:
             out.append(MatOpCode.SCALE)
             out.append(op.k)
-        # elif type(op) is Transpose:
-        #     out.append(MatOpCode.TRANSPOSE)
         elif type(op) is Sum:
             out.append(MatOpCode.SUM)
             out.append(op.count)

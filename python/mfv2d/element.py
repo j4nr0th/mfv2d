@@ -615,17 +615,17 @@ def element_projections(
         if order == UnknownFormOrder.FORM_ORDER_0:
             # Nodal matrix
             mat_n = _element_node_mass_mixed(
-                basis_coarse.basis_xi.node,
-                basis_coarse.basis_eta.node,
-                basis_fine.basis_xi.node,
-                basis_fine.basis_eta.node,
+                basis_coarse.basis_xi.node.T,
+                basis_coarse.basis_eta.node.T,
+                basis_fine.basis_xi.node.T,
+                basis_fine.basis_eta.node.T,
                 w_int * det,
             )
             mat_p = _element_node_mass_mixed(
-                basis_coarse.basis_xi.node,
-                basis_coarse.basis_eta.node,
-                basis_coarse.basis_xi.node,
-                basis_coarse.basis_eta.node,
+                basis_coarse.basis_xi.node.T,
+                basis_coarse.basis_eta.node.T,
+                basis_coarse.basis_xi.node.T,
+                basis_coarse.basis_eta.node.T,
                 w_int * det,
             )
 
@@ -635,28 +635,28 @@ def element_projections(
             kvv = j01**2 + j00**2
             kvh = j01 * j11 + j00 * j10
             mat_n = _element_edge_mass_mixed(
-                basis_coarse.basis_xi.node,
-                basis_coarse.basis_eta.node,
-                basis_fine.basis_xi.node,
-                basis_fine.basis_eta.node,
-                basis_coarse.basis_xi.edge,
-                basis_coarse.basis_eta.edge,
-                basis_fine.basis_xi.edge,
-                basis_fine.basis_eta.edge,
+                basis_coarse.basis_xi.node.T,
+                basis_coarse.basis_eta.node.T,
+                basis_fine.basis_xi.node.T,
+                basis_fine.basis_eta.node.T,
+                basis_coarse.basis_xi.edge.T,
+                basis_coarse.basis_eta.edge.T,
+                basis_fine.basis_xi.edge.T,
+                basis_fine.basis_eta.edge.T,
                 w_int / det,
                 khh,
                 kvv,
                 kvh,
             )
             mat_p = _element_edge_mass_mixed(
-                basis_coarse.basis_xi.node,
-                basis_coarse.basis_eta.node,
-                basis_coarse.basis_xi.node,
-                basis_coarse.basis_eta.node,
-                basis_coarse.basis_xi.edge,
-                basis_coarse.basis_eta.edge,
-                basis_coarse.basis_xi.edge,
-                basis_coarse.basis_eta.edge,
+                basis_coarse.basis_xi.node.T,
+                basis_coarse.basis_eta.node.T,
+                basis_coarse.basis_xi.node.T,
+                basis_coarse.basis_eta.node.T,
+                basis_coarse.basis_xi.edge.T,
+                basis_coarse.basis_eta.edge.T,
+                basis_coarse.basis_xi.edge.T,
+                basis_coarse.basis_eta.edge.T,
                 w_int / det,
                 khh,
                 kvv,
@@ -666,17 +666,17 @@ def element_projections(
         elif order == UnknownFormOrder.FORM_ORDER_2:
             # Edge matrix
             mat_n = _element_surf_mass_mixed(
-                basis_coarse.basis_xi.edge,
-                basis_coarse.basis_eta.edge,
-                basis_fine.basis_xi.edge,
-                basis_fine.basis_eta.edge,
+                basis_coarse.basis_xi.edge.T,
+                basis_coarse.basis_eta.edge.T,
+                basis_fine.basis_xi.edge.T,
+                basis_fine.basis_eta.edge.T,
                 w_int / det,
             )
             mat_p = _element_surf_mass_mixed(
-                basis_coarse.basis_xi.edge,
-                basis_coarse.basis_eta.edge,
-                basis_coarse.basis_xi.edge,
-                basis_coarse.basis_eta.edge,
+                basis_coarse.basis_xi.edge.T,
+                basis_coarse.basis_eta.edge.T,
+                basis_coarse.basis_xi.edge.T,
+                basis_coarse.basis_eta.edge.T,
                 w_int / det,
             )
 

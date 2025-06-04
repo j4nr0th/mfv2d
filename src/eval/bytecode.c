@@ -8,7 +8,7 @@
 static const char *matrix_op_strings[MATOP_COUNT] = {
     MATRIX_OP_ENTRY(MATOP_INVALID), MATRIX_OP_ENTRY(MATOP_IDENTITY),  MATRIX_OP_ENTRY(MATOP_MASS),
     MATRIX_OP_ENTRY(MATOP_MATMUL),  MATRIX_OP_ENTRY(MATOP_INCIDENCE), MATRIX_OP_ENTRY(MATOP_PUSH),
-    MATRIX_OP_ENTRY(MATOP_SCALE),   MATRIX_OP_ENTRY(MATOP_TRANSPOSE), MATRIX_OP_ENTRY(MATOP_SUM),
+    MATRIX_OP_ENTRY(MATOP_SCALE),   MATRIX_OP_ENTRY(MATOP_SUM),
 };
 #undef MATRIX_OP_ENTRY
 
@@ -21,7 +21,7 @@ const char *matrix_op_str(const matrix_op_t op)
 
 MFV2D_INTERNAL
 int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyObject *items[static n],
-                     unsigned *p_max_stack)
+                     unsigned *p_max_stack, const unsigned n_vec_fields)
 {
     bytecode[0].u32 = n;
     unsigned stack_load = 0, max_load = 0;
@@ -53,9 +53,6 @@ int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyOb
             {
                 max_load = stack_load;
             }
-            break;
-
-        case MATOP_TRANSPOSE:
             break;
 
         case MATOP_MATMUL:
@@ -176,6 +173,11 @@ int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyOb
                 if (PyErr_Occurred())
                 {
                     bad_value = 1;
+                    break;
+                }
+                if (bytecode[i + 1].u32 >= n_vec_fields)
+                {
+                    out_of_bounds = 1;
                     break;
                 }
                 i += 1;

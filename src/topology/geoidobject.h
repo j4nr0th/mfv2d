@@ -5,8 +5,8 @@
 #ifndef GEOIDOBJECT_H
 #define GEOIDOBJECT_H
 
-#include "common.h"
-#include "module.h"
+#include "../common.h"
+#include "../module.h"
 
 typedef struct
 {

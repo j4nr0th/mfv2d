@@ -5,7 +5,7 @@
 #ifndef MANIFOLD_H
 #define MANIFOLD_H
 
-#include "common_defines.h"
+#include "../common_defines.h"
 
 MFV2D_INTERNAL
 extern PyTypeObject manifold_type_object;

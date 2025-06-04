@@ -22,6 +22,7 @@ typedef enum
     EVAL_NOT_SQUARE = 10,         // Surface was not topologically square.
     EVAL_NOT_IN_SURFACE = 11,     // Line was not in the surface
     EVAL_ORDER_MISMATCH = 12,     // Element orders don't match
+    EVAL_UNSPECIFIED_ERROR = 13,  // Unspecified
     EVAL_COUNT,                   // Used to check if out of range.
 } eval_result_t;
 

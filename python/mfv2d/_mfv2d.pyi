@@ -1069,3 +1069,19 @@ def compute_element_matrix(
 ) -> npt.NDArray[np.float64]:
     """Compute a single element matrix."""
     ...
+
+def compute_element_matrix_test(
+    corners: npt.NDArray[np.float64],
+    order_1: int,
+    order_2: int,
+    basis_1_nodal: npt.NDArray[np.float64],
+    basis_1_edge: npt.NDArray[np.float64],
+    weights_1: npt.NDArray[np.float64],
+    nodes_1: npt.NDArray[np.float64],
+    basis_2_nodal: npt.NDArray[np.float64],
+    basis_2_edge: npt.NDArray[np.float64],
+    weights_2: npt.NDArray[np.float64],
+    nodes_2: npt.NDArray[np.float64],
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Test computing element matrices for a single element."""
+    ...

@@ -391,7 +391,7 @@ def apply_e21_rt(order: int, other: npt.NDArray[np.float64]) -> npt.NDArray[np.f
     return out
 
 
-def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.int32]:
+def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.uint32]:
     """Ordering for vtkLagrangeQuadrilateral.
 
     VTK has an option to create cells of type LagrangeQuadrilateral. These
@@ -416,7 +416,7 @@ def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.int32]:
     """
     n = int(order) + 1
     v = np.arange(n)
-    return (
+    return np.astype(
         np.concatenate(
             (
                 (0, n - 1, n**2 - 1, n * (n - 1)),  # corners
@@ -432,7 +432,9 @@ def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.int32]:
             (
                 (0, n - 1, n**2 - 1, n * (n - 1)),  # corners
             )
-        )
+        ),
+        np.uint32,
+        copy=False,
     )
 
 
@@ -464,10 +466,10 @@ class Basis1D:
         object.__setattr__(self, "rule", rule)
         gll_nodes, _ = compute_gll(order)
         value_nodal = lagrange1d(gll_nodes, rule.nodes)
-        object.__setattr__(self, "node", value_nodal)
+        object.__setattr__(self, "node", np.ascontiguousarray(value_nodal.T, np.float64))
         dvalue_nodal = dlagrange1d(gll_nodes, rule.nodes)
         value_edge = np.cumsum(-dvalue_nodal[:, :-1], axis=-1)
-        object.__setattr__(self, "edge", value_edge)
+        object.__setattr__(self, "edge", np.ascontiguousarray(value_edge.T, np.float64))
 
 
 @dataclass(frozen=True)

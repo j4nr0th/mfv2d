@@ -5,8 +5,8 @@
 #ifndef SURFACEOBJECT_H
 #define SURFACEOBJECT_H
 
-#include "common_defines.h"
-#include "module.h"
+#include "../common_defines.h"
+#include "../module.h"
 
 typedef struct
 {

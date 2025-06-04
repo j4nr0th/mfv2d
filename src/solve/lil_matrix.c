@@ -238,8 +238,7 @@ static PyObject *lil_mat_qr_decomposition(lil_mat_object_t *this, PyObject *args
     return (PyObject *)series;
 }
 
-MFV2D_EXTERNAL
-PyObject *lil_mat_block_diagonal(PyTypeObject *type, PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *lil_mat_block_diagonal(PyTypeObject *type, PyObject *const *args, const Py_ssize_t nargs)
 {
     for (unsigned i = 0; i < nargs; ++i)
     {

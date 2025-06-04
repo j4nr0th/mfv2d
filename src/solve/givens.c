@@ -4,6 +4,7 @@
 #include "givens.h"
 #include <numpy/ndarrayobject.h>
 
+static
 int apply_givens_rotation_2(const scalar_t c, const scalar_t s, const svector_t *row_i, const svector_t *row_j,
                             svector_t *restrict out_i, svector_t *restrict out_j, const unsigned cut_j,
                             const allocator_callbacks *allocator)
@@ -595,7 +596,7 @@ static PyObject *givens_series_matmul(const givens_series_t *this, PyObject *oth
     return (PyObject *)out;
 }
 
-MFV2D_EXTERNAL
+static
 PyObject *givens_series_apply(const givens_series_t *this, PyObject *other)
 {
     PyArrayObject *const mat = (PyArrayObject *)other;

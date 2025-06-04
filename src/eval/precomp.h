@@ -85,6 +85,7 @@ MFV2D_INTERNAL
 int precompute_create(const basis_precomp_t *basis, double x0, double x1, double x2, double x3, double y0, double y1,
                       double y2, double y3, precompute_t *out, allocator_callbacks *allocator);
 
+MFV2D_INTERNAL
 const matrix_full_t *precompute_get_matrix(precompute_t *this, mass_mtx_indices_t idx,
                                            const allocator_callbacks *allocator);
 

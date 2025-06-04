@@ -4,12 +4,14 @@
 
 #include "geoidobject.h"
 
+static
 PyObject *geoid_repr(PyObject *self)
 {
     const geo_id_object_t *this = (geo_id_object_t *)self;
     return PyUnicode_FromFormat("GeoID(%u, %u)", (unsigned)this->id.index, (unsigned)this->id.reverse);
 }
 
+static
 PyObject *geoid_str(PyObject *self)
 {
     const geo_id_object_t *this = (geo_id_object_t *)self;

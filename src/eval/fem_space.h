@@ -155,6 +155,16 @@ PyObject *compute_element_mass_matrices(PyObject *self, PyObject *args, PyObject
  */
 MFV2D_INTERNAL
 eval_result_t fem_space_1d_from_python(unsigned order, PyObject *pts, PyObject *wts, PyObject *node_val,
-                                    PyObject *edge_val, fem_space_1d_t *p_out);
+                                       PyObject *edge_val, fem_space_1d_t *p_out);
 
+MFV2D_INTERNAL
+eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                            const allocator_callbacks *allocator, const double *field, int transpose);
+MFV2D_INTERNAL
+eval_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                            const allocator_callbacks *allocator, const double *field, int dual);
+
+MFV2D_INTERNAL
+eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                            const allocator_callbacks *allocator, const double *field, int transpose);
 #endif // FEM_SPACE_H

@@ -1,5 +1,6 @@
 #include "element_system.h"
 #include "allocator.h"
+#include "element_eval.h"
 #include "evaluation.h"
 #include "fem_space.h"
 
@@ -176,9 +177,9 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
             }
 
             matrix_full_t mat;
-            // res = evaluate_element_term_sibling(err_stack, system_template.form_orders[row], order_1, bytecode,
-            //                                     &precomp, &element_field_information, system_template.max_stack,
-            //                                     matrix_stack, &allocator_stack->base, &mat, NULL);
+            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, fem_space,
+                                 &element_field_information, system_template.max_stack, matrix_stack,
+                                 &allocator_stack->base, &mat, NULL);
             if (res != EVAL_SUCCESS)
             {
                 EVAL_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);

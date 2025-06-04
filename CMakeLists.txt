@@ -40,6 +40,7 @@ set(MFV2D_SOURCE_FILES
         src/eval/element_system.c
         src/eval/system_template.c
         src/eval/fem_space.c
+        src/eval/element_eval.c
         # Solver
         src/solve/qr_solve.c
         src/solve/svector.c
@@ -72,6 +73,7 @@ set(MFV2D_HEADER_FILES
         src/eval/element_system.h
         src/eval/system_template.h
         src/eval/fem_space.h
+        src/eval/element_eval.h
         # Solver
         src/solve/qr_solve.h
         src/solve/svector.h

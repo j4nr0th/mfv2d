@@ -43,6 +43,26 @@ MFV2D_INTERNAL eval_result_t fem_space_2d_create(const fem_space_1d_t *space_h, 
     return EVAL_SUCCESS;
 }
 
+static unsigned fem_space_node_basis_cnt(const fem_space_2d_t *space)
+{
+    return (space->space_1.order + 1) * (space->space_2.order + 1);
+}
+
+static unsigned fem_space_edge_h_basis_cnt(const fem_space_2d_t *space)
+{
+    return space->space_1.order * (space->space_2.order + 1);
+}
+
+static unsigned fem_space_edge_v_basis_cnt(const fem_space_2d_t *space)
+{
+    return (space->space_1.order + 1) * space->space_2.order;
+}
+
+static unsigned fem_space_surf_basis_cnt(const fem_space_2d_t *space)
+{
+    return space->space_1.order * space->space_2.order;
+}
+
 typedef struct
 {
     unsigned i, j;
@@ -189,14 +209,22 @@ static double surf_basis_value(const fem_space_2d_t *space, const unsigned idx, 
     return surf_basis_value_2d(space, index.i, index.j, i_point, j_point);
 }
 
+static double integration_weight_value(const fem_space_2d_t *space, const unsigned i_point, const unsigned j_point)
+{
+    if (ASSERT(i_point < space->space_1.n_pts, "Point is out of range for basis 1") ||
+        ASSERT(j_point < space->space_2.n_pts, "Point is out of range for basis 2"))
+        return 0;
+    return space->space_1.wgts[j_point] * space->space_2.wgts[i_point];
+}
+
 MFV2D_INTERNAL eval_result_t compute_mass_matrix_node(const fem_space_2d_t *space, matrix_full_t *p_out,
                                                       const allocator_callbacks *allocator)
 {
     const fem_space_1d_t *const space_h = &space->space_1;
     const fem_space_1d_t *const space_v = &space->space_2;
 
-    const unsigned rows = (space_h->order + 1) * (space_v->order + 1);
-    const unsigned cols = (space_h->order + 1) * (space_v->order + 1);
+    const unsigned rows = fem_space_node_basis_cnt(space);
+    const unsigned cols = fem_space_node_basis_cnt(space);
 
     const matrix_full_t out = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
                                .data = allocate(allocator, sizeof *out.data * rows * cols)};
@@ -213,8 +241,8 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_node(const fem_space_2d_t *spac
                 {
                     v += node_basis_value(space, idx_basis, i_point, j_point) *
                          node_basis_value(space, idx_weight, i_point, j_point) *
-                         space->jacobian[j_point + i_point * space_h->n_pts].det * space_h->wgts[j_point] *
-                         space_v->wgts[i_point];
+                         space->jacobian[j_point + i_point * space_h->n_pts].det *
+                         integration_weight_value(space, i_point, j_point);
                 }
             }
             // Exploit the symmetry of the matrix.
@@ -231,8 +259,11 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *spac
     const fem_space_1d_t *const space_h = &space->space_1;
     const fem_space_1d_t *const space_v = &space->space_2;
 
-    const unsigned rows = space_h->order * (space_v->order + 1) + (space_h->order + 1) * space_v->order;
-    const unsigned cols = space_h->order * (space_v->order + 1) + (space_h->order + 1) * space_v->order;
+    const unsigned n_v_basis = fem_space_edge_v_basis_cnt(space); // (space_v->order + 1) * space_h->order;
+    const unsigned n_h_basis = fem_space_edge_h_basis_cnt(space); // space_v->order * (space_h->order + 1);
+
+    const unsigned rows = n_v_basis + n_h_basis;
+    const unsigned cols = n_v_basis + n_h_basis;
 
     const size_t mem_size = sizeof(double) * rows * cols;
     const matrix_full_t out = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
@@ -255,9 +286,6 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *spac
     // k11 = (j01**2 + j00**2) / det
     // k01 = (j01 * j11 + j00 * j10) / det
 
-    const unsigned n_v_basis = (space_v->order + 1) * space_h->order;
-    const unsigned n_h_basis = space_v->order * (space_h->order + 1);
-
     // Block 11
     for (unsigned idx_weight = 0; idx_weight < n_v_basis; ++idx_weight)
         for (unsigned idx_basis = 0; idx_basis < n_v_basis; ++idx_basis)
@@ -271,7 +299,7 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *spac
                     const double val_weight = edge_v_basis_value(space, idx_weight, i_point, j_point);
                     const jacobian_t *jac = space->jacobian + (j_point + i_point * space_h->n_pts);
                     const double jac_term = (jac->j00 * jac->j00 + jac->j01 * jac->j01) / jac->det;
-                    v += val_basis * val_weight * jac_term * space_h->wgts[j_point] * space_v->wgts[i_point];
+                    v += val_basis * val_weight * jac_term * integration_weight_value(space, i_point, j_point);
                 }
             }
             // Exploit the symmetry of the matrix.
@@ -294,7 +322,7 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *spac
                     const double val_weight = edge_h_basis_value(space, idx_weight, i_point, j_point);
                     const jacobian_t *jac = space->jacobian + (j_point + i_point * space_h->n_pts);
                     const double jac_term = (jac->j11 * jac->j11 + jac->j10 * jac->j10) / jac->det;
-                    v += val_basis * val_weight * jac_term * space_h->wgts[j_point] * space_v->wgts[i_point];
+                    v += val_basis * val_weight * jac_term * integration_weight_value(space, i_point, j_point);
                 }
             }
             // Exploit the symmetry of the matrix.
@@ -317,7 +345,7 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *spac
                     const double val_weight = edge_h_basis_value(space, idx_weight, i_point, j_point);
                     const jacobian_t *jac = space->jacobian + (j_point + i_point * space_h->n_pts);
                     const double jac_term = (jac->j01 * jac->j11 + jac->j00 * jac->j10) / jac->det;
-                    v += val_basis * val_weight * jac_term * space_h->wgts[j_point] * space_v->wgts[i_point];
+                    v += val_basis * val_weight * jac_term * integration_weight_value(space, i_point, j_point);
                 }
             }
             // Exploit the symmetry of the matrix.
@@ -337,8 +365,8 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_surf(const fem_space_2d_t *spac
     const fem_space_1d_t *const space_h = &space->space_1;
     const fem_space_1d_t *const space_v = &space->space_2;
 
-    const unsigned rows = space_h->order * space_v->order;
-    const unsigned cols = space_h->order * space_v->order;
+    const unsigned rows = fem_space_surf_basis_cnt(space);
+    const unsigned cols = fem_space_surf_basis_cnt(space);
 
     const matrix_full_t out = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
                                .data = allocate(allocator, sizeof *out.data * rows * cols)};
@@ -355,8 +383,8 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_surf(const fem_space_2d_t *spac
                 {
                     v += surf_basis_value(space, idx_basis, i_point, j_point) *
                          surf_basis_value(space, idx_weight, i_point, j_point) /
-                         space->jacobian[j_point + i_point * space_h->n_pts].det * space_h->wgts[j_point] *
-                         space_v->wgts[i_point];
+                         space->jacobian[j_point + i_point * space_h->n_pts].det *
+                         integration_weight_value(space, i_point, j_point);
                 }
             }
             // Exploit the symmetry of the matrix.
@@ -496,5 +524,318 @@ MFV2D_INTERNAL eval_result_t fem_space_1d_from_python(const unsigned order, PyOb
     space.pnts = (double *)PyArray_DATA((PyArrayObject *)pts);
 
     *p_out = space;
+    return EVAL_SUCCESS;
+}
+
+
+MFV2D_INTERNAL
+eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                                   const allocator_callbacks *allocator, const double *field,
+                                                   const int transpose)
+{
+    const unsigned n_nodal = fem_space_node_basis_cnt(fem_space);
+    const unsigned n_edge_h = fem_space_edge_h_basis_cnt(fem_space);
+    const unsigned n_edge_v = fem_space_edge_v_basis_cnt(fem_space);
+
+    unsigned rows, cols;
+    if (transpose)
+    {
+        rows = n_edge_h + n_edge_v;
+        cols = n_nodal;
+    }
+    else
+    {
+        rows = n_nodal;
+        cols = n_edge_h + n_edge_v;
+    }
+
+    const matrix_full_t mat = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
+                               .data = allocate(allocator, sizeof *mat.data * rows * cols)};
+    if (!mat.data)
+        return EVAL_FAILED_ALLOC;
+
+    const unsigned n_pts_2 = fem_space->space_2.n_pts;
+    const unsigned n_pts_1 = fem_space->space_1.n_pts;
+
+    // Mix 10
+    //  Left half, which is involved with eta-basis
+    for (unsigned i_weight = 0; i_weight < n_nodal; ++i_weight)
+    {
+        for (unsigned i_basis = 0; i_basis < n_edge_h; ++i_basis)
+        {
+            double val = 0.0;
+            for (unsigned i = 0; i < n_pts_2; ++i)
+            {
+                for (unsigned j = 0; j < n_pts_1; ++j)
+                {
+                    const jacobian_t *const jac = fem_space->jacobian + (j + i * n_pts_1);
+                    const double vector_comp = field[i * (2 * n_pts_1) + 2 * j + 0] * jac->j11 -
+                                               field[i * (2 * n_pts_1) + 2 * j + 1] * jac->j01;
+                    val += node_basis_value(fem_space, i_weight, i, j) * edge_h_basis_value(fem_space, i_basis, i, j) *
+                           vector_comp * integration_weight_value(fem_space, i, j);
+                }
+            }
+            if (transpose)
+            {
+                mat.data[i_basis * cols + i_weight] = val;
+            }
+            else
+            {
+
+                mat.data[i_weight * cols + i_basis] = val;
+            }
+        }
+    }
+    //  Right half, which is involved with xi-basis
+    for (unsigned i_weight = 0; i_weight < n_nodal; ++i_weight)
+    {
+        for (unsigned i_basis = 0; i_basis < n_edge_v; ++i_basis)
+        {
+            double val = 0.0;
+            for (unsigned i = 0; i < n_pts_2; ++i)
+            {
+                for (unsigned j = 0; j < n_pts_1; ++j)
+                {
+                    const jacobian_t *const jac = fem_space->jacobian + (j + i * n_pts_1);
+                    const double vector_comp = -(field[i * (2 * n_pts_2) + 2 * j + 1] * jac->j00 -
+                                                 field[i * (2 * n_pts_2) + 2 * j + 0] * jac->j10);
+                    val += node_basis_value(fem_space, i_weight, i, j) * edge_v_basis_value(fem_space, i_basis, i, j) *
+                           vector_comp * integration_weight_value(fem_space, i, j);
+                }
+            }
+            if (transpose)
+            {
+                mat.data[i_basis * cols + i_weight] = val;
+            }
+            else
+            {
+
+                mat.data[i_weight * cols + i_basis] = val;
+            }
+        }
+    }
+
+    *p_out = mat;
+
+    return EVAL_SUCCESS;
+}
+
+MFV2D_INTERNAL
+eval_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                                   const allocator_callbacks *allocator, const double *field,
+                                                   const int dual)
+{
+    const unsigned n_h_basis = fem_space_edge_h_basis_cnt(fem_space);
+    const unsigned n_v_basis = fem_space_edge_v_basis_cnt(fem_space);
+
+    const unsigned rows = n_h_basis + n_v_basis;
+    const unsigned cols = n_h_basis + n_v_basis;
+
+    const matrix_full_t mat = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
+                               .data = allocate(allocator, sizeof *mat.data * rows * cols)};
+    if (!mat.data)
+        return EVAL_FAILED_ALLOC;
+
+    const unsigned n_pts_2 = fem_space->space_2.n_pts;
+    const unsigned n_pts_1 = fem_space->space_1.n_pts;
+
+    if (!dual)
+    {
+        // Block 11
+        for (unsigned idx_weight = 0; idx_weight < n_v_basis; ++idx_weight)
+            for (unsigned idx_basis = 0; idx_basis < n_v_basis; ++idx_basis)
+            {
+                double v = 0;
+                for (unsigned i_point = 0; i_point < n_pts_2; ++i_point)
+                {
+                    for (unsigned j_point = 0; j_point < n_pts_1; ++j_point)
+                    {
+                        const double val_basis = edge_v_basis_value(fem_space, idx_basis, i_point, j_point);
+                        const double val_weight = edge_v_basis_value(fem_space, idx_weight, i_point, j_point);
+                        const jacobian_t *jac = fem_space->jacobian + (j_point + i_point * n_pts_1);
+                        const double jac_term = field[i_point * (2 * n_pts_1) + 2 * j_point + 0] *
+                                                (jac->j00 * jac->j00 + jac->j10 * jac->j10) / jac->det;
+                        v += val_basis * val_weight * jac_term * integration_weight_value(fem_space, i_point, j_point);
+                    }
+                }
+                // out.data[(idx_basis + n_v_basis) * rows + (idx_weight + n_v_basis)] =
+                mat.data[(idx_weight + n_v_basis) * cols + (idx_basis + n_v_basis)] = v;
+            }
+
+        // Block 00
+        for (unsigned idx_weight = 0; idx_weight < n_h_basis; ++idx_weight)
+            for (unsigned idx_basis = 0; idx_basis < n_h_basis; ++idx_basis)
+            {
+                double v = 0;
+                for (unsigned i_point = 0; i_point < n_pts_2; ++i_point)
+                {
+                    for (unsigned j_point = 0; j_point < n_pts_1; ++j_point)
+                    {
+                        const double val_basis = edge_h_basis_value(fem_space, idx_basis, i_point, j_point);
+                        const double val_weight = edge_h_basis_value(fem_space, idx_weight, i_point, j_point);
+                        const jacobian_t *jac = fem_space->jacobian + (j_point + i_point * n_pts_1);
+                        const double jac_term = field[i_point * (2 * n_pts_1) + 2 * j_point + 0] *
+                                                (jac->j11 * jac->j11 + jac->j01 * jac->j01) / jac->det;
+                        v += val_basis * val_weight * jac_term * integration_weight_value(fem_space, i_point, j_point);
+                    }
+                }
+                // Exploit the symmetry of the matrix.
+                // out.data[idx_basis * rows + idx_weight] =
+                mat.data[idx_weight * cols + idx_basis] = v;
+            }
+
+        // Block 10/01
+        for (unsigned idx_weight = 0; idx_weight < n_h_basis; ++idx_weight)
+            for (unsigned idx_basis = 0; idx_basis < n_v_basis; ++idx_basis)
+            {
+                double v = 0;
+                for (unsigned i_point = 0; i_point < n_pts_2; ++i_point)
+                {
+                    for (unsigned j_point = 0; j_point < n_pts_1; ++j_point)
+                    {
+                        const double val_basis = edge_v_basis_value(fem_space, idx_basis, i_point, j_point);
+                        const double val_weight = edge_h_basis_value(fem_space, idx_weight, i_point, j_point);
+                        const jacobian_t *jac = fem_space->jacobian + (j_point + i_point * n_pts_1);
+                        const double jac_term = field[i_point * (2 * n_pts_1) + 2 * j_point + 0] *
+                                                (jac->j10 * jac->j11 + jac->j00 * jac->j01) / jac->det;
+                        v += val_basis * val_weight * jac_term * integration_weight_value(fem_space, i_point, j_point);
+                    }
+                }
+                // Exploit the symmetry of the matrix.
+                mat.data[idx_weight * rows + (idx_basis + n_v_basis)] =
+                    mat.data[(idx_basis + n_v_basis) * cols + idx_weight] = v;
+            }
+    }
+    else
+    {
+        for (unsigned i_weight = 0; i_weight < n_v_basis; ++i_weight)
+        {
+            for (unsigned i_basis = 0; i_basis < n_h_basis; ++i_basis)
+            {
+                // Zeroing the (00) block
+                mat.data[i_weight * n_h_basis + i_basis] = 0;
+                // Zeroing the (11) block
+                mat.data[(i_basis + n_v_basis) * n_h_basis + (i_weight + n_h_basis)] = 0;
+            }
+        }
+
+        for (unsigned idx_weight = 0; idx_weight < n_h_basis; ++idx_weight)
+            for (unsigned idx_basis = 0; idx_basis < n_v_basis; ++idx_basis)
+            {
+                double v = 0;
+                for (unsigned i_point = 0; i_point < n_pts_2; ++i_point)
+                {
+                    for (unsigned j_point = 0; j_point < n_pts_1; ++j_point)
+                    {
+                        const double val_basis = edge_v_basis_value(fem_space, idx_basis, i_point, j_point);
+                        const double val_weight = edge_h_basis_value(fem_space, idx_weight, i_point, j_point);
+                        const double jac_term = field[i_point * (2 * n_pts_1) + 2 * j_point + 0];
+                        v += val_basis * val_weight * jac_term * integration_weight_value(fem_space, i_point, j_point);
+                    }
+                }
+                // Exploit the anit-symmetry of the matrix.
+                mat.data[idx_weight * rows + (idx_basis + n_v_basis)] = +v;
+                mat.data[(idx_basis + n_v_basis) * cols + idx_weight] = -v;
+            }
+    }
+
+    *p_out = mat;
+
+    return EVAL_SUCCESS;
+}
+
+MFV2D_INTERNAL
+eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                                   const allocator_callbacks *allocator, const double *field,
+                                                   const int transpose)
+
+{
+    const unsigned n_edge_h = fem_space_edge_h_basis_cnt(fem_space);
+    const unsigned n_edge_v = fem_space_edge_v_basis_cnt(fem_space);
+    const unsigned n_surf = fem_space_surf_basis_cnt(fem_space);
+
+    unsigned rows, cols;
+    if (transpose)
+    {
+        rows = n_surf;
+        cols = n_edge_h + n_edge_v;
+    }
+    else
+    {
+        rows = n_edge_h + n_edge_v;
+        cols = n_surf;
+    }
+
+    const matrix_full_t mat = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
+                               .data = allocate(allocator, sizeof *mat.data * rows * cols)};
+    if (!mat.data)
+        return EVAL_FAILED_ALLOC;
+
+    const unsigned n_pts_2 = fem_space->space_2.n_pts;
+    const unsigned n_pts_1 = fem_space->space_1.n_pts;
+
+    // Mix 10
+    //  Top half, which is involved with eta-basis
+    for (unsigned i_weight = 0; i_weight < n_edge_h; ++i_weight)
+    {
+        for (unsigned i_basis = 0; i_basis < n_surf; ++i_basis)
+        {
+            double val = 0.0;
+            for (unsigned i = 0; i < n_pts_2; ++i)
+            {
+                for (unsigned j = 0; j < n_pts_1; ++j)
+                {
+                    const jacobian_t *const jac = fem_space->jacobian + (j + i * n_pts_1);
+
+                    const double vector_comp = -(field[i * (2 * n_pts_1) + 2 * j + 0] * jac->j01 +
+                                                 field[i * (2 * n_pts_1) + 2 * j + 1] * jac->j11) /
+                                               jac->det;
+                    val += surf_basis_value(fem_space, i_basis, i, j) * edge_h_basis_value(fem_space, i_weight, i, j) *
+                           vector_comp * integration_weight_value(fem_space, i, j);
+                }
+            }
+            if (transpose)
+            {
+                mat.data[i_basis * cols + i_weight] = val;
+            }
+            else
+            {
+
+                mat.data[i_weight * cols + i_basis] = val;
+            }
+        }
+    }
+    //  Bottom half, which is involved with xi-basis
+    for (unsigned i_weight = 0; i_weight < n_edge_v; ++i_weight)
+    {
+        for (unsigned i_basis = 0; i_basis < n_surf; ++i_basis)
+        {
+            double val = 0.0;
+            for (unsigned i = 0; i < n_pts_2; ++i)
+            {
+                for (unsigned j = 0; j < n_pts_1; ++j)
+                {
+                    const jacobian_t *const jac = fem_space->jacobian + (j + i * n_pts_1);
+                    const double vector_comp = -(field[i * (2 * n_pts_1) + 2 * j + 0] * jac->j00 +
+                                                 field[i * (2 * n_pts_1) + 2 * j + 1] * jac->j10) /
+                                               jac->det;
+                    val += surf_basis_value(fem_space, i_basis, i, j) * edge_v_basis_value(fem_space, i_weight, i, j) *
+                           vector_comp * integration_weight_value(fem_space, i, j);
+                }
+            }
+            if (transpose)
+            {
+                mat.data[i_basis * cols + i_weight] = val;
+            }
+            else
+            {
+
+                mat.data[i_weight * cols + i_basis] = val;
+            }
+        }
+    }
+
+    *p_out = mat;
+
     return EVAL_SUCCESS;
 }

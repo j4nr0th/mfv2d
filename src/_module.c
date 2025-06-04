@@ -1525,6 +1525,10 @@ static PyMethodDef module_methods[] = {
      .ml_meth = (void *)compute_element_mass_matrices,
      .ml_flags = METH_VARARGS | METH_KEYWORDS,
      .ml_doc = compute_element_mass_matrices_docstr},
+    {.ml_name = "compute_element_matrix",
+     .ml_meth = (void *)compute_element_matrix,
+     .ml_flags = METH_VARARGS | METH_KEYWORDS,
+     .ml_doc = "TODO" /* TODO */},
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

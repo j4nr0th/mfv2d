@@ -118,4 +118,19 @@ void matrix_multiply_inplace(const matrix_full_t *this, const double k);
 MFV2D_INTERNAL
 void matrix_add_diagonal_inplace(const matrix_full_t *this, const double k);
 
+MFV2D_INTERNAL
+void invert_matrix(unsigned n, const double mat[static n * n], double buffer[restrict n * n],
+                          double out[n * n]);
+
+/**
+ * Computes the inverse of a square matrix and stores the result in a provided output matrix.
+ *
+ * @param this Pointer to the input matrix (must be a square matrix).
+ * @param p_out Pointer to the output matrix where the inverted matrix will be stored.
+ * @param allocator Pointer to the allocator callbacks used for memory allocation.
+ * @return EVAL_SUCCESS on successful inversion, or an appropriate error code on failure (EVAL_DIMS_MISMATCH if
+ * the input matrix is not square, or EVAL_FAILED_ALLOC if memory allocation fails).
+ */
+MFV2D_INTERNAL
+eval_result_t matrix_full_invert(const matrix_full_t *this, matrix_full_t *p_out, const allocator_callbacks *allocator);
 #endif // MATRIX_H

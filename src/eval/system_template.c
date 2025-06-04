@@ -152,12 +152,13 @@ MFV2D_INTERNAL
 void system_template_destroy(system_template_t *this, const allocator_callbacks *allocator)
 {
     deallocate(allocator, this->form_orders);
-    for (unsigned i = this->n_forms; i > 0; --i)
+    for (unsigned i = this->n_forms; this->bytecodes && i > 0; --i)
     {
         for (unsigned j = this->n_forms; j > 0; --j)
         {
             deallocate(allocator, this->bytecodes[(i - 1) * this->n_forms + (j - 1)]);
         }
     }
+    deallocate(allocator, this->bytecodes);
     *this = (system_template_t){};
 }

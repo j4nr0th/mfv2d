@@ -154,7 +154,7 @@ PyObject *compute_element_mass_matrices(PyObject *self, PyObject *args, PyObject
  * @return EVAL_SUCCESS if successful, otherwise a non-zero error code.
  */
 MFV2D_INTERNAL
-eval_result_t system_1d_from_python(unsigned order, PyObject *pts, PyObject *wts, PyObject *node_val,
+eval_result_t fem_space_1d_from_python(unsigned order, PyObject *pts, PyObject *wts, PyObject *node_val,
                                     PyObject *edge_val, fem_space_1d_t *p_out);
 
 #endif // FEM_SPACE_H

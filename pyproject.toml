@@ -18,7 +18,7 @@ cmake.source-dir = "."
 build.verbose = true
 logging.level = "INFO"
 editable.verbose = true
-editable.rebuild = false
+build-dir = "build/{wheel_tag}"
 
 
 [project.optional-dependencies]

@@ -1,44 +1,13 @@
 #include "element_system.h"
 #include "allocator.h"
 #include "evaluation.h"
+#include "fem_space.h"
+
 #include <numpy/ndarrayobject.h>
-
-static inline int check_float64_array(PyObject *obj, const char *name, int ndim_expected,
-                                      const npy_intp dims_expected[static ndim_expected])
-{
-    if (!PyArray_Check(obj) || PyArray_TYPE((PyArrayObject *)obj) != NPY_FLOAT64)
-    {
-        PyErr_Format(PyExc_TypeError, "%s must be a numpy.ndarray of dtype float64", name);
-        return 0;
-    }
-    PyArrayObject *arr = (PyArrayObject *)obj;
-    int ndim = PyArray_NDIM(arr);
-
-    if (ndim_expected > 0 && ndim != ndim_expected)
-    {
-        PyErr_Format(PyExc_ValueError, "%s must have %d dimensions (got %d)", name, ndim_expected, ndim);
-        return 0;
-    }
-    if (ndim_expected > 0)
-    {
-        const npy_intp *shape = PyArray_SHAPE(arr);
-        for (int i = 0; i < ndim_expected; ++i)
-        {
-            if (dims_expected[i] > 0 && shape[i] != dims_expected[i])
-            {
-                PyErr_Format(PyExc_ValueError, "%s: dimension %d must be of size %ld (got %ld)", name, i,
-                             (long)dims_expected[i], (long)shape[i]);
-                return 0;
-            }
-        }
-    }
-    return 1;
-}
 
 MFV2D_INTERNAL
 PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwargs)
 {
-    eval_result_t res;
     PyArrayObject *return_value = NULL;
     PyObject *form_orders_obj = NULL;
     PyObject *expressions = NULL;
@@ -117,30 +86,19 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     }
 
     // Validate corners, basis, weights, stack_memory are NumPy arrays of type float64
-    if (!check_float64_array(corners, "corners", 2, (const npy_intp[2]){4, 2}))
+    if (check_input_array((PyArrayObject *)corners, 2, (const npy_intp[2]){4, 2}, NPY_DOUBLE,
+                          NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "corners") < 0)
         return NULL;
 
-    // First dimension
-    if (!check_float64_array(nodes_1, "nodes_1", 1, (const npy_intp[1]){0}))
-        return NULL;
-    const unsigned n1 = PyArray_SIZE((const PyArrayObject *)nodes_1);
-    if (!check_float64_array(basis_1_nodal, "basis_1_nodal", 1, (const npy_intp[1]){n1}))
-        return NULL;
-    if (!check_float64_array(basis_1_edge, "basis_1_edge", 1, (const npy_intp[1]){n1}))
-        return NULL;
-    if (!check_float64_array(weights_1, "weights_1", 1, (const npy_intp[1]){n1}))
-        return NULL;
+    fem_space_1d_t space_1, space_2;
+    eval_result_t res = fem_space_1d_from_python(order_1, nodes_1, weights_1, basis_1_nodal, basis_1_edge, &space_1);
+    if (res != EVAL_SUCCESS)
+        goto end;
+    res = fem_space_1d_from_python(order_2, nodes_2, weights_2, basis_2_nodal, basis_2_edge, &space_2);
+    if (res != EVAL_SUCCESS)
+        goto end;
 
-    // Second dimension
-    if (!check_float64_array(nodes_2, "nodes_2", 1, (const npy_intp[1]){0}))
-        return NULL;
-    const unsigned n2 = PyArray_SIZE((const PyArrayObject *)nodes_2);
-    if (!check_float64_array(basis_2_nodal, "basis_2_nodal", 1, (const npy_intp[1]){n2}))
-        return NULL;
-    if (!check_float64_array(basis_2_edge, "basis_2_edge", 1, (const npy_intp[1]){n2}))
-        return NULL;
-    if (!check_float64_array(weights_2, "weights_2", 1, (const npy_intp[1]){n2}))
-        return NULL;
+    const unsigned n1 = space_1.n_pts, n2 = space_2.n_pts;
 
     // Validate each element in vector_fields is a float64 ndarray
     const Py_ssize_t n_vector_fields = PySequence_Size(vector_fields_obj);
@@ -154,7 +112,8 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     for (Py_ssize_t i = 0; i < n_vector_fields; ++i)
     {
         PyObject *item = PySequence_GetItem(vector_fields_obj, i);
-        if (!check_float64_array(item, "vector_fields element", 2, (const npy_intp[2]){n2, n1}))
+        if (!check_input_array((PyArrayObject *)item, 2, (const npy_intp[2]){n2, n1}, NPY_DOUBLE,
+                               NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "vector_fields element"))
         {
             Py_DECREF(item);
             return NULL;
@@ -164,7 +123,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     }
 
     // Create the system template
-    system_template_t system_template;
+    system_template_t system_template = {};
     if (!system_template_create(&system_template, form_orders_obj, expressions, (unsigned)n_vector_fields,
                                 &SYSTEM_ALLOCATOR))
         return NULL;
@@ -174,23 +133,30 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     {
         element_size += form_degrees_of_freedom_count(system_template.form_orders[j], order_1, order_2);
     }
-    const npy_intp output_dims[2] = {element_size, element_size};
+    const npy_intp output_dims[2] = {(npy_intp)element_size, (npy_intp)element_size};
     return_value = (PyArrayObject *)PyArray_SimpleNew(2, output_dims, NPY_FLOAT64);
     if (!return_value)
         goto cleanup_template;
 
-    const double (*const ptr_corners)[4][2] = (double (*)[4][2])PyArray_DATA((PyArrayObject *)corners);
+    const quad_info_t *const quad = PyArray_DATA((PyArrayObject *)corners);
+    fem_space_2d_t *fem_space = NULL;
+    res = fem_space_2d_create(&space_1, &space_2, quad, &fem_space, &SYSTEM_ALLOCATOR);
+    if (res != EVAL_SUCCESS)
+        goto cleanup_template;
+
     error_stack_t *const err_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
     matrix_t *matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * system_template.max_stack);
     allocator_stack_t *const allocator_stack = allocator_stack_create((size_t)stack_memory, &SYSTEM_ALLOCATOR);
-    if (!matrix_stack || !err_stack)
+    if (!matrix_stack || !err_stack || !allocator_stack)
     {
         res = EVAL_FAILED_ALLOC;
-        goto cleanup_template;
+        deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
+        deallocate(&SYSTEM_ALLOCATOR, err_stack);
+        if (allocator_stack)
+            deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
+        deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
+        goto cleanup_fem_space;
     }
-    const unsigned order = order_1; // TODO: maybe incorporate second order
-
-    unsigned i;
 
     double *restrict const output_mat = PyArray_DATA(return_value);
     unsigned row_offset = 0;
@@ -204,7 +170,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
             const bytecode_t *bytecode = system_template.bytecodes[row * system_template.n_forms + col];
             if (!bytecode)
             {
-                // Zero entry, we do nothing since arrays start zeroed out (I think).
+                // Zero entry, we do nothing, since arrays start zeroed out (I think).
                 col_offset += col_len;
                 continue;
             }
@@ -237,15 +203,36 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
             }
 
             deallocate(&allocator_stack->base, mat.data);
-            // SYSTEM_ALLOCATOR.free(SYSTEM_ALLOCATOR.state, mat.data);
             col_offset += col_len;
         }
         row_offset += row_len;
     }
 
     // Cleanup
+cleanup_stacks:
+    deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
+    // Clean error stack
+    if (err_stack->position != 0)
+    {
+        fprintf(stderr, "Error stack caught %u errors.\n", err_stack->position);
+
+        for (unsigned i_e = 0; i_e < err_stack->position; ++i_e)
+        {
+            const error_message_t *msg = err_stack->messages + i_e;
+            fprintf(stderr, "%s:%d in %s: (%s) - %s\n", msg->file, msg->line, msg->function, eval_result_str(msg->code),
+                    msg->message);
+            deallocate(err_stack->allocator, msg->message);
+        }
+    }
+    deallocate(err_stack->allocator, err_stack);
+    deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
+    deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
+
+cleanup_fem_space:
+    deallocate(&SYSTEM_ALLOCATOR, fem_space);
 cleanup_template:
     system_template_destroy(&system_template, &SYSTEM_ALLOCATOR);
+end:
     if (res != EVAL_SUCCESS)
     {
         Py_XDECREF(return_value);

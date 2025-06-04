@@ -6,7 +6,6 @@ endif ()
 
 project(${SKBUILD_PROJECT_NAME} LANGUAGES C)
 find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
-
 find_package(OpenMP)
 
 execute_process(
@@ -86,6 +85,7 @@ Python_add_library(_mfv2d
         WITH_SOABI
 )
 install(TARGETS _mfv2d DESTINATION ${SKBUILD_PROJECT_NAME})
+set_property(TARGET _mfv2d PROPERTY C_STANDARD 17)
 
 #if (CMAKE_BUILD_TYPE EQUAL Debug)
 target_compile_definitions(_mfv2d PRIVATE MFV2D_ASSERTS)

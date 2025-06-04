@@ -70,6 +70,11 @@ MFV2D_INTERNAL
 int check_input_array(const PyArrayObject *const arr, const unsigned n_dim, const npy_intp dims[], const int dtype,
                       const int flags, const char *name)
 {
+    if (!PyArray_Check(arr))
+    {
+        PyErr_Format(PyExc_TypeError, "Object %s is not a numpy array, but is %R.", name, Py_TYPE(arr));
+        return -1;
+    }
     if (name == NULL)
     {
         name = "UNKNOWN";

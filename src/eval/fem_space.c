@@ -43,8 +43,41 @@ MFV2D_INTERNAL eval_result_t fem_space_2d_create(const fem_space_1d_t *space_h, 
     return EVAL_SUCCESS;
 }
 
-static double node_basis_value(const fem_space_2d_t *space, unsigned i_basis, unsigned j_basis, unsigned i_point,
-                               unsigned j_point)
+typedef struct
+{
+    unsigned i, j;
+} index_2d_t;
+
+static index_2d_t nodal_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
+{
+    const unsigned i = flat_index / (space->space_1.order + 1);
+    const unsigned j = flat_index % (space->space_1.order + 1);
+    return (index_2d_t){i, j};
+}
+
+static index_2d_t edge_h_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
+{
+    const unsigned i = flat_index / space->space_1.order;
+    const unsigned j = flat_index % space->space_1.order;
+    return (index_2d_t){i, j};
+}
+
+static index_2d_t edge_v_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
+{
+    const unsigned i = flat_index / (space->space_1.order + 1);
+    const unsigned j = flat_index % (space->space_1.order + 1);
+    return (index_2d_t){i, j};
+}
+
+static index_2d_t surf_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
+{
+    const unsigned i = flat_index / space->space_1.order;
+    const unsigned j = flat_index % space->space_1.order;
+    return (index_2d_t){i, j};
+}
+
+static double node_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                                  const unsigned i_point, const unsigned j_point)
 {
     if (ASSERT(i_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", i_point,
                space->space_1.n_pts) ||
@@ -58,7 +91,6 @@ static double node_basis_value(const fem_space_2d_t *space, unsigned i_basis, un
                space->space_2.order + 1))
     {
         // Shit
-        exit(EXIT_FAILURE);
         return 0;
     }
 
@@ -68,8 +100,15 @@ static double node_basis_value(const fem_space_2d_t *space, unsigned i_basis, un
     return basis_1[i_point] * basis_2[j_point];
 }
 
-static double edge_h_basis_value(const fem_space_2d_t *space, unsigned i_basis, unsigned j_basis, unsigned i_point,
-                                 unsigned j_point)
+static double node_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                               const unsigned j_point)
+{
+    const index_2d_t index = nodal_basis_index(space, idx);
+    return node_basis_value_2d(space, index.i, index.j, i_point, j_point);
+}
+
+static double edge_h_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                                    const unsigned i_point, const unsigned j_point)
 {
     if (ASSERT(i_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", i_point,
                space->space_1.n_pts) ||
@@ -82,7 +121,6 @@ static double edge_h_basis_value(const fem_space_2d_t *space, unsigned i_basis, 
                j_basis, space->space_2.order))
     {
         // Shit
-        exit(EXIT_FAILURE);
         return 0;
     }
 
@@ -92,8 +130,15 @@ static double edge_h_basis_value(const fem_space_2d_t *space, unsigned i_basis, 
     return basis_1[i_point] * basis_2[j_point];
 }
 
-static double edge_v_basis_value(const fem_space_2d_t *space, unsigned i_basis, unsigned j_basis, unsigned i_point,
-                                 unsigned j_point)
+static double edge_h_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                                 const unsigned j_point)
+{
+    const index_2d_t index = edge_h_basis_index(space, idx);
+    return edge_h_basis_value_2d(space, index.i, index.j, i_point, j_point);
+}
+
+static double edge_v_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                                    const unsigned i_point, const unsigned j_point)
 {
     if (ASSERT(i_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", i_point,
                space->space_1.n_pts) ||
@@ -106,7 +151,6 @@ static double edge_v_basis_value(const fem_space_2d_t *space, unsigned i_basis, 
                space->space_2.order + 1))
     {
         // Shit
-        exit(EXIT_FAILURE);
         return 0;
     }
 
@@ -116,8 +160,15 @@ static double edge_v_basis_value(const fem_space_2d_t *space, unsigned i_basis, 
     return basis_1[i_point] * basis_2[j_point];
 }
 
-static double surf_basis_value(const fem_space_2d_t *space, unsigned i_basis, unsigned j_basis, unsigned i_point,
-                               unsigned j_point)
+static double edge_v_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                                 const unsigned j_point)
+{
+    const index_2d_t index = edge_v_basis_index(space, idx);
+    return edge_v_basis_value_2d(space, index.i, index.j, i_point, j_point);
+}
+
+static double surf_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                                  const unsigned i_point, const unsigned j_point)
 {
     if (ASSERT(i_point < space->space_1.n_pts, "Point is out of range for basis 1") ||
         ASSERT(j_point < space->space_2.n_pts, "Point is out of range for basis 2") ||
@@ -129,6 +180,13 @@ static double surf_basis_value(const fem_space_2d_t *space, unsigned i_basis, un
     const double *const basis_2 = space->space_2.edge + j_basis * space->space_2.n_pts;
 
     return basis_1[i_point] * basis_2[j_point];
+}
+
+static double surf_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                               const unsigned j_point)
+{
+    const index_2d_t index = surf_basis_index(space, idx);
+    return surf_basis_value_2d(space, index.i, index.j, i_point, j_point);
 }
 
 MFV2D_INTERNAL eval_result_t compute_mass_matrix_node(const fem_space_2d_t *space, matrix_full_t *p_out,
@@ -145,34 +203,23 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_node(const fem_space_2d_t *spac
     if (!out.data)
         return EVAL_FAILED_ALLOC;
 
-    for (unsigned i_weight = 0; i_weight < space_v->order + 1; ++i_weight)
-    {
-        for (unsigned j_weight = 0; j_weight < space_h->order + 1; ++j_weight)
+    for (unsigned idx_weight = 0; idx_weight < rows; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < rows; ++idx_basis)
         {
-            const unsigned idx_weight = j_weight + i_weight * (space_h->order + 1);
-            for (unsigned i_basis = 0; i_basis < space_v->order + 1; ++i_basis)
+            double v = 0;
+            for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
             {
-                for (unsigned j_basis = 0; j_basis < space_h->order + 1; ++j_basis)
+                for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
                 {
-                    const unsigned idx_basis = j_basis + i_basis * (space_h->order + 1);
-
-                    double v = 0;
-                    for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
-                    {
-                        for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
-                        {
-                            v += node_basis_value(space, i_basis, j_basis, i_point, j_point) *
-                                 node_basis_value(space, i_weight, j_weight, i_point, j_point) *
-                                 space->jacobian[j_point + i_point * space_h->n_pts].det * space_h->wgts[j_point] *
-                                 space_v->wgts[i_point];
-                        }
-                    }
-                    // Exploit the symmetry of the matrix.
-                    out.data[idx_basis * rows + idx_weight] = out.data[idx_weight * cols + idx_basis] = v;
+                    v += node_basis_value(space, idx_basis, i_point, j_point) *
+                         node_basis_value(space, idx_weight, i_point, j_point) *
+                         space->jacobian[j_point + i_point * space_h->n_pts].det * space_h->wgts[j_point] *
+                         space_v->wgts[i_point];
                 }
             }
+            // Exploit the symmetry of the matrix.
+            out.data[idx_basis * rows + idx_weight] = out.data[idx_weight * cols + idx_basis] = v;
         }
-    }
 
     *p_out = out;
     return EVAL_SUCCESS;
@@ -212,88 +259,73 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *spac
     const unsigned n_h_basis = space_v->order * (space_h->order + 1);
 
     // Block 11
-    for (unsigned i_weight = 0; i_weight < space_v->order; ++i_weight)
-        for (unsigned j_weight = 0; j_weight < space_h->order + 1; ++j_weight)
-            for (unsigned i_basis = 0; i_basis < space_v->order; ++i_basis)
-                for (unsigned j_basis = 0; j_basis < space_h->order + 1; ++j_basis)
+    for (unsigned idx_weight = 0; idx_weight < n_v_basis; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < n_v_basis; ++idx_basis)
+        {
+            double v = 0;
+            for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
+            {
+                for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
                 {
-                    const unsigned idx_weight = j_weight + i_weight * (space_h->order + 1);
-                    const unsigned idx_basis = j_basis + i_basis * (space_h->order + 1);
-                    double v = 0;
-                    for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
-                    {
-                        for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
-                        {
-                            const double val_basis = edge_v_basis_value(space, i_basis, j_basis, i_point, j_point);
-                            const double val_weight = edge_v_basis_value(space, i_weight, j_weight, i_point, j_point);
-                            const jacobian_t *jac = space->jacobian + (j_point + i_point * space_h->n_pts);
-                            const double jac_term = (jac->j00 * jac->j00 + jac->j01 * jac->j01) / jac->det;
-                            v += val_basis * val_weight * jac_term * space_h->wgts[j_point] * space_v->wgts[i_point];
-                        }
-                    }
-                    // Exploit the symmetry of the matrix.
-                    CHECK_MEMORY_BOUNDS(mem_size, (idx_basis + n_v_basis) * rows + (idx_weight + n_v_basis),
-                                        sizeof(double));
-                    CHECK_MEMORY_BOUNDS(mem_size, (idx_weight + n_v_basis) * cols + (idx_basis + n_v_basis),
-                                        sizeof(double));
-                    // out.data[(idx_basis + n_v_basis) * rows + (idx_weight + n_v_basis)] =
-                    out.data[(idx_weight + n_v_basis) * cols + (idx_basis + n_v_basis)] = v;
+                    const double val_basis = edge_v_basis_value(space, idx_basis, i_point, j_point);
+                    const double val_weight = edge_v_basis_value(space, idx_weight, i_point, j_point);
+                    const jacobian_t *jac = space->jacobian + (j_point + i_point * space_h->n_pts);
+                    const double jac_term = (jac->j00 * jac->j00 + jac->j01 * jac->j01) / jac->det;
+                    v += val_basis * val_weight * jac_term * space_h->wgts[j_point] * space_v->wgts[i_point];
                 }
+            }
+            // Exploit the symmetry of the matrix.
+            CHECK_MEMORY_BOUNDS(mem_size, (idx_basis + n_v_basis) * rows + (idx_weight + n_v_basis), sizeof(double));
+            CHECK_MEMORY_BOUNDS(mem_size, (idx_weight + n_v_basis) * cols + (idx_basis + n_v_basis), sizeof(double));
+            // out.data[(idx_basis + n_v_basis) * rows + (idx_weight + n_v_basis)] =
+            out.data[(idx_weight + n_v_basis) * cols + (idx_basis + n_v_basis)] = v;
+        }
 
     // Block 00
-    for (unsigned i_weight = 0; i_weight < space_v->order + 1; ++i_weight)
-        for (unsigned j_weight = 0; j_weight < space_h->order; ++j_weight)
-            for (unsigned i_basis = 0; i_basis < space_v->order + 1; ++i_basis)
-                for (unsigned j_basis = 0; j_basis < space_h->order; ++j_basis)
+    for (unsigned idx_weight = 0; idx_weight < n_h_basis; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < n_h_basis; ++idx_basis)
+        {
+            double v = 0;
+            for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
+            {
+                for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
                 {
-                    const unsigned idx_weight = j_weight + i_weight * space_h->order;
-                    const unsigned idx_basis = j_basis + i_basis * space_h->order;
-                    double v = 0;
-                    for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
-                    {
-                        for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
-                        {
-                            const double val_basis = edge_h_basis_value(space, i_basis, j_basis, i_point, j_point);
-                            const double val_weight = edge_h_basis_value(space, i_weight, j_weight, i_point, j_point);
-                            const jacobian_t *jac = space->jacobian + (j_point + i_point * space_h->n_pts);
-                            const double jac_term = (jac->j11 * jac->j11 + jac->j10 * jac->j10) / jac->det;
-                            v += val_basis * val_weight * jac_term * space_h->wgts[j_point] * space_v->wgts[i_point];
-                        }
-                    }
-                    // Exploit the symmetry of the matrix.
-                    CHECK_MEMORY_BOUNDS(mem_size, idx_basis * rows + idx_weight, sizeof(double));
-                    CHECK_MEMORY_BOUNDS(mem_size, idx_weight * cols + idx_basis, sizeof(double));
-                    // out.data[idx_basis * rows + idx_weight] =
-                    out.data[idx_weight * cols + idx_basis] = v;
+                    const double val_basis = edge_h_basis_value(space, idx_basis, i_point, j_point);
+                    const double val_weight = edge_h_basis_value(space, idx_weight, i_point, j_point);
+                    const jacobian_t *jac = space->jacobian + (j_point + i_point * space_h->n_pts);
+                    const double jac_term = (jac->j11 * jac->j11 + jac->j10 * jac->j10) / jac->det;
+                    v += val_basis * val_weight * jac_term * space_h->wgts[j_point] * space_v->wgts[i_point];
                 }
+            }
+            // Exploit the symmetry of the matrix.
+            CHECK_MEMORY_BOUNDS(mem_size, idx_basis * rows + idx_weight, sizeof(double));
+            CHECK_MEMORY_BOUNDS(mem_size, idx_weight * cols + idx_basis, sizeof(double));
+            // out.data[idx_basis * rows + idx_weight] =
+            out.data[idx_weight * cols + idx_basis] = v;
+        }
 
-    // Block 01
-    for (unsigned i_weight = 0; i_weight < space_v->order + 1; ++i_weight)
-        for (unsigned j_weight = 0; j_weight < space_h->order; ++j_weight)
-            for (unsigned i_basis = 0; i_basis < space_v->order; ++i_basis)
-                for (unsigned j_basis = 0; j_basis < space_h->order + 1; ++j_basis)
+    // Block 10/01
+    for (unsigned idx_weight = 0; idx_weight < n_h_basis; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < n_v_basis; ++idx_basis)
+        {
+            double v = 0;
+            for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
+            {
+                for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
                 {
-                    const unsigned idx_weight = j_weight + i_weight * (space_h->order);
-                    const unsigned idx_basis = j_basis + i_basis * (space_h->order + 1);
-                    double v = 0;
-                    for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
-                    {
-                        for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
-                        {
-                            const double val_basis = edge_v_basis_value(space, i_basis, j_basis, i_point, j_point);
-                            const double val_weight = edge_h_basis_value(space, i_weight, j_weight, i_point, j_point);
-                            // (j01 * j11 + j00 * j10) / det
-                            const jacobian_t *jac = space->jacobian + (j_point + i_point * space_h->n_pts);
-                            const double jac_term = (jac->j01 * jac->j11 + jac->j00 * jac->j10) / jac->det;
-                            v += val_basis * val_weight * jac_term * space_h->wgts[j_point] * space_v->wgts[i_point];
-                        }
-                    }
-                    // Exploit the symmetry of the matrix.
-                    CHECK_MEMORY_BOUNDS(mem_size, idx_weight * rows + (idx_basis + n_v_basis), sizeof(double));
-                    CHECK_MEMORY_BOUNDS(mem_size, (idx_basis + n_v_basis) * cols + idx_weight, sizeof(double));
-                    out.data[idx_weight * rows + (idx_basis + n_v_basis)] =
-                        out.data[(idx_basis + n_v_basis) * cols + idx_weight] = v;
+                    const double val_basis = edge_v_basis_value(space, idx_basis, i_point, j_point);
+                    const double val_weight = edge_h_basis_value(space, idx_weight, i_point, j_point);
+                    const jacobian_t *jac = space->jacobian + (j_point + i_point * space_h->n_pts);
+                    const double jac_term = (jac->j01 * jac->j11 + jac->j00 * jac->j10) / jac->det;
+                    v += val_basis * val_weight * jac_term * space_h->wgts[j_point] * space_v->wgts[i_point];
                 }
+            }
+            // Exploit the symmetry of the matrix.
+            CHECK_MEMORY_BOUNDS(mem_size, idx_weight * rows + (idx_basis + n_v_basis), sizeof(double));
+            CHECK_MEMORY_BOUNDS(mem_size, (idx_basis + n_v_basis) * cols + idx_weight, sizeof(double));
+            out.data[idx_weight * rows + (idx_basis + n_v_basis)] =
+                out.data[(idx_basis + n_v_basis) * cols + idx_weight] = v;
+        }
 
     *p_out = out;
     return EVAL_SUCCESS;
@@ -313,34 +345,23 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_surf(const fem_space_2d_t *spac
     if (!out.data)
         return EVAL_FAILED_ALLOC;
 
-    for (unsigned i_weight = 0; i_weight < space_v->order; ++i_weight)
-    {
-        for (unsigned j_weight = 0; j_weight < space_h->order; ++j_weight)
+    for (unsigned idx_weight = 0; idx_weight < rows; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < cols; ++idx_basis)
         {
-            const unsigned idx_weight = j_weight + i_weight * space_h->order;
-            for (unsigned i_basis = 0; i_basis < space_v->order; ++i_basis)
+            double v = 0;
+            for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
             {
-                for (unsigned j_basis = 0; j_basis < space_h->order; ++j_basis)
+                for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
                 {
-                    const unsigned idx_basis = j_basis + i_basis * space_h->order;
-
-                    double v = 0;
-                    for (unsigned i_point = 0; i_point < space_v->n_pts; ++i_point)
-                    {
-                        for (unsigned j_point = 0; j_point < space_h->n_pts; ++j_point)
-                        {
-                            v += surf_basis_value(space, i_basis, j_basis, i_point, j_point) *
-                                 surf_basis_value(space, i_weight, j_weight, i_point, j_point) /
-                                 space->jacobian[j_point + i_point * space_h->n_pts].det * space_h->wgts[j_point] *
-                                 space_v->wgts[i_point];
-                        }
-                    }
-                    // Exploit the symmetry of the matrix.
-                    out.data[idx_basis * rows + idx_weight] = out.data[idx_weight * cols + idx_basis] = v;
+                    v += surf_basis_value(space, idx_basis, i_point, j_point) *
+                         surf_basis_value(space, idx_weight, i_point, j_point) /
+                         space->jacobian[j_point + i_point * space_h->n_pts].det * space_h->wgts[j_point] *
+                         space_v->wgts[i_point];
                 }
             }
+            // Exploit the symmetry of the matrix.
+            out.data[idx_basis * rows + idx_weight] = out.data[idx_weight * cols + idx_basis] = v;
         }
-    }
 
     *p_out = out;
     return EVAL_SUCCESS;
@@ -398,8 +419,8 @@ PyObject *compute_element_mass_matrices(PyObject *Py_UNUSED(self), PyObject *arg
     memcpy(&quad, PyArray_DATA(corners_array), sizeof quad);
     Py_DECREF(corners_array);
     fem_space_1d_t space_1, space_2;
-    if (system_1d_from_python(order_1, nodes_1, weights_1, basis_1_nodal, basis_1_edge, &space_1) != EVAL_SUCCESS ||
-        system_1d_from_python(order_2, nodes_2, weights_2, basis_2_nodal, basis_2_edge, &space_2) != EVAL_SUCCESS)
+    if (fem_space_1d_from_python(order_1, nodes_1, weights_1, basis_1_nodal, basis_1_edge, &space_1) != EVAL_SUCCESS ||
+        fem_space_1d_from_python(order_2, nodes_2, weights_2, basis_2_nodal, basis_2_edge, &space_2) != EVAL_SUCCESS)
     {
         return NULL;
     }
@@ -447,8 +468,8 @@ failed:
     return NULL;
 }
 
-MFV2D_INTERNAL eval_result_t system_1d_from_python(const unsigned order, PyObject *pts, PyObject *wts,
-                                                   PyObject *node_val, PyObject *edge_val, fem_space_1d_t *p_out)
+MFV2D_INTERNAL eval_result_t fem_space_1d_from_python(const unsigned order, PyObject *pts, PyObject *wts,
+                                                      PyObject *node_val, PyObject *edge_val, fem_space_1d_t *p_out)
 {
     fem_space_1d_t space = {.order = order};
 

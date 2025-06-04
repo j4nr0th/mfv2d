@@ -342,3 +342,96 @@ void matrix_print(const matrix_t *mtx)
     break;
     }
 }
+
+MFV2D_INTERNAL
+eval_result_t matrix_full_invert(const matrix_full_t *this, matrix_full_t *p_out, const allocator_callbacks *allocator)
+{
+    if (this->base.rows != this->base.cols)
+        return EVAL_DIMS_MISMATCH;
+    const matrix_full_t out = {.base = this->base, .data = allocate(allocator, sizeof(*out.data) * this->base.rows * this->base.cols)};
+    if (!out.data)
+        return EVAL_FAILED_ALLOC;
+    invert_matrix(this->base.rows, this->data, out.data, out.data);
+    *p_out = out;
+    return EVAL_SUCCESS;
+}
+
+/**
+ * Invert the matrix by non-pivoted LU decomposition, where the diagonal of L is assumed to be 1.
+ *
+ * @param n Dimension of the matrix.
+ * @param mat Matrix which to invert. Can be equal to ``out``.
+ * @param buffer Buffer used for intermediate calculations. Receives the LU decomposition of the matrix.
+ * @param out Where to write the resulting inverse matrix to. Can be equal to ``mat``.
+ */
+MFV2D_INTERNAL
+void invert_matrix(const unsigned n, const double mat[static n * n], double buffer[restrict n * n],
+                          double out[n * n])
+{
+    for (uint32_t i = 0; i < n; ++i)
+    {
+        //  Deal with a row of L
+        for (uint_fast32_t j = 0; j < i; ++j)
+        {
+            double v = 0;
+            //  Row of L
+            const double *li = buffer + n * i;
+            //  Column of U
+            const double *uj = buffer + j;
+            for (uint_fast32_t k = 0; k < j; ++k)
+            {
+                v += li[k] * uj[k * n];
+            }
+            buffer[n * i + j] = (mat[n * i + j] - v) / uj[n * j];
+        }
+
+        //  Deal with a column of U
+        for (uint_fast32_t j = 0; j <= i; ++j)
+        {
+            double v = 0;
+            //  Row of L
+            const double *lj = buffer + n * j;
+            //  Column of U
+            const double *ui = buffer + i;
+            for (uint_fast32_t k = 0; k < j; ++k)
+            {
+                v += lj[k] * ui[k * n];
+            }
+            buffer[n * j + i] = mat[n * j + i] - v;
+        }
+    }
+
+    // Now use back and forward substitution to compute inverse of the matrix
+    // based on the following expression:
+    //
+    //      L @ U @ (A^{-1}) = I
+    //
+    // First solve `L @ B = I` for `B`
+
+    for (unsigned i = 0; i < n; ++i)
+    {
+        for (unsigned j = 0; j < n; ++j)
+        {
+            double v = j == i;
+            for (unsigned k = 0; k < i; ++k)
+            {
+                v -= buffer[i * n + k] * out[k * n + j];
+            }
+            out[i * n + j] = v;
+        }
+    }
+    // Now solve `U @ (A^{-1}) = B` for `A^{-1}`
+
+    for (unsigned i = n; i > 0; --i)
+    {
+        for (unsigned j = 0; j < n; ++j)
+        {
+            double v = out[(i - 1) * n + j];
+            for (unsigned k = i; k < n; ++k)
+            {
+                v -= buffer[(i - 1) * n + k] * out[k * n + j];
+            }
+            out[(i - 1) * n + j] = v / buffer[(i - 1) * n + (i - 1)];
+        }
+    }
+}

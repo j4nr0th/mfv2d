@@ -30,7 +30,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
                                "weights_1",   "nodes_1",       "basis_2_nodal", "basis_2_edge",
                                "weights_2",   "nodes_2",       "stack_memory",  NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOiOOOOOOO|n", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOiiOOOOOOOOO|n", kwlist,
                                      &form_orders_obj,   // Sequence[int]
                                      &expressions,       // _CompiledCodeMatrix (PyObject*)
                                      &corners,           // np.ndarray

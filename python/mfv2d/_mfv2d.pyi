@@ -1068,7 +1068,7 @@ def compute_element_matrix(
     basis_2_edge: npt.NDArray[np.float64],
     weights_2: npt.NDArray[np.float64],
     nodes_2: npt.NDArray[np.float64],
-    stack_memory: np.ndarray,
+    stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
     """Compute a single element matrix."""
     ...

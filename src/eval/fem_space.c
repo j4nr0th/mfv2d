@@ -527,11 +527,10 @@ MFV2D_INTERNAL eval_result_t fem_space_1d_from_python(const unsigned order, PyOb
     return EVAL_SUCCESS;
 }
 
-
 MFV2D_INTERNAL
 eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
-                                                   const allocator_callbacks *allocator, const double *field,
-                                                   const int transpose)
+                                            const allocator_callbacks *allocator, const double *field,
+                                            const int transpose)
 {
     const unsigned n_nodal = fem_space_node_basis_cnt(fem_space);
     const unsigned n_edge_h = fem_space_edge_h_basis_cnt(fem_space);
@@ -570,7 +569,7 @@ eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, mat
                 {
                     const jacobian_t *const jac = fem_space->jacobian + (j + i * n_pts_1);
                     const double vector_comp = field[i * (2 * n_pts_1) + 2 * j + 0] * jac->j11 -
-                                               field[i * (2 * n_pts_1) + 2 * j + 1] * jac->j01;
+                                               field[i * (2 * n_pts_1) + 2 * j + 1] * jac->j10;
                     val += node_basis_value(fem_space, i_weight, i, j) * edge_h_basis_value(fem_space, i_basis, i, j) *
                            vector_comp * integration_weight_value(fem_space, i, j);
                 }
@@ -598,19 +597,19 @@ eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, mat
                 {
                     const jacobian_t *const jac = fem_space->jacobian + (j + i * n_pts_1);
                     const double vector_comp = -(field[i * (2 * n_pts_2) + 2 * j + 1] * jac->j00 -
-                                                 field[i * (2 * n_pts_2) + 2 * j + 0] * jac->j10);
+                                                 field[i * (2 * n_pts_2) + 2 * j + 0] * jac->j01);
                     val += node_basis_value(fem_space, i_weight, i, j) * edge_v_basis_value(fem_space, i_basis, i, j) *
                            vector_comp * integration_weight_value(fem_space, i, j);
                 }
             }
             if (transpose)
             {
-                mat.data[i_basis * cols + i_weight] = val;
+                mat.data[(i_basis + n_edge_h) * cols + i_weight] = val;
             }
             else
             {
 
-                mat.data[i_weight * cols + i_basis] = val;
+                mat.data[i_weight * cols + (i_basis + n_edge_h)] = val;
             }
         }
     }
@@ -622,8 +621,7 @@ eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, mat
 
 MFV2D_INTERNAL
 eval_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
-                                                   const allocator_callbacks *allocator, const double *field,
-                                                   const int dual)
+                                            const allocator_callbacks *allocator, const double *field, const int dual)
 {
     const unsigned n_h_basis = fem_space_edge_h_basis_cnt(fem_space);
     const unsigned n_v_basis = fem_space_edge_v_basis_cnt(fem_space);
@@ -746,8 +744,8 @@ eval_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, mat
 
 MFV2D_INTERNAL
 eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
-                                                   const allocator_callbacks *allocator, const double *field,
-                                                   const int transpose)
+                                            const allocator_callbacks *allocator, const double *field,
+                                            const int transpose)
 
 {
     const unsigned n_edge_h = fem_space_edge_h_basis_cnt(fem_space);
@@ -774,8 +772,8 @@ eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, mat
     const unsigned n_pts_2 = fem_space->space_2.n_pts;
     const unsigned n_pts_1 = fem_space->space_1.n_pts;
 
-    // Mix 10
-    //  Top half, which is involved with eta-basis
+    // Mix 21
+    // Left half, which is involved with eta-basis
     for (unsigned i_weight = 0; i_weight < n_edge_h; ++i_weight)
     {
         for (unsigned i_basis = 0; i_basis < n_surf; ++i_basis)
@@ -787,7 +785,7 @@ eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, mat
                 {
                     const jacobian_t *const jac = fem_space->jacobian + (j + i * n_pts_1);
 
-                    const double vector_comp = -(field[i * (2 * n_pts_1) + 2 * j + 0] * jac->j01 +
+                    const double vector_comp = -(field[i * (2 * n_pts_1) + 2 * j + 0] * jac->j10 +
                                                  field[i * (2 * n_pts_1) + 2 * j + 1] * jac->j11) /
                                                jac->det;
                     val += surf_basis_value(fem_space, i_basis, i, j) * edge_h_basis_value(fem_space, i_weight, i, j) *
@@ -805,7 +803,7 @@ eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, mat
             }
         }
     }
-    //  Bottom half, which is involved with xi-basis
+    //  Right half, which is involved with xi-basis
     for (unsigned i_weight = 0; i_weight < n_edge_v; ++i_weight)
     {
         for (unsigned i_basis = 0; i_basis < n_surf; ++i_basis)
@@ -817,7 +815,7 @@ eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, mat
                 {
                     const jacobian_t *const jac = fem_space->jacobian + (j + i * n_pts_1);
                     const double vector_comp = -(field[i * (2 * n_pts_1) + 2 * j + 0] * jac->j00 +
-                                                 field[i * (2 * n_pts_1) + 2 * j + 1] * jac->j10) /
+                                                 field[i * (2 * n_pts_1) + 2 * j + 1] * jac->j01) /
                                                jac->det;
                     val += surf_basis_value(fem_space, i_basis, i, j) * edge_v_basis_value(fem_space, i_weight, i, j) *
                            vector_comp * integration_weight_value(fem_space, i, j);
@@ -825,12 +823,12 @@ eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, mat
             }
             if (transpose)
             {
-                mat.data[i_basis * cols + i_weight] = val;
+                mat.data[i_basis * cols + (i_weight + n_edge_h)] = val;
             }
             else
             {
 
-                mat.data[i_weight * cols + i_basis] = val;
+                mat.data[(i_weight + n_edge_h) * cols + i_basis] = val;
             }
         }
     }

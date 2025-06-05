@@ -100,7 +100,7 @@ target_include_directories(_mfv2d PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE
 # target_include_directories(_eval PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
 
 if (CMAKE_C_COMPILER_ID EQUAL "GNU")
-    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -g)# -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
+    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -g -fanalyzer)# -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
 endif ()
 
 if (OPENMP_FOUND)

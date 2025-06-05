@@ -64,6 +64,11 @@
 #define MFV2D_EXTERNAL
 #endif
 
+#ifdef MFV2D_EXPORT_ALL
+#undef MFV2D_INTERNAL
+#define MFV2D_INTERNAL MFV2D_EXTERNAL
+#endif
+
 #ifndef MFV2D_ARRAY_ARG
 #define MFV2D_ARRAY_ARG(arr, sz) *arr
 #endif

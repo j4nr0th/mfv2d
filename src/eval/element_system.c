@@ -113,8 +113,8 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     for (Py_ssize_t i = 0; i < n_vector_fields; ++i)
     {
         PyObject *item = PySequence_GetItem(vector_fields_obj, i);
-        if (!check_input_array((PyArrayObject *)item, 2, (const npy_intp[2]){n2, n1}, NPY_DOUBLE,
-                               NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "vector_fields element"))
+        if (check_input_array((PyArrayObject *)item, 2, (const npy_intp[2]){n2 * n1, 2}, NPY_DOUBLE,
+                              NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "vector_fields element") < 0)
         {
             Py_DECREF(item);
             return NULL;
@@ -127,7 +127,9 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     system_template_t system_template = {};
     if (!system_template_create(&system_template, form_orders_obj, expressions, (unsigned)n_vector_fields,
                                 &SYSTEM_ALLOCATOR))
-        return NULL;
+    {
+        goto end;
+    }
 
     size_t element_size = 0;
     for (unsigned j = 0; j < system_template.n_forms; ++j)
@@ -160,6 +162,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     }
 
     double *restrict const output_mat = PyArray_DATA(return_value);
+    memset(output_mat, 0, sizeof *output_mat * element_size * element_size);
     unsigned row_offset = 0;
     for (unsigned row = 0; row < system_template.n_forms && res == EVAL_SUCCESS; ++row)
     {

@@ -6,7 +6,7 @@ MFV2D_INTERNAL
 int system_template_create(system_template_t *this, PyObject *orders, PyObject *expr_matrix, unsigned n_vec_fields,
                            const allocator_callbacks *allocator)
 {
-    // Find number of forms
+    // Find the number of forms
     {
         PyArrayObject *const order_array = (PyArrayObject *)PyArray_FromAny(
             orders, PyArray_DescrFromType(NPY_UINT), 1, 1, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
@@ -31,8 +31,8 @@ int system_template_create(system_template_t *this, PyObject *orders, PyObject *
         Py_DECREF(order_array);
     }
 
-    // Now go though the rows
-    ssize_t row_count = PySequence_Size(expr_matrix);
+    // Now go through the rows
+    const ssize_t row_count = PySequence_Size(expr_matrix);
     if (row_count < 0)
     {
         deallocate(allocator, this->form_orders);
@@ -63,17 +63,17 @@ int system_template_create(system_template_t *this, PyObject *orders, PyObject *
         {
             goto failed_row;
         }
-        row_count = PySequence_Size(row_expr);
-        if (row_count < 0)
+        const ssize_t column_count = PySequence_Size(row_expr);
+        if (column_count < 0)
         {
             goto failed_row;
         }
-        if (row_count != this->n_forms)
+        if (column_count != this->n_forms)
         {
             PyErr_Format(
                 PyExc_ValueError,
                 "Number of forms deduced from order array (%u) does not match the number of expression in row %u (%u).",
-                this->n_forms, row, row_count);
+                this->n_forms, row, column_count);
             goto failed_row;
         }
 
@@ -95,14 +95,14 @@ int system_template_create(system_template_t *this, PyObject *orders, PyObject *
                 Py_DECREF(expr);
                 goto failed_row;
             }
-            row_count = PySequence_Fast_GET_SIZE(seq);
-            if (row_count < 0)
+            const ssize_t expr_count = PySequence_Fast_GET_SIZE(seq);
+            if (expr_count < 0)
             {
                 Py_DECREF(expr);
                 goto failed_row;
             }
 
-            bytecode_t *bc = allocate(allocator, sizeof(**this->bytecodes) * (row_count + 1));
+            bytecode_t *bc = allocate(allocator, sizeof(**this->bytecodes) * (expr_count + 1));
             if (!bc)
             {
                 Py_DECREF(seq);
@@ -111,7 +111,7 @@ int system_template_create(system_template_t *this, PyObject *orders, PyObject *
             }
             this->bytecodes[row * this->n_forms + col] = bc;
             unsigned stack;
-            if (!convert_bytecode(row_count, bc, PySequence_Fast_ITEMS(seq), &stack, n_vec_fields))
+            if (!convert_bytecode(expr_count, bc, PySequence_Fast_ITEMS(seq), &stack, n_vec_fields))
             {
                 Py_DECREF(seq);
                 Py_DECREF(expr);

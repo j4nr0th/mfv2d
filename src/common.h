@@ -35,10 +35,20 @@ static inline void deallocate(const allocator_callbacks *allocator, void *ptr)
     return allocator->free(allocator->state, ptr);
 }
 
+static inline void *allocate_track(const allocator_callbacks *allocator, const size_t sz, const char *file, int line,
+                                   const char *func)
+{
+    void *const ptr = allocate(allocator, sz);
+    fprintf(stderr, "Allocating %p for %zu bytes at %s:%d (%s)\n", ptr, sz, file, line, func);
+    return ptr;
+}
+
+// #define allocate(allocator, sz) allocate_track((allocator), (sz), __FILE__, __LINE__, __func__)
+
 /**
  * @brief Validates a NumPy array based on the specified dimensions, data type, and flags.
  *
- * This function checks several conditions for the given array, including:
+ * This function checks several conditions for the given array, including
  * - Whether the array has the required flags.
  * - Whether the number of dimensions matches the expected value.
  * - Whether the data type matches the expected type (if specified).

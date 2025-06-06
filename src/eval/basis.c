@@ -1,0 +1,230 @@
+#include "basis.h"
+#include "../basis/gausslobatto.h"
+#include "../basis/lagrange.h"
+
+static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule, int order, double **nodal_vals,
+                                                    double **edge_vals)
+{
+    double *roots = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (order + 1));
+    if (!roots)
+    {
+        return MFV2D_FAILED_ALLOC;
+    }
+    double *weights = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (order + 1) * (rule->order + 1));
+    if (!weights)
+    {
+        PyMem_RawFree(roots);
+        return MFV2D_FAILED_ALLOC;
+    }
+    const int non_converged = gauss_lobatto_nodes_weights(order + 1, 1e-15, 10, roots, weights);
+    if (non_converged)
+    {
+        PyMem_RawFree(roots);
+        PyMem_RawFree(weights);
+        return MFV2D_NOT_CONVERGED;
+    }
+
+    double *const work = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (rule->order + 1));
+    if (!work)
+    {
+        deallocate(&SYSTEM_ALLOCATOR, roots);
+        deallocate(&SYSTEM_ALLOCATOR, weights);
+        return MFV2D_FAILED_ALLOC;
+    }
+
+    lagrange_polynomial_values(rule->order + 1, rule->nodes, order + 1, roots, weights, work);
+
+    *nodal_vals = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (order + 1) * (rule->order + 1));
+    if (!*nodal_vals)
+    {
+        deallocate(&SYSTEM_ALLOCATOR, weights);
+        deallocate(&SYSTEM_ALLOCATOR, work);
+        deallocate(&SYSTEM_ALLOCATOR, roots);
+        return MFV2D_FAILED_ALLOC;
+    }
+    // Transpose the values
+    for (unsigned i = 0; i < order + 1; ++i)
+    {
+        for (unsigned j = 0; j < rule->order + 1; ++j)
+        {
+            (*nodal_vals)[i * (rule->order + 1) + j] = weights[j * (order + 1) + i];
+        }
+    }
+    double *work2 = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (rule->order + 1));
+    if (!work2)
+    {
+        deallocate(&SYSTEM_ALLOCATOR, *nodal_vals);
+        deallocate(&SYSTEM_ALLOCATOR, weights);
+        deallocate(&SYSTEM_ALLOCATOR, work);
+        deallocate(&SYSTEM_ALLOCATOR, roots);
+        return MFV2D_FAILED_ALLOC;
+    }
+
+    lagrange_polynomial_first_derivative(rule->order + 1, rule->nodes, order + 1, roots, weights, work, work2);
+
+    *edge_vals = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (order + 1) * (rule->order + 1));
+    if (!*edge_vals)
+    {
+        deallocate(&SYSTEM_ALLOCATOR, *nodal_vals);
+        deallocate(&SYSTEM_ALLOCATOR, work2);
+        deallocate(&SYSTEM_ALLOCATOR, weights);
+        deallocate(&SYSTEM_ALLOCATOR, work);
+        deallocate(&SYSTEM_ALLOCATOR, roots);
+        return MFV2D_FAILED_ALLOC;
+    }
+    // Transpose and negative cumsum in one
+    for (unsigned i = 0; i < rule->order + 1; ++i)
+    {
+        double v = 0;
+        for (unsigned j = 0; j < order; ++j)
+        {
+            v -= weights[i * (order + 1) + j];
+            (*edge_vals)[j * (rule->order + 1) + i] = v;
+        }
+    }
+
+    deallocate(&SYSTEM_ALLOCATOR, weights);
+    deallocate(&SYSTEM_ALLOCATOR, work2);
+    deallocate(&SYSTEM_ALLOCATOR, work);
+    deallocate(&SYSTEM_ALLOCATOR, roots);
+    return MFV2D_SUCCESS;
+}
+static PyObject *basis_1d_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    integration_rule_1d_t *rule;
+    int order;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iO!", (char *const[3]){"order", "rule", NULL}, &order,
+                                     &integration_rule_1d_type, &rule))
+        return NULL;
+
+    if (order <= 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Order must greater than zero, got %d.", order);
+        return NULL;
+    }
+
+    double *nodal_vals, *edge_vals;
+    mfv2d_result_t computed = 0;
+    Py_BEGIN_ALLOW_THREADS;
+    computed = compute_nodal_and_edge_values(rule, order, &nodal_vals, &edge_vals);
+    Py_END_ALLOW_THREADS;
+    if (computed != MFV2D_SUCCESS)
+    {
+        if (computed == MFV2D_NOT_CONVERGED)
+            PyErr_Format(PyExc_RuntimeError, "Could not compute GLL nodes.");
+
+        return NULL;
+    }
+
+    basis_1d_t *self = (basis_1d_t *)type->tp_alloc(type, 0);
+    self->order = order;
+    self->nodal_basis = nodal_vals;
+    self->edge_basis = edge_vals;
+    self->integration_rule = rule;
+    Py_INCREF(rule);
+
+    return (PyObject *)self;
+}
+
+static void basis_1d_dealloc(basis_1d_t *self)
+{
+    Py_DECREF(self->integration_rule);
+    deallocate(&SYSTEM_ALLOCATOR, self->nodal_basis);
+    deallocate(&SYSTEM_ALLOCATOR, self->edge_basis);
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyObject *basis_1d_repr(const basis_1d_t *self)
+{
+    char buffer[128];
+    (void)snprintf(buffer, sizeof(buffer), "Basis1D(order=%u)", self->order);
+    return PyUnicode_FromString(buffer);
+}
+
+static PyObject *basis_1d_get_order(const basis_1d_t *self, void *Py_UNUSED(closure))
+{
+    return PyLong_FromLong(self->order);
+}
+
+static PyObject *basis_1d_get_nodal(const basis_1d_t *self, void *Py_UNUSED(closure))
+{
+    const npy_intp n[2] = {self->order + 1, self->integration_rule->order + 1};
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNewFromData(2, n, NPY_DOUBLE, self->nodal_basis);
+    if (out)
+    {
+        if (PyArray_SetBaseObject(out, (PyObject *)self) < 0)
+        {
+            Py_DECREF(out);
+            return NULL;
+        }
+        Py_INCREF(self);
+    }
+    return (PyObject *)out;
+}
+
+static PyObject *basis_1d_get_edge(const basis_1d_t *self, void *Py_UNUSED(closure))
+{
+    const npy_intp n[2] = {self->order, self->integration_rule->order + 1};
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNewFromData(2, n, NPY_DOUBLE, self->edge_basis);
+    if (out)
+    {
+        if (PyArray_SetBaseObject(out, (PyObject *)self) < 0)
+        {
+            Py_DECREF(out);
+            return NULL;
+        }
+        Py_INCREF(self);
+    }
+    return (PyObject *)out;
+}
+
+static PyObject *basis_1d_get_integration_rule(const basis_1d_t *self, void *Py_UNUSED(closure))
+{
+    Py_INCREF(self->integration_rule);
+    return (PyObject *)self->integration_rule;
+}
+
+static PyGetSetDef basis_1d_getsets[] = {{.name = "order",
+                                          .get = (getter)basis_1d_get_order,
+                                          .set = NULL,
+                                          .doc = "int : Order of the basis.",
+                                          .closure = NULL},
+                                         {.name = "node",
+                                          .get = (getter)basis_1d_get_nodal,
+                                          .set = NULL,
+                                          .doc = "array : Nodal basis values.",
+                                          .closure = NULL},
+                                         {.name = "edge",
+                                          .get = (getter)basis_1d_get_edge,
+                                          .set = NULL,
+                                          .doc = "array : Edge basis values.",
+                                          .closure = NULL},
+                                         {.name = "rule",
+                                          .get = (getter)basis_1d_get_integration_rule,
+                                          .set = NULL,
+                                          .doc = "IntegrationRule1D : integration rule used",
+                                          .closure = NULL},
+                                         {NULL}};
+
+PyDoc_STRVAR(basis_1d_doc, "Basis1D(order: int)\n"
+                           "1D basis functions collection used for FEM space creation.\n"
+                           "\n"
+                           "Parameters\n"
+                           "----------\n"
+                           "order : int\n"
+                           "    Order of basis used.\n"
+                           "\n"
+                           "rule : IntegrationRule1D\n"
+                           "    Integration rule for basis creation.\n");
+
+PyTypeObject basis_1d_type = {
+    .tp_new = basis_1d_new,
+    .tp_dealloc = (destructor)basis_1d_dealloc,
+    .tp_repr = (reprfunc)basis_1d_repr,
+    .tp_getset = basis_1d_getsets,
+    .tp_name = "mfv2d._mfv2d.Basis1D",
+    .tp_basicsize = sizeof(basis_1d_t),
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .tp_doc = basis_1d_doc,
+    .tp_itemsize = 0,
+};

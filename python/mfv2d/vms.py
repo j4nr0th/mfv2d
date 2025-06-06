@@ -7,6 +7,8 @@ import numpy.typing as npt
 from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
+from mfv2d._mfv2d import Basis1D, IntegrationRule1D
+from mfv2d.basis import Basis2D
 from mfv2d.element import (
     ElementCollection,
     FixedElementArray,
@@ -17,7 +19,7 @@ from mfv2d.element import (
 )
 from mfv2d.eval import _CompiledCodeMatrix
 from mfv2d.kform import KFormSystem, KFormUnknown, VectorFieldFunction
-from mfv2d.mimetic2d import Basis1D, Basis2D, BasisCache, IntegrationRule1D
+from mfv2d.mimetic2d import BasisCache
 from mfv2d.solve_system import (
     assemble_matrix,
     compute_leaf_element_matrices,

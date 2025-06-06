@@ -68,8 +68,9 @@ typedef struct
  * @return An evaluation result indicating success or the type of failure encountered.
  */
 MFV2D_INTERNAL
-eval_result_t fem_space_2d_create(const fem_space_1d_t *space_h, const fem_space_1d_t *space_v, const quad_info_t *quad,
-                                  fem_space_2d_t **p_out, const allocator_callbacks *allocator);
+mfv2d_result_t fem_space_2d_create(const fem_space_1d_t *space_h, const fem_space_1d_t *space_v,
+                                   const quad_info_t *quad, fem_space_2d_t **p_out,
+                                   const allocator_callbacks *allocator);
 
 /**
  * @brief Computes and assembles the nodal mass matrix for a given finite element space in 2D.
@@ -85,12 +86,12 @@ eval_result_t fem_space_2d_create(const fem_space_1d_t *space_h, const fem_space
  * @param allocator A pointer to the allocator_callbacks structure used for
  *        memory allocations during the matrix assembly process.
  * @return A result code indicating the status of the computation. Possible values include:
- *         - EVAL_SUCCESS: Successful computation.
+ *         - MFV2D_SUCCESS: Successful computation.
  *         - EVAL_FAILED_ALLOC: Memory allocation failed.
  */
 MFV2D_INTERNAL
-eval_result_t compute_mass_matrix_node(const fem_space_2d_t *space, matrix_full_t *p_out,
-                                       const allocator_callbacks *allocator);
+mfv2d_result_t compute_mass_matrix_node(const fem_space_2d_t *space, matrix_full_t *p_out,
+                                        const allocator_callbacks *allocator);
 
 /**
  * @brief Computes and assembles the edge mass matrix for a given finite element space in 2D.
@@ -106,12 +107,12 @@ eval_result_t compute_mass_matrix_node(const fem_space_2d_t *space, matrix_full_
  * @param allocator A pointer to the allocator_callbacks structure used for
  *        memory allocations during the matrix assembly process.
  * @return A result code indicating the status of the computation. Possible values include:
- *         - EVAL_SUCCESS: Successful computation.
+ *         - MFV2D_SUCCESS: Successful computation.
  *         - EVAL_FAILED_ALLOC: Memory allocation failed.
  */
 MFV2D_INTERNAL
-eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *space, matrix_full_t *p_out,
-                                       const allocator_callbacks *allocator);
+mfv2d_result_t compute_mass_matrix_edge(const fem_space_2d_t *space, matrix_full_t *p_out,
+                                        const allocator_callbacks *allocator);
 
 /**
  * @brief Computes and assembles the surface mass matrix for a given finite element space in 2D.
@@ -127,12 +128,12 @@ eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *space, matrix_full_
  * @param allocator A pointer to the allocator_callbacks structure used for
  *        memory allocations during the matrix assembly process.
  * @return A result code indicating the status of the computation. Possible values include:
- *         - EVAL_SUCCESS: Successful computation.
+ *         - MFV2D_SUCCESS: Successful computation.
  *         - EVAL_FAILED_ALLOC: Memory allocation failed.
  */
 MFV2D_INTERNAL
-eval_result_t compute_mass_matrix_surf(const fem_space_2d_t *space, matrix_full_t *p_out,
-                                       const allocator_callbacks *allocator);
+mfv2d_result_t compute_mass_matrix_surf(const fem_space_2d_t *space, matrix_full_t *p_out,
+                                        const allocator_callbacks *allocator);
 
 MFV2D_INTERNAL
 extern const char compute_element_mass_matrices_docstr[];
@@ -151,20 +152,21 @@ PyObject *compute_element_mass_matrices(PyObject *self, PyObject *args, PyObject
  * @param node_val Values of nodal basis functions at integration points.
  * @param edge_val Values of edge basis functions at integration points.
  * @param p_out Pointer to the output FEM space structure.
- * @return EVAL_SUCCESS if successful, otherwise a non-zero error code.
+ * @return MFV2D_SUCCESS if successful, otherwise a non-zero error code.
  */
 MFV2D_INTERNAL
-eval_result_t fem_space_1d_from_python(unsigned order, PyObject *pts, PyObject *wts, PyObject *node_val,
-                                       PyObject *edge_val, fem_space_1d_t *p_out);
+mfv2d_result_t fem_space_1d_from_python(unsigned order, PyObject *pts, PyObject *wts, PyObject *node_val,
+                                        PyObject *edge_val, fem_space_1d_t *p_out);
 
 MFV2D_INTERNAL
-eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
-                                            const allocator_callbacks *allocator, const double *field, int transpose);
+mfv2d_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                             const allocator_callbacks *allocator, const double *field, int transpose);
 MFV2D_INTERNAL
-eval_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
-                                            const allocator_callbacks *allocator, const double *field, int dual);
+mfv2d_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                             const allocator_callbacks *allocator, const double *field, int dual);
 
 MFV2D_INTERNAL
-eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
-                                            const allocator_callbacks *allocator, const double *field, int transpose);
+mfv2d_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                             const allocator_callbacks *allocator, const double *field, int transpose);
+
 #endif // FEM_SPACE_H

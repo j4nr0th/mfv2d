@@ -4,18 +4,18 @@
 
 #include "incidence.h"
 
-static eval_result_t check_dims(const matrix_full_t *const mat, const unsigned rows, const unsigned cols)
+static mfv2d_result_t check_dims(const matrix_full_t *const mat, const unsigned rows, const unsigned cols)
 {
     if ((rows != 0 && mat->base.rows != rows) || (cols != 0 && mat->base.cols != cols))
-        return EVAL_DIMS_MISMATCH;
-    return EVAL_SUCCESS;
+        return MFV2D_DIMS_MISMATCH;
+    return MFV2D_SUCCESS;
 }
 
-eval_result_t apply_e10_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
-                             const allocator_callbacks *allocator)
+mfv2d_result_t apply_e10_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+                              const allocator_callbacks *allocator)
 {
-    eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, (order + 1) * (order + 1), 0)) != EVAL_SUCCESS)
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    if ((res = check_dims(in, (order + 1) * (order + 1), 0)) != MFV2D_SUCCESS)
         return res;
 
     const unsigned n_rows = 2 * order * (order + 1);
@@ -23,7 +23,7 @@ eval_result_t apply_e10_left(const unsigned order, const matrix_full_t *in, matr
 
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     for (unsigned i_col = 0; i_col < n_cols; ++i_col)
     {
@@ -58,11 +58,11 @@ eval_result_t apply_e10_left(const unsigned order, const matrix_full_t *in, matr
     return res;
 }
 
-eval_result_t apply_e21_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
-                             const allocator_callbacks *allocator)
+mfv2d_result_t apply_e21_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+                              const allocator_callbacks *allocator)
 {
-    eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 2 * order * (order + 1), 0)) != EVAL_SUCCESS)
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    if ((res = check_dims(in, 2 * order * (order + 1), 0)) != MFV2D_SUCCESS)
         return res;
 
     const unsigned n_rows = order * order;
@@ -70,7 +70,7 @@ eval_result_t apply_e21_left(const unsigned order, const matrix_full_t *in, matr
 
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     for (unsigned i_col = 0; i_col < n_cols; ++i_col)
     {
@@ -94,11 +94,11 @@ eval_result_t apply_e21_left(const unsigned order, const matrix_full_t *in, matr
     return res;
 }
 
-eval_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
-                              const allocator_callbacks *allocator)
+mfv2d_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+                               const allocator_callbacks *allocator)
 {
-    eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 2 * (order + 1) * order, 0)) != EVAL_SUCCESS)
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    if ((res = check_dims(in, 2 * (order + 1) * order, 0)) != MFV2D_SUCCESS)
         return res;
 
     const unsigned n_rows = (order + 1) * (order + 1);
@@ -106,7 +106,7 @@ eval_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, mat
 
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
     memset(ptr, 0, n_rows * n_cols * sizeof *ptr);
 
     for (unsigned i_col = 0; i_col < n_cols; ++i_col)
@@ -160,11 +160,11 @@ eval_result_t apply_e10t_left(const unsigned order, const matrix_full_t *in, mat
     return res;
 }
 
-eval_result_t apply_e21t_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
-                              const allocator_callbacks *allocator)
+mfv2d_result_t apply_e21t_left(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+                               const allocator_callbacks *allocator)
 {
-    eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, order * order, 0)) != EVAL_SUCCESS)
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    if ((res = check_dims(in, order * order, 0)) != MFV2D_SUCCESS)
         return res;
 
     const unsigned n_rows = 2 * order * (order + 1);
@@ -172,7 +172,7 @@ eval_result_t apply_e21t_left(const unsigned order, const matrix_full_t *in, mat
 
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
     memset(ptr, 0, n_rows * n_cols * sizeof *ptr);
     for (unsigned i_col = 0; i_col < n_cols; ++i_col)
     {
@@ -225,11 +225,11 @@ eval_result_t apply_e21t_left(const unsigned order, const matrix_full_t *in, mat
     return res;
 }
 
-eval_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
-                              const allocator_callbacks *allocator)
+mfv2d_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+                               const allocator_callbacks *allocator)
 {
-    eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 0, 2 * (order + 1) * order)) != EVAL_SUCCESS)
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    if ((res = check_dims(in, 0, 2 * (order + 1) * order)) != MFV2D_SUCCESS)
         return res;
 
     const unsigned n_rows = in->base.rows;
@@ -237,7 +237,7 @@ eval_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, mat
 
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
     memset(ptr, 0, n_rows * n_cols * sizeof *ptr);
     memset(ptr, 0, n_rows * n_cols * sizeof *ptr);
 
@@ -292,11 +292,11 @@ eval_result_t apply_e10_right(const unsigned order, const matrix_full_t *in, mat
     return res;
 }
 
-eval_result_t apply_e21_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
-                              const allocator_callbacks *allocator)
+mfv2d_result_t apply_e21_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+                               const allocator_callbacks *allocator)
 {
-    eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 0, order * order)) != EVAL_SUCCESS)
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    if ((res = check_dims(in, 0, order * order)) != MFV2D_SUCCESS)
         return res;
 
     const unsigned n_rows = in->base.rows;
@@ -304,7 +304,7 @@ eval_result_t apply_e21_right(const unsigned order, const matrix_full_t *in, mat
 
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
     memset(ptr, 0, n_rows * n_cols * sizeof *ptr);
     for (unsigned i_row = 0; i_row < n_rows; ++i_row)
     {
@@ -357,11 +357,11 @@ eval_result_t apply_e21_right(const unsigned order, const matrix_full_t *in, mat
     return res;
 }
 
-eval_result_t apply_e10t_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
-                               const allocator_callbacks *allocator)
+mfv2d_result_t apply_e10t_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+                                const allocator_callbacks *allocator)
 {
-    eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 0, (order + 1) * (order + 1))) != EVAL_SUCCESS)
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    if ((res = check_dims(in, 0, (order + 1) * (order + 1))) != MFV2D_SUCCESS)
         return res;
 
     const unsigned n_rows = in->base.rows;
@@ -369,7 +369,7 @@ eval_result_t apply_e10t_right(const unsigned order, const matrix_full_t *in, ma
 
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     for (unsigned i_row = 0; i_row < n_rows; ++i_row)
     {
@@ -404,11 +404,11 @@ eval_result_t apply_e10t_right(const unsigned order, const matrix_full_t *in, ma
     return res;
 }
 
-eval_result_t apply_e21t_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
-                               const allocator_callbacks *allocator)
+mfv2d_result_t apply_e21t_right(const unsigned order, const matrix_full_t *in, matrix_full_t *out,
+                                const allocator_callbacks *allocator)
 {
-    eval_result_t res = EVAL_SUCCESS;
-    if ((res = check_dims(in, 0, 2 * order * (order + 1))) != EVAL_SUCCESS)
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    if ((res = check_dims(in, 0, 2 * order * (order + 1))) != MFV2D_SUCCESS)
         return res;
 
     const unsigned n_rows = in->base.rows;
@@ -416,7 +416,7 @@ eval_result_t apply_e21t_right(const unsigned order, const matrix_full_t *in, ma
 
     double *const restrict ptr = allocate(allocator, n_rows * n_cols * sizeof *ptr);
     if (!ptr)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     for (unsigned i_row = 0; i_row < n_rows; ++i_row)
     {
@@ -440,8 +440,8 @@ eval_result_t apply_e21t_right(const unsigned order, const matrix_full_t *in, ma
     return res;
 }
 
-eval_result_t apply_incidence_to_full_left(const incidence_type_t type, const unsigned order, const matrix_full_t *in,
-                                           matrix_full_t *p_out, const allocator_callbacks *allocator)
+mfv2d_result_t apply_incidence_to_full_left(const incidence_type_t type, const unsigned order, const matrix_full_t *in,
+                                            matrix_full_t *p_out, const allocator_callbacks *allocator)
 {
     switch (type)
     {
@@ -454,12 +454,12 @@ eval_result_t apply_incidence_to_full_left(const incidence_type_t type, const un
     case INCIDENCE_TYPE_21_T:
         return apply_e21t_left(order, in, p_out, allocator);
     default:
-        return EVAL_BAD_ENUM;
+        return MFV2D_BAD_ENUM;
     }
 }
 
-eval_result_t apply_incidence_to_full_right(const incidence_type_t type, const unsigned order, const matrix_full_t *in,
-                                            matrix_full_t *p_out, const allocator_callbacks *allocator)
+mfv2d_result_t apply_incidence_to_full_right(const incidence_type_t type, const unsigned order, const matrix_full_t *in,
+                                             matrix_full_t *p_out, const allocator_callbacks *allocator)
 {
     switch (type)
     {
@@ -472,12 +472,12 @@ eval_result_t apply_incidence_to_full_right(const incidence_type_t type, const u
     case INCIDENCE_TYPE_21_T:
         return apply_e21t_right(order, in, p_out, allocator);
     default:
-        return EVAL_BAD_ENUM;
+        return MFV2D_BAD_ENUM;
     }
 }
 
-eval_result_t incidence_to_full(const incidence_type_t type, const unsigned order, matrix_full_t *p_out,
-                                const allocator_callbacks *allocator)
+mfv2d_result_t incidence_to_full(const incidence_type_t type, const unsigned order, matrix_full_t *p_out,
+                                 const allocator_callbacks *allocator)
 {
     unsigned n_row, n_col;
     switch (type)
@@ -581,7 +581,7 @@ eval_result_t incidence_to_full(const incidence_type_t type, const unsigned orde
         break;
 
     default:
-        return EVAL_BAD_ENUM;
+        return MFV2D_BAD_ENUM;
     }
 
     *p_out = this;

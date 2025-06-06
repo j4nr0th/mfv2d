@@ -31,8 +31,9 @@ static void legendre_eval_bonnet_two(const unsigned n, const double x, double MF
     out[1] = v2;
 }
 
-static int gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsigned max_iter,
-                                       double MFV2D_ARRAY_ARG(x, restrict n), double MFV2D_ARRAY_ARG(w, restrict n))
+MFV2D_INTERNAL
+int gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsigned max_iter,
+                                double MFV2D_ARRAY_ARG(x, restrict n), double MFV2D_ARRAY_ARG(w, restrict n))
 {
     int non_converged = 0;
     // n >= 2
@@ -57,7 +58,8 @@ static int gauss_lobatto_nodes_weights(const unsigned n, const double tol, const
             new_x -= dx;
             error = fabs(dx);
         }
-        non_converged += (error > tol);
+        // this is done like this to catch any NaNs
+        non_converged += 1 - (error <= tol);
         x[n - i] = new_x;
         legendre_eval_bonnet_two(n - 1, new_x, leg_poly);
         w[n - i] = 2.0 / (n * (n - 1) * leg_poly[1] * leg_poly[1]);
@@ -150,3 +152,150 @@ PyObject *compute_gauss_lobatto_nodes(PyObject *Py_UNUSED(self), PyObject *args,
 
     return PyTuple_Pack(2, nodes, weights);
 }
+
+static PyObject *integration_rule_1d_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    int order;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "i", (char *const[2]){"order", NULL}, &order))
+        return NULL;
+    if (order < 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Order must be non-negative, got %d.", order);
+        return NULL;
+    }
+
+    double *nodal_vals, *weight_vals;
+    int non_converged = 0;
+    Py_BEGIN_ALLOW_THREADS;
+
+    nodal_vals = PyMem_RawMalloc(sizeof(double) * (order + 1));
+    weight_vals = PyMem_RawMalloc(sizeof(double) * (order + 1));
+    if (nodal_vals && weight_vals)
+    {
+        non_converged = gauss_lobatto_nodes_weights(order + 1, 1e-15, 10, nodal_vals, weight_vals);
+    }
+    Py_END_ALLOW_THREADS;
+    if (!nodal_vals || !weight_vals)
+    {
+        PyMem_RawFree(nodal_vals);
+        PyMem_RawFree(weight_vals);
+        return NULL;
+    }
+    if (non_converged)
+    {
+        PyErr_Format(PyExc_RuntimeError,
+                     "Failed to compute Gauss-Lobatto nodes and weights (%d nodes did not converge).", non_converged);
+
+        PyMem_RawFree(nodal_vals);
+        PyMem_RawFree(weight_vals);
+        return NULL;
+    }
+
+    integration_rule_1d_t *const self = (integration_rule_1d_t *)type->tp_alloc(type, 0);
+
+    if (!self)
+        return NULL;
+
+    self->order = order;
+    self->nodes = nodal_vals;
+    self->weights = weight_vals;
+
+    return (PyObject *)self;
+}
+
+static void integration_rule_1d_dealloc(integration_rule_1d_t *self)
+{
+    PyMem_RawFree(self->nodes);
+    PyMem_RawFree(self->weights);
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyObject *integration_rule_1d_get_order(const integration_rule_1d_t *self, void *Py_UNUSED(closure))
+{
+    return PyLong_FromLong(self->order);
+}
+
+static PyObject *integration_rule_1d_get_nodes(const integration_rule_1d_t *self, void *Py_UNUSED(closure))
+{
+    const npy_intp n = self->order + 1;
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNewFromData(1, &n, NPY_DOUBLE, self->nodes);
+    if (out)
+    {
+        if (PyArray_SetBaseObject(out, (PyObject *)self) < 0)
+        {
+            Py_DECREF(out);
+            return NULL;
+        }
+        Py_INCREF(self);
+    }
+    return (PyObject *)out;
+}
+
+static PyObject *integration_rule_1d_get_weights(const integration_rule_1d_t *self, void *Py_UNUSED(closure))
+{
+    const npy_intp n = self->order + 1;
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNewFromData(1, &n, NPY_DOUBLE, self->weights);
+    if (out)
+    {
+        if (PyArray_SetBaseObject(out, (PyObject *)self) < 0)
+        {
+            Py_DECREF(out);
+            return NULL;
+        }
+        Py_INCREF(self);
+    }
+    return (PyObject *)out;
+}
+
+static PyObject *integration_rule_1d_repr(const integration_rule_1d_t *self)
+{
+    char buffer[128];
+    (void)snprintf(buffer, sizeof(buffer), "IntegrationRule1D(order=%u)", self->order);
+    return PyUnicode_FromString(buffer);
+}
+
+static PyGetSetDef integration_rule_1d_getset[] = {{.name = "order",
+                                                    .get = (getter)integration_rule_1d_get_order,
+                                                    .set = NULL,
+                                                    .doc = "int : order of the rule",
+                                                    .closure = NULL},
+                                                   {.name = "nodes",
+                                                    .get = (getter)integration_rule_1d_get_nodes,
+                                                    .set = NULL,
+                                                    .doc = "array : Nodes for integration.",
+                                                    .closure = NULL},
+                                                   {.name = "weights",
+                                                    .get = (getter)integration_rule_1d_get_weights,
+                                                    .set = NULL,
+                                                    .doc = "array : Weights for integration.",
+                                                    .closure = NULL},
+                                                   {NULL}};
+
+PyDoc_STRVAR(integration_rule_1d_docstr, "IntegrationRule1D(order: int)\n"
+                                         "Type used to contain integration rule information.\n"
+                                         "\n"
+                                         "Parameters\n"
+                                         "----------\n"
+                                         "order : int\n"
+                                         "    Order of integration rule used. Can not be negative.\n"
+                                         "\n"
+                                         "Attributes\n"
+                                         "----------\n"
+                                         "nodes : array\n"
+                                         "    Position of integration nodes on the reference domain [-1, +1]\n"
+                                         "    where the integrated function should be evaluated.\n"
+                                         "\n"
+                                         "weights : array\n"
+                                         "    Weight values by which the values of evaluated function should be\n"
+                                         "    multiplied by.\n");
+
+PyTypeObject integration_rule_1d_type = {
+    .tp_new = integration_rule_1d_new,
+    .tp_name = "mfv2d._mfv2d.IntegrationRule1D",
+    .tp_basicsize = sizeof(integration_rule_1d_t),
+    .tp_dealloc = (destructor)integration_rule_1d_dealloc,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .tp_doc = integration_rule_1d_docstr,
+    .tp_getset = integration_rule_1d_getset,
+    .tp_repr = (reprfunc)integration_rule_1d_repr,
+};

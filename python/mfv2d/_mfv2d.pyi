@@ -1088,3 +1088,58 @@ def compute_element_matrix_test(
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Test computing element matrices for a single element."""
     ...
+@final
+class IntegrationRule1D:
+    """Type used to contain integration rule information.
+
+    Parameters
+    ----------
+    order : int
+        Order of integration rule used. Can not be negative.
+
+    Attributes
+    ----------
+    nodes : array
+        Position of integration nodes on the reference domain [-1, +1]
+        where the integrated function should be evaluated.
+
+    weights : array
+        Weight values by which the values of evaluated function should be
+        multiplied by.
+    """
+
+    def __new__(cls, order: int) -> Self: ...
+    @property
+    def order(self) -> int: ...
+    @property
+    def nodes(self) -> npt.NDArray[np.double]: ...
+    @property
+    def weights(self) -> npt.NDArray[np.double]: ...
+
+@final
+class Basis1D:
+    """1D basis functions collection used for FEM space creation.
+
+    Parameters
+    ----------
+    order : int
+        Order of basis used.
+
+    rule : IntegrationRule1D
+        Integration rule for basis creation.
+    """
+
+    def __new__(cls, order: int, rule: IntegrationRule1D) -> Self: ...
+    @property
+    def order(self) -> int:
+        """Order of the basis."""
+    @property
+    def node(self) -> npt.NDArray[np.double]:
+        """Nodal basis values."""
+        ...
+    @property
+    def edge(self) -> npt.NDArray[np.double]:
+        """Edge basis values."""
+        ...
+    @property
+    def rule(self) -> IntegrationRule1D: ...

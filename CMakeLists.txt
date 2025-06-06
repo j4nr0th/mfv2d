@@ -19,6 +19,7 @@ set(MFV2D_SOURCE_FILES
         # Common
         src/_module.c
         src/common.c
+        src/error.c
         # Basis
         src/basis/lagrange.c
         src/basis/gausslobatto.c
@@ -31,7 +32,6 @@ set(MFV2D_SOURCE_FILES
         src/topology/manifold2d.c
         # Evaluation
         src/eval/allocator.c
-        src/eval/error.c
         src/eval/evaluation.c
         src/eval/incidence.c
         src/eval/precomp.c
@@ -41,6 +41,7 @@ set(MFV2D_SOURCE_FILES
         src/eval/system_template.c
         src/eval/fem_space.c
         src/eval/element_eval.c
+        src/eval/basis.c
         # Solver
         src/solve/qr_solve.c
         src/solve/svector.c
@@ -52,6 +53,7 @@ set(MFV2D_HEADER_FILES
         src/module.h
         src/common.h
         src/common_defines.h
+        src/error.h
         # Basis
         src/basis/lagrange.h
         src/basis/gausslobatto.h
@@ -63,7 +65,6 @@ set(MFV2D_HEADER_FILES
         src/topology/manifold1d.h
         src/topology/manifold2d.h
         # Evaluation
-        src/eval/error.h
         src/eval/allocator.h
         src/eval/evaluation.h
         src/eval/incidence.h
@@ -74,6 +75,7 @@ set(MFV2D_HEADER_FILES
         src/eval/system_template.h
         src/eval/fem_space.h
         src/eval/element_eval.h
+        src/eval/basis.h
         # Solver
         src/solve/qr_solve.h
         src/solve/svector.h

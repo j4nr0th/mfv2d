@@ -10,7 +10,8 @@ from typing import Concatenate, Generic, ParamSpec, SupportsIndex, TypeVar
 import numpy as np
 import numpy.typing as npt
 
-from mfv2d.mimetic2d import Basis2D, Element2D, ElementLeaf2D, ElementNode2D
+from mfv2d.basis import Basis2D
+from mfv2d.mimetic2d import Element2D, ElementLeaf2D, ElementNode2D
 
 
 @dataclass(frozen=True)
@@ -694,11 +695,11 @@ def element_projections(
 
 # NOTE: all these three mass_mixed functions can be easily JIT-ed by Jax if vectorized
 def _element_node_mass_mixed(
-    out_node_basis_xi: npt.NDArray[np.float64],
-    out_node_basis_eta: npt.NDArray[np.float64],
-    in_node_basis_xi: npt.NDArray[np.float64],
-    in_node_basis_eta: npt.NDArray[np.float64],
-    int_weights: npt.NDArray[np.float64],
+    out_node_basis_xi: npt.NDArray[np.double],
+    out_node_basis_eta: npt.NDArray[np.double],
+    in_node_basis_xi: npt.NDArray[np.double],
+    in_node_basis_eta: npt.NDArray[np.double],
+    int_weights: npt.NDArray[np.double],
 ) -> npt.NDArray[np.float64]:
     """Compute element mass matrix for nodal basis."""
     n_coarse = (out_node_basis_xi.shape[-1] + 1) * (out_node_basis_eta.shape[-1] + 1)
@@ -727,15 +728,15 @@ def _element_node_mass_mixed(
 
 
 def _element_edge_mass_mixed(
-    out_node_basis_xi: npt.NDArray[np.float64],
-    out_node_basis_eta: npt.NDArray[np.float64],
-    in_node_basis_xi: npt.NDArray[np.float64],
-    in_node_basis_eta: npt.NDArray[np.float64],
-    out_edge_basis_xi: npt.NDArray[np.float64],
-    out_edge_basis_eta: npt.NDArray[np.float64],
-    in_edge_basis_xi: npt.NDArray[np.float64],
-    in_edge_basis_eta: npt.NDArray[np.float64],
-    int_weights: npt.NDArray[np.float64],
+    out_node_basis_xi: npt.NDArray[np.double],
+    out_node_basis_eta: npt.NDArray[np.double],
+    in_node_basis_xi: npt.NDArray[np.double],
+    in_node_basis_eta: npt.NDArray[np.double],
+    out_edge_basis_xi: npt.NDArray[np.double],
+    out_edge_basis_eta: npt.NDArray[np.double],
+    in_edge_basis_xi: npt.NDArray[np.double],
+    in_edge_basis_eta: npt.NDArray[np.double],
+    int_weights: npt.NDArray[np.double],
     khh: npt.NDArray[np.float64],
     kvv: npt.NDArray[np.float64],
     kvh: npt.NDArray[np.float64],
@@ -841,11 +842,11 @@ def _element_edge_mass_mixed(
 
 
 def _element_surf_mass_mixed(
-    out_edge_basis_xi: npt.NDArray[np.float64],
-    out_edge_basis_eta: npt.NDArray[np.float64],
-    in_edge_basis_xi: npt.NDArray[np.float64],
-    in_edge_basis_eta: npt.NDArray[np.float64],
-    int_weights: npt.NDArray[np.float64],
+    out_edge_basis_xi: npt.NDArray[np.double],
+    out_edge_basis_eta: npt.NDArray[np.double],
+    in_edge_basis_xi: npt.NDArray[np.double],
+    in_edge_basis_eta: npt.NDArray[np.double],
+    int_weights: npt.NDArray[np.double],
 ) -> npt.NDArray[np.float64]:
     """Compute element mass matrix for surface basis."""
     n_coarse = (out_edge_basis_xi.shape[-1]) * (out_edge_basis_eta.shape[-1])

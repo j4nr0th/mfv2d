@@ -1,8 +1,8 @@
 #include "fem_space.h"
 
-MFV2D_INTERNAL eval_result_t fem_space_2d_create(const fem_space_1d_t *space_h, const fem_space_1d_t *space_v,
-                                                 const quad_info_t *const quad, fem_space_2d_t **p_out,
-                                                 const allocator_callbacks *allocator)
+MFV2D_INTERNAL mfv2d_result_t fem_space_2d_create(const fem_space_1d_t *space_h, const fem_space_1d_t *space_v,
+                                                  const quad_info_t *const quad, fem_space_2d_t **p_out,
+                                                  const allocator_callbacks *allocator)
 {
 
     const unsigned rows = space_h->n_pts;
@@ -10,7 +10,7 @@ MFV2D_INTERNAL eval_result_t fem_space_2d_create(const fem_space_1d_t *space_h, 
 
     fem_space_2d_t *const out = allocate(allocator, sizeof *out + sizeof *out->jacobian * rows * cols);
     if (!out)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
     out->space_2 = *space_v;
     out->space_1 = *space_h;
 
@@ -40,7 +40,7 @@ MFV2D_INTERNAL eval_result_t fem_space_2d_create(const fem_space_1d_t *space_h, 
     }
 
     *p_out = out;
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
 static unsigned fem_space_node_basis_cnt(const fem_space_2d_t *space)
@@ -217,8 +217,8 @@ static double integration_weight_value(const fem_space_2d_t *space, const unsign
     return space->space_1.wgts[j_point] * space->space_2.wgts[i_point];
 }
 
-MFV2D_INTERNAL eval_result_t compute_mass_matrix_node(const fem_space_2d_t *space, matrix_full_t *p_out,
-                                                      const allocator_callbacks *allocator)
+MFV2D_INTERNAL mfv2d_result_t compute_mass_matrix_node(const fem_space_2d_t *space, matrix_full_t *p_out,
+                                                       const allocator_callbacks *allocator)
 {
     const fem_space_1d_t *const space_h = &space->space_1;
     const fem_space_1d_t *const space_v = &space->space_2;
@@ -229,7 +229,7 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_node(const fem_space_2d_t *spac
     const matrix_full_t out = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
                                .data = allocate(allocator, sizeof *out.data * rows * cols)};
     if (!out.data)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     for (unsigned idx_weight = 0; idx_weight < rows; ++idx_weight)
         for (unsigned idx_basis = 0; idx_basis < rows; ++idx_basis)
@@ -250,11 +250,11 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_node(const fem_space_2d_t *spac
         }
 
     *p_out = out;
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
-MFV2D_INTERNAL eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *space, matrix_full_t *p_out,
-                                                      const allocator_callbacks *allocator)
+MFV2D_INTERNAL mfv2d_result_t compute_mass_matrix_edge(const fem_space_2d_t *space, matrix_full_t *p_out,
+                                                       const allocator_callbacks *allocator)
 {
     const fem_space_1d_t *const space_h = &space->space_1;
     const fem_space_1d_t *const space_v = &space->space_2;
@@ -269,7 +269,7 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *spac
     const matrix_full_t out = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
                                .data = allocate(allocator, mem_size)};
     if (!out.data)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     // Edge basis are a pain in the ass to compute, since they are actually representing
     // two different vector components. As such, matrix has 4 blocks:
@@ -356,11 +356,11 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_edge(const fem_space_2d_t *spac
         }
 
     *p_out = out;
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
-MFV2D_INTERNAL eval_result_t compute_mass_matrix_surf(const fem_space_2d_t *space, matrix_full_t *p_out,
-                                                      const allocator_callbacks *allocator)
+MFV2D_INTERNAL mfv2d_result_t compute_mass_matrix_surf(const fem_space_2d_t *space, matrix_full_t *p_out,
+                                                       const allocator_callbacks *allocator)
 {
     const fem_space_1d_t *const space_h = &space->space_1;
     const fem_space_1d_t *const space_v = &space->space_2;
@@ -371,7 +371,7 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_surf(const fem_space_2d_t *spac
     const matrix_full_t out = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
                                .data = allocate(allocator, sizeof *out.data * rows * cols)};
     if (!out.data)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     for (unsigned idx_weight = 0; idx_weight < rows; ++idx_weight)
         for (unsigned idx_basis = 0; idx_basis < cols; ++idx_basis)
@@ -392,7 +392,7 @@ MFV2D_INTERNAL eval_result_t compute_mass_matrix_surf(const fem_space_2d_t *spac
         }
 
     *p_out = out;
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
 MFV2D_INTERNAL
@@ -447,8 +447,8 @@ PyObject *compute_element_mass_matrices(PyObject *Py_UNUSED(self), PyObject *arg
     memcpy(&quad, PyArray_DATA(corners_array), sizeof quad);
     Py_DECREF(corners_array);
     fem_space_1d_t space_1, space_2;
-    if (fem_space_1d_from_python(order_1, nodes_1, weights_1, basis_1_nodal, basis_1_edge, &space_1) != EVAL_SUCCESS ||
-        fem_space_1d_from_python(order_2, nodes_2, weights_2, basis_2_nodal, basis_2_edge, &space_2) != EVAL_SUCCESS)
+    if (fem_space_1d_from_python(order_1, nodes_1, weights_1, basis_1_nodal, basis_1_edge, &space_1) != MFV2D_SUCCESS ||
+        fem_space_1d_from_python(order_2, nodes_2, weights_2, basis_2_nodal, basis_2_edge, &space_2) != MFV2D_SUCCESS)
     {
         return NULL;
     }
@@ -457,11 +457,11 @@ PyObject *compute_element_mass_matrices(PyObject *Py_UNUSED(self), PyObject *arg
     PyArrayObject *mass_node = NULL, *mass_edge = NULL, *mass_surf = NULL;
 
     fem_space_2d_t *space;
-    eval_result_t res = fem_space_2d_create(&space_1, &space_2, &quad, &space, &SYSTEM_ALLOCATOR);
-    if (res != EVAL_SUCCESS)
+    mfv2d_result_t res = fem_space_2d_create(&space_1, &space_2, &quad, &space, &SYSTEM_ALLOCATOR);
+    if (res != MFV2D_SUCCESS)
         goto failed;
 
-    if ((res = compute_mass_matrix_node(space, &mass_out, &SYSTEM_ALLOCATOR)) != EVAL_SUCCESS)
+    if ((res = compute_mass_matrix_node(space, &mass_out, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
         goto failed;
 
     mass_node = matrix_full_to_array(&mass_out);
@@ -469,7 +469,7 @@ PyObject *compute_element_mass_matrices(PyObject *Py_UNUSED(self), PyObject *arg
     if (!mass_node)
         goto failed;
 
-    if ((res = compute_mass_matrix_edge(space, &mass_out, &SYSTEM_ALLOCATOR)) != EVAL_SUCCESS)
+    if ((res = compute_mass_matrix_edge(space, &mass_out, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
         goto failed;
 
     mass_edge = matrix_full_to_array(&mass_out);
@@ -477,7 +477,7 @@ PyObject *compute_element_mass_matrices(PyObject *Py_UNUSED(self), PyObject *arg
     if (!mass_edge)
         goto failed;
 
-    if ((res = compute_mass_matrix_surf(space, &mass_out, &SYSTEM_ALLOCATOR)) != EVAL_SUCCESS)
+    if ((res = compute_mass_matrix_surf(space, &mass_out, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
         goto failed;
 
     mass_surf = matrix_full_to_array(&mass_out);
@@ -496,15 +496,15 @@ failed:
     return NULL;
 }
 
-MFV2D_INTERNAL eval_result_t fem_space_1d_from_python(const unsigned order, PyObject *pts, PyObject *wts,
-                                                      PyObject *node_val, PyObject *edge_val, fem_space_1d_t *p_out)
+MFV2D_INTERNAL mfv2d_result_t fem_space_1d_from_python(const unsigned order, PyObject *pts, PyObject *wts,
+                                                       PyObject *node_val, PyObject *edge_val, fem_space_1d_t *p_out)
 {
     fem_space_1d_t space = {.order = order};
 
     if (check_input_array((PyArrayObject *)pts, 1, (const npy_intp[1]){0}, NPY_DOUBLE,
                           NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "integration points") < 0)
     {
-        return EVAL_UNSPECIFIED_ERROR;
+        return MFV2D_UNSPECIFIED_ERROR;
     }
     space.n_pts = PyArray_SIZE((PyArrayObject *)pts);
 
@@ -515,7 +515,7 @@ MFV2D_INTERNAL eval_result_t fem_space_1d_from_python(const unsigned order, PyOb
         check_input_array((PyArrayObject *)edge_val, 2, (const npy_intp[2]){order, space.n_pts}, NPY_DOUBLE,
                           NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "edge basis") < 0)
     {
-        return EVAL_UNSPECIFIED_ERROR;
+        return MFV2D_UNSPECIFIED_ERROR;
     }
 
     space.node = (double *)PyArray_DATA((PyArrayObject *)node_val);
@@ -524,13 +524,13 @@ MFV2D_INTERNAL eval_result_t fem_space_1d_from_python(const unsigned order, PyOb
     space.pnts = (double *)PyArray_DATA((PyArrayObject *)pts);
 
     *p_out = space;
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
 MFV2D_INTERNAL
-eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
-                                            const allocator_callbacks *allocator, const double *field,
-                                            const int transpose)
+mfv2d_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                             const allocator_callbacks *allocator, const double *field,
+                                             const int transpose)
 {
     const unsigned n_nodal = fem_space_node_basis_cnt(fem_space);
     const unsigned n_edge_h = fem_space_edge_h_basis_cnt(fem_space);
@@ -551,7 +551,7 @@ eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, mat
     const matrix_full_t mat = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
                                .data = allocate(allocator, sizeof *mat.data * rows * cols)};
     if (!mat.data)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     const unsigned n_pts_2 = fem_space->space_2.n_pts;
     const unsigned n_pts_1 = fem_space->space_1.n_pts;
@@ -616,12 +616,12 @@ eval_result_t compute_mass_matrix_node_edge(const fem_space_2d_t *fem_space, mat
 
     *p_out = mat;
 
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
 MFV2D_INTERNAL
-eval_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
-                                            const allocator_callbacks *allocator, const double *field, const int dual)
+mfv2d_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                             const allocator_callbacks *allocator, const double *field, const int dual)
 {
     const unsigned n_h_basis = fem_space_edge_h_basis_cnt(fem_space);
     const unsigned n_v_basis = fem_space_edge_v_basis_cnt(fem_space);
@@ -632,7 +632,7 @@ eval_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, mat
     const matrix_full_t mat = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
                                .data = allocate(allocator, sizeof *mat.data * rows * cols)};
     if (!mat.data)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     const unsigned n_pts_2 = fem_space->space_2.n_pts;
     const unsigned n_pts_1 = fem_space->space_1.n_pts;
@@ -730,13 +730,13 @@ eval_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, mat
 
     *p_out = mat;
 
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
 MFV2D_INTERNAL
-eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
-                                            const allocator_callbacks *allocator, const double *field,
-                                            const int transpose)
+mfv2d_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
+                                             const allocator_callbacks *allocator, const double *field,
+                                             const int transpose)
 
 {
     const unsigned n_edge_h = fem_space_edge_h_basis_cnt(fem_space);
@@ -758,7 +758,7 @@ eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, mat
     const matrix_full_t mat = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
                                .data = allocate(allocator, sizeof *mat.data * rows * cols)};
     if (!mat.data)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
 
     const unsigned n_pts_2 = fem_space->space_2.n_pts;
     const unsigned n_pts_1 = fem_space->space_1.n_pts;
@@ -826,5 +826,5 @@ eval_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, mat
 
     *p_out = mat;
 
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }

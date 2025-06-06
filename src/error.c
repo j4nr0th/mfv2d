@@ -3,21 +3,22 @@
 //
 #include "error.h"
 
-#define EVAL_RESULT_STR_ENTRY(v) [(v)] = #v
+#define MFV2D_RESULT_STR_ENTRY(v) [(v)] = #v
 static const char *eval_result_strings[EVAL_COUNT] = {
-    EVAL_RESULT_STR_ENTRY(EVAL_SUCCESS),          EVAL_RESULT_STR_ENTRY(EVAL_FAILED_ALLOC),
-    EVAL_RESULT_STR_ENTRY(EVAL_BAD_ENUM),         EVAL_RESULT_STR_ENTRY(EVAL_DIMS_MISMATCH),
-    EVAL_RESULT_STR_ENTRY(EVAL_DOUBLE_INCIDENCE), EVAL_RESULT_STR_ENTRY(EVAL_OUT_OF_INSTRUCTIONS),
-    EVAL_RESULT_STR_ENTRY(EVAL_STACK_OVERFLOW),   EVAL_RESULT_STR_ENTRY(EVAL_STACK_UNDERFLOW),
-    EVAL_RESULT_STR_ENTRY(EVAL_WRONG_MAT_TYPES),  EVAL_RESULT_STR_ENTRY(EVAL_STACK_NOT_EMPTY),
-    EVAL_RESULT_STR_ENTRY(EVAL_NOT_SQUARE),       EVAL_RESULT_STR_ENTRY(EVAL_NOT_IN_SURFACE),
-    EVAL_RESULT_STR_ENTRY(EVAL_ORDER_MISMATCH),   EVAL_RESULT_STR_ENTRY(EVAL_UNSPECIFIED_ERROR),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_SUCCESS),          MFV2D_RESULT_STR_ENTRY(MFV2D_FAILED_ALLOC),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_BAD_ENUM),         MFV2D_RESULT_STR_ENTRY(MFV2D_DIMS_MISMATCH),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_DOUBLE_INCIDENCE), MFV2D_RESULT_STR_ENTRY(MFV2D_OUT_OF_INSTRUCTIONS),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_STACK_OVERFLOW),   MFV2D_RESULT_STR_ENTRY(MFV2D_STACK_UNDERFLOW),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_WRONG_MAT_TYPES),  MFV2D_RESULT_STR_ENTRY(MFV2D_STACK_NOT_EMPTY),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_NOT_SQUARE),       MFV2D_RESULT_STR_ENTRY(MFV2D_NOT_IN_SURFACE),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_ORDER_MISMATCH),   MFV2D_RESULT_STR_ENTRY(MFV2D_UNSPECIFIED_ERROR),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_NOT_CONVERGED),
 };
-#undef EVAL_RESULT_STR_ENTRY
+#undef MFV2D_RESULT_STR_ENTRY
 
-const char *eval_result_str(eval_result_t e)
+const char *mfv2d_result_str(mfv2d_result_t e)
 {
-    if (e < EVAL_SUCCESS || e >= EVAL_COUNT)
+    if (e < MFV2D_SUCCESS || e >= EVAL_COUNT)
         return "UNKNOWN";
     return eval_result_strings[e];
 }
@@ -34,7 +35,7 @@ error_stack_t *error_stack_create(unsigned capacity, const allocator_callbacks *
     return this;
 }
 
-void error_message_submit(error_stack_t *stack, const char *file, int line, const char *func, eval_result_t err,
+void error_message_submit(error_stack_t *stack, const char *file, int line, const char *func, mfv2d_result_t err,
                           const char *msg, ...)
 {
     if (stack->position == stack->capacity)

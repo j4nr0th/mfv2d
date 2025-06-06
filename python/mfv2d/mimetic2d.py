@@ -438,53 +438,6 @@ def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.uint32]:
     )
 
 
-@dataclass(frozen=True)
-class IntegrationRule1D:
-    """Type used to cache integration nodes and weights."""
-
-    order: int
-    nodes: npt.NDArray[np.float64]
-    weights: npt.NDArray[np.float64]
-
-    def __init__(self, order: int, /) -> None:
-        nodes, weights = compute_gll(order)
-        object.__setattr__(self, "nodes", nodes)
-        object.__setattr__(self, "weights", weights)
-
-
-@dataclass(frozen=True)
-class Basis1D:
-    """Type used to store 1D basis information."""
-
-    order: int
-    node: npt.NDArray[np.float64]
-    edge: npt.NDArray[np.float64]
-    rule: IntegrationRule1D
-
-    def __init__(self, order: int, rule: IntegrationRule1D) -> None:
-        object.__setattr__(self, "order", order)
-        object.__setattr__(self, "rule", rule)
-        gll_nodes, _ = compute_gll(order)
-        value_nodal = lagrange1d(gll_nodes, rule.nodes)
-        object.__setattr__(self, "node", np.ascontiguousarray(value_nodal.T, np.float64))
-        dvalue_nodal = dlagrange1d(gll_nodes, rule.nodes)
-        value_edge = np.cumsum(-dvalue_nodal[:, :-1], axis=-1)
-        object.__setattr__(self, "edge", np.ascontiguousarray(value_edge.T, np.float64))
-
-
-@dataclass(frozen=True)
-class Basis2D:
-    """Type used to store 2D basis information."""
-
-    basis_xi: Basis1D
-    basis_eta: Basis1D
-
-    def __post_init__(self) -> None:
-        """Temporary check to make sure order is same (maybe change later)."""
-        if self.basis_xi.order != self.basis_eta.order:
-            raise NotImplementedError("Basis order must match for now.")
-
-
 class BasisCache:
     """Cache for basis evaluation to allow for faster evaluation of mass matrices.
 

@@ -92,11 +92,11 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         return NULL;
 
     fem_space_1d_t space_1, space_2;
-    eval_result_t res = fem_space_1d_from_python(order_1, nodes_1, weights_1, basis_1_nodal, basis_1_edge, &space_1);
-    if (res != EVAL_SUCCESS)
+    mfv2d_result_t res = fem_space_1d_from_python(order_1, nodes_1, weights_1, basis_1_nodal, basis_1_edge, &space_1);
+    if (res != MFV2D_SUCCESS)
         goto end;
     res = fem_space_1d_from_python(order_2, nodes_2, weights_2, basis_2_nodal, basis_2_edge, &space_2);
-    if (res != EVAL_SUCCESS)
+    if (res != MFV2D_SUCCESS)
         goto end;
 
     const unsigned n1 = space_1.n_pts, n2 = space_2.n_pts;
@@ -144,7 +144,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     const quad_info_t *const quad = PyArray_DATA((PyArrayObject *)corners);
     fem_space_2d_t *fem_space = NULL;
     res = fem_space_2d_create(&space_1, &space_2, quad, &fem_space, &SYSTEM_ALLOCATOR);
-    if (res != EVAL_SUCCESS)
+    if (res != MFV2D_SUCCESS)
         goto cleanup_template;
 
     error_stack_t *const err_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
@@ -152,7 +152,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     allocator_stack_t *const allocator_stack = allocator_stack_create((size_t)stack_memory, &SYSTEM_ALLOCATOR);
     if (!matrix_stack || !err_stack || !allocator_stack)
     {
-        res = EVAL_FAILED_ALLOC;
+        res = MFV2D_FAILED_ALLOC;
         deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
         deallocate(&SYSTEM_ALLOCATOR, err_stack);
         if (allocator_stack)
@@ -164,11 +164,11 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     double *restrict const output_mat = PyArray_DATA(return_value);
     memset(output_mat, 0, sizeof *output_mat * element_size * element_size);
     unsigned row_offset = 0;
-    for (unsigned row = 0; row < system_template.n_forms && res == EVAL_SUCCESS; ++row)
+    for (unsigned row = 0; row < system_template.n_forms && res == MFV2D_SUCCESS; ++row)
     {
         const unsigned row_len = form_degrees_of_freedom_count(system_template.form_orders[row], order_1, order_2);
         size_t col_offset = 0;
-        for (unsigned col = 0; col < system_template.n_forms /*&& res == EVAL_SUCCESS*/; ++col)
+        for (unsigned col = 0; col < system_template.n_forms /*&& res == MFV2D_SUCCESS*/; ++col)
         {
             const unsigned col_len = form_degrees_of_freedom_count(system_template.form_orders[col], order_1, order_2);
             const bytecode_t *bytecode = system_template.bytecodes[row * system_template.n_forms + col];
@@ -183,17 +183,17 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
             res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, fem_space,
                                  &element_field_information, system_template.max_stack, matrix_stack,
                                  &allocator_stack->base, &mat, NULL);
-            if (res != EVAL_SUCCESS)
+            if (res != MFV2D_SUCCESS)
             {
-                EVAL_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
+                MFV2D_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
                 break;
             }
             if (row_len != mat.base.rows || col_len != mat.base.cols)
             {
-                EVAL_ERROR(err_stack, EVAL_DIMS_MISMATCH,
-                           "Output matrix arrays don't match expected dims (got %u x %u when needed %u x %u).",
-                           mat.base.rows, mat.base.cols, row_len, col_len);
-                res = EVAL_DIMS_MISMATCH;
+                MFV2D_ERROR(err_stack, MFV2D_DIMS_MISMATCH,
+                            "Output matrix arrays don't match expected dims (got %u x %u when needed %u x %u).",
+                            mat.base.rows, mat.base.cols, row_len, col_len);
+                res = MFV2D_DIMS_MISMATCH;
                 break;
             }
 
@@ -223,8 +223,8 @@ cleanup_stacks:
         for (unsigned i_e = 0; i_e < err_stack->position; ++i_e)
         {
             const error_message_t *msg = err_stack->messages + i_e;
-            fprintf(stderr, "%s:%d in %s: (%s) - %s\n", msg->file, msg->line, msg->function, eval_result_str(msg->code),
-                    msg->message);
+            fprintf(stderr, "%s:%d in %s: (%s) - %s\n", msg->file, msg->line, msg->function,
+                    mfv2d_result_str(msg->code), msg->message);
             deallocate(err_stack->allocator, msg->message);
         }
     }
@@ -237,10 +237,10 @@ cleanup_fem_space:
 cleanup_template:
     system_template_destroy(&system_template, &SYSTEM_ALLOCATOR);
 end:
-    if (res != EVAL_SUCCESS)
+    if (res != MFV2D_SUCCESS)
     {
         Py_XDECREF(return_value);
-        PyErr_Format(PyExc_RuntimeError, "Runtime error %s was encountered.", eval_result_str(res));
+        PyErr_Format(PyExc_RuntimeError, "Runtime error %s was encountered.", mfv2d_result_str(res));
         return NULL;
     }
     return (PyObject *)return_value;

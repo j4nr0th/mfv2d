@@ -17,22 +17,22 @@ PyArrayObject *matrix_full_to_array(const matrix_full_t *mat)
     return out;
 }
 
-eval_result_t matrix_full_copy(const matrix_full_t *this, matrix_full_t *out, const allocator_callbacks *allocator)
+mfv2d_result_t matrix_full_copy(const matrix_full_t *this, matrix_full_t *out, const allocator_callbacks *allocator)
 {
     double *const restrict ptr = allocate(allocator, sizeof(*ptr) * this->base.rows * this->base.cols);
     if (!ptr)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
     memcpy(ptr, this->data, sizeof(*ptr) * this->base.rows * this->base.cols);
     *out = (matrix_full_t){.base = {.type = MATRIX_TYPE_FULL, .rows = this->base.rows, .cols = this->base.cols},
                            .data = ptr};
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
-eval_result_t matrix_full_multiply(const matrix_full_t *left, const matrix_full_t *right, matrix_full_t *out,
-                                   const allocator_callbacks *allocator)
+mfv2d_result_t matrix_full_multiply(const matrix_full_t *left, const matrix_full_t *right, matrix_full_t *out,
+                                    const allocator_callbacks *allocator)
 {
     if (left->base.cols != right->base.rows)
-        return EVAL_DIMS_MISMATCH;
+        return MFV2D_DIMS_MISMATCH;
 
     const unsigned n = right->base.rows;
 
@@ -55,13 +55,13 @@ eval_result_t matrix_full_multiply(const matrix_full_t *left, const matrix_full_
     }
 
     *out = this;
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
-eval_result_t matrix_full_add_inplace(const matrix_full_t *in, matrix_full_t *out)
+mfv2d_result_t matrix_full_add_inplace(const matrix_full_t *in, matrix_full_t *out)
 {
     if (in->base.cols != out->base.cols || in->base.rows != out->base.rows)
-        return EVAL_DIMS_MISMATCH;
+        return MFV2D_DIMS_MISMATCH;
 
     for (unsigned row = 0; row < in->base.rows; ++row)
     {
@@ -71,15 +71,15 @@ eval_result_t matrix_full_add_inplace(const matrix_full_t *in, matrix_full_t *ou
         }
     }
 
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
-eval_result_t matrix_multiply(error_stack_t *error_stack, const unsigned order, const matrix_t *right,
-                              const matrix_t *left, matrix_t *out, const allocator_callbacks *allocator)
+mfv2d_result_t matrix_multiply(error_stack_t *error_stack, const unsigned order, const matrix_t *right,
+                               const matrix_t *left, matrix_t *out, const allocator_callbacks *allocator)
 {
     (void)error_stack;
     double k_right = right->coefficient, k_left = left->coefficient;
-    eval_result_t res = EVAL_SUCCESS;
+    mfv2d_result_t res = MFV2D_SUCCESS;
     switch (right->type)
     {
     case MATRIX_TYPE_IDENTITY:
@@ -113,9 +113,9 @@ eval_result_t matrix_multiply(error_stack_t *error_stack, const unsigned order, 
 
         case MATRIX_TYPE_INCIDENCE: {
             matrix_full_t tmp;
-            if ((res = incidence_to_full(right->incidence.incidence, order, &tmp, allocator)) != EVAL_SUCCESS)
+            if ((res = incidence_to_full(right->incidence.incidence, order, &tmp, allocator)) != MFV2D_SUCCESS)
             {
-                EVAL_ERROR(error_stack, res, "Could not make a full incidence matrix %u.", right->incidence.incidence);
+                MFV2D_ERROR(error_stack, res, "Could not make a full incidence matrix %u.", right->incidence.incidence);
                 return res;
             }
             res = apply_incidence_to_full_left(left->incidence.incidence, order, &tmp, (matrix_full_t *)out, allocator);
@@ -177,7 +177,7 @@ eval_result_t matrix_multiply(error_stack_t *error_stack, const unsigned order, 
             break;
 
         case MATRIX_TYPE_INVALID:
-            return EVAL_BAD_ENUM;
+            return MFV2D_BAD_ENUM;
         }
         break;
     }
@@ -186,12 +186,12 @@ eval_result_t matrix_multiply(error_stack_t *error_stack, const unsigned order, 
 }
 
 // TODO: THIS SHOULD ADD, NOT MULTIPLY!!!
-eval_result_t matrix_add(const unsigned order, matrix_t *right, matrix_t *left, matrix_t *out,
-                         const allocator_callbacks *allocator)
+mfv2d_result_t matrix_add(const unsigned order, matrix_t *right, matrix_t *left, matrix_t *out,
+                          const allocator_callbacks *allocator)
 {
-    eval_result_t res = EVAL_SUCCESS;
+    mfv2d_result_t res = MFV2D_SUCCESS;
     if (left->type == MATRIX_TYPE_INVALID || right->type == MATRIX_TYPE_INVALID)
-        return EVAL_BAD_ENUM;
+        return MFV2D_BAD_ENUM;
 
     int free_left = 1, free_right = 1;
     if (left->type == MATRIX_TYPE_FULL)
@@ -213,20 +213,20 @@ eval_result_t matrix_add(const unsigned order, matrix_t *right, matrix_t *left, 
         if (left->type == MATRIX_TYPE_IDENTITY)
         {
             *out = (matrix_t){.type = MATRIX_TYPE_IDENTITY, .coefficient = left->coefficient + right->coefficient};
-            return EVAL_SUCCESS;
+            return MFV2D_SUCCESS;
         }
 
         if (left->type == MATRIX_TYPE_INCIDENCE && left->incidence.incidence == right->incidence.incidence)
         {
             *out = (matrix_t){.incidence = {.base.type = MATRIX_TYPE_INCIDENCE, .incidence = left->incidence.incidence},
                               .coefficient = left->coefficient + right->coefficient};
-            return EVAL_SUCCESS;
+            return MFV2D_SUCCESS;
         }
 
         if (left->type == MATRIX_TYPE_FULL)
         {
-            eval_result_t res = matrix_full_copy(&right->full, &out->full, allocator);
-            if (res != EVAL_SUCCESS)
+            mfv2d_result_t res = matrix_full_copy(&right->full, &out->full, allocator);
+            if (res != MFV2D_SUCCESS)
             {
                 return res;
             }
@@ -239,7 +239,7 @@ eval_result_t matrix_add(const unsigned order, matrix_t *right, matrix_t *left, 
 
     if (!free_left && !free_right)
     {
-        return EVAL_WRONG_MAT_TYPES;
+        return MFV2D_WRONG_MAT_TYPES;
     }
 
     matrix_full_t full_old;
@@ -258,17 +258,17 @@ eval_result_t matrix_add(const unsigned order, matrix_t *right, matrix_t *left, 
     if (to_convert->type == MATRIX_TYPE_IDENTITY)
     {
         if (full_old.base.rows != full_old.base.cols)
-            return EVAL_DIMS_MISMATCH;
+            return MFV2D_DIMS_MISMATCH;
 
         res = matrix_full_copy(&full_old, &out->full, allocator);
-        if (res != EVAL_SUCCESS)
+        if (res != MFV2D_SUCCESS)
             return res;
         matrix_add_diagonal_inplace(&out->full, to_convert->coefficient);
     }
 
     // to_convert->type == MATRIX_TYPE_INCIDENCE
     res = incidence_to_full(to_convert->incidence.incidence, order, &out->full, allocator);
-    if (res != EVAL_SUCCESS)
+    if (res != MFV2D_SUCCESS)
         return res;
     res = matrix_full_add_inplace(&full_old, &out->full);
     out->coefficient = 1.0;
@@ -344,16 +344,17 @@ void matrix_print(const matrix_t *mtx)
 }
 
 MFV2D_INTERNAL
-eval_result_t matrix_full_invert(const matrix_full_t *this, matrix_full_t *p_out, const allocator_callbacks *allocator)
+mfv2d_result_t matrix_full_invert(const matrix_full_t *this, matrix_full_t *p_out, const allocator_callbacks *allocator)
 {
     if (this->base.rows != this->base.cols)
-        return EVAL_DIMS_MISMATCH;
-    const matrix_full_t out = {.base = this->base, .data = allocate(allocator, sizeof(*out.data) * this->base.rows * this->base.cols)};
+        return MFV2D_DIMS_MISMATCH;
+    const matrix_full_t out = {.base = this->base,
+                               .data = allocate(allocator, sizeof(*out.data) * this->base.rows * this->base.cols)};
     if (!out.data)
-        return EVAL_FAILED_ALLOC;
+        return MFV2D_FAILED_ALLOC;
     invert_matrix(this->base.rows, this->data, out.data, out.data);
     *p_out = out;
-    return EVAL_SUCCESS;
+    return MFV2D_SUCCESS;
 }
 
 /**
@@ -365,8 +366,7 @@ eval_result_t matrix_full_invert(const matrix_full_t *this, matrix_full_t *p_out
  * @param out Where to write the resulting inverse matrix to. Can be equal to ``mat``.
  */
 MFV2D_INTERNAL
-void invert_matrix(const unsigned n, const double mat[static n * n], double buffer[restrict n * n],
-                          double out[n * n])
+void invert_matrix(const unsigned n, const double mat[static n * n], double buffer[restrict n * n], double out[n * n])
 {
     for (uint32_t i = 0; i < n; ++i)
     {

@@ -10,7 +10,7 @@ from typing import Concatenate, Generic, ParamSpec, SupportsIndex, TypeVar
 import numpy as np
 import numpy.typing as npt
 
-from mfv2d.basis import Basis2D
+from mfv2d._mfv2d import Basis2D
 from mfv2d.mimetic2d import Element2D, ElementLeaf2D, ElementNode2D
 
 

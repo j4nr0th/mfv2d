@@ -3,10 +3,16 @@
 import numpy as np
 import numpy.typing as npt
 import pytest
-from mfv2d._mfv2d import compute_element_matrices, compute_element_matrix
+from mfv2d._mfv2d import (
+    Basis1D,
+    Basis2D,
+    IntegrationRule1D,
+    compute_element_matrices,
+    compute_element_matrix,
+)
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import KFormSystem, KFormUnknown
-from mfv2d.mimetic2d import Basis1D, Basis2D, BasisCache, ElementLeaf2D, IntegrationRule1D
+from mfv2d.mimetic2d import BasisCache, ElementLeaf2D
 
 
 def test_advect_21_deformed() -> None:
@@ -81,17 +87,8 @@ def test_advect_21_deformed() -> None:
         tuple(form.order for form in system.unknown_forms),
         compiled.lhs_full,
         np.array([e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64),
-        e.order,
-        e.order,
         vec_fields,
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
 
     mat_1 = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
@@ -175,17 +172,8 @@ def test_advect_10_deformed() -> None:
         tuple(form.order for form in system.unknown_forms),
         compiled.lhs_full,
         np.array([e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64),
-        e.order,
-        e.order,
         vec_fields,
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
 
     mat_1 = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) :]
@@ -272,17 +260,8 @@ def test_dual_advect_21_irregular() -> None:
         tuple(form.order for form in system.unknown_forms),
         compiled.lhs_full,
         np.array([e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64),
-        e.order,
-        e.order,
         vec_fields,
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
 
     mat_1 = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
@@ -368,17 +347,8 @@ def test_dual_advect_10_deformed() -> None:
         tuple(form.order for form in system.unknown_forms),
         compiled.lhs_full,
         np.array([e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64),
-        e.order,
-        e.order,
         vec_fields,
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
 
     mat_1 = emat[2 * (N + 1) * N :, : 2 * (N + 1) * N]

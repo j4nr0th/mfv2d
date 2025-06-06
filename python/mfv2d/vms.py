@@ -7,8 +7,7 @@ import numpy.typing as npt
 from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
-from mfv2d._mfv2d import Basis1D, IntegrationRule1D
-from mfv2d.basis import Basis2D
+from mfv2d._mfv2d import Basis1D, Basis2D, IntegrationRule1D
 from mfv2d.element import (
     ElementCollection,
     FixedElementArray,

@@ -28,4 +28,14 @@ static inline fem_space_1d_t basis_1d_as_fem_space(const basis_1d_t *self)
     };
 }
 
+typedef struct
+{
+    PyObject_HEAD;
+    basis_1d_t *basis_xi;
+    basis_1d_t *basis_eta;
+} basis_2d_t;
+
+MFV2D_INTERNAL
+extern PyTypeObject basis_2d_type;
+
 #endif // BASIS_H

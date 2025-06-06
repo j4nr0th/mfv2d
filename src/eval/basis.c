@@ -228,3 +228,66 @@ PyTypeObject basis_1d_type = {
     .tp_doc = basis_1d_doc,
     .tp_itemsize = 0,
 };
+
+// __new__ method
+static PyObject *basis_2d_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    basis_1d_t *basis_xi = NULL, *basis_eta = NULL;
+    static char *kwlist[] = {"basis_xi", "basis_eta", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!", kwlist, &basis_1d_type, &basis_xi, &basis_1d_type, &basis_eta))
+        return NULL;
+
+    basis_2d_t *const self = (basis_2d_t *)type->tp_alloc(type, 0);
+    if (!self)
+        return NULL;
+
+    Py_INCREF(basis_xi);
+    Py_INCREF(basis_eta);
+    self->basis_xi = basis_xi;
+    self->basis_eta = basis_eta;
+    return (PyObject *)self;
+}
+
+// __repr__ method
+static PyObject *basis_2d_repr(const basis_2d_t *self)
+{
+    return PyUnicode_FromFormat("Basis2D(basis_xi=%R, basis_eta=%R)", self->basis_xi, self->basis_eta);
+}
+
+static PyObject *basis_2d_get_basis_xi(const basis_2d_t *self, void *Py_UNUSED(closure))
+{
+    Py_INCREF(self->basis_xi);
+    return (PyObject *)self->basis_xi;
+}
+static PyObject *basis_2d_get_basis_eta(const basis_2d_t *self, void *Py_UNUSED(closure))
+{
+    Py_INCREF(self->basis_eta);
+    return (PyObject *)self->basis_eta;
+}
+
+// Deallocation
+static void basis_2d_dealloc(basis_2d_t *self)
+{
+    Py_XDECREF(self->basis_xi);
+    Py_XDECREF(self->basis_eta);
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+// Getters (read-only)
+static PyGetSetDef Basis2D_getset[] = {
+    {"basis_xi", (getter)basis_2d_get_basis_xi, NULL, "Basis1D : Basis used for the Xi direction.", NULL},
+    {"basis_eta", (getter)basis_2d_get_basis_eta, NULL, "Basis1D : Basis used for the Eta direction.", NULL},
+    {NULL} // Sentinel
+};
+
+// Type definition
+PyTypeObject basis_2d_type = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Basis2D",
+    .tp_basicsize = sizeof(basis_2d_t),
+    .tp_dealloc = (destructor)basis_2d_dealloc,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_new = basis_2d_new,
+    .tp_repr = (reprfunc)basis_2d_repr,
+    .tp_getset = Basis2D_getset,
+    // Optionally add docstring, etc.
+};

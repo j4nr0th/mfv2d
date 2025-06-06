@@ -5,15 +5,18 @@ from collections.abc import Callable
 import numpy as np
 import numpy.typing as npt
 import pytest
-from mfv2d._mfv2d import compute_element_matrices, compute_element_matrix
+from mfv2d._mfv2d import (
+    Basis1D,
+    Basis2D,
+    IntegrationRule1D,
+    compute_element_matrices,
+    compute_element_matrix,
+)
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import KFormSystem, KFormUnknown
 from mfv2d.mimetic2d import (
-    Basis1D,
-    Basis2D,
     BasisCache,
     ElementLeaf2D,
-    IntegrationRule1D,
     rhs_2d_element_projection,
 )
 from mfv2d.solve_system import compute_vector_fields_nonlin
@@ -61,17 +64,8 @@ def test_poisson_direct(n: int) -> None:
         [form.order for form in system.unknown_forms],
         compiled.lhs_full,
         corners,
-        n,
-        n,
         tuple(),
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
     assert np.allclose(mat_correct, mat_new)
 
@@ -124,17 +118,8 @@ def test_poisson_mixed(n: int) -> None:
         [form.order for form in system.unknown_forms],
         compiled.lhs_full,
         corners,
-        n,
-        n,
         tuple(),
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
     assert np.allclose(mat_correct, mat_new)
 
@@ -190,17 +175,8 @@ def test_stokes(n: int) -> None:
         [form.order for form in system.unknown_forms],
         compiled.lhs_full,
         corners,
-        n,
-        n,
         tuple(),
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
     assert np.allclose(mat_correct, mat_new)
 
@@ -245,11 +221,11 @@ def test_lin_navier_stokes(n: int) -> None:
         [0],
         {n: basis},
         system.vector_fields,
-        corners[None, :],
-        np.array([(n, n)], np.uint32),
-        np.array([(n, n)], np.uint32),
-        np.array([0, (n + 1) ** 2, 2 * n * (n + 1), n**2]).cumsum(),
-        np.zeros((100, 100)),
+        corners[None, :],  # type: ignore
+        np.array([(n, n)], np.uint32),  # type: ignore
+        np.array([(n, n)], np.uint32),  # type: ignore
+        np.array([0, (n + 1) ** 2, 2 * n * (n + 1), n**2]).cumsum(),  # type: ignore
+        np.zeros((100, 100)),  # type: ignore
     )
 
     (mat_correct,) = compute_element_matrices(
@@ -273,17 +249,8 @@ def test_lin_navier_stokes(n: int) -> None:
         [form.order for form in system.unknown_forms],
         compiled.lhs_full,
         corners,
-        n,
-        n,
         fields,
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
     # with np.printoptions(precision=2):
     #     print(mat_correct)
@@ -435,17 +402,8 @@ def test_advect_non_linear_10_irregular_deformed() -> None:
         [form.order for form in system.unknown_forms],
         compiled.nonlin_codes,
         np.array([e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64),
-        basis_2d.basis_xi.order,
-        basis_2d.basis_eta.order,
         vec_fields,
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
 
     fmat = emat[: (N + 1) * (N + 1), -2 * (N + 1) * N :]
@@ -543,17 +501,8 @@ def test_advect_dual_non_linear_10_irregular_deformed() -> None:
         [form.order for form in system.unknown_forms],
         compiled.nonlin_codes,
         np.array([e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64),
-        basis_2d.basis_xi.order,
-        basis_2d.basis_eta.order,
         vec_fields,
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
 
     fmat = emat[: N * N, -2 * (N + 1) * N :]
@@ -653,17 +602,8 @@ def test_advect_non_linear_21_irregular_deformed() -> None:
         [form.order for form in system.unknown_forms],
         compiled.nonlin_codes,
         np.array([e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64),
-        basis_2d.basis_xi.order,
-        basis_2d.basis_eta.order,
         vec_fields,
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
 
     fmat = emat[: N**2, : 2 * (N + 1) * N]
@@ -755,17 +695,8 @@ def test_advect_dual_non_linear_21_irregular_deformed() -> None:
         [form.order for form in system.unknown_forms],
         compiled.nonlin_codes,
         np.array([e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64),
-        basis_2d.basis_xi.order,
-        basis_2d.basis_eta.order,
         vec_fields,
-        basis_2d.basis_xi.node,
-        basis_2d.basis_xi.edge,
-        basis_2d.basis_xi.rule.weights,
-        basis_2d.basis_xi.rule.nodes,
-        basis_2d.basis_eta.node,
-        basis_2d.basis_eta.edge,
-        basis_2d.basis_eta.rule.weights,
-        basis_2d.basis_eta.rule.nodes,
+        basis_2d,
     )
 
     fmat = emat[(N + 1) ** 2 :, (N + 1) ** 2 :]

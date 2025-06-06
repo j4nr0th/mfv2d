@@ -1053,26 +1053,6 @@ class LiLMatrix:
         """
         ...
 
-def compute_element_matrix(
-    form_orders: Sequence[int],
-    expressions: _CompiledCodeMatrix,
-    corners: npt.NDArray[np.float64],
-    order_1: int,
-    order_2: int,
-    vector_fields: Sequence[npt.NDArray[np.float64]],
-    basis_1_nodal: npt.NDArray[np.float64],
-    basis_1_edge: npt.NDArray[np.float64],
-    weights_1: npt.NDArray[np.float64],
-    nodes_1: npt.NDArray[np.float64],
-    basis_2_nodal: npt.NDArray[np.float64],
-    basis_2_edge: npt.NDArray[np.float64],
-    weights_2: npt.NDArray[np.float64],
-    nodes_2: npt.NDArray[np.float64],
-    stack_memory: int = 1 << 24,
-) -> npt.NDArray[np.float64]:
-    """Compute a single element matrix."""
-    ...
-
 def compute_element_matrix_test(
     corners: npt.NDArray[np.float64],
     order_1: int,
@@ -1143,3 +1123,33 @@ class Basis1D:
         ...
     @property
     def rule(self) -> IntegrationRule1D: ...
+
+@final
+class Basis2D:
+    """2D basis functions collection used for FEM space creation.
+
+    Parameters
+    ----------
+    basis_xi : Basis1D
+        Basis used in the Xi direction.
+
+    basis_eta : Basis1D
+        Basis used in the Eta direction.
+    """
+
+    def __new__(cls, basis_xi: Basis1D, basis_eta: Basis1D) -> Self: ...
+    @property
+    def basis_xi(self) -> Basis1D: ...
+    @property
+    def basis_eta(self) -> Basis1D: ...
+
+def compute_element_matrix(
+    form_orders: Sequence[int],
+    expressions: _CompiledCodeMatrix,
+    corners: npt.NDArray[np.float64],
+    vector_fields: Sequence[npt.NDArray[np.float64]],
+    basis: Basis2D,
+    stack_memory: int = 1 << 24,
+) -> npt.NDArray[np.float64]:
+    """Compute a single element matrix."""
+    ...

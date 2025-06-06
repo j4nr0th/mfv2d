@@ -1,5 +1,6 @@
 #include "element_system.h"
 #include "allocator.h"
+#include "basis.h"
 #include "element_eval.h"
 #include "evaluation.h"
 #include "fem_space.h"
@@ -13,50 +14,28 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     PyObject *form_orders_obj = NULL;
     PyObject *expressions = NULL;
     PyObject *corners = NULL;
-    int order_1, order_2;
     PyObject *vector_fields_obj = NULL;
-    PyObject *basis_1_nodal = NULL;
-    PyObject *basis_1_edge = NULL;
-    PyObject *weights_1 = NULL;
-    PyObject *nodes_1 = NULL;
-    PyObject *basis_2_nodal = NULL;
-    PyObject *basis_2_edge = NULL;
-    PyObject *weights_2 = NULL;
-    PyObject *nodes_2 = NULL;
+    basis_2d_t *basis = NULL;
     Py_ssize_t stack_memory = 1 << 24;
 
-    static char *kwlist[16] = {"form_orders", "expressions",   "corners",       "order_1",
-                               "order_2",     "vector_fields", "basis_1_nodal", "basis_1_edge",
-                               "weights_1",   "nodes_1",       "basis_2_nodal", "basis_2_edge",
-                               "weights_2",   "nodes_2",       "stack_memory",  NULL};
+    static char *kwlist[7] = {"form_orders", "expressions",    "corners", "vector_fields",
+                              "basis ",      " stack_memory ", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOiiOOOOOOOOO|n", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOOO!|n", kwlist,
                                      &form_orders_obj,   // Sequence[int]
                                      &expressions,       // _CompiledCodeMatrix (PyObject*)
                                      &corners,           // np.ndarray
-                                     &order_1,           // int
-                                     &order_2,           // int
                                      &vector_fields_obj, // Sequence[np.ndarray]
-                                     &basis_1_nodal,     // np.ndarray
-                                     &basis_1_edge,      // np.ndarray
-                                     &weights_1,         // np.ndarray
-                                     &nodes_1,           // np.ndarray
-                                     &basis_2_nodal,     // np.ndarray
-                                     &basis_2_edge,      // np.ndarray
-                                     &weights_2,         // np.ndarray
-                                     &nodes_2,           // np.ndarray
+                                     &basis_2d_type,     // For type checking
+                                     &basis,             // Basis2D
                                      &stack_memory       // int
                                      ))
     {
         return NULL;
     }
-    if (order_1 <= 0 || order_2 <= 0)
-    {
-        PyErr_Format(PyExc_ValueError, "Orders of the element must be strictly positive (order_1=%d, order_2=%d).",
-                     order_1, order_2);
-        return NULL;
-    }
 
+    const unsigned order_1 = basis->basis_xi->order;
+    const unsigned order_2 = basis->basis_eta->order;
     if (order_1 != order_2)
     {
         PyErr_Format(PyExc_NotImplementedError,
@@ -91,13 +70,8 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
                           NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "corners") < 0)
         return NULL;
 
-    fem_space_1d_t space_1, space_2;
-    mfv2d_result_t res = fem_space_1d_from_python(order_1, nodes_1, weights_1, basis_1_nodal, basis_1_edge, &space_1);
-    if (res != MFV2D_SUCCESS)
-        goto end;
-    res = fem_space_1d_from_python(order_2, nodes_2, weights_2, basis_2_nodal, basis_2_edge, &space_2);
-    if (res != MFV2D_SUCCESS)
-        goto end;
+    const fem_space_1d_t space_1 = basis_1d_as_fem_space(basis->basis_xi),
+                         space_2 = basis_1d_as_fem_space(basis->basis_eta);
 
     const unsigned n1 = space_1.n_pts, n2 = space_2.n_pts;
 
@@ -143,7 +117,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
 
     const quad_info_t *const quad = PyArray_DATA((PyArrayObject *)corners);
     fem_space_2d_t *fem_space = NULL;
-    res = fem_space_2d_create(&space_1, &space_2, quad, &fem_space, &SYSTEM_ALLOCATOR);
+    mfv2d_result_t res = fem_space_2d_create(&space_1, &space_2, quad, &fem_space, &SYSTEM_ALLOCATOR);
     if (res != MFV2D_SUCCESS)
         goto cleanup_template;
 
@@ -212,7 +186,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         row_offset += row_len;
     }
 
-    // Cleanup
+// Cleanup
 cleanup_stacks:
     deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
     // Clean error stack

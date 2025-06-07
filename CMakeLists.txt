@@ -91,15 +91,11 @@ Python_add_library(_mfv2d
 install(TARGETS _mfv2d DESTINATION ${SKBUILD_PROJECT_NAME})
 set_property(TARGET _mfv2d PROPERTY C_STANDARD 17)
 
-#if (CMAKE_BUILD_TYPE EQUAL Debug)
-target_compile_definitions(_mfv2d PRIVATE MFV2D_ASSERTS)
-# target_compile_definitions(_eval PRIVATE MFV2D_ASSERTS)
-#endif()
+target_compile_definitions(_mfv2d PRIVATE MFV2D_ASSERTS MFV2D_EXPORT_ALL)
 if ("${NumPy_INCLUDE_DIRS}" STREQUAL "")
     message(FATAL_ERROR "NumPy_INCLUDE_DIRS was empty.")
 endif ()
 target_include_directories(_mfv2d PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
-# target_include_directories(_eval PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
 
 if (CMAKE_C_COMPILER_ID EQUAL "GNU")
     target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -fanalyzer)# -g -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)

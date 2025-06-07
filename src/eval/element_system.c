@@ -134,6 +134,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
         goto cleanup_fem_space;
     }
+    memset(matrix_stack, 0, sizeof *matrix_stack * system_template.max_stack);
 
     double *restrict const output_mat = PyArray_DATA(return_value);
     memset(output_mat, 0, sizeof *output_mat * element_size * element_size);
@@ -220,6 +221,225 @@ end:
     return (PyObject *)return_value;
 }
 
+MFV2D_INTERNAL
+PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwargs)
+{
+    PyArrayObject *return_value = NULL;
+    PyObject *form_orders_obj = NULL;
+    PyObject *expressions = NULL;
+    PyObject *corners = NULL;
+    PyObject *vector_fields_obj = NULL;
+    PyArrayObject *solution = NULL;
+    basis_2d_t *basis = NULL;
+    Py_ssize_t stack_memory = 1 << 24;
+
+    static char *kwlist[8] = {"form_orders", "expressions", "corners",        "vector_fields",
+                              "basis ",      "solution",    " stack_memory ", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOOO!O|n", kwlist,
+                                     &form_orders_obj,   // Sequence[int]
+                                     &expressions,       // _CompiledCodeMatrix (PyObject*)
+                                     &corners,           // np.ndarray
+                                     &vector_fields_obj, // Sequence[np.ndarray]
+                                     &basis_2d_type,     // For type checking
+                                     &basis,             // Basis2D
+                                     &solution,          // np.ndarray
+                                     &stack_memory       // int
+                                     ))
+    {
+        return NULL;
+    }
+
+    const unsigned order_1 = basis->basis_xi->order;
+    const unsigned order_2 = basis->basis_eta->order;
+    if (order_1 != order_2)
+    {
+        PyErr_Format(PyExc_NotImplementedError,
+                     "Currently element must have same order in each dimension (order_1=%d, order_2=%d).", order_1,
+                     order_2);
+        return NULL;
+    }
+
+    if (stack_memory <= 0 || stack_memory & 7)
+    {
+        PyErr_Format(PyExc_ValueError, "Stack memory size should be positive and a multiple of 8 (stack_memory=%llu).",
+                     (unsigned long long)stack_memory);
+        return NULL;
+    }
+
+    // Validate form_orders is a sequence
+    if (!PySequence_Check(form_orders_obj))
+    {
+        PyErr_SetString(PyExc_TypeError, "form_orders must be a sequence of int");
+        return NULL;
+    }
+
+    // Validate vector_fields is a sequence
+    if (!PySequence_Check(vector_fields_obj))
+    {
+        PyErr_SetString(PyExc_TypeError, "vector_fields must be a sequence of np.ndarray");
+        return NULL;
+    }
+
+    // Validate corners, basis, weights, stack_memory are NumPy arrays of type float64
+    if (check_input_array((PyArrayObject *)corners, 2, (const npy_intp[2]){4, 2}, NPY_DOUBLE,
+                          NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "corners") < 0)
+        return NULL;
+
+    const fem_space_1d_t space_1 = basis_1d_as_fem_space(basis->basis_xi),
+                         space_2 = basis_1d_as_fem_space(basis->basis_eta);
+
+    const unsigned n1 = space_1.n_pts, n2 = space_2.n_pts;
+
+    // Validate each element in vector_fields is a float64 ndarray
+    const Py_ssize_t n_vector_fields = PySequence_Size(vector_fields_obj);
+    if (n_vector_fields > VECTOR_FIELDS_MAX)
+    {
+        PyErr_Format(PyExc_ValueError, "Can not have more than %d vector fields (%d were given).", VECTOR_FIELDS_MAX,
+                     (int)n_vector_fields);
+        return NULL;
+    }
+    field_information_t element_field_information = {.n_fields = n_vector_fields, .offsets = NULL, .fields = {}};
+    for (Py_ssize_t i = 0; i < n_vector_fields; ++i)
+    {
+        PyObject *item = PySequence_GetItem(vector_fields_obj, i);
+        if (check_input_array((PyArrayObject *)item, 2, (const npy_intp[2]){n2 * n1, 2}, NPY_DOUBLE,
+                              NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "vector_fields element") < 0)
+        {
+            Py_DECREF(item);
+            return NULL;
+        }
+        element_field_information.fields[i] = PyArray_DATA((const PyArrayObject *)item);
+        Py_DECREF(item);
+    }
+
+    // Create the system template
+    system_template_t system_template = {};
+    if (!system_template_create(&system_template, form_orders_obj, expressions, (unsigned)n_vector_fields,
+                                &SYSTEM_ALLOCATOR))
+    {
+        goto end;
+    }
+
+    size_t element_size = 0;
+    for (unsigned j = 0; j < system_template.n_forms; ++j)
+    {
+        element_size += form_degrees_of_freedom_count(system_template.form_orders[j], order_1, order_2);
+    }
+    if (check_input_array((PyArrayObject *)solution, 1, (const npy_intp[1]){(npy_intp)element_size}, NPY_DOUBLE,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, "solution") < 0)
+    {
+        goto cleanup_template;
+    }
+    double *restrict const solution_vec = PyArray_DATA((PyArrayObject *)solution);
+
+    const npy_intp output_dims[1] = {(npy_intp)element_size};
+    return_value = (PyArrayObject *)PyArray_SimpleNew(1, output_dims, NPY_DOUBLE);
+    if (!return_value)
+        goto cleanup_template;
+
+    const quad_info_t *const quad = PyArray_DATA((PyArrayObject *)corners);
+    fem_space_2d_t *fem_space = NULL;
+    mfv2d_result_t res = fem_space_2d_create(&space_1, &space_2, quad, &fem_space, &SYSTEM_ALLOCATOR);
+    if (res != MFV2D_SUCCESS)
+        goto cleanup_template;
+
+    error_stack_t *const err_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
+    matrix_t *matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * system_template.max_stack);
+    allocator_stack_t *const allocator_stack = allocator_stack_create((size_t)stack_memory, &SYSTEM_ALLOCATOR);
+    if (!matrix_stack || !err_stack || !allocator_stack)
+    {
+        res = MFV2D_FAILED_ALLOC;
+        deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
+        deallocate(&SYSTEM_ALLOCATOR, err_stack);
+        if (allocator_stack)
+            deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
+        deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
+        goto cleanup_fem_space;
+    }
+    memset(matrix_stack, 0, sizeof *matrix_stack * system_template.max_stack);
+    double *restrict const output_mat = PyArray_DATA(return_value);
+    memset(output_mat, 0, sizeof *output_mat * element_size);
+    unsigned row_offset = 0;
+    for (unsigned row = 0; row < system_template.n_forms; ++row)
+    {
+        const unsigned row_len = form_degrees_of_freedom_count(system_template.form_orders[row], order_1, order_2);
+        size_t col_offset = 0;
+        for (unsigned col = 0; col < system_template.n_forms /*&& res == MFV2D_SUCCESS*/; ++col)
+        {
+            const unsigned col_len = form_degrees_of_freedom_count(system_template.form_orders[col], order_1, order_2);
+            const bytecode_t *bytecode = system_template.bytecodes[row * system_template.n_forms + col];
+            if (!bytecode)
+            {
+                // Zero entry, we do nothing, since arrays start zeroed out (I think).
+                col_offset += col_len;
+                continue;
+            }
+
+            matrix_full_t mat;
+            const matrix_full_t initial = {.base = {.type = MATRIX_TYPE_FULL, .rows = col_len, .cols = 1},
+                                           .data = solution_vec + col_offset};
+            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, fem_space,
+                                 &element_field_information, system_template.max_stack, matrix_stack,
+                                 &allocator_stack->base, &mat, &initial);
+            if (res != MFV2D_SUCCESS)
+            {
+                MFV2D_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
+                goto cleanup_stacks;
+            }
+            if (row_len != mat.base.rows || 1 != mat.base.cols)
+            {
+                MFV2D_ERROR(err_stack, MFV2D_DIMS_MISMATCH,
+                            "Output matrix arrays don't match expected dims (got %u x %u when needed %u x %u).",
+                            mat.base.rows, mat.base.cols, row_len, 1);
+                res = MFV2D_DIMS_MISMATCH;
+                goto cleanup_stacks;
+            }
+
+            for (unsigned i_out = 0; i_out < row_len; ++i_out)
+            {
+                output_mat[i_out + row_offset] += mat.data[i_out];
+            }
+
+            deallocate(&allocator_stack->base, mat.data);
+            col_offset += col_len;
+        }
+        row_offset += row_len;
+    }
+
+// Cleanup
+cleanup_stacks:
+    // Clean error stack
+    if (err_stack->position != 0)
+    {
+        fprintf(stderr, "Error stack caught %u errors.\n", err_stack->position);
+
+        for (unsigned i_e = 0; i_e < err_stack->position; ++i_e)
+        {
+            const error_message_t *msg = err_stack->messages + i_e;
+            fprintf(stderr, "%s:%d in %s: (%s) - %s\n", msg->file, msg->line, msg->function,
+                    mfv2d_result_str(msg->code), msg->message);
+            deallocate(err_stack->allocator, msg->message);
+        }
+    }
+    deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
+    deallocate(err_stack->allocator, err_stack);
+    deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
+    deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
+
+cleanup_fem_space:
+    deallocate(&SYSTEM_ALLOCATOR, fem_space);
+cleanup_template:
+    system_template_destroy(&system_template, &SYSTEM_ALLOCATOR);
+end:
+    if (res != MFV2D_SUCCESS)
+    {
+        Py_XDECREF(return_value);
+        PyErr_Format(PyExc_RuntimeError, "Runtime error %s was encountered.", mfv2d_result_str(res));
+        return NULL;
+    }
+    return (PyObject *)return_value;
+}
 MFV2D_INTERNAL
 const char compute_element_projector_docstr[] =
     "compute_projection_matrix(\n"
@@ -421,6 +641,7 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
             deallocate(&SYSTEM_ALLOCATOR, mat.data);
             goto end;
         }
+        memset(matrix_stack, 0, sizeof *matrix_stack * MATRIX_STACK_SIZE);
         res = evaluate_block(error_stack, order, -1, bytecode, fem_space_out, NULL, MATRIX_STACK_SIZE, matrix_stack,
                              &SYSTEM_ALLOCATOR, &out_mat, &mat);
         deallocate(&SYSTEM_ALLOCATOR, mat.data);

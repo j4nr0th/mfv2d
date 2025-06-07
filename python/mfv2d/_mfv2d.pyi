@@ -1155,6 +1155,18 @@ def compute_element_matrix(
     """Compute a single element matrix."""
     ...
 
+def compute_element_vector(
+    form_orders: Sequence[int],  # TODO: make this unknown order enum
+    expressions: _CompiledCodeMatrix,
+    corners: npt.NDArray[np.float64],
+    vector_fields: Sequence[npt.NDArray[np.float64]],
+    basis: Basis2D,
+    solution: npt.NDArray[np.float64],
+    stack_memory: int = 1 << 24,
+) -> npt.NDArray[np.float64]:
+    """Compute a single element forcing."""
+    ...
+
 def compute_element_projector(
     form_orders: Sequence[UnknownFormOrder],
     corners: npt.NDArray[np.float64],

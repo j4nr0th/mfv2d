@@ -330,7 +330,8 @@ static mfv2d_result_t operation_mass(const void *operations[static MATOP_COUNT],
         res = matrix_full_multiply(&this.full, &current->full, &new_mat.full, allocator);
         if (res != MFV2D_SUCCESS)
         {
-            MFV2D_ERROR(error_stack, res, "Could multiply two full matrices.");
+            MFV2D_ERROR(error_stack, res, "Could not multiply two full matrices with dims (%u, %u) and (%u, %u).",
+                        this.base.rows, this.base.cols, current->base.rows, current->base.cols);
             return res;
         }
         matrix_cleanup(current, allocator);

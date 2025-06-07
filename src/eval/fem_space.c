@@ -68,6 +68,11 @@ typedef struct
     unsigned i, j;
 } index_2d_t;
 
+static index_2d_t fem_space_integration_node_counts(const fem_space_2d_t *this)
+{
+    return (index_2d_t){this->space_1.n_pts, this->space_2.n_pts};
+}
+
 static index_2d_t nodal_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
 {
     const unsigned i = flat_index / (space->space_1.order + 1);
@@ -826,5 +831,211 @@ mfv2d_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, ma
 
     *p_out = mat;
 
+    return MFV2D_SUCCESS;
+}
+mfv2d_result_t compute_mass_matrix_node_double(const fem_space_2d_t *space_in, const fem_space_2d_t *space_out,
+                                               matrix_full_t *p_out, const allocator_callbacks *allocator)
+{
+    const unsigned rows = fem_space_node_basis_cnt(space_out);
+    const unsigned cols = fem_space_node_basis_cnt(space_in);
+    const index_2d_t int_nodes = fem_space_integration_node_counts(space_in);
+    {
+        const index_2d_t int_nodes_2 = fem_space_integration_node_counts(space_out);
+        if ASSERT (int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j, "Integration space of two must match")
+        {
+            return MFV2D_DIMS_MISMATCH;
+        }
+    }
+
+    const matrix_full_t out = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
+                               .data = allocate(allocator, sizeof *out.data * rows * cols)};
+    if (!out.data)
+        return MFV2D_FAILED_ALLOC;
+
+    for (unsigned idx_weight = 0; idx_weight < rows; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < cols; ++idx_basis)
+        {
+            double v = 0;
+            for (unsigned i_point = 0; i_point < int_nodes.j; ++i_point)
+            {
+                for (unsigned j_point = 0; j_point < int_nodes.i; ++j_point)
+                {
+                    v += node_basis_value(space_in, idx_basis, i_point, j_point) *
+                         node_basis_value(space_out, idx_weight, i_point, j_point) *
+                         space_in->jacobian[j_point + i_point * int_nodes.i].det *
+                         integration_weight_value(space_in, i_point, j_point);
+                }
+            }
+            // There is no symmetry
+            out.data[idx_weight * cols + idx_basis] = v;
+        }
+
+    *p_out = out;
+    return MFV2D_SUCCESS;
+}
+mfv2d_result_t compute_mass_matrix_edge_double(const fem_space_2d_t *space_in, const fem_space_2d_t *space_out,
+                                               matrix_full_t *p_out, const allocator_callbacks *allocator)
+{
+    const unsigned n_v_basis_in = fem_space_edge_v_basis_cnt(space_in);
+    const unsigned n_h_basis_in = fem_space_edge_h_basis_cnt(space_in);
+    const unsigned n_v_basis_out = fem_space_edge_v_basis_cnt(space_out);
+    const unsigned n_h_basis_out = fem_space_edge_h_basis_cnt(space_out);
+
+    const unsigned rows = n_v_basis_out + n_h_basis_out;
+    const unsigned cols = n_v_basis_in + n_h_basis_in;
+    const index_2d_t int_nodes = fem_space_integration_node_counts(space_in);
+    {
+        const index_2d_t int_nodes_2 = fem_space_integration_node_counts(space_out);
+        if ASSERT (int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j, "Integration space of two must match")
+        {
+            return MFV2D_DIMS_MISMATCH;
+        }
+    }
+
+    const size_t mem_size = sizeof(double) * rows * cols;
+    const matrix_full_t out = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
+                               .data = allocate(allocator, mem_size)};
+    if (!out.data)
+        return MFV2D_FAILED_ALLOC;
+
+    // Edge basis are a pain in the ass to compute, since they are actually representing
+    // two different vector components. As such, matrix has 4 blocks:
+    // - vertical inner product with vertical (block 00),
+    // - vertical inner product with horizontal (block 01),
+    // - horizontal inner product with vertical (block 10),
+    // - horizontal inner product with horizontal (block 11).
+    //
+    // The symmetry can be exploited as such:
+    // - Blocks 00 and 11 are symmetrical,
+    // - Blocks 01 and 10 are not symmetrical but are transposes of each other.
+
+    // k00 = (j11**2 + j10**2) / det
+    // k11 = (j01**2 + j00**2) / det
+    // k01 = (j01 * j11 + j00 * j10) / det
+
+    // Block 11
+    for (unsigned idx_weight = 0; idx_weight < n_v_basis_out; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < n_v_basis_in; ++idx_basis)
+        {
+            double v = 0;
+            for (unsigned i_point = 0; i_point < int_nodes.j; ++i_point)
+            {
+                for (unsigned j_point = 0; j_point < int_nodes.i; ++j_point)
+                {
+                    const double val_basis = edge_v_basis_value(space_in, idx_basis, i_point, j_point);
+                    const double val_weight = edge_v_basis_value(space_out, idx_weight, i_point, j_point);
+                    const jacobian_t *jac = space_in->jacobian + (j_point + i_point * int_nodes.i);
+                    const double jac_term = (jac->j00 * jac->j00 + jac->j01 * jac->j01) / jac->det;
+                    v += val_basis * val_weight * jac_term * integration_weight_value(space_in, i_point, j_point);
+                }
+            }
+            // There is no symmetry
+            out.data[(idx_weight + n_v_basis_out) * cols + (idx_basis + n_v_basis_in)] = v;
+        }
+
+    // Block 00
+    for (unsigned idx_weight = 0; idx_weight < n_h_basis_out; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < n_h_basis_in; ++idx_basis)
+        {
+            double v = 0;
+            for (unsigned i_point = 0; i_point < int_nodes.j; ++i_point)
+            {
+                for (unsigned j_point = 0; j_point < int_nodes.i; ++j_point)
+                {
+                    const double val_basis = edge_h_basis_value(space_in, idx_basis, i_point, j_point);
+                    const double val_weight = edge_h_basis_value(space_out, idx_weight, i_point, j_point);
+                    const jacobian_t *jac = space_in->jacobian + (j_point + i_point * int_nodes.i);
+                    const double jac_term = (jac->j11 * jac->j11 + jac->j10 * jac->j10) / jac->det;
+                    v += val_basis * val_weight * jac_term * integration_weight_value(space_in, i_point, j_point);
+                }
+            }
+            // There is no symmetry
+            out.data[idx_weight * cols + idx_basis] = v;
+        }
+
+    // Block 01
+    for (unsigned idx_weight = 0; idx_weight < n_h_basis_out; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < n_v_basis_in; ++idx_basis)
+        {
+            double v = 0;
+            for (unsigned i_point = 0; i_point < int_nodes.j; ++i_point)
+            {
+                for (unsigned j_point = 0; j_point < int_nodes.i; ++j_point)
+                {
+                    const double val_basis = edge_v_basis_value(space_in, idx_basis, i_point, j_point);
+                    const double val_weight = edge_h_basis_value(space_out, idx_weight, i_point, j_point);
+                    const jacobian_t *jac = space_in->jacobian + (j_point + i_point * int_nodes.i);
+                    const double jac_term = (jac->j01 * jac->j11 + jac->j00 * jac->j10) / jac->det;
+                    v += val_basis * val_weight * jac_term * integration_weight_value(space_in, i_point, j_point);
+                }
+            }
+            // There is no symmetry
+            out.data[idx_weight * cols + (idx_basis + n_v_basis_in)] = v;
+        }
+    // Block 10
+    for (unsigned idx_weight = 0; idx_weight < n_v_basis_out; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < n_h_basis_in; ++idx_basis)
+        {
+            double v = 0;
+            for (unsigned i_point = 0; i_point < int_nodes.j; ++i_point)
+            {
+                for (unsigned j_point = 0; j_point < int_nodes.i; ++j_point)
+                {
+                    const double val_basis = edge_h_basis_value(space_in, idx_basis, i_point, j_point);
+                    const double val_weight = edge_v_basis_value(space_out, idx_weight, i_point, j_point);
+                    const jacobian_t *jac = space_in->jacobian + (j_point + i_point * int_nodes.i);
+                    const double jac_term = (jac->j01 * jac->j11 + jac->j00 * jac->j10) / jac->det;
+                    v += val_basis * val_weight * jac_term * integration_weight_value(space_in, i_point, j_point);
+                }
+            }
+            // There is no symmetry
+            out.data[(idx_weight + n_v_basis_out) * cols + idx_basis] = v;
+        }
+
+    *p_out = out;
+    return MFV2D_SUCCESS;
+}
+mfv2d_result_t compute_mass_matrix_surf_double(const fem_space_2d_t *space_in, const fem_space_2d_t *space_out,
+                                               matrix_full_t *p_out, const allocator_callbacks *allocator)
+{
+    // const fem_space_1d_t *const space_h = &space->space_1;
+    // const fem_space_1d_t *const space_v = &space->space_2;
+
+    const unsigned rows = fem_space_surf_basis_cnt(space_out);
+    const unsigned cols = fem_space_surf_basis_cnt(space_in);
+
+    const index_2d_t int_nodes = fem_space_integration_node_counts(space_in);
+    {
+        const index_2d_t int_nodes_2 = fem_space_integration_node_counts(space_out);
+        if ASSERT (int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j, "Integration space of two must match")
+        {
+            return MFV2D_DIMS_MISMATCH;
+        }
+    }
+
+    const matrix_full_t out = {.base = {.type = MATRIX_TYPE_FULL, .rows = rows, .cols = cols},
+                               .data = allocate(allocator, sizeof *out.data * rows * cols)};
+    if (!out.data)
+        return MFV2D_FAILED_ALLOC;
+
+    for (unsigned idx_weight = 0; idx_weight < rows; ++idx_weight)
+        for (unsigned idx_basis = 0; idx_basis < cols; ++idx_basis)
+        {
+            double v = 0;
+            for (unsigned i_point = 0; i_point < int_nodes.j; ++i_point)
+            {
+                for (unsigned j_point = 0; j_point < int_nodes.i; ++j_point)
+                {
+                    v += surf_basis_value(space_in, idx_basis, i_point, j_point) *
+                         surf_basis_value(space_out, idx_weight, i_point, j_point) /
+                         space_in->jacobian[j_point + i_point * int_nodes.i].det *
+                         integration_weight_value(space_in, i_point, j_point);
+                }
+            }
+            // There is no symmetry
+            out.data[idx_weight * cols + idx_basis] = v;
+        }
+
+    *p_out = out;
     return MFV2D_SUCCESS;
 }

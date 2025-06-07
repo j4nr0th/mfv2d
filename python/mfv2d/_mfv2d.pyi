@@ -7,6 +7,7 @@ import numpy as np
 import numpy.typing as npt
 
 from mfv2d.eval import MatOpCode, _CompiledCodeMatrix
+from mfv2d.kform import UnknownFormOrder
 
 def lagrange1d(
     roots: npt.ArrayLike, x: npt.ArrayLike, out: npt.NDArray[np.double] | None = None, /
@@ -1144,7 +1145,7 @@ class Basis2D:
     def basis_eta(self) -> Basis1D: ...
 
 def compute_element_matrix(
-    form_orders: Sequence[int],
+    form_orders: Sequence[int],  # TODO: make this unknown order enum
     expressions: _CompiledCodeMatrix,
     corners: npt.NDArray[np.float64],
     vector_fields: Sequence[npt.NDArray[np.float64]],
@@ -1152,4 +1153,65 @@ def compute_element_matrix(
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
     """Compute a single element matrix."""
+    ...
+
+def compute_element_projector(
+    form_orders: Sequence[UnknownFormOrder],
+    corners: npt.NDArray[np.float64],
+    basis_in: Basis2D,
+    basis_out: Basis2D,
+) -> tuple[npt.NDArray[np.float64]]:
+    """Compute :math:`L^2` projection from one space to another.
+
+    Projection takes DoFs from primal space of the first and takes
+    them to the primal space of the other.
+
+    Parameters
+    ----------
+    form_orders : Sequence of UnknownFormOrder
+        Sequence of orders of forms which are to be projected.
+
+    corners : (4, 2) array
+        Array of corner points of the element.
+
+    basis_in : Basis2D
+        Basis from which the DoFs should be taken.
+
+    basis_out : Basis2D
+        Basis to which the DoFs are taken.
+
+    Returns
+    -------
+    tuple of square arrays
+        Tuple where each entry is the respective projection matrix for that form.
+    """
+    ...
+
+def compute_element_mass_matrix(
+    form_order: UnknownFormOrder,
+    corners: npt.NDArray[np.float64],
+    basis: Basis2D,
+    inverse: bool = False,
+):
+    """Compute element mass matrix for the specified form.
+
+    Parameters
+    ----------
+    form_order : UnknownFormOrder
+        Order of the form for which the mass matrix should be computed.
+
+    corners : (4, 2)
+        Array of corner points of the element.
+
+    basis : Basis2D
+        Basis used for the test and sample space.
+
+    inverse : bool, default: False
+        Should the inverse of the matrix be computed instead of its value directly.
+
+    Returns
+    -------
+    array
+        Mass matrix (or its inverse if specified) for the appropriate form.
+    """
     ...

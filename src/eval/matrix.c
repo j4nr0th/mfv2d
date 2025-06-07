@@ -352,7 +352,15 @@ mfv2d_result_t matrix_full_invert(const matrix_full_t *this, matrix_full_t *p_ou
                                .data = allocate(allocator, sizeof(*out.data) * this->base.rows * this->base.cols)};
     if (!out.data)
         return MFV2D_FAILED_ALLOC;
-    invert_matrix(this->base.rows, this->data, out.data, out.data);
+    double *const buffer = allocate(allocator, sizeof(*out.data) * this->base.rows * this->base.cols);
+    if (!buffer)
+    {
+        deallocate(allocator, out.data);
+        return MFV2D_FAILED_ALLOC;
+    }
+    invert_matrix(this->base.rows, this->data, buffer, out.data);
+    deallocate(allocator, buffer);
+
     *p_out = out;
     return MFV2D_SUCCESS;
 }

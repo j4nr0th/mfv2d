@@ -32,8 +32,6 @@ from mfv2d.element import (
     ElementSide,
     FixedElementArray,
     FlexibleElementArray,
-    UnknownFormOrder,
-    UnknownOrderings,
     call_per_element_flex,
     jacobian,
     poly_x,
@@ -48,6 +46,8 @@ from mfv2d.kform import (
     KFormUnknown,
     KSum,
     KWeight,
+    UnknownFormOrder,
+    UnknownOrderings,
     VectorFieldFunction,
 )
 from mfv2d.mimetic2d import (

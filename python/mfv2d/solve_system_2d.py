@@ -14,14 +14,13 @@ from mfv2d.element import (
     ElementCollection,
     FixedElementArray,
     FlexibleElementArray,
-    UnknownOrderings,
     call_per_element_fix,
     call_per_element_flex,
     compute_dof_sizes,
     compute_lagrange_sizes,
 )
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KEquation, KFormSystem
+from mfv2d.kform import KEquation, KFormSystem, UnknownOrderings
 from mfv2d.mimetic2d import BasisCache, Mesh2D
 from mfv2d.solve_system import (
     Constraint,

@@ -168,5 +168,59 @@ mfv2d_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, ma
 MFV2D_INTERNAL
 mfv2d_result_t compute_mass_matrix_edge_surf(const fem_space_2d_t *fem_space, matrix_full_t *p_out,
                                              const allocator_callbacks *allocator, const double *field, int transpose);
+/**
+ * @brief Computes the nodal mass matrix for given input and output finite element spaces.
+ *
+ * This function calculates the nodal mass matrix by evaluating the overlap
+ * of nodal basis functions between the input and output finite element spaces.
+ * The computed matrix is stored in the provided output matrix structure.
+ *
+ * @param space_in Pointer to the input finite element space.
+ * @param space_out Pointer to the output finite element space.
+ * @param p_out Pointer to the full matrix where the computed mass matrix will be stored.
+ * @param allocator Pointer to the allocator callbacks for memory allocation.
+ * @return mfv2d_result_t The result of the computation. Returns `MFV2D_SUCCESS` if successful,
+ *         `MFV2D_FAILED_ALLOC` if memory allocation fails, or `MFV2D_DIMS_MISMATCH` if the
+ *         integration node dimensions of `space_in` and `space_out` do not match.
+ */
+MFV2D_INTERNAL
+mfv2d_result_t compute_mass_matrix_node_double(const fem_space_2d_t *space_in, const fem_space_2d_t *space_out,
+                                               matrix_full_t *p_out, const allocator_callbacks *allocator);
+/**
+ * @brief Computes the edge mass matrix for given input and output finite element spaces.
+ *
+ * This function calculates the edge mass matrix by evaluating the overlap
+ * of edge basis functions between the input and output finite element spaces.
+ * The computed matrix is stored in the provided output matrix structure.
+ *
+ * @param space_in Pointer to the input finite element space.
+ * @param space_out Pointer to the output finite element space.
+ * @param p_out Pointer to the full matrix where the computed mass matrix will be stored.
+ * @param allocator Pointer to the allocator callbacks for memory allocation.
+ * @return mfv2d_result_t The result of the computation. Returns `MFV2D_SUCCESS` if successful,
+ *         `MFV2D_FAILED_ALLOC` if memory allocation fails, or `MFV2D_DIMS_MISMATCH` if the
+ *         integration node dimensions of `space_in` and `space_out` do not match.
+ */
+MFV2D_INTERNAL
+mfv2d_result_t compute_mass_matrix_edge_double(const fem_space_2d_t *space_in, const fem_space_2d_t *space_out,
+                                               matrix_full_t *p_out, const allocator_callbacks *allocator);
+/**
+ * @brief Computes the surface mass matrix for given input and output finite element spaces.
+ *
+ * This function calculates the surface mass matrix by evaluating the overlap
+ * of surface basis functions between the input and output finite element spaces.
+ * The computed matrix is stored in the provided output matrix structure.
+ *
+ * @param space_in Pointer to the input finite element space.
+ * @param space_out Pointer to the output finite element space.
+ * @param p_out Pointer to the full matrix where the computed mass matrix will be stored.
+ * @param allocator Pointer to the allocator callbacks for memory allocation.
+ * @return mfv2d_result_t The result of the computation. Returns `MFV2D_SUCCESS` if successful,
+ *         `MFV2D_FAILED_ALLOC` if memory allocation fails, or `MFV2D_DIMS_MISMATCH` if the
+ *         integration node dimensions of `space_in` and `space_out` do not match.
+ */
+MFV2D_INTERNAL
+mfv2d_result_t compute_mass_matrix_surf_double(const fem_space_2d_t *space_in, const fem_space_2d_t *space_out,
+                                               matrix_full_t *p_out, const allocator_callbacks *allocator);
 
 #endif // FEM_SPACE_H

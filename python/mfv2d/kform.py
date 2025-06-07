@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import IntEnum
 from itertools import accumulate
 from typing import Any, Literal, overload
 
@@ -366,41 +367,6 @@ class KWeight(KForm):
     def is_linear(self) -> bool:
         """Check if the form is linear."""
         return True
-
-
-# @dataclass(frozen=True)
-# class KTimeDerivative(KForm):
-#     """Time derivative of a K-form.
-
-#     This term means that an equation must used for time stepping.
-#     """
-
-#     base_form: KFormUnknown
-
-#     @property
-#     def is_primal(self) -> bool:
-#         """Check if the form is primal."""
-#         return self.base_form.is_primal
-
-#     @property
-#     def is_weight(self) -> bool:
-#         """Check if the form is a weight."""
-#         return False
-
-#     @property
-#     def primal_order(self) -> int:
-#         """Order in primal basis."""
-#         return self.base_form.primal_order
-
-#     @property
-#     def core_form(self) -> KWeight | KFormUnknown:
-#         """Most basic form, be it unknown or weight."""
-#         return self.base_form
-
-#     @property
-#     def is_linear(self) -> bool:
-#         """Check if the form is linear."""
-#         return True
 
 
 @dataclass(init=False, frozen=True, eq=False)
@@ -1429,6 +1395,31 @@ class KFormSystem:
                 f" {order}."
             )
         return tuple(i for i, f in enumerate(self.unknown_forms) if f.order == order)
+
+
+class UnknownFormOrder(IntEnum):
+    """Orders of unknown differential forms."""
+
+    FORM_ORDER_0 = 1
+    FORM_ORDER_1 = 2
+    FORM_ORDER_2 = 3
+
+
+@dataclass(frozen=True)
+class UnknownOrderings:
+    """Type for storing ordering of unknowns within an element."""
+
+    form_orders: tuple[UnknownFormOrder, ...]
+
+    @property
+    def count(self) -> int:
+        """Count of forms."""
+        return len(self.form_orders)
+
+    def __init__(self, *orders: int) -> None:
+        object.__setattr__(
+            self, "form_orders", tuple(UnknownFormOrder(i + 1) for i in orders)
+        )
 
     # def convert_to_time_march(self, march: Literal["cn"] = "cn") -> KFormSystem:
     #     """Convert the system to a system of equations for time marching."""

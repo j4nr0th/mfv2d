@@ -10,7 +10,8 @@ from typing import Concatenate, Generic, ParamSpec, SupportsIndex, TypeVar
 import numpy as np
 import numpy.typing as npt
 
-from mfv2d._mfv2d import Basis2D
+from mfv2d._mfv2d import Basis2D, compute_element_mass_matrix
+from mfv2d.kform import UnknownFormOrder, UnknownOrderings
 from mfv2d.mimetic2d import Element2D, ElementLeaf2D, ElementNode2D
 
 
@@ -137,14 +138,6 @@ def _order_elements(
     i_current += 1
 
     return i_current
-
-
-class UnknownFormOrder(IntEnum):
-    """Orders of unknown differential forms."""
-
-    FORM_ORDER_0 = 1
-    FORM_ORDER_1 = 2
-    FORM_ORDER_2 = 3
 
 
 class ElementCollection:
@@ -351,23 +344,6 @@ def call_per_element_fix(
     for ie in range(com.element_cnt):
         results[ie] = fn(ie, *args, **kwargs)
     return results
-
-
-@dataclass(frozen=True)
-class UnknownOrderings:
-    """Type for storing ordering of unknowns within an element."""
-
-    form_orders: tuple[UnknownFormOrder, ...]
-
-    @property
-    def count(self) -> int:
-        """Count of forms."""
-        return len(self.form_orders)
-
-    def __init__(self, *orders: int) -> None:
-        object.__setattr__(
-            self, "form_orders", tuple(UnknownFormOrder(i + 1) for i in orders)
-        )
 
 
 def _compute_element_dofs(
@@ -872,3 +848,82 @@ def _element_surf_mass_mixed(
                     )
 
     return mat_n
+
+
+def element_dual_dofs(
+    order: UnknownFormOrder,
+    corners: npt.NDArray[np.float64],
+    basis: Basis2D,
+    function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
+) -> npt.NDArray[np.float64]:
+    """Compute the :math:`L^2` projection of the function on the element."""
+    ((x0, y0), (x1, y1), (x2, y2), (x3, y3)) = corners
+    nds_xi = basis.basis_xi.rule.nodes[None, :]
+    nds_eta = basis.basis_eta.rule.nodes[:, None]
+
+    ((j00, j01), (j10, j11)) = jacobian(corners, nds_xi, nds_eta)
+    det = j00 * j11 - j10 * j01
+
+    nds_x = poly_x(np.array((x0, x1, x2, x3), np.float64), nds_xi, nds_eta)
+    nds_y = poly_y(np.array((y0, y1, y2, y3), np.float64), nds_xi, nds_eta)
+
+    fv = np.array(function(nds_x, nds_y))
+    weights = basis.basis_xi.rule.weights[None, :] * basis.basis_eta.rule.weights[:, None]
+
+    dofs: list[float] = list()
+    if order == UnknownFormOrder.FORM_ORDER_0:
+        f_vals = fv * weights
+        f_nod = f_vals * det
+        for j in range(basis.basis_eta.order + 1):
+            b2 = basis.basis_eta.node[j, ...]
+            for i in range(basis.basis_xi.order + 1):
+                b1 = basis.basis_xi.node[i, ...]
+                v = np.sum(b1[None, ...] * b2[..., None] * f_nod)
+                dofs.append(v)
+
+    elif order == UnknownFormOrder.FORM_ORDER_1:
+        f_vals = fv * weights[..., None]
+
+        f_xi = j00 * f_vals[..., 0] + j01 * f_vals[..., 1]
+        f_eta = j10 * f_vals[..., 0] + j11 * f_vals[..., 1]
+
+        for j in range(basis.basis_eta.order + 1):
+            b2 = basis.basis_eta.node[j, ...]
+            for i in range(basis.basis_xi.order):
+                b1 = basis.basis_xi.edge[i, ...]
+                v = np.sum(b1[None, ...] * b2[..., None] * f_eta)
+                dofs.append(v)
+
+        for j in range(basis.basis_eta.order):
+            b2 = basis.basis_eta.edge[j, ...]
+            for i in range(basis.basis_xi.order + 1):
+                b1 = basis.basis_xi.node[i, ...]
+                v = np.sum(b1[None, ...] * b2[..., None] * f_xi)
+                dofs.append(v)
+
+    elif order == UnknownFormOrder.FORM_ORDER_2:
+        f_vals = fv * weights
+
+        for j in range(basis.basis_eta.order):
+            b2 = basis.basis_eta.edge[j, ...]
+            for i in range(basis.basis_xi.order):
+                b1 = basis.basis_xi.edge[i, ...]
+                v = np.sum(b1[None, ...] * b2[..., None] * f_vals)
+                dofs.append(v)
+
+    else:
+        raise ValueError(f"Invalid form order {order}.")
+
+    return np.array(dofs, np.float64)
+
+
+def element_primal_dofs(
+    order: UnknownFormOrder,
+    corners: npt.NDArray[np.float64],
+    basis: Basis2D,
+    function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
+) -> npt.NDArray[np.float64]:
+    """Compute the primal DoFs of projection of the function on the element."""
+    dofs = element_dual_dofs(order, corners, basis, function)
+    mat = compute_element_mass_matrix(order, corners, basis, inverse=True)
+    return np.astype(mat @ dofs, np.float64, copy=False)

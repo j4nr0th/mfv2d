@@ -219,3 +219,375 @@ end:
     }
     return (PyObject *)return_value;
 }
+
+MFV2D_INTERNAL
+const char compute_element_projector_docstr[] =
+    "compute_projection_matrix(\n"
+    "    form_orders: Sequence[UnknownFormOrders],\n"
+    "    corners: array,\n"
+    "    basis_in: Basis2D,\n"
+    "    basis_out: Basis2D,\n"
+    ") -> tuple[array]:\n"
+    "Compute :math:`L^2` projection from one space to another.\n"
+    "\n"
+    "Projection takes DoFs from primal space of the first and takes\n"
+    "them to the primal space of the other.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "form_orders : Sequence of UnknownFormOrder\n"
+    "    Sequence of orders of forms which are to be projected.\n"
+    "\n"
+    "corners : (4, 2) array\n"
+    "    Array of corner points of the element.\n"
+    "\n"
+    "basis_in : Basis2D\n"
+    "    Basis from which the DoFs should be taken.\n"
+    "\n"
+    "basis_out : Basis2D\n"
+    "    Basis to which the DoFs are taken.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "tuple of square arrays\n"
+    "    Tuple where each entry is the respective projection matrix for that form.\n";
+
+MFV2D_INTERNAL
+PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
+{
+    PyObject *form_orders_obj = NULL;
+    PyArrayObject *corners = NULL;
+    basis_2d_t *basis_in = NULL;
+    basis_2d_t *basis_out = NULL;
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwds, "OO!O!O!", (char *const[5]){"form_orders", "corners", "basis_in", "basis_out", NULL},
+            &form_orders_obj, &PyArray_Type, &corners, &basis_2d_type, &basis_in, &basis_2d_type, &basis_out))
+    {
+        return NULL;
+    }
+
+    if (!PySequence_Check(form_orders_obj))
+    {
+        PyErr_Format(PyExc_TypeError, "form_orders must be a sequence, instead it was %R.", Py_TYPE(form_orders_obj));
+        return NULL;
+    }
+
+    if (check_input_array(corners, 2, (const npy_intp[2]){4, 2}, NPY_DOUBLE, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS,
+                          "corners") < 0)
+        return NULL;
+
+    const unsigned n_forms = PySequence_Size(form_orders_obj);
+    if (n_forms == 0)
+    {
+        PyErr_SetString(PyExc_ValueError, "form_orders must be non-empty.");
+        return NULL;
+    }
+    form_order_t *orders = allocate(&SYSTEM_ALLOCATOR, sizeof *orders * n_forms);
+    if (!orders)
+    {
+        return NULL;
+    }
+
+    for (Py_ssize_t i = 0; i < n_forms; ++i)
+    {
+        PyObject *item = PySequence_GetItem(form_orders_obj, i);
+        if (!item)
+        {
+            deallocate(&SYSTEM_ALLOCATOR, orders);
+            return NULL;
+        }
+        orders[i] = (form_order_t)PyLong_AsLong(item);
+        Py_DECREF(item);
+        if (PyErr_Occurred())
+        {
+            deallocate(&SYSTEM_ALLOCATOR, orders);
+            return NULL;
+        }
+        if (orders[i] < FORM_ORDER_0 || orders[i] > FORM_ORDER_2)
+        {
+            PyErr_Format(PyExc_ValueError, "form_orders must be in range [0, 2], got %d.", orders[i]);
+            deallocate(&SYSTEM_ALLOCATOR, orders);
+            return NULL;
+        }
+    }
+
+    const quad_info_t *const quad = PyArray_DATA((PyArrayObject *)corners);
+    fem_space_2d_t *fem_space_in = NULL, *fem_space_out = NULL;
+    {
+        const fem_space_1d_t space_xi = basis_1d_as_fem_space(basis_in->basis_xi);
+        const fem_space_1d_t space_eta = basis_1d_as_fem_space(basis_in->basis_eta);
+        const mfv2d_result_t res = fem_space_2d_create(&space_xi, &space_eta, quad, &fem_space_in, &SYSTEM_ALLOCATOR);
+        if (res != MFV2D_SUCCESS)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Could not create FEM space for input basis.");
+            deallocate(&SYSTEM_ALLOCATOR, orders);
+            return NULL;
+        }
+    }
+    {
+        const fem_space_1d_t space_xi = basis_1d_as_fem_space(basis_out->basis_xi);
+        const fem_space_1d_t space_eta = basis_1d_as_fem_space(basis_out->basis_eta);
+        const mfv2d_result_t res = fem_space_2d_create(&space_xi, &space_eta, quad, &fem_space_out, &SYSTEM_ALLOCATOR);
+        if (res != MFV2D_SUCCESS)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Could not create FEM space for input basis.");
+            deallocate(&SYSTEM_ALLOCATOR, fem_space_in);
+            deallocate(&SYSTEM_ALLOCATOR, orders);
+            return NULL;
+        }
+    }
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    PyTupleObject *out = (PyTupleObject *)PyTuple_New(n_forms);
+
+    // Check integration rules' orders match
+    if (fem_space_in->space_1.n_pts != fem_space_out->space_1.n_pts ||
+        fem_space_in->space_2.n_pts != fem_space_out->space_2.n_pts)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Integration rules must have same number of points in each dimension (got %u and %u for first and "
+                     "%u and %u for second).",
+                     fem_space_in->space_1.n_pts, fem_space_out->space_1.n_pts, fem_space_in->space_2.n_pts,
+                     fem_space_out->space_2.n_pts);
+        res = MFV2D_DIMS_MISMATCH;
+        goto end;
+    }
+
+    for (form_order_t order = FORM_ORDER_0; order <= FORM_ORDER_2; ++order)
+    {
+        unsigned order_count = 0;
+        // Count how often it occurs
+        for (unsigned i = 0; i < n_forms; ++i)
+        {
+            if (orders[i] == order)
+                ++order_count;
+        }
+        if (order_count == 0)
+            continue;
+
+        // Compute mixed mass matrix.
+        matrix_full_t mat;
+        switch (order)
+        {
+        case FORM_ORDER_0:
+            res = compute_mass_matrix_node_double(fem_space_in, fem_space_out, &mat, &SYSTEM_ALLOCATOR);
+            break;
+
+        case FORM_ORDER_1:
+            res = compute_mass_matrix_edge_double(fem_space_in, fem_space_out, &mat, &SYSTEM_ALLOCATOR);
+            break;
+
+        case FORM_ORDER_2:
+            res = compute_mass_matrix_surf_double(fem_space_in, fem_space_out, &mat, &SYSTEM_ALLOCATOR);
+            break;
+
+        default:
+            PyErr_Format(PyExc_ValueError, "Invalid form order %d.", order);
+            res = MFV2D_BAD_ENUM;
+            goto end;
+        }
+
+        if (res != MFV2D_SUCCESS)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Could not compute mixed mass matrix for order %d, error code %s.", order,
+                         mfv2d_result_str(res));
+            goto end;
+        }
+
+        // Compute the inverse mass matrix
+        const bytecode_t bytecode[4] = {
+            [0] = {.u32 = 3},
+            [1] = {.op = MATOP_MASS},
+            [2] = {.u32 = order - 1},
+            [3] = {.u32 = 1},
+        };
+
+        matrix_full_t out_mat;
+        error_stack_t *error_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
+        if (!error_stack)
+        {
+            res = MFV2D_FAILED_ALLOC;
+            deallocate(&SYSTEM_ALLOCATOR, mat.data);
+            goto end;
+        }
+        enum
+        {
+            MATRIX_STACK_SIZE = 3
+        };
+        matrix_t *matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * MATRIX_STACK_SIZE);
+        if (!matrix_stack)
+        {
+            res = MFV2D_FAILED_ALLOC;
+            deallocate(&SYSTEM_ALLOCATOR, error_stack);
+            deallocate(&SYSTEM_ALLOCATOR, mat.data);
+            goto end;
+        }
+        res = evaluate_block(error_stack, order, -1, bytecode, fem_space_out, NULL, MATRIX_STACK_SIZE, matrix_stack,
+                             &SYSTEM_ALLOCATOR, &out_mat, &mat);
+        deallocate(&SYSTEM_ALLOCATOR, mat.data);
+        deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
+        if (error_stack->position != 0)
+        {
+            for (unsigned i = 0; i < error_stack->position; ++i)
+            {
+                error_message_t *const msg = error_stack->messages + i;
+                fprintf(stderr, "%s:%d in %s: (%s) - %s\n", msg->file, msg->line, msg->function,
+                        mfv2d_result_str(msg->code), msg->message);
+                deallocate(error_stack->allocator, msg);
+            }
+        }
+        deallocate(&SYSTEM_ALLOCATOR, error_stack);
+
+        if (res != MFV2D_SUCCESS)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Could not compute mixed mass matrix for order %d, error code %s.", order,
+                         mfv2d_result_str(res));
+            goto end;
+        }
+
+        PyArrayObject *array = matrix_full_to_array(&out_mat);
+        deallocate(&SYSTEM_ALLOCATOR, out_mat.data);
+        if (!array)
+        {
+            res = MFV2D_FAILED_ALLOC;
+            goto end;
+        }
+        for (unsigned i = 0; i < n_forms; ++i)
+        {
+            if (orders[i] != order)
+                continue;
+
+            PyTuple_SET_ITEM(out, i, array);
+            Py_INCREF(array);
+        }
+
+        Py_DECREF(array);
+    }
+
+end:
+    if (res != MFV2D_SUCCESS)
+    {
+        Py_DECREF(out);
+        out = NULL;
+    }
+
+    deallocate(&SYSTEM_ALLOCATOR, fem_space_out);
+    deallocate(&SYSTEM_ALLOCATOR, fem_space_in);
+    deallocate(&SYSTEM_ALLOCATOR, orders);
+
+    return (PyObject *)out;
+}
+
+MFV2D_INTERNAL
+const char compute_element_mass_matrix_docstr[] =
+    "compute_element_mass_matrix(\n"
+    "    form_orders: Sequence[UnknownFormOrders],\n"
+    "    corners: array,\n"
+    "    basis: Basis2D,\n"
+    "    inverse: bool = False,\n"
+    ")\n"
+    "Compute mass matrix for a given element.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "form_order : UnknownFormOrder\n"
+    "    Order of the form for which the mass matrix should be computed.\n"
+    "\n"
+    "corners : (4, 2)\n"
+    "    Array of corner points of the element.\n"
+    "\n"
+    "basis : Basis2D\n"
+    "    Basis used for the test and sample space.\n"
+    "\n"
+    "inverse : bool, default: False\n"
+    "    Should the inverse of the matrix be computed instead of its value directly.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "array\n"
+    "    Mass matrix (or its inverse if specified) for the appropriate form.\n";
+
+PyObject *compute_element_mass_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
+{
+    form_order_t order;
+    basis_2d_t *basis = NULL;
+    PyArrayObject *corners = NULL;
+    int inverse = 0;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "iO!O!|p",
+                                     (char *const[5]){"order", "corners", "basis", "inverse", NULL}, &order,
+                                     &PyArray_Type, &corners, &basis_2d_type, &basis, &inverse))
+    {
+        return NULL;
+    }
+    if (order < FORM_ORDER_0 || order > FORM_ORDER_2)
+    {
+        PyErr_Format(PyExc_ValueError, "order must be in range [1, 3], got %d.", order);
+    }
+
+    if (check_input_array(corners, 2, (const npy_intp[2]){4, 2}, NPY_DOUBLE, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS,
+                          "corners") < 0)
+        return NULL;
+
+    const quad_info_t *const quad = PyArray_DATA((PyArrayObject *)corners);
+    fem_space_2d_t *fem_space = NULL;
+    {
+        const fem_space_1d_t space_xi = basis_1d_as_fem_space(basis->basis_xi);
+        const fem_space_1d_t space_eta = basis_1d_as_fem_space(basis->basis_eta);
+        const mfv2d_result_t res = fem_space_2d_create(&space_xi, &space_eta, quad, &fem_space, &SYSTEM_ALLOCATOR);
+        if (res != MFV2D_SUCCESS)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Could not create FEM space for input basis.");
+            return NULL;
+        }
+    }
+
+    PyArrayObject *return_value = NULL;
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    matrix_full_t mat;
+    switch (order)
+    {
+    case FORM_ORDER_0:
+        res = compute_mass_matrix_node(fem_space, &mat, &SYSTEM_ALLOCATOR);
+        break;
+
+    case FORM_ORDER_1:
+        res = compute_mass_matrix_edge(fem_space, &mat, &SYSTEM_ALLOCATOR);
+        break;
+
+    case FORM_ORDER_2:
+        res = compute_mass_matrix_surf(fem_space, &mat, &SYSTEM_ALLOCATOR);
+        break;
+
+    default:
+        PyErr_Format(PyExc_ValueError, "Invalid form order %d.", order);
+        goto end;
+    }
+
+    if (res != MFV2D_SUCCESS)
+    {
+        PyErr_Format(PyExc_RuntimeError, "Could not compute mass matrix for order %d, error code %s.", order,
+                     mfv2d_result_str(res));
+        goto end;
+    }
+
+    if (inverse)
+    {
+        matrix_full_t tmp;
+        res = matrix_full_invert(&mat, &tmp, &SYSTEM_ALLOCATOR);
+        if (res != MFV2D_SUCCESS)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Could not invert mass matrix for order %d, error code %s.", order,
+                         mfv2d_result_str(res));
+            goto end;
+        }
+        // Free memory and swap back
+        deallocate(&SYSTEM_ALLOCATOR, mat.data);
+        mat = tmp;
+    }
+
+    return_value = matrix_full_to_array(&mat);
+    deallocate(&SYSTEM_ALLOCATOR, mat.data);
+
+end:
+    deallocate(&SYSTEM_ALLOCATOR, fem_space);
+    return (PyObject *)return_value;
+}

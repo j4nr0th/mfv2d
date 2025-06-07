@@ -12,12 +12,11 @@ from mfv2d.element import (
     ElementCollection,
     FixedElementArray,
     FlexibleElementArray,
-    UnknownOrderings,
     call_per_element_flex,
     element_projections,
 )
 from mfv2d.eval import _CompiledCodeMatrix
-from mfv2d.kform import KFormSystem, KFormUnknown, VectorFieldFunction
+from mfv2d.kform import KFormSystem, KFormUnknown, UnknownOrderings, VectorFieldFunction
 from mfv2d.mimetic2d import BasisCache
 from mfv2d.solve_system import (
     assemble_matrix,

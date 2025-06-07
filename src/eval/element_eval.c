@@ -266,10 +266,6 @@ static mfv2d_result_t operation_mass(const void *operations[static MATOP_COUNT],
         MFV2D_ERROR(error_stack, MFV2D_BAD_ENUM, "Mass type specified by current matrix is %u which is not valid.", t);
         return MFV2D_BAD_ENUM;
     }
-    // if (inverse)
-    // {
-    //     t += (MASS_0_I - MASS_0);
-    // }
 
     matrix_t this = {.type = MATRIX_TYPE_FULL, .coefficient = 1.0};
     mfv2d_result_t res;

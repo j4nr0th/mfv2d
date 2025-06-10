@@ -1,67 +1,49 @@
 """Implementation of VMS computations."""
 
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import numpy.typing as npt
 from scipy import sparse as sp
 from scipy.sparse import linalg as sla
 
-from mfv2d._mfv2d import Basis1D, Basis2D, IntegrationRule1D
+from mfv2d._mfv2d import compute_element_projector
 from mfv2d.element import (
     ElementCollection,
     FixedElementArray,
     FlexibleElementArray,
-    call_per_element_flex,
-    element_projections,
+    call_per_element_fix,
+    call_per_leaf_flex,
 )
 from mfv2d.eval import _CompiledCodeMatrix
-from mfv2d.kform import KFormSystem, KFormUnknown, UnknownOrderings, VectorFieldFunction
-from mfv2d.mimetic2d import BasisCache
+from mfv2d.kform import Function2D, KFormSystem, KFormUnknown, UnknownOrderings
+from mfv2d.mimetic2d import FemCache
 from mfv2d.solve_system import (
     assemble_matrix,
-    compute_leaf_element_matrices,
-    compute_vector_fields_nonlin,
+    compute_element_vector_fields,
+    compute_leaf_full_mass_matrix,
+    compute_leaf_matrix,
 )
 
 
 def compute_mass_matrix(
     elements: ElementCollection,
     unknown_orders: UnknownOrderings,
-    proj_codes: _CompiledCodeMatrix,
-    bl: npt.NDArray[np.float64],
-    br: npt.NDArray[np.float64],
-    tr: npt.NDArray[np.float64],
-    tl: npt.NDArray[np.float64],
-    orders: npt.NDArray[np.uint32],
-    caches: MutableMapping[int, BasisCache],
+    orders: FixedElementArray[np.uint32],
+    caches: FemCache,
     element_offsets: FixedElementArray[np.uint32],
     leaf_indices: npt.NDArray[np.uint32],
-    inverse: bool,
 ) -> sp.csr_array:
-    """Compute mass matrix for the elements."""
-    unique_orders = np.unique(orders)
-    c_ser = list()
-    for o in unique_orders:
-        if int(o) in caches:
-            c = caches[int(o)]
-        else:
-            c = BasisCache(int(o), int(o) + 2)
-            caches[int(o)] = c
-        c_ser.append(c.c_serialization())
-
-    leaf_mass_matrices = compute_leaf_element_matrices(
-        unknown_orders,
+    """Compute (inverse) mass matrix for the elements."""
+    leaf_mass_matrices = call_per_leaf_flex(
         elements,
-        proj_codes,
-        bl,
-        br,
-        tr,
-        tl,
+        2,
+        np.float64,
+        compute_leaf_full_mass_matrix,
+        unknown_orders,
         orders,
-        c_ser,
-        np.zeros((orders.size + 1), np.uint64),
-        tuple(),
+        elements.corners_array,
+        caches,
     )
 
     vals: list[npt.NDArray[np.floating]] = list()
@@ -72,11 +54,7 @@ def compute_mass_matrix(
         m = leaf_mass_matrices[int(ie)]
         n = m.shape[0]
         assert m.shape[1] == n
-        if inverse:
-            mat = np.linalg.inv(m)
-        else:
-            mat = m
-        vals.append(mat.flatten())
+        vals.append(m.flatten())
         idx = np.arange(n)
         rows.append(np.repeat(idx, n) + off)
         cols.append(np.tile(idx, n) + off)
@@ -91,55 +69,43 @@ def compute_advection_matrix(
     elements: ElementCollection,
     unknown_orders: UnknownOrderings,
     adv_codes: _CompiledCodeMatrix,
-    corner_array: FixedElementArray[np.float64],
-    bl: npt.NDArray[np.float64],
-    br: npt.NDArray[np.float64],
-    tr: npt.NDArray[np.float64],
-    tl: npt.NDArray[np.float64],
     fine_orders: FixedElementArray[np.uint32],
     coarse_orders: FixedElementArray[np.uint32],
-    caches: MutableMapping[int, BasisCache],
+    caches: FemCache,
     element_offsets: FixedElementArray[np.uint32],
     leaf_indices: npt.NDArray[np.uint32],
     coarse_solution: FlexibleElementArray[np.float64, np.uint32],
-    vector_fields: Sequence[VectorFieldFunction | KFormUnknown],
+    vector_fields: Sequence[Function2D | KFormUnknown],
     dof_offsets: FixedElementArray[np.uint32],
 ) -> sp.csr_array:
     """Compute mass matrix for the elements."""
-    unique_orders = np.unique(np.array(coarse_orders))
-    c_ser = list()
-    for o in unique_orders:
-        if int(o) in caches:
-            c = caches[int(o)]
-        else:
-            c = BasisCache(int(o), int(o) + 2)
-            caches[int(o)] = c
-        c_ser.append(c.c_serialization())
-
-    vec_offsets, vec_values = compute_vector_fields_nonlin(
+    vec = call_per_element_fix(
+        elements.com,
+        np.object_,
+        1,
+        compute_element_vector_fields,
         system,
-        leaf_indices,
-        caches,
-        vector_fields,
-        corner_array,
+        elements.child_count_array,
         coarse_orders,
         fine_orders,
+        caches,
+        vector_fields,
+        elements.corners_array,
         dof_offsets,
         coarse_solution,
     )
 
-    leaf_matrices = compute_leaf_element_matrices(
-        unknown_orders,
+    leaf_matrices = call_per_leaf_flex(
         elements,
+        2,
+        np.float64,
+        compute_leaf_matrix,
         adv_codes,
-        bl,
-        br,
-        tr,
-        tl,
-        np.array(fine_orders, np.uint32),
-        c_ser,
-        vec_offsets,
-        vec_values,
+        unknown_orders,
+        fine_orders,
+        caches,
+        elements.corners_array,
+        vec,
     )
 
     vals: list[npt.NDArray[np.floating]] = list()
@@ -162,22 +128,27 @@ def compute_advection_matrix(
 
 def _projection_if_leaf(
     ie: int,
-    child_count: FixedElementArray[np.uint32],
     corners: FixedElementArray[np.float64],
-    basis_cache: Mapping[int, Basis2D],
+    basis_cache: FemCache,
     orders_corase: FixedElementArray[np.uint32],
     orders_fine: FixedElementArray[np.uint32],
     unknowns: UnknownOrderings,
 ) -> npt.NDArray[np.float64]:
     """Compute projection if the element is actually a leaf."""
-    if int(child_count[ie]) != 0:
-        return np.zeros(0, np.float64)
-
-    blocks = element_projections(
-        unknowns,
+    o_fine = orders_fine[ie]
+    o_coarse = orders_corase[ie]
+    basis_coarse = basis_cache.get_basis2d(int(o_coarse[0]), int(o_coarse[1]))
+    basis_fine = basis_cache.get_basis2d(
+        int(o_fine[0]),
+        int(o_fine[1]),
+        basis_coarse.basis_xi.rule.order,  # Have to make sure we match integration orders
+        basis_coarse.basis_eta.rule.order,
+    )
+    blocks = compute_element_projector(
+        unknowns.form_orders,
         corners[ie],
-        basis_cache[int(orders_corase[ie][0])],
-        basis_cache[int(orders_fine[ie][0])],
+        basis_fine,
+        basis_coarse,
     )
     return np.astype(sp.block_diag(blocks).toarray(), np.float64, copy=False)
 
@@ -185,7 +156,7 @@ def _projection_if_leaf(
 def compute_projection_matrix(
     unknowns: UnknownOrderings,
     elements: ElementCollection,
-    basis_cache: MutableMapping[int, Basis2D],
+    basis_cache: FemCache,
     orders_corase: FixedElementArray[np.uint32],
     orders_fine: FixedElementArray[np.uint32],
     leaf_indices: npt.NDArray[np.uint32],
@@ -193,12 +164,11 @@ def compute_projection_matrix(
     offsets_fine: FixedElementArray[np.uint32],
 ) -> sp.csr_array:
     """Compute the global projection matrix."""
-    projection_matrices = call_per_element_flex(
-        elements.com,
+    projection_matrices = call_per_leaf_flex(
+        elements,
         2,
         np.float64,
         _projection_if_leaf,
-        elements.child_count_array,
         elements.corners_array,
         basis_cache,
         orders_corase,
@@ -229,48 +199,25 @@ def greens_fine_scales(
     elements: ElementCollection,
     unknown_orders: UnknownOrderings,
     system_codes: _CompiledCodeMatrix,
-    proj_codes: _CompiledCodeMatrix,
-    bl: npt.NDArray[np.float64],
-    br: npt.NDArray[np.float64],
-    tr: npt.NDArray[np.float64],
-    tl: npt.NDArray[np.float64],
     coarse_orders: FixedElementArray[np.uint32],
     fine_orders: FixedElementArray[np.uint32],
-    caches: MutableMapping[int, BasisCache],
+    cache2d_basis: FemCache,
     coarse_offsets: FixedElementArray[np.uint32],
     fine_offsets: FixedElementArray[np.uint32],
     leaf_indices: npt.NDArray[np.uint32],
 ):
     """Compute Green's fine-scale function operator."""
-    coarse_order_array = np.array(coarse_orders, np.uint32)
-    fine_order_array = np.array(fine_orders, np.uint32)
-    c_ser = list()
-    cache2d_basis: dict[int, Basis2D] = dict()
-    for o in (
-        int(v)
-        for v in np.unique((np.unique(coarse_order_array), np.unique(fine_order_array)))
-    ):
-        if o in caches:
-            c = caches[o]
-        else:
-            c = BasisCache(o, o + 2)
-            caches[o] = c
-        c_ser.append(c.c_serialization())
-        irule = IntegrationRule1D(o + 2)
-        cache2d_basis[o] = Basis2D(Basis1D(o, irule), Basis1D(o, irule))
-
-    fine_element_matrices = compute_leaf_element_matrices(
-        unknown_orders,
+    fine_element_matrices = call_per_leaf_flex(
         elements,
+        2,
+        np.float64,
+        compute_leaf_matrix,
         system_codes,
-        bl,
-        br,
-        tr,
-        tl,
-        fine_order_array,
-        c_ser,
-        np.zeros(elements.com.element_cnt + 1, np.uint64),
-        tuple(),
+        unknown_orders,
+        fine_orders,
+        cache2d_basis,
+        elements.corners_array,
+        call_per_element_fix(elements.com, np.object_, 1, lambda _: ()),
     )
 
     fine_sys = assemble_matrix(
@@ -280,18 +227,17 @@ def greens_fine_scales(
         fine_element_matrices,
     )
 
-    coarse_element_matrices = compute_leaf_element_matrices(
-        unknown_orders,
+    coarse_element_matrices = call_per_leaf_flex(
         elements,
+        2,
+        np.float64,
+        compute_leaf_matrix,
         system_codes,
-        bl,
-        br,
-        tr,
-        tl,
-        coarse_order_array,
-        c_ser,
-        np.zeros(elements.com.element_cnt + 1, np.uint64),
-        tuple(),
+        unknown_orders,
+        coarse_orders,
+        cache2d_basis,
+        elements.corners_array,
+        call_per_element_fix(elements.com, np.object_, 1, lambda _: ()),
     )
 
     coarse_sys = assemble_matrix(
@@ -300,20 +246,16 @@ def greens_fine_scales(
         coarse_offsets,
         coarse_element_matrices,
     )
+
     fine_mass = compute_mass_matrix(
         elements,
         unknown_orders,
-        proj_codes,
-        bl,
-        br,
-        tr,
-        tl,
-        fine_order_array,
-        caches,
+        fine_orders,
+        cache2d_basis,
         fine_offsets,
         leaf_indices,
-        True,
     )
+
     projection = compute_projection_matrix(
         unknown_orders,
         elements,
@@ -338,19 +280,14 @@ def suyash_green_operator(
     unknown_orders: UnknownOrderings,
     system_codes: _CompiledCodeMatrix,
     adv_codes: _CompiledCodeMatrix,
-    proj_codes: _CompiledCodeMatrix,
-    bl: npt.NDArray[np.float64],
-    br: npt.NDArray[np.float64],
-    tr: npt.NDArray[np.float64],
-    tl: npt.NDArray[np.float64],
     coarse_orders: FixedElementArray[np.uint32],
     fine_orders: FixedElementArray[np.uint32],
-    caches: MutableMapping[int, BasisCache],
+    caches: FemCache,
     coarse_offsets: FixedElementArray[np.uint32],
     fine_offsets: FixedElementArray[np.uint32],
     leaf_indices: npt.NDArray[np.uint32],
     coarse_solution: FlexibleElementArray[np.float64, np.uint32],
-    vector_fields: Sequence[VectorFieldFunction | KFormUnknown],
+    vector_fields: Sequence[Function2D | KFormUnknown],
     dof_offsets: FixedElementArray[np.uint32],
 ):
     """Compute SG operator."""
@@ -358,11 +295,6 @@ def suyash_green_operator(
         elements,
         unknown_orders,
         system_codes,
-        proj_codes,
-        bl,
-        br,
-        tr,
-        tl,
         coarse_orders,
         fine_orders,
         caches,
@@ -376,11 +308,6 @@ def suyash_green_operator(
         elements,
         unknown_orders,
         adv_codes,
-        elements.corners_array,
-        bl,
-        br,
-        tr,
-        tl,
         fine_orders,
         coarse_orders,
         caches,

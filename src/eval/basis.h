@@ -9,6 +9,7 @@ typedef struct
     PyObject_HEAD;
     integration_rule_1d_t *integration_rule;
     unsigned order;
+    double *roots;
     double *nodal_basis;
     double *edge_basis;
 } basis_1d_t;

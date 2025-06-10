@@ -10,7 +10,15 @@ import numpy as np
 import numpy.typing as npt
 import pyvista as pv
 
-from mfv2d._mfv2d import Manifold2D, compute_gll, dlagrange1d, lagrange1d
+from mfv2d._mfv2d import (
+    Basis1D,
+    Basis2D,
+    IntegrationRule1D,
+    Manifold2D,
+    compute_gll,
+    dlagrange1d,
+    lagrange1d,
+)
 from mfv2d.eval import (
     Identity,
     Incidence,
@@ -22,7 +30,6 @@ from mfv2d.eval import (
     Sum,
 )
 from mfv2d.kform import (
-    KBoundaryProjection,
     KElementProjection,
     KExplicit,
     KFormSystem,
@@ -454,42 +461,29 @@ class BasisCache:
     """
 
     basis_order: int
-    higher_order: int
     integration_order: int
     nodal_1d: npt.NDArray[np.double]
     edge_1d: npt.NDArray[np.double]
-    higer_nodal_1d: npt.NDArray[np.double]
-    higher_edge_1d: npt.NDArray[np.double]
     nodes_1d: npt.NDArray[np.float64]
     int_nodes_1d: npt.NDArray[np.float64]
     int_weights_1d: npt.NDArray[np.float64]
     _precomp_node: npt.NDArray[np.float64] | None = None
-    _precomp_node_higher: npt.NDArray[np.float64] | None = None
     _precomp_edge: npt.NDArray[np.float64] | None = None
-    _precomp_edge_higher: npt.NDArray[np.float64] | None = None
     _precomp_surf: npt.NDArray[np.float64] | None = None
-    _precomp_surf_higher: npt.NDArray[np.float64] | None = None
     _precomp_mix01: npt.NDArray[np.float64] | None = None
     _precomp_mix12: npt.NDArray[np.float64] | None = None
 
-    def __init__(
-        self, basis_order: int, integration_order: int, higher: int = 1, /
-    ) -> None:
+    def __init__(self, basis_order: int, integration_order: int, /) -> None:
         self.basis_order = int(basis_order)
-        self.higher_order = int(basis_order + higher)
         self.integration_order = int(integration_order)
         n, _ = compute_gll(self.basis_order)
         self.nodes_1d = n
         ni, wi = compute_gll(self.integration_order)
         self.int_nodes_1d = ni
         self.int_weights_1d = wi
-        nh, _ = compute_gll(self.basis_order + higher)
         self.nodal_1d = lagrange1d(self.nodes_1d, self.int_nodes_1d)
-        self.higher_nodal_1d = lagrange1d(nh, self.int_nodes_1d)
         dvals = dlagrange1d(self.nodes_1d, self.int_nodes_1d)
-        dvals2 = dlagrange1d(nh, self.int_nodes_1d)
         self.edge_1d = np.cumsum(-dvals[..., :-1], axis=-1)
-        self.higher_edge_1d = np.cumsum(-dvals2[..., :-1], axis=-1)
         self.int_weights_2d = wi[:, None] * wi[None, :]
 
     @property
@@ -519,45 +513,6 @@ class BasisCache:
                 mat[i, j, ...] = mat[j, i, ...] = res
 
         self._precomp_node = mat
-        return mat
-
-    @property
-    def mass_node_precomp_higher(self) -> npt.NDArray[np.float64]:
-        """Precomputed entries for nodal mass matrix which just need to be scaled."""
-        if self._precomp_node_higher is not None:
-            return self._precomp_node_higher
-
-        n1 = self.basis_order + 1
-        n2 = self.higher_order + 1
-        m = self.integration_order + 1
-        mat = np.empty((n1**2, n2**2, m, m), np.float64)
-        values = self.nodal_1d
-        hvalues = self.higher_nodal_1d
-        weights_2d = self.int_weights_2d
-
-        basis_vals: list[npt.NDArray] = list()
-        hbasis_vals: list[npt.NDArray] = list()
-
-        for i1 in range(n1):
-            v1 = values[..., i1]
-            for j1 in range(n1):
-                u1 = values[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                basis_vals.append(basis1)
-
-        for i1 in range(n2):
-            v1 = hvalues[..., i1]
-            for j1 in range(n2):
-                u1 = hvalues[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                hbasis_vals.append(basis1)
-
-        for i in range(n1**2):
-            for j in range(n2**2):
-                res = basis_vals[i] * hbasis_vals[j] * weights_2d
-                mat[i, j, ...] = res
-
-        self._precomp_node_higher = mat
         return mat
 
     @property
@@ -611,81 +566,6 @@ class BasisCache:
         return mat
 
     @property
-    def mass_edge_precomp_higher(self) -> npt.NDArray[np.float64]:
-        """Precomputed entries for edge mass matrix which just need to be scaled."""
-        if self._precomp_edge_higher is not None:
-            return self._precomp_edge_higher
-
-        n1 = self.basis_order
-        n2 = self.higher_order
-        m = self.integration_order + 1
-        mat = np.empty((2 * n1 * (n1 + 1), 2 * n2 * (n2 + 1), m, m), np.float64)
-        values = self.nodal_1d
-        dvalues = self.edge_1d
-        hvalues = self.higher_nodal_1d
-        hdvalues = self.higher_edge_1d
-        weights_2d = self.int_weights_2d
-
-        basis_eta: list[npt.NDArray] = list()
-        basis_xi: list[npt.NDArray] = list()
-        hbasis_eta: list[npt.NDArray] = list()
-        hbasis_xi: list[npt.NDArray] = list()
-
-        for i1 in range(n1 + 1):
-            v1 = values[..., i1]
-            for j1 in range(n1):
-                u1 = dvalues[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                basis_eta.append(basis1)
-
-        for i1 in range(n2 + 1):
-            v1 = hvalues[..., i1]
-            for j1 in range(n2):
-                u1 = hdvalues[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                hbasis_eta.append(basis1)
-
-        for i1 in range(n1):
-            v1 = dvalues[..., i1]
-            for j1 in range(n1 + 1):
-                u1 = values[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                basis_xi.append(basis1)
-
-        for i1 in range(n2):
-            v1 = hdvalues[..., i1]
-            for j1 in range(n2 + 1):
-                u1 = hvalues[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                hbasis_xi.append(basis1)
-
-        nb1 = n1 * (n1 + 1)
-        nb2 = n2 * (n2 + 1)
-
-        for i in range(nb1):
-            for j in range(nb2):
-                res = weights_2d * basis_eta[i] * hbasis_eta[j]
-                mat[i, j, ...] = res
-
-        for i in range(nb1):
-            for j in range(nb2):
-                res = weights_2d * basis_xi[i] * hbasis_xi[j]
-                mat[nb1 + i, nb2 + j, ...] = res
-
-        for i in range(nb1):
-            for j in range(nb2):
-                res = weights_2d * basis_eta[i] * hbasis_xi[j]
-                mat[nb1 + i, j, ...] = res
-
-        for i in range(nb1):
-            for j in range(nb2):
-                res = weights_2d * basis_xi[i] * hbasis_eta[j]
-                mat[i, nb2 + j, ...] = res
-
-        self._precomp_edge_higher = mat
-        return mat
-
-    @property
     def mass_surf_precomp(self) -> npt.NDArray[np.float64]:
         """Precomputed entries for surface mass matrix which just need to be scaled."""
         if self._precomp_surf is not None:
@@ -712,45 +592,6 @@ class BasisCache:
                 mat[i, j, ...] = mat[j, i, ...] = res
 
         self._precomp_surf = mat
-        return mat
-
-    @property
-    def mass_surf_precomp_higher(self) -> npt.NDArray[np.float64]:
-        """Precomputed entries for surface mass matrix which just need to be scaled."""
-        if self._precomp_surf_higher is not None:
-            return self._precomp_surf_higher
-
-        n1 = self.basis_order
-        n2 = self.higher_order
-        m = self.integration_order + 1
-        mat = np.empty((n1**2, n2**2, m, m), np.float64)
-        values = self.edge_1d
-        hvalues = self.higher_edge_1d
-        weights_2d = self.int_weights_2d
-
-        basis_vals: list[npt.NDArray] = list()
-        hbasis_vals: list[npt.NDArray] = list()
-
-        for i1 in range(n1):
-            v1 = values[..., i1]
-            for j1 in range(n1):
-                u1 = values[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                basis_vals.append(basis1)
-
-        for i1 in range(n1):
-            v1 = hvalues[..., i1]
-            for j1 in range(n1):
-                u1 = hvalues[..., j1]
-                basis1 = v1[:, None] * u1[None, :]
-                hbasis_vals.append(basis1)
-
-        for i in range(n1**2):
-            for j in range(n2**2):
-                res = basis_vals[i] * hbasis_vals[j] * weights_2d
-                mat[i, j, ...] = res
-
-        self._precomp_surf_higher = mat
         return mat
 
     @property
@@ -1614,7 +1455,7 @@ class ElementLeaf2D(Element2D):
         return parent, ((btm_l, btm_r), (top_l, top_r))
 
 
-def rhs_2d_element_projection(
+def _very_old_rhs_2d_element_projection(
     right: KElementProjection, element: ElementLeaf2D, cache: BasisCache
 ) -> npt.NDArray[np.float64]:
     """Evaluate the differential form projections on the 1D element.
@@ -1725,82 +1566,6 @@ def rhs_2d_element_projection(
     return out_vec
 
 
-def rhs_2d_boundary_projection(
-    right: KBoundaryProjection, element: ElementLeaf2D, cache: BasisCache, bid: int
-) -> npt.NDArray[np.float64]:
-    """Evaluate the differential form projections on the 2D element boundary.
-
-    Parameters
-    ----------
-    right : KBoundaryProjection
-        The projection onto a k-form.
-    element : Element2D
-        The element on which the projection is evaluated on.
-    bid : int
-        Id of the boundary. The following values have meaning:
-
-        - ``0`` is bottom
-        - ``1`` is right
-        - ``2`` is top
-        - ``3`` is left
-
-    Returns
-    -------
-    array of :class:`numpy.float64`
-        The resulting projection vector.
-    """
-    if bid == 0:
-        begin = element.bottom_left
-        end = element.bottom_right
-    elif bid == 1:
-        begin = element.bottom_right
-        end = element.top_right
-    elif bid == 2:
-        begin = element.top_right
-        end = element.top_left
-    elif bid == 3:
-        begin = element.top_left
-        end = element.bottom_left
-    else:
-        assert False
-
-    nds, w = cache.int_nodes_1d, cache.int_weights_1d
-    dx = (end[0] - begin[0]) / 2
-    dy = (end[1] - begin[1]) / 2
-    x = (end[0] + begin[0]) / 2 + dx * nds
-    y = (end[1] + begin[1]) / 2 + dy * nds
-
-    if bid == 0 or bid == 3:
-        normal = np.array((-dy, dx), np.float64)
-    elif bid == 1 or bid == 2:
-        normal = np.array((dy, -dx), np.float64)
-    else:
-        assert False
-
-    w1 = np.astype(w * normal[0], np.float64, copy=False)
-    w2 = np.astype(w * normal[1], np.float64, copy=False)
-
-    fn = right.func
-    assert fn is not None
-    vals = np.asarray(fn(x, y), np.float64, copy=None)
-
-    if right.weight.order == 0:
-        # the function is 1 form, weight is 0 form
-        w_vals = cache.nodal_1d
-        f_vals = vals[..., 0] * w1 + vals[..., 1] * w2
-        p = f_vals[..., None] * w_vals
-        n = p.shape[-1]
-        r = np.empty(n)
-        for i in range(n):
-            r[i] = np.sum(p[..., i])
-        return r
-
-    # if right.weight.order == 1:
-    #     w_vals = cache.edge_1d
-    #     f_vals = vals
-    raise NotImplementedError("Not finished yet.")
-
-
 def _extract_rhs_2d(
     proj: Sequence[tuple[float, KExplicit]],
     weight: KWeight,
@@ -1821,7 +1586,7 @@ def _extract_rhs_2d(
 
     for k, f in filter(lambda v: isinstance(v[1], KElementProjection), proj):
         assert isinstance(f, KElementProjection)
-        rhs = rhs_2d_element_projection(f, element, cache)
+        rhs = _very_old_rhs_2d_element_projection(f, element, cache)
         if k != 1.0:
             rhs *= k
         vec += rhs
@@ -1966,6 +1731,114 @@ class Mesh2D:
         #     idx: list[int] = [man.get_line(i_line).begin.index for i_line in s]
 
 
+class FemCache:
+    """Cache for integration rules and basis functions."""
+
+    order_diff: int
+    _int_cache: dict[int, IntegrationRule1D]
+    _b1_cache: dict[tuple[int, int], Basis1D]
+
+    def __init__(self, order_difference: int) -> None:
+        self._int_cache = dict()
+        self._b1_cache = dict()
+        self.order_diff = order_difference
+
+    def get_integration_rule(self, order: int) -> IntegrationRule1D:
+        """Return integration rule.
+
+        Parameters
+        ----------
+        order : int
+            Order of integration rule to use.
+
+        Returns
+        -------
+        IntegrationRule1D
+            Integration rule that was obtained from cache or created and cached if
+            it was previously not there.
+        """
+        res = self._int_cache.get(order, None)
+        if res is not None:
+            return res
+        rule = IntegrationRule1D(order)
+        self._int_cache[order] = rule
+        return rule
+
+    def get_basis1d(self, order: int, int_order: int | None = None) -> Basis1D:
+        """Get requested one-dimensional basis.
+
+        Parameters
+        ----------
+        order : int
+            Order of the basis.
+
+        int_order : int, optional
+            Order of the integration rule for the basis. If it is not specified,
+            then ``order + self.order_diff`` is used.
+
+        Returns
+        -------
+        Basis1D
+            One-dimensional basis.
+        """
+        if int_order is None:
+            int_order = order + self.order_diff
+
+        res = self._b1_cache.get((order, int_order), None)
+        if res is not None:
+            return res
+
+        rule = self.get_integration_rule(int_order)
+        basis = Basis1D(order, rule)
+        self._b1_cache[(order, int_order)] = basis
+        return basis
+
+    def get_basis2d(
+        self,
+        order1: int,
+        order2: int,
+        int_order1: int | None = None,
+        int_order2: int | None = None,
+    ) -> Basis2D:
+        """Get two-dimensional basis.
+
+        These are not cached, since there is zero calculations involved in
+        their computations.
+
+        Parameters
+        ----------
+        order1 : int
+            Order of basis in the first dimension.
+
+        order2 : int
+            Order of basis in the second dimension.
+
+        int_order1 : int, optional
+            Order of the integration rule in the first direction. If unspecified,
+            it defaults to ``order1 + self.order_diff``.
+
+        int_order2 : int, optional
+            Order of the integration rule in the second direction. If unspecified,
+            it defaults to ``order2 + self.order_diff``.
+
+        Returns
+        -------
+        Basis2D
+            Requested two-dimensional basis.
+        """
+        b_xi = self.get_basis1d(order1, int_order1)
+        if order2 != order1 or int_order1 != int_order2:
+            b_eta = self.get_basis1d(order2, int_order2)
+        else:
+            b_eta = b_xi
+        return Basis2D(b_xi, b_eta)
+
+    def clean(self) -> None:
+        """Clear all caches."""
+        self._int_cache = dict()
+        self._b1_cache = dict()
+
+
 def eval_expression(
     expr: Iterable[MatOp], element: ElementLeaf2D, cache: BasisCache
 ) -> npt.NDArray[np.float64] | np.float64:
@@ -2047,13 +1920,6 @@ def eval_expression(
                 val = (c, m)
             else:
                 val = (c, s @ m)
-
-        # elif type(op) is Transpose:
-        #     if val is None:
-        #         raise ValueError("Invalid Transpose operation.")
-        #     c, s = val
-        #     if s is not None:
-        #         val = (c, s.T)
 
         elif type(op) is Sum:
             n = op.count

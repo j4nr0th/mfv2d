@@ -6,12 +6,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
 from itertools import accumulate
-from typing import Any, Literal, overload
+from typing import Any, Literal, TypeAliasType, overload
 
 import numpy as np
 import numpy.typing as npt
 
-VectorFieldFunction = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
+Function2D = TypeAliasType(
+    "Function2D",
+    Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
+)
 
 
 @dataclass(frozen=True)
@@ -62,10 +65,8 @@ class KForm(Term):
     @overload
     def __mul__(self, other: KForm, /) -> KInnerProduct: ...
     @overload
-    def __mul__(self, other: VectorFieldFunction, /) -> KInteriorProduct: ...
-    def __mul__(
-        self, other: KForm | VectorFieldFunction, /
-    ) -> KInnerProduct | KInteriorProduct:
+    def __mul__(self, other: Function2D, /) -> KInteriorProduct: ...
+    def __mul__(self, other: KForm | Function2D, /) -> KInnerProduct | KInteriorProduct:
         """Inner product with a weight."""
         if isinstance(other, KForm):
             return KInnerProduct(other, self)
@@ -82,10 +83,8 @@ class KForm(Term):
     @overload
     def __rmul__(self, other: KForm, /) -> KInnerProduct: ...
     @overload
-    def __rmul__(self, other: VectorFieldFunction, /) -> KInteriorProduct: ...
-    def __rmul__(
-        self, other: KForm | VectorFieldFunction, /
-    ) -> KInnerProduct | KInteriorProduct:
+    def __rmul__(self, other: Function2D, /) -> KInteriorProduct: ...
+    def __rmul__(self, other: KForm | Function2D, /) -> KInnerProduct | KInteriorProduct:
         """Inner product with a weight."""
         return self.__mul__(other)
 
@@ -141,7 +140,7 @@ class KFormUnknown(KForm):
         return KInteriorProductNonlinear(
             self.dimension,
             f"i_({self.label})({other.label})",
-            self.order - 1,
+            other.order - 1,
             other,
             self,
         )
@@ -437,7 +436,7 @@ class KInteriorProduct(KForm):
     """Represents an interior product of a K-form with a tangent vector field."""
 
     form: KForm
-    vector_field: VectorFieldFunction
+    vector_field: Function2D
 
     def __post_init__(self) -> None:
         """Enforce the conditions for allowing interior product."""
@@ -621,12 +620,12 @@ class TermEvaluatable(Term):
         raise NotImplementedError
 
     @property
-    def vector_fields(self) -> tuple[VectorFieldFunction | KFormUnknown, ...]:
+    def vector_fields(self) -> tuple[Function2D | KFormUnknown, ...]:
         """Return all vector fields."""
         raise NotImplementedError
 
 
-def _extract_vector_fields(form: KForm) -> list[KFormUnknown | VectorFieldFunction]:
+def _extract_vector_fields(form: KForm) -> list[KFormUnknown | Function2D]:
     """Extract vector fileds from the form, otherwise raises type error."""
     if type(form) is KFormUnknown or type(form) is KWeight:
         return []
@@ -731,9 +730,9 @@ class KInnerProduct(TermEvaluatable):
         return tuple(_extract_unknowns(self.unknown_form))
 
     @property
-    def vector_fields(self) -> tuple[VectorFieldFunction | KFormUnknown, ...]:
+    def vector_fields(self) -> tuple[Function2D | KFormUnknown, ...]:
         """Return all vector fields in the sum."""
-        out: set[VectorFieldFunction | KFormUnknown] = set()
+        out: set[Function2D | KFormUnknown] = set()
         out |= set(_extract_vector_fields(self.weight_form))
         out |= set(_extract_vector_fields(self.unknown_form))
         return tuple(out)
@@ -800,9 +799,9 @@ class KSum(TermEvaluatable):
         return tuple(out)
 
     @property
-    def vector_fields(self) -> tuple[VectorFieldFunction | KFormUnknown, ...]:
+    def vector_fields(self) -> tuple[Function2D | KFormUnknown, ...]:
         """Return all vector fields in the sum."""
-        out: set[VectorFieldFunction | KFormUnknown] = set()
+        out: set[Function2D | KFormUnknown] = set()
 
         for _, p in self.pairs:
             out |= set(p.vector_fields)
@@ -863,7 +862,7 @@ class KExplicit(TermEvaluatable):
         return tuple()
 
     @property
-    def vector_fields(self) -> tuple[VectorFieldFunction | KFormUnknown, ...]:
+    def vector_fields(self) -> tuple[Function2D | KFormUnknown, ...]:
         """Return all vector fields (there are none)."""
         return tuple()
 
@@ -1112,7 +1111,7 @@ class KFormSystem:
     unknown_forms: tuple[KFormUnknown, ...]
     weight_forms: tuple[KWeight, ...]
     equations: tuple[KEquation, ...]
-    vector_fields: tuple[VectorFieldFunction | KFormUnknown, ...]
+    vector_fields: tuple[Function2D | KFormUnknown, ...]
 
     def __init__(
         self,
@@ -1122,7 +1121,7 @@ class KFormSystem:
         unknowns: set[KFormUnknown] = set()
         weights: list[KWeight] = []
         equation_list: list[KEquation] = []
-        vfs: set[VectorFieldFunction | KFormUnknown] = set()
+        vfs: set[Function2D | KFormUnknown] = set()
         for ie, equation in enumerate(equations):
             weight = equation.weight
             if weight in weights:
@@ -1404,6 +1403,17 @@ class UnknownFormOrder(IntEnum):
     FORM_ORDER_1 = 2
     FORM_ORDER_2 = 3
 
+    def full_unknown_count(self, order_1: int, order_2: int) -> int:
+        """Return total number of DoFs based on two orders for a full element."""
+        if self == UnknownFormOrder.FORM_ORDER_0:
+            return (order_1 + 1) * (order_2 + 1)
+        if self == UnknownFormOrder.FORM_ORDER_1:
+            return order_1 * (order_2 + 1) + (order_1 + 1) * order_2
+        if self == UnknownFormOrder.FORM_ORDER_2:
+            return order_1 * order_2
+
+        raise ValueError
+
 
 @dataclass(frozen=True)
 class UnknownOrderings:
@@ -1420,37 +1430,3 @@ class UnknownOrderings:
         object.__setattr__(
             self, "form_orders", tuple(UnknownFormOrder(i + 1) for i in orders)
         )
-
-    # def convert_to_time_march(self, march: Literal["cn"] = "cn") -> KFormSystem:
-    #     """Convert the system to a system of equations for time marching."""
-    #     if march != "cn":
-    #         raise ValueError("Time march type can now only be cn.")
-
-    #     new_equations: list[KEquation] = list()
-
-    #     for i_eq, eq in enumerate(self.equations):
-    #         time_derivative_cnt = 0
-    #         coeff = 0.0
-    #         form: KFormUnknown | None = None
-    #         for c, term in eq.left.pairs:
-    #             if (
-    #                 type(term) is not KInnerProduct
-    #                 or type(term.unknown_form) is not KTimeDerivative
-    #             ):
-    #                 continue
-
-    #             time_derivative_cnt += 1
-    #             coeff = c
-    #             form = term.unknown_form.base_form
-
-    #         if time_derivative_cnt == 0:
-    #             continue
-
-    #         if time_derivative_cnt != 1:
-    #             raise ValueError(
-    #                 f"Equation {i_eq} has more than one time derivative term."
-    #             )
-
-    #         new_equations.append(
-
-    #         )

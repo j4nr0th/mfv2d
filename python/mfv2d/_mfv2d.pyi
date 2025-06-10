@@ -1124,6 +1124,10 @@ class Basis1D:
         ...
     @property
     def rule(self) -> IntegrationRule1D: ...
+    @property
+    def roots(self) -> npt.NDArray[np.double]:
+        """Roots of the nodal basis."""
+        ...
 
 @final
 class Basis2D:

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import IntEnum, IntFlag
 
 from mfv2d.kform import (
+    Function2D,
     KFormDerivative,
     KFormSystem,
     KFormUnknown,
@@ -15,7 +16,6 @@ from mfv2d.kform import (
     KSum,
     KWeight,
     Term,
-    VectorFieldFunction,
 )
 
 
@@ -229,7 +229,7 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
 
 def translate_equation(
     form: Term,
-    vec_fields: Sequence[VectorFieldFunction | KFormUnknown],
+    vec_fields: Sequence[Function2D | KFormUnknown],
     newton: bool,
     simplify: bool,
 ) -> dict[Term, list[MatOp]]:
@@ -239,7 +239,7 @@ def translate_equation(
     ---------
     form : Term
         Form to evaluate.
-    vec_fields : Sequence of VectorFieldFunction or KFormUnknown
+    vec_fields : Sequence of Function2D or KFormUnknown
         Sequence to use when determining the index of vector fields passed to evaluation
         function.
     newton : bool
@@ -267,7 +267,7 @@ def translate_equation(
 
 def _translate_equation(
     form: Term,
-    vec_fields: Sequence[VectorFieldFunction | KFormUnknown],
+    vec_fields: Sequence[Function2D | KFormUnknown],
     newton: bool,
     transpose: bool,
 ) -> dict[Term, list[MatOp]]:
@@ -277,7 +277,7 @@ def _translate_equation(
     ---------
     form : Term
         Form to evaluate.
-    vec_fields : Sequence of VectorFieldFunction or KFormUnknown
+    vec_fields : Sequence of Function2D or KFormUnknown
         Sequence to use when determining the index of vector fields passed to evaluation
         function.
     newton : bool
@@ -608,7 +608,7 @@ def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
 
 def translate_system(
     system: KFormSystem,
-    vector_fields: Sequence[VectorFieldFunction | KFormUnknown],
+    vector_fields: Sequence[Function2D | KFormUnknown],
     newton: bool,
 ) -> tuple[tuple[tuple[MatOpCode | float | int, ...] | None, ...], ...]:
     """Create the two dimensional instruction array for the C code to execute."""

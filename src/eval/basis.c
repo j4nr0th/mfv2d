@@ -3,7 +3,7 @@
 #include "../basis/lagrange.h"
 
 static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule, int order, double **nodal_vals,
-                                                    double **edge_vals)
+                                                    double **edge_vals, double **p_roots)
 {
     double *roots = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (order + 1));
     if (!roots)
@@ -83,10 +83,11 @@ static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule,
         }
     }
 
+    *p_roots = roots;
+
     deallocate(&SYSTEM_ALLOCATOR, weights);
     deallocate(&SYSTEM_ALLOCATOR, work2);
     deallocate(&SYSTEM_ALLOCATOR, work);
-    deallocate(&SYSTEM_ALLOCATOR, roots);
     return MFV2D_SUCCESS;
 }
 static PyObject *basis_1d_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -103,10 +104,10 @@ static PyObject *basis_1d_new(PyTypeObject *type, PyObject *args, PyObject *kwds
         return NULL;
     }
 
-    double *nodal_vals, *edge_vals;
+    double *nodal_vals, *edge_vals, *root_vals;
     mfv2d_result_t computed = 0;
     Py_BEGIN_ALLOW_THREADS;
-    computed = compute_nodal_and_edge_values(rule, order, &nodal_vals, &edge_vals);
+    computed = compute_nodal_and_edge_values(rule, order, &nodal_vals, &edge_vals, &root_vals);
     Py_END_ALLOW_THREADS;
     if (computed != MFV2D_SUCCESS)
     {
@@ -118,6 +119,7 @@ static PyObject *basis_1d_new(PyTypeObject *type, PyObject *args, PyObject *kwds
 
     basis_1d_t *self = (basis_1d_t *)type->tp_alloc(type, 0);
     self->order = order;
+    self->roots = root_vals;
     self->nodal_basis = nodal_vals;
     self->edge_basis = edge_vals;
     self->integration_rule = rule;
@@ -131,6 +133,7 @@ static void basis_1d_dealloc(basis_1d_t *self)
     Py_DECREF(self->integration_rule);
     deallocate(&SYSTEM_ALLOCATOR, self->nodal_basis);
     deallocate(&SYSTEM_ALLOCATOR, self->edge_basis);
+    deallocate(&SYSTEM_ALLOCATOR, self->roots);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
@@ -178,6 +181,22 @@ static PyObject *basis_1d_get_edge(const basis_1d_t *self, void *Py_UNUSED(closu
     return (PyObject *)out;
 }
 
+static PyObject *basis_1d_get_roots(const basis_1d_t *self, void *Py_UNUSED(closure))
+{
+    const npy_intp n[1] = {self->order + 1};
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNewFromData(1, n, NPY_DOUBLE, self->roots);
+    if (out)
+    {
+        if (PyArray_SetBaseObject(out, (PyObject *)self) < 0)
+        {
+            Py_DECREF(out);
+            return NULL;
+        }
+        Py_INCREF(self);
+    }
+    return (PyObject *)out;
+}
+
 static PyObject *basis_1d_get_integration_rule(const basis_1d_t *self, void *Py_UNUSED(closure))
 {
     Py_INCREF(self->integration_rule);
@@ -204,6 +223,12 @@ static PyGetSetDef basis_1d_getsets[] = {{.name = "order",
                                           .set = NULL,
                                           .doc = "IntegrationRule1D : integration rule used",
                                           .closure = NULL},
+                                         {
+                                             .name = "roots",
+                                             .get = (getter)basis_1d_get_roots,
+                                             .set = NULL,
+                                             .doc = "array : Roots of the nodal basis.",
+                                         },
                                          {NULL}};
 
 PyDoc_STRVAR(basis_1d_doc, "Basis1D(order: int)\n"

@@ -11,6 +11,7 @@ from mfv2d.kform import KWeight as KWeight
 
 # Mimetic2D
 from mfv2d.mimetic2d import ElementLeaf2D as ElementLeaf2D
+from mfv2d.mimetic2d import Mesh2D as Mesh2D
 
 # Solve system
 from mfv2d.solve_system import RefinementSettings as RefinementSettings

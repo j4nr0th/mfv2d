@@ -91,7 +91,7 @@ Python_add_library(_mfv2d
 install(TARGETS _mfv2d DESTINATION ${SKBUILD_PROJECT_NAME})
 set_property(TARGET _mfv2d PROPERTY C_STANDARD 17)
 
-target_compile_definitions(_mfv2d PRIVATE MFV2D_ASSERTS MFV2D_EXPORT_ALL)
+target_compile_definitions(_mfv2d PRIVATE MFV2D_ASSERTS)
 if ("${NumPy_INCLUDE_DIRS}" STREQUAL "")
     message(FATAL_ERROR "NumPy_INCLUDE_DIRS was empty.")
 endif ()

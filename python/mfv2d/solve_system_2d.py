@@ -9,19 +9,19 @@ import pyvista as pv
 import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
-from mfv2d._mfv2d import compute_element_explicit, compute_element_matrices
 from mfv2d.element import (
     ElementCollection,
     FixedElementArray,
     FlexibleElementArray,
     call_per_element_fix,
     call_per_element_flex,
+    call_per_leaf_flex,
     compute_dof_sizes,
     compute_lagrange_sizes,
 )
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import KEquation, KFormSystem, UnknownOrderings
-from mfv2d.mimetic2d import BasisCache, Mesh2D
+from mfv2d.mimetic2d import FemCache, Mesh2D
 from mfv2d.solve_system import (
     Constraint,
     ElementConstraint,
@@ -30,16 +30,18 @@ from mfv2d.solve_system import (
     SolverSettings,
     SystemSettings,
     TimeSettings,
-    _find_time_carry_indices,
     assemble_matrix,
     assemble_vector,
-    assign_leaves,
     check_and_refine,
+    compute_element_dual,
+    compute_element_primal,
+    compute_element_primal_to_dual,
     compute_element_rhs,
-    compute_leaf_element_matrices,
-    compute_vector_fields_nonlin,
+    compute_element_vector_fields,
+    compute_leaf_matrix,
     divide_old,
     extract_carry,
+    find_time_carry_indices,
     mesh_boundary_conditions,
     mesh_continuity_constraints,
     non_linear_solve_run,
@@ -135,13 +137,9 @@ def solve_system_2d(
     element_collection = ElementCollection(element_list)
 
     # Make element matrices and vectors
-    cache: dict[int, BasisCache] = dict()
-    unique_orders = element_collection.orders_array.unique()
-    for order in (int(order) for order in unique_orders):
-        cache[order] = BasisCache(order, order + 2)
+    cache_2d = FemCache(order_difference=2)
 
-    if recon_order is not None and recon_order not in cache:
-        cache[int(recon_order)] = BasisCache(int(recon_order), int(recon_order))
+    unique_order_pairs = element_collection.orders_array.unique(axis=1)
 
     vector_fields = system.vector_fields
 
@@ -194,51 +192,42 @@ def solve_system_2d(
 
     # Make a system that can be used to perform an L2 projection for the initial
     # conditions.
-    project_equations: list[KEquation] = list()
-    for ie, eq in enumerate(system.equations):
+    initial_funcs = list()
+    for eq in system.equations:
         base_form = eq.weight.base_form
-        proj_rhs = (
-            0
+        initial_funcs.append(
+            None
             if base_form not in system_settings.initial_conditions
-            else eq.weight @ system_settings.initial_conditions[base_form]
+            else system_settings.initial_conditions[base_form]
         )
-        proj_lhs = eq.weight * eq.weight.base_form
-        project_equations.append(proj_lhs == proj_rhs)  # type: ignore
-
-    projection_system = KFormSystem(*project_equations)
-    projection_compiled = CompiledSystem(projection_system)
-    projection_codes = projection_compiled.linear_codes
-    del project_equations
 
     # Explicit right side
     explicit_vec: npt.NDArray[np.float64]
 
     # Prepare for evaluation of matrices/vectors
-    corners = np.stack([v for v in element_collection.corners_array], axis=0)
+    # corners = np.stack([v for v in element_collection.corners_array], axis=0)
     leaf_elements = np.flatnonzero(
         np.concatenate(element_collection.child_count_array.values) == 0
     )
-    bl = corners[leaf_elements, 0]
-    br = corners[leaf_elements, 1]
-    tr = corners[leaf_elements, 2]
-    tl = corners[leaf_elements, 3]
-    # NOTE: does not work with differing orders yet
-    orde = np.array(element_collection.orders_array)[leaf_elements, 0]
-    c_ser = tuple(cache[o].c_serialization() for o in cache if o in orde)
+    # bl = corners[leaf_elements, 0]
+    # br = corners[leaf_elements, 1]
+    # tr = corners[leaf_elements, 2]
+    # tl = corners[leaf_elements, 3]
+    # # NOTE: does not work with differing orders yet
+    # orde = np.array(element_collection.orders_array)[leaf_elements, 0]
 
     # Release cache element memory. If they will be needed in the future,
     # they will be recomputed, but they consume LOTS of memory
 
-    linear_vectors = call_per_element_flex(
-        element_collection.com,
+    linear_vectors = call_per_leaf_flex(
+        element_collection,
         1,
         np.float64,
         compute_element_rhs,
         system,
-        cache,
-        element_collection.corners_array,
+        cache_2d,
         element_collection.orders_array,
-        element_collection.child_count_array,
+        element_collection.corners_array,
     )
 
     unknown_ordering = UnknownOrderings(*(form.order for form in system.unknown_forms))
@@ -263,62 +252,30 @@ def solve_system_2d(
     solution = FlexibleElementArray(element_collection.com, np.float64, total_dof_counts)
 
     if system_settings.initial_conditions:
-        initial_vectors = call_per_element_flex(
-            element_collection.com,
+        initial_vectors = call_per_leaf_flex(
+            element_collection,
             1,
             np.float64,
-            compute_element_rhs,
-            projection_system,
-            cache,
-            element_collection.corners_array,
+            compute_element_dual,
+            unknown_ordering,
+            initial_funcs,
             element_collection.orders_array,
-            element_collection.child_count_array,
+            element_collection.corners_array,
+            cache_2d,
         )
-
-        projection_matrices = compute_element_matrices(
-            [f.order for f in system.unknown_forms],
-            projection_compiled.linear_codes,
-            bl,
-            br,
-            tr,
-            tl,
-            orde,
-            tuple(),
-            np.zeros((orde.size + 1), np.uint64),
-            c_ser,
-        )
-        distributed_projections = assign_leaves(
-            element_collection, 2, np.float64, projection_matrices
-        )  # TODO: factor
-        del projection_matrices
-
-        def _inverse_for_leaves(
-            ie: int,
-            child_counts: FixedElementArray[np.uint32],
-            mat: FlexibleElementArray[np.float64, np.uint32],
-            vec: FlexibleElementArray[np.float64, np.uint32],
-            total_dofs: FixedElementArray[np.uint32],
-        ) -> npt.NDArray[np.float64]:
-            """Compute inverse for each leaf element."""
-            n_dofs = int(total_dofs[ie][0])
-            if int(child_counts[ie][0]) != 0:
-                return np.zeros(n_dofs, np.float64)
-
-            res = np.astype(np.linalg.solve(mat[ie], vec[ie]), np.float64, copy=False)
-            assert res.size == n_dofs
-            return res
 
         initial_solution = call_per_element_flex(
             element_collection.com,
             1,
             np.float64,
-            _inverse_for_leaves,
-            element_collection.child_count_array,
-            distributed_projections,
+            compute_element_primal,
+            unknown_ordering,
             initial_vectors,
-            total_dof_counts,
+            element_collection.orders_array,
+            element_collection.corners_array,
+            cache_2d,
         )
-        del distributed_projections
+
     else:
         initial_vectors = None
         initial_solution = None
@@ -328,7 +285,7 @@ def solve_system_2d(
             element_collection.com,
             1,
             np.uint32,
-            _find_time_carry_indices,
+            find_time_carry_indices,
             tuple(
                 sorted(
                     system.weight_forms.index(form)
@@ -349,6 +306,9 @@ def solve_system_2d(
                 element_collection.com, np.float64, time_carry_index_array.shapes
             )
     else:
+        if initial_solution is not None:
+            solution = initial_solution
+
         time_carry_index_array = None
         old_solution_carry = None
 
@@ -357,30 +317,32 @@ def solve_system_2d(
     assert compiled_system.linear_codes
 
     # Compute vector fields at integration points for leaf elements
-    vec_field_offsets, vec_fields = compute_vector_fields_nonlin(
+    vec_fields_array = call_per_element_fix(
+        element_collection.com,
+        np.object_,
+        len(vector_fields),
+        compute_element_vector_fields,
         system,
-        leaf_elements,
-        cache,
+        element_collection.child_count_array,
+        element_collection.orders_array,
+        element_collection.orders_array,
+        cache_2d,
         vector_fields,
         element_collection.corners_array,
-        element_collection.orders_array,
-        element_collection.orders_array,
         dof_offsets,
         solution,
     )
-
-    linear_element_matrices = compute_leaf_element_matrices(
-        unknown_ordering,
+    linear_element_matrices = call_per_leaf_flex(
         element_collection,
+        2,
+        np.float64,
+        compute_leaf_matrix,
         compiled_system.linear_codes,
-        bl,
-        br,
-        tr,
-        tl,
-        orde,
-        c_ser,
-        vec_field_offsets,
-        vec_fields,
+        unknown_ordering,
+        element_collection.orders_array,
+        cache_2d,
+        element_collection.corners_array,
+        vec_fields_array,
     )
 
     main_mat = assemble_matrix(
@@ -452,8 +414,10 @@ def solve_system_2d(
             [bc for bc in boundary_conditions if bc.form == eq.weight.base_form]
             for eq in system.equations
         ],
-        cache,
+        cache_2d,
     )
+
+    really_unique = np.unique(unique_order_pairs)
 
     continuity_constraints = mesh_continuity_constraints(
         system,
@@ -461,9 +425,10 @@ def solve_system_2d(
         top_indices,
         unknown_ordering,
         element_collection,
-        unique_orders,
+        really_unique.size > 1 or really_unique[0] != 1,
         dof_offsets,
     )
+    del really_unique
 
     element_offset = np.astype(
         np.pad(np.array(total_dof_counts, np.uint32).flatten().cumsum(), (1, 0)),
@@ -511,7 +476,8 @@ def solve_system_2d(
     # Weak BC constraints/additions
     for ec in weak_bc_constraints:
         offset = element_offset[ec.i_e]
-        main_vec[ec.dofs] += ec.coeffs
+        main_vec[ec.dofs + offset] += ec.coeffs
+
     if constraint_coef:
         lagrange_mat = sp.csr_array(
             (
@@ -532,12 +498,12 @@ def solve_system_2d(
         lagrange_mat = None
         lagrange_vec = np.zeros(0, np.float64)
 
-    # # TODO: Delet dis
+    # TODO: Delet dis
     # from matplotlib import pyplot as plt
 
     # plt.figure()
-    # plt.imshow(main_mat.toarray())
-    # # plt.spy(main_mat)
+    # # plt.imshow(main_mat.toarray())
+    # plt.spy(main_mat)
     # plt.show()
 
     linear_matrix = sp.csc_array(main_mat)
@@ -560,7 +526,7 @@ def solve_system_2d(
         system,
         recon_order,
         element_collection,
-        cache,
+        cache_2d,
         dof_offsets,
         solution,
     )
@@ -602,15 +568,9 @@ def solve_system_2d(
                 unknown_ordering,
                 element_collection,
                 leaf_elements,
-                cache,
+                cache_2d,
                 compiled_system,
                 explicit_vec,
-                bl,
-                br,
-                tr,
-                tl,
-                orde,
-                c_ser,
                 dof_offsets,
                 element_offset,
                 linear_element_matrices,
@@ -626,24 +586,16 @@ def solve_system_2d(
 
             changes[time_index] = float(max_residual)
             iters[time_index] = iter_cnt
-            updated_derivative = assign_leaves(
+            updated_derivative = call_per_leaf_flex(
                 element_collection,
                 1,
                 np.float64,
-                compute_element_explicit(
-                    np.concatenate(new_solution, dtype=np.float64),
-                    element_offset[leaf_elements],
-                    [f.order for f in system.unknown_forms],
-                    projection_codes,
-                    bl,
-                    br,
-                    tr,
-                    tl,
-                    orde,
-                    vec_fields,
-                    vec_field_offsets,
-                    c_ser,
-                ),
+                compute_element_primal_to_dual,
+                unknown_ordering,
+                solution,
+                element_collection.orders_array,
+                element_collection.corners_array,
+                cache_2d,
             )
             assert time_carry_index_array is not None
             new_solution_carry = extract_carry(
@@ -673,7 +625,7 @@ def solve_system_2d(
                     system,
                     recon_order,
                     element_collection,
-                    cache,
+                    cache_2d,
                     dof_offsets,
                     solution,
                 )
@@ -696,15 +648,9 @@ def solve_system_2d(
             unknown_ordering,
             element_collection,
             leaf_elements,
-            cache,
+            cache_2d,
             compiled_system,
             explicit_vec,
-            bl,
-            br,
-            tr,
-            tl,
-            orde,
-            c_ser,
             dof_offsets,
             element_offset,
             linear_element_matrices,
@@ -716,7 +662,9 @@ def solve_system_2d(
             vector_fields,
             system_decomp,
             lagrange_mat,
+            True,
         )
+        changes = np.asarray(changes, np.float64)[: iter_cnt + 1]  # type: ignore
         iters = np.array((iter_cnt,), np.uint32)  # type: ignore
 
         solution = new_solution
@@ -728,14 +676,13 @@ def solve_system_2d(
             system,
             recon_order,
             element_collection,
-            cache,
+            cache_2d,
             dof_offsets,
             solution,
         )
 
         resulting_grids.append(grid)
 
-    del c_ser, bl, br, tr, tl, orde
     # TODO: solution statistics
     orders, counts = np.unique(
         np.array(element_collection.orders_array), return_counts=True
@@ -748,7 +695,7 @@ def solve_system_2d(
         n_leaves=len(leaf_elements),
         n_leaf_dofs=sum(int(total_dof_counts[int(ie)][0]) for ie in leaf_elements),
         iter_history=iters,
-        residual_history=changes,
+        residual_history=np.asarray(changes, np.float64),
     )
 
     return tuple(resulting_grids), stats

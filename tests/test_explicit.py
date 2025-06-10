@@ -16,7 +16,7 @@ from mfv2d.kform import KFormSystem, KFormUnknown
 from mfv2d.mimetic2d import (
     BasisCache,
     ElementLeaf2D,
-    rhs_2d_element_projection,
+    _very_old_rhs_2d_element_projection,
 )
 
 
@@ -111,14 +111,16 @@ def test_explicit_evaluation():
     )[0]
 
     proj_vor = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(w_vor @ vor_exact, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(w_vor @ vor_exact, e, cache),
     )
     proj_vel = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(w_vel @ vel_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(w_vel @ vel_exact, e, cache),
     )
     proj_pre = np.linalg.solve(
         e.mass_matrix_surface(cache),
-        rhs_2d_element_projection(w_pre @ pre_exact, e, cache),
+        _very_old_rhs_2d_element_projection(w_pre @ pre_exact, e, cache),
     )
 
     exact_lhs = np.concatenate((proj_vor, proj_vel, proj_pre), dtype=np.float64)
@@ -160,7 +162,7 @@ def test_explicit_evaluation():
     )
     proj_momentum_rhs = np.linalg.solve(
         e.mass_matrix_edge(cache),
-        rhs_2d_element_projection(w_vel @ exact_momentum, e, cache),
+        _very_old_rhs_2d_element_projection(w_vel @ exact_momentum, e, cache),
     )
     assert np.abs(momentum_rhs - proj_momentum_rhs).max() < 1e-6
 
@@ -256,14 +258,16 @@ def test_explicit_evaluation_2():
     )[0]
 
     proj_vor = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(w_vor @ vor_exact, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(w_vor @ vor_exact, e, cache),
     )
     proj_vel = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(w_vel @ vel_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(w_vel @ vel_exact, e, cache),
     )
     proj_pre = np.linalg.solve(
         e.mass_matrix_surface(cache),
-        rhs_2d_element_projection(w_pre @ pre_exact, e, cache),
+        _very_old_rhs_2d_element_projection(w_pre @ pre_exact, e, cache),
     )
 
     exact_lhs = np.concatenate((proj_vor, proj_vel, proj_pre), dtype=np.float64)
@@ -303,6 +307,6 @@ def test_explicit_evaluation_2():
     )
     proj_momentum_rhs = np.linalg.solve(
         e.mass_matrix_edge(cache),
-        rhs_2d_element_projection(w_vel @ exact_momentum, e, cache),
+        _very_old_rhs_2d_element_projection(w_vel @ exact_momentum, e, cache),
     )
     assert np.abs(momentum_rhs - proj_momentum_rhs).max() < 1e-6

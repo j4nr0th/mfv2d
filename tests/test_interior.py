@@ -7,7 +7,7 @@ import numpy.typing as npt
 from mfv2d._mfv2d import compute_element_matrices
 from mfv2d.eval import MatOp, MatOpCode, _ctranslate, translate_equation
 from mfv2d.kform import KFormSystem, KFormUnknown
-from mfv2d.mimetic2d import BasisCache, ElementLeaf2D, rhs_2d_element_projection
+from mfv2d.mimetic2d import BasisCache, ElementLeaf2D, _very_old_rhs_2d_element_projection
 
 type Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 
@@ -174,11 +174,13 @@ def test_advect_21_undeformed() -> None:
     exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
     assert np.max(np.abs(lhs - rhs)) < 1e-15
 
@@ -315,11 +317,13 @@ def test_advect_10_undeformed() -> None:
     exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_node(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print(lhs)
@@ -444,11 +448,13 @@ def test_advect_21_regular_deformed_1() -> None:
     exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print(lhs / rhs)
@@ -584,11 +590,13 @@ def test_advect_21_regular_deformed_2() -> None:
     exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print(lhs / rhs)
@@ -729,11 +737,13 @@ def test_advect_10_refgular_deformed_1() -> None:
     exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_node(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print("Exact:   ", rhs)
@@ -862,11 +872,13 @@ def test_advect_10_refgular_deformed_2() -> None:
     exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_node(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print(lhs / rhs)
@@ -990,11 +1002,13 @@ def test_advect_21_irregular_deformed_1() -> None:
     exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print(lhs / rhs)
@@ -1134,11 +1148,13 @@ def test_advect_10_irrefgular_deformed_1() -> None:
     exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_node(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print(lhs / rhs)
@@ -1264,11 +1280,13 @@ def test_div_21_irregular_deformed_1() -> None:
     # plt.show()
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_surface(cache), emat @ omega_proj).reshape((N, N))
     rhs = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ div_exact, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(v @ div_exact, e, cache),
     ).reshape((N, N))
 
     # print(lhs / rhs)
@@ -1389,11 +1407,13 @@ def test_dual_advect_21_undeformed() -> None:
     exact_eprod = exact_interior_prod_2_dual(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
     # print("Max error:", np.max(np.abs(lhs - rhs)))
     assert np.max(np.abs(lhs - rhs)) < 1e-15
@@ -1533,11 +1553,13 @@ def test_dual_advect_21_rotated() -> None:
     exact_eprod = exact_interior_prod_2_dual(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
     # print("Max error:", np.max(np.abs(lhs - rhs)))
     assert np.max(np.abs(lhs - rhs)) < 1e-15
@@ -1677,11 +1699,13 @@ def test_dual_advect_21_irregular_deformed() -> None:
     exact_eprod = exact_interior_prod_2_dual(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
     # print("Max error:", np.max(np.abs(lhs - rhs)))
     assert np.max(np.abs(lhs - rhs)) < 1e-13
@@ -1823,11 +1847,13 @@ def test_dual_advect_10_undeformed() -> None:
     exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_surface(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print("Computed:", lhs)
@@ -1954,11 +1980,13 @@ def test_dual_advect_10_rotated() -> None:
     exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_surface(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print("Computed:", lhs)
@@ -2085,11 +2113,13 @@ def test_dual_advect_10_irregular_deformed() -> None:
     exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
     lhs = np.linalg.solve(e.mass_matrix_surface(cache), emat @ omega_proj)
     rhs = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(w @ exact_eprod, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
     )
 
     # print("Computed:", lhs)
@@ -2225,11 +2255,13 @@ def test_advect_non_linear_10_irregular_deformed() -> None:
     # plt.show()
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
 
     u_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ u_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ u_exact, e, cache),
     )
     v1 = emat @ omega_proj
     v2 = fmat @ u_proj
@@ -2351,11 +2383,13 @@ def test_advect_dual_non_linear_10_irregular_deformed() -> None:
     # plt.show()
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
 
     u_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(v @ u_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(v @ u_exact, e, cache),
     )
     v1 = emat @ omega_proj
     v2 = fmat @ u_proj
@@ -2471,11 +2505,13 @@ def test_advect_non_linear_21_irregular_deformed() -> None:
     # plt.show()
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_surface(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
 
     u_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(h @ u_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(h @ u_exact, e, cache),
     )
     v1 = emat @ omega_proj
     v2 = fmat @ u_proj
@@ -2597,11 +2633,13 @@ def test_advect_dual_non_linear_21_irregular_deformed() -> None:
     # plt.show()
 
     omega_proj = np.linalg.solve(
-        e.mass_matrix_node(cache), rhs_2d_element_projection(v @ omega_exact, e, cache)
+        e.mass_matrix_node(cache),
+        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
     )
 
     u_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache), rhs_2d_element_projection(h @ u_exact, e, cache)
+        e.mass_matrix_edge(cache),
+        _very_old_rhs_2d_element_projection(h @ u_exact, e, cache),
     )
     v1 = emat @ omega_proj
     v2 = fmat @ u_proj

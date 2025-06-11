@@ -586,20 +586,20 @@ def solve_system_2d(
 
             changes[time_index] = float(max_residual)
             iters[time_index] = iter_cnt
-            updated_derivative = call_per_leaf_flex(
+            projected_solution = call_per_leaf_flex(
                 element_collection,
                 1,
                 np.float64,
                 compute_element_primal_to_dual,
                 unknown_ordering,
-                solution,
+                new_solution,
                 element_collection.orders_array,
                 element_collection.corners_array,
                 cache_2d,
             )
             assert time_carry_index_array is not None
             new_solution_carry = extract_carry(
-                element_collection, time_carry_index_array, updated_derivative
+                element_collection, time_carry_index_array, projected_solution
             )
             # Compute time carry
             new_time_carry_term = call_per_element_flex(
@@ -616,7 +616,7 @@ def solve_system_2d(
             solution = new_solution
             time_carry_term = new_time_carry_term
             old_solution_carry = new_solution_carry
-            del new_solution_carry, new_time_carry_term, new_solution, updated_derivative
+            del new_solution_carry, new_time_carry_term, new_solution, projected_solution
 
             if (time_index % time_settings.sample_rate) == 0 or time_index + 1 == nt:
                 # Prepare to build up the 1D Splines

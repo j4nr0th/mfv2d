@@ -15,61 +15,63 @@ from mfv2d import (
 )
 from scipy.integrate import trapezoid
 
-ALPHA = 0.25
+ALPHA = 1.0
 
 
-def initial_u(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
+def final_u(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
     """Screw initial solution."""
-    return 2 * np.cos(np.pi * x / 2) * np.cos(np.pi * y / 2)
+    return (1 - x**4) * (1 - y**4)
 
 
-def initial_q(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
-    """Screw initial curl."""
+def final_q(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
+    """Screw initial gradient."""
     return np.stack(
         (
-            -np.pi * np.cos(np.pi * x / 2) * np.sin(np.pi * y / 2),
-            np.pi * np.sin(np.pi * x / 2) * np.cos(np.pi * y / 2),
+            -4 * x**3 * (1 - y**4),
+            -4 * y**3 * (1 - x**4),
         ),
         axis=-1,
     )
 
 
-def final_u(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
+def initial_u(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
     """Steady state forcing."""
-    return np.sin(np.pi * x) * np.cos(np.pi * y)
+    return (1 - x**2) * (1 - y**2)
 
 
-def final_q(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
-    """Steady state curl."""
+def initial_q(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
+    """Steady state gradient."""
     return np.stack(
         (
-            -np.pi * np.sin(np.pi * x) * np.sin(np.pi * y),
-            -np.pi * np.cos(np.pi * x) * np.cos(np.pi * y),
+            -2 * x * (1 - y**2),
+            -2 * y * (1 - x**2),
         ),
         axis=-1,
     )
 
 
 if __name__ == "__main__":
-    u = KFormUnknown(2, "u", 0)
+    u = KFormUnknown(2, "u", 2)
     v = u.weight
     q = KFormUnknown(2, "q", 1)
     p = q.weight
 
     system = KFormSystem(
         ALPHA * (v * u) == ALPHA * (v * final_u),
-        p * q - p * u.derivative == 0,
+        p.derivative * u - p * q == p ^ final_u,
         sorting=lambda f: f.order,
     )
+    print(system)
 
     N = 6
     P = 3
 
     n1 = N
     n2 = N
-    T_END = 2
+    T_END = 5
 
-    nt_vals = np.array((10, 20, 50, 100, 200))
+    # nt_vals = np.array((10, 20, 50, 100, 200))
+    nt_vals = np.array((100,))
     er_vals = np.zeros(nt_vals.size)
     dt_vals = np.zeros(nt_vals.size)
 
@@ -95,7 +97,9 @@ if __name__ == "__main__":
         dt = float(T_END / nt)
         solutions, stats = solve_system_2d(
             mesh,
-            system_settings=SystemSettings(system, initial_conditions={u: initial_u}),
+            system_settings=SystemSettings(
+                system, initial_conditions={u: initial_u, q: initial_q}
+            ),
             solver_settings=SolverSettings(
                 maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
             ),
@@ -112,28 +116,29 @@ if __name__ == "__main__":
             u_exact = initial_u(sol.points[:, 0], sol.points[:, 1]) * np.exp(
                 -ALPHA * time
             ) + final_u(sol.points[:, 0], sol.points[:, 1]) * (1 - np.exp(-ALPHA * time))
+
             q_exact = initial_q(sol.points[:, 0], sol.points[:, 1]) * np.exp(
                 -ALPHA * time
             ) + final_q(sol.points[:, 0], sol.points[:, 1]) * (1 - np.exp(-ALPHA * time))
-
             u_err = sol.point_data["u"] - u_exact
-
             q_err = sol.point_data["q"] - q_exact
             sol.point_data["u_err"] = np.abs(u_err)
-            sol.point_data["u_real"] = u_exact
             sol.point_data["q_err"] = np.linalg.norm(q_err, axis=-1)
+            sol.point_data["u_real"] = u_exact
             sol.point_data["q_real"] = q_exact
 
             integrated = sol.integrate_data()
-            err = float(integrated.point_data["q_err"][0])
+            err = float(integrated.point_data["u_err"][0])
             time_vals[isol] = time
             err_vals[isol] = err
+            sol.save(f"sandbox/heat/res-{isol:04d}.vtu")
 
         total_time_error = trapezoid(err_vals, time_vals)
         er_vals[i_nt] = total_time_error
         dt_vals[i_nt] = dt
         print(f"For {dt=} total error was {total_time_error:.3e}.")
 
+    exit()
     k1, k0 = np.polyfit(np.log(dt_vals), np.log(er_vals), 1)
     k0 = np.exp(k0)
 

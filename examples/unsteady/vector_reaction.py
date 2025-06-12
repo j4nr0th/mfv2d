@@ -20,45 +20,26 @@ ALPHA = 0.25
 
 def initial_u(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
     """Screw initial solution."""
-    return 2 * np.cos(np.pi * x / 2) * np.cos(np.pi * y / 2)
-
-
-def initial_q(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
-    """Screw initial curl."""
-    return np.stack(
-        (
-            -np.pi * np.cos(np.pi * x / 2) * np.sin(np.pi * y / 2),
-            np.pi * np.sin(np.pi * x / 2) * np.cos(np.pi * y / 2),
-        ),
-        axis=-1,
-    )
+    return np.stack((2 * x * y, x**2 * y), axis=-1)
 
 
 def final_u(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
-    """Steady state forcing."""
-    return np.sin(np.pi * x) * np.cos(np.pi * y)
-
-
-def final_q(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
-    """Steady state curl."""
+    """Steady state solution."""
     return np.stack(
         (
-            -np.pi * np.sin(np.pi * x) * np.sin(np.pi * y),
-            -np.pi * np.cos(np.pi * x) * np.cos(np.pi * y),
+            -(x**2) * y,
+            -x * y,
         ),
         axis=-1,
     )
 
 
 if __name__ == "__main__":
-    u = KFormUnknown(2, "u", 0)
+    u = KFormUnknown(2, "u", 1)
     v = u.weight
-    q = KFormUnknown(2, "q", 1)
-    p = q.weight
 
     system = KFormSystem(
         ALPHA * (v * u) == ALPHA * (v * final_u),
-        p * q - p * u.derivative == 0,
         sorting=lambda f: f.order,
     )
 
@@ -112,20 +93,14 @@ if __name__ == "__main__":
             u_exact = initial_u(sol.points[:, 0], sol.points[:, 1]) * np.exp(
                 -ALPHA * time
             ) + final_u(sol.points[:, 0], sol.points[:, 1]) * (1 - np.exp(-ALPHA * time))
-            q_exact = initial_q(sol.points[:, 0], sol.points[:, 1]) * np.exp(
-                -ALPHA * time
-            ) + final_q(sol.points[:, 0], sol.points[:, 1]) * (1 - np.exp(-ALPHA * time))
 
             u_err = sol.point_data["u"] - u_exact
 
-            q_err = sol.point_data["q"] - q_exact
-            sol.point_data["u_err"] = np.abs(u_err)
+            sol.point_data["u_err"] = np.linalg.norm(u_err, axis=-1)
             sol.point_data["u_real"] = u_exact
-            sol.point_data["q_err"] = np.linalg.norm(q_err, axis=-1)
-            sol.point_data["q_real"] = q_exact
 
             integrated = sol.integrate_data()
-            err = float(integrated.point_data["q_err"][0])
+            err = float(integrated.point_data["u_err"][0])
             time_vals[isol] = time
             err_vals[isol] = err
 

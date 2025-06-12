@@ -2669,7 +2669,7 @@ def find_time_carry_indices(
     offsets = dof_offsets[ie]
     for iu, u in enumerate(unknowns):
         assert iu == 0 or unknowns[iu] < u, "Unknowns must be sorted."
-        output.append(np.arange(offsets[iu], offsets[iu + 1], dtype=np.uint32))
+        output.append(np.arange(offsets[u], offsets[u + 1], dtype=np.uint32))
     return np.concatenate(output, dtype=np.uint32)
 
 

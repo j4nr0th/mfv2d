@@ -70,8 +70,7 @@ if __name__ == "__main__":
     n2 = N
     T_END = 5
 
-    # nt_vals = np.array((10, 20, 50, 100, 200))
-    nt_vals = np.array((100,))
+    nt_vals = np.array((10, 20, 50, 100, 200))
     er_vals = np.zeros(nt_vals.size)
     dt_vals = np.zeros(nt_vals.size)
 
@@ -128,17 +127,16 @@ if __name__ == "__main__":
             sol.point_data["q_real"] = q_exact
 
             integrated = sol.integrate_data()
-            err = float(integrated.point_data["u_err"][0])
+            err = float(integrated.point_data["q_err"][0])
             time_vals[isol] = time
             err_vals[isol] = err
-            sol.save(f"sandbox/heat/res-{isol:04d}.vtu")
+            # sol.save(f"sandbox/heat/res-{isol:04d}.vtu")
 
         total_time_error = trapezoid(err_vals, time_vals)
         er_vals[i_nt] = total_time_error
         dt_vals[i_nt] = dt
         print(f"For {dt=} total error was {total_time_error:.3e}.")
 
-    exit()
     k1, k0 = np.polyfit(np.log(dt_vals), np.log(er_vals), 1)
     k0 = np.exp(k0)
 

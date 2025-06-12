@@ -147,7 +147,7 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
                         r = v1
                     else:
                         assert type(v2) is Scale
-                        r = Scale(v1.k + v2.k)
+                        r = Scale(v1.k * v2.k)
 
                 del ops[i + 1]
                 ops[i] = r

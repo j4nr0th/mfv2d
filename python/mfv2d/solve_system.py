@@ -32,6 +32,7 @@ from mfv2d.element import (
     ElementSide,
     FixedElementArray,
     FlexibleElementArray,
+    _compute_element_lagrange_multipliers,
     call_per_element_fix,
     call_per_element_flex,
     call_per_leaf_flex,
@@ -87,7 +88,7 @@ def check_and_refine(
         object.__setattr__(new_e, "child_br", cbr[0])
         object.__setattr__(new_e, "child_tl", ctl[0])
         object.__setattr__(new_e, "child_tr", ctr[0])
-        out = cbl + cbr + ctl + ctr + [new_e]
+        out = [new_e] + cbl + cbr + ctr + ctl
 
     else:
         out = [e]
@@ -833,8 +834,8 @@ def _parent_child_equations(
     ie: int,
     child_bl: int,
     child_br: int,
-    child_tl: int,
     child_tr: int,
+    child_tl: int,
 ) -> tuple[Constraint, ...]:
     """Create constraint equations for the parent-child and child-child continuity.
 
@@ -1160,6 +1161,7 @@ def _compute_element_matrix(
     ie: int,
     dof_offsets_array: FixedElementArray[np.uint32],
     leaf_matrices: FlexibleElementArray[np.float64, np.uint32],
+    elements: ElementCollection,
 ) -> sp.csr_array | npt.NDArray[np.float64]:
     """Compute matrix for a top level element."""
     children = collection.child_array[ie]
@@ -1178,37 +1180,58 @@ def _compute_element_matrix(
             int(ic),
             dof_offsets_array,
             leaf_matrices,
+            collection,
         )
         for ic in children
     ]
     sizes = [mat.shape[0] for mat in child_matrices]
     offsets = {int(ic): int(np.sum(sizes[:i])) for i, ic in enumerate(children)}
-    offsets[ie] = sum(sizes)
 
     # Lagrange muliplier block
     constraint_equations = _parent_child_equations(
         unknown_ordering, collection, dof_offsets_array, ie, *children
     )
-    rows: list[npt.NDArray[np.uint32]] = list()
-    cols: list[npt.NDArray[np.uint32]] = list()
-    vals: list[npt.NDArray[np.float64]] = list()
+    rows_c: list[npt.NDArray[np.uint32]] = list()
+    rows_s: list[npt.NDArray[np.uint32]] = list()
+    cols_c: list[npt.NDArray[np.uint32]] = list()
+    cols_s: list[npt.NDArray[np.uint32]] = list()
+    vals_c: list[npt.NDArray[np.float64]] = list()
+    vals_s: list[npt.NDArray[np.float64]] = list()
     for ic, con in enumerate(constraint_equations):
         assert con.rhs == 0
         for ec in con.element_constraints:
-            offset = offsets[ec.i_e]
-            cols.append(ec.dofs + offset)
-            rows.append(np.full_like(ec.dofs, ic, np.uint32))
-            vals.append(ec.coeffs)
+            idx = ec.i_e
+            if idx == ie:
+                cols_s.append(ec.dofs)
+                rows_s.append(np.full_like(ec.dofs, ic, np.uint32))
+                vals_s.append(ec.coeffs)
+            else:
+                offset = offsets[idx]
+                cols_c.append(ec.dofs + offset)
+                rows_c.append(np.full_like(ec.dofs, ic, np.uint32))
+                vals_c.append(ec.coeffs)
 
-    lagmat = sp.csr_array(
-        (np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))),
-        shape=(len(constraint_equations), sum(sizes) + dof_offsets[-1]),
+    lagmat_c = sp.csr_array(
+        (np.concatenate(vals_c), (np.concatenate(rows_c), np.concatenate(cols_c))),
+        shape=(len(constraint_equations), sum(sizes)),
     )
+    lagmat_s = sp.csr_array(
+        (np.concatenate(vals_s), (np.concatenate(rows_s), np.concatenate(cols_s))),
+        shape=(len(constraint_equations), dof_offsets[-1]),
+    )
+
+    assert len(constraint_equations) == _compute_element_lagrange_multipliers(
+        ie, elements, unknown_ordering
+    )  # TODO: remove
 
     return cast(
         sp.csr_array,
         sp.block_array(
-            ((sp.block_diag((*child_matrices, self_matrix)), lagmat.T), (lagmat, None)),
+            (
+                (self_matrix, lagmat_s.T, None),
+                (lagmat_s, None, lagmat_c),
+                (None, lagmat_c.T, sp.block_diag([*child_matrices])),
+            ),
             format="csr",
         ),
     )
@@ -1231,6 +1254,7 @@ def assemble_matrix(
             ie,
             dof_offsets_array,
             leaf_matrices,
+            collection,
         )
         matrices.append(mat)
     return cast(sp.csr_array, sp.block_diag(matrices, format="csr"))
@@ -1267,7 +1291,7 @@ def _compute_element_vector(
     ]
     lagvals = np.zeros(lagrange_dof_count_array[ie])
 
-    return np.concatenate((*child_vectors, self_vec, lagvals), dtype=np.float64)
+    return np.concatenate((self_vec, lagvals, *child_vectors), dtype=np.float64)
 
 
 def assemble_vector(
@@ -1346,7 +1370,7 @@ def _compute_element_forcing(
         vals.append(v)
 
     return np.concatenate(
-        [*(forcing_arrays[ic] for ic in children), forcing_arrays[ie], vals],
+        [forcing_arrays[ie], vals, *(forcing_arrays[ic] for ic in children)],
         dtype=np.float64,
     )
 
@@ -1658,73 +1682,72 @@ def _element_strong_boundary_condition(
     skip_last: bool,
 ) -> tuple[ElementConstraint, ...]:
     """Determine boundary conditions given an element and a side."""
-    children = elements.child_array[ie]
+    # children = elements.child_array[ie]
+    # if children.size != 0:
+    #     # Node, has children
+    #     current: tuple[ElementConstraint, ...] = tuple()
+    #     # For children skipping:
+    #     # Skip first if: (on start of the side AND skip_first is True) OR (end of side)
+    #     # Skip last if: on end of the side AND skip_last is True
+    #     # So only time first not skipped if: skip_first is True AND beginning of side
+    #     if side == ElementSide.SIDE_LEFT or side == ElementSide.SIDE_BOTTOM:
+    #         current += _element_strong_boundary_condition(
+    #             elements,
+    #             int(children[0]),
+    #             side,
+    #             unknown_orders,
+    #             unknown_index,
+    #             dof_offsets,
+    #             strong_bc,
+    #             cache_1d,
+    #             (skip_first and side == ElementSide.SIDE_BOTTOM)
+    #             or side == ElementSide.SIDE_LEFT,
+    #             skip_last and side == ElementSide.SIDE_LEFT,
+    #         )
+    #     if side == ElementSide.SIDE_BOTTOM or side == ElementSide.SIDE_RIGHT:
+    #         current += _element_strong_boundary_condition(
+    #             elements,
+    #             int(children[1]),
+    #             side,
+    #             unknown_orders,
+    #             unknown_index,
+    #             dof_offsets,
+    #             strong_bc,
+    #             cache_1d,
+    #             (skip_first and side == ElementSide.SIDE_RIGHT)
+    #             or side == ElementSide.SIDE_BOTTOM,
+    #             skip_last and side == ElementSide.SIDE_BOTTOM,
+    #         )
+    #     if side == ElementSide.SIDE_RIGHT or side == ElementSide.SIDE_TOP:
+    #         current += _element_strong_boundary_condition(
+    #             elements,
+    #             int(children[2]),
+    #             side,
+    #             unknown_orders,
+    #             unknown_index,
+    #             dof_offsets,
+    #             strong_bc,
+    #             cache_1d,
+    #             (skip_first and side == ElementSide.SIDE_TOP)
+    #             or side == ElementSide.SIDE_RIGHT,
+    #             skip_last and side == ElementSide.SIDE_RIGHT,
+    #         )
+    #     if side == ElementSide.SIDE_TOP or side == ElementSide.SIDE_LEFT:
+    #         current += _element_strong_boundary_condition(
+    #             elements,
+    #             int(children[3]),
+    #             side,
+    #             unknown_orders,
+    #             unknown_index,
+    #             dof_offsets,
+    #             strong_bc,
+    #             cache_1d,
+    #             (skip_first and side == ElementSide.SIDE_LEFT)
+    #             or side == ElementSide.SIDE_TOP,
+    #             skip_last and side == ElementSide.SIDE_TOP,
+    #         )
 
-    if children.size != 0:
-        # Node, has children
-        current: tuple[ElementConstraint, ...] = tuple()
-        # For children skipping:
-        # Skip first if: (on start of the side AND skip_first is True) OR (end of side)
-        # Skip last if: on end of the side AND skip_last is True
-        # So only time first not skipped if: skip_first is True AND beginning of side
-        if side == ElementSide.SIDE_LEFT or side == ElementSide.SIDE_BOTTOM:
-            current += _element_strong_boundary_condition(
-                elements,
-                int(children[0]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                strong_bc,
-                cache_1d,
-                (skip_first and side == ElementSide.SIDE_BOTTOM)
-                or side == ElementSide.SIDE_LEFT,
-                skip_last and side == ElementSide.SIDE_LEFT,
-            )
-        if side == ElementSide.SIDE_BOTTOM or side == ElementSide.SIDE_RIGHT:
-            current += _element_strong_boundary_condition(
-                elements,
-                int(children[1]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                strong_bc,
-                cache_1d,
-                (skip_first and side == ElementSide.SIDE_RIGHT)
-                or side == ElementSide.SIDE_BOTTOM,
-                skip_last and side == ElementSide.SIDE_BOTTOM,
-            )
-        if side == ElementSide.SIDE_RIGHT or side == ElementSide.SIDE_TOP:
-            current += _element_strong_boundary_condition(
-                elements,
-                int(children[2]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                strong_bc,
-                cache_1d,
-                (skip_first and side == ElementSide.SIDE_TOP)
-                or side == ElementSide.SIDE_RIGHT,
-                skip_last and side == ElementSide.SIDE_RIGHT,
-            )
-        if side == ElementSide.SIDE_TOP or side == ElementSide.SIDE_LEFT:
-            current += _element_strong_boundary_condition(
-                elements,
-                int(children[3]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                strong_bc,
-                cache_1d,
-                (skip_first and side == ElementSide.SIDE_LEFT)
-                or side == ElementSide.SIDE_TOP,
-                skip_last and side == ElementSide.SIDE_TOP,
-            )
-
-        return current
+    #     return current
 
     side_order = elements.get_element_order_on_side(ie, side)
 
@@ -2207,7 +2230,7 @@ def compute_element_vector_fields(
 ) -> tuple:
     """Wrap the vector fields func."""
     if int(child_count_array[ie][0]) != 0:
-        return ()
+        return (np.zeros((0, 0, 2)),) * len(vector_fields)
 
     order_1, order_2 = orders_in[ie]
     basis_element = basis_cache.get_basis2d(order_1, order_2)
@@ -2332,8 +2355,9 @@ def non_linear_solve_run(
                 solution,
             )
 
-            for ie, (off, cnt, vals) in enumerate(
-                zip(element_offsets[leaf_elements], dof_offsets, explicit_values)
+            for off, cnt, vals in (
+                (element_offsets[i], dof_offsets[i], explicit_values[i])
+                for i in leaf_elements
             ):
                 main_vec[off : off + cnt[-1]] += vals
         else:

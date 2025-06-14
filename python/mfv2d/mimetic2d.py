@@ -950,7 +950,7 @@ class ElementNode2D(Element2D):
 
     def children(self) -> tuple[Element2D, Element2D, Element2D, Element2D]:
         """Return children of the element ordered."""
-        return (self.child_bl, self.child_br, self.child_tl, self.child_tr)
+        return (self.child_bl, self.child_br, self.child_tr, self.child_tl)
 
 
 @dataclass(frozen=True, eq=False)

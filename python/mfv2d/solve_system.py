@@ -1845,16 +1845,16 @@ def mesh_boundary_conditions(
     Returns
     -------
     tuple of ElementConstraint
-        Weak boundary conditions in a specific notation. Each of these means
-        that for element given by ``ElementConstraint.i_e``, all equations with
-        indices ``ElementConstraint.dofs`` should have the value
-        ``ElementConstraint.coeffs`` added to them.
-
-    tuple of ElementConstraint
         Strong boundary conditions in a specific notation. Each of these means
         that for element given by ``ElementConstraint.i_e``, all dofs with
         indices ``ElementConstraint.dofs`` should be constrained to value
         ``ElementConstraint.coeffs``.
+
+    tuple of ElementConstraint
+        Weak boundary conditions in a specific notation. Each of these means
+        that for element given by ``ElementConstraint.i_e``, all equations with
+        indices ``ElementConstraint.dofs`` should have the value
+        ``ElementConstraint.coeffs`` added to them.
     """
     i_boundary: int
     w_bcs: list[ElementConstraint] = list()
@@ -2075,7 +2075,7 @@ def compute_leaf_matrix(
     return mat
 
 
-def _compute_leaf_vector(
+def compute_leaf_vector(
     ie: int,
     expressions: _CompiledCodeMatrix,
     unknowns: UnknownOrderings,
@@ -2319,7 +2319,7 @@ def non_linear_solve_run(
             element_collection,
             1,
             np.float64,
-            _compute_leaf_vector,
+            compute_leaf_vector,
             compiled_system.lhs_full,
             unknown_ordering,
             element_collection.orders_array,
@@ -2345,7 +2345,7 @@ def non_linear_solve_run(
                 element_collection,
                 1,
                 np.float64,
-                _compute_leaf_vector,
+                compute_leaf_vector,
                 compiled_system.rhs_codes,
                 unknown_ordering,
                 element_collection.orders_array,
@@ -2715,3 +2715,12 @@ class SolutionStatisticsUnsteady(SolutionStatistics):
 
     iter_history: npt.NDArray[np.uint32]
     residual_history: npt.NDArray[np.float64]
+
+
+@dataclass(frozen=True)
+class VmsSettings:
+    """Type used for VMS related information."""
+
+    full_system: KFormSystem
+    symmetric_part: KFormSystem
+    advection_part: KFormSystem

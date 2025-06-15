@@ -1,6 +1,7 @@
 """Implementation of VMS computations."""
 
 from collections.abc import Sequence
+from typing import cast
 
 import numpy as np
 import numpy.typing as npt
@@ -17,12 +18,17 @@ from mfv2d.element import (
 )
 from mfv2d.eval import _CompiledCodeMatrix
 from mfv2d.kform import Function2D, KFormSystem, KFormUnknown, UnknownOrderings
-from mfv2d.mimetic2d import FemCache
+from mfv2d.mimetic2d import FemCache, Mesh2D
 from mfv2d.solve_system import (
+    assemble_forcing,
     assemble_matrix,
+    assemble_vector,
+    compute_element_rhs,
     compute_element_vector_fields,
     compute_leaf_full_mass_matrix,
     compute_leaf_matrix,
+    compute_leaf_vector,
+    mesh_boundary_conditions,
 )
 
 
@@ -76,7 +82,7 @@ def compute_advection_matrix(
     leaf_indices: npt.NDArray[np.uint32],
     coarse_solution: FlexibleElementArray[np.float64, np.uint32],
     vector_fields: Sequence[Function2D | KFormUnknown],
-    dof_offsets: FixedElementArray[np.uint32],
+    coarse_dof_offsets: FixedElementArray[np.uint32],
 ) -> sp.csr_array:
     """Compute mass matrix for the elements."""
     vec = call_per_element_fix(
@@ -91,7 +97,7 @@ def compute_advection_matrix(
         caches,
         vector_fields,
         elements.corners_array,
-        dof_offsets,
+        coarse_dof_offsets,
         coarse_solution,
     )
 
@@ -162,8 +168,8 @@ def compute_projection_matrix(
     leaf_indices: npt.NDArray[np.uint32],
     offsets_coarse: FixedElementArray[np.uint32],
     offsets_fine: FixedElementArray[np.uint32],
-) -> sp.csr_array:
-    """Compute the global projection matrix."""
+) -> tuple[sp.csr_array, FlexibleElementArray[np.float64, np.uint32]]:
+    """Compute the global fine-to-coarse projection matrix."""
     projection_matrices = call_per_leaf_flex(
         elements,
         2,
@@ -192,7 +198,7 @@ def compute_projection_matrix(
 
     return sp.csr_array(
         (np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols)))
-    )
+    ), projection_matrices
 
 
 def greens_fine_scales(
@@ -202,8 +208,8 @@ def greens_fine_scales(
     coarse_orders: FixedElementArray[np.uint32],
     fine_orders: FixedElementArray[np.uint32],
     cache2d_basis: FemCache,
-    coarse_offsets: FixedElementArray[np.uint32],
-    fine_offsets: FixedElementArray[np.uint32],
+    coarse_dof_offsets: FixedElementArray[np.uint32],
+    fine_dof_offsets: FixedElementArray[np.uint32],
     leaf_indices: npt.NDArray[np.uint32],
 ):
     """Compute Green's fine-scale function operator."""
@@ -223,7 +229,7 @@ def greens_fine_scales(
     fine_sys = assemble_matrix(
         unknown_orders,
         elements,
-        fine_offsets,
+        fine_dof_offsets,
         fine_element_matrices,
     )
 
@@ -243,7 +249,7 @@ def greens_fine_scales(
     coarse_sys = assemble_matrix(
         unknown_orders,
         elements,
-        coarse_offsets,
+        coarse_dof_offsets,
         coarse_element_matrices,
     )
 
@@ -252,11 +258,11 @@ def greens_fine_scales(
         unknown_orders,
         fine_orders,
         cache2d_basis,
-        fine_offsets,
+        fine_dof_offsets,
         leaf_indices,
     )
 
-    projection = compute_projection_matrix(
+    projection, proj_mats = compute_projection_matrix(
         unknown_orders,
         elements,
         cache2d_basis,
@@ -267,39 +273,38 @@ def greens_fine_scales(
         fine_orders,
     )
 
-    mat_fine = sla.spsolve(fine_sys, fine_mass)
+    mat_fine = cast(sp.csc_array, sla.spsolve(fine_sys, fine_mass))
     mat_coarse = projection @ fine_mass
-    mat_coarse = sla.spsolve(coarse_sys, mat_coarse)
-    mat_coarse = projection.T @ mat_coarse
-    return mat_fine - mat_coarse
+    mat_coarse = cast(sp.csc_array, sla.spsolve(coarse_sys, mat_coarse))
+    mat_coarse = cast(sp.csc_array, projection.T @ mat_coarse)
+    return mat_fine - mat_coarse, proj_mats
 
 
 def suyash_green_operator(
     system: KFormSystem,
     elements: ElementCollection,
     unknown_orders: UnknownOrderings,
-    system_codes: _CompiledCodeMatrix,
+    symmetric_codes: _CompiledCodeMatrix,
     adv_codes: _CompiledCodeMatrix,
     coarse_orders: FixedElementArray[np.uint32],
     fine_orders: FixedElementArray[np.uint32],
     caches: FemCache,
-    coarse_offsets: FixedElementArray[np.uint32],
-    fine_offsets: FixedElementArray[np.uint32],
     leaf_indices: npt.NDArray[np.uint32],
     coarse_solution: FlexibleElementArray[np.float64, np.uint32],
     vector_fields: Sequence[Function2D | KFormUnknown],
-    dof_offsets: FixedElementArray[np.uint32],
+    coarse_dof_offsets: FixedElementArray[np.uint32],
+    fine_dof_offsets: FixedElementArray[np.uint32],
 ):
     """Compute SG operator."""
-    fine_scale_greens = greens_fine_scales(
+    fine_scale_greens, proj = greens_fine_scales(
         elements,
         unknown_orders,
-        system_codes,
+        symmetric_codes,
         coarse_orders,
         fine_orders,
         caches,
-        coarse_offsets,
-        fine_offsets,
+        coarse_dof_offsets,
+        fine_dof_offsets,
         leaf_indices,
     )
 
@@ -311,11 +316,140 @@ def suyash_green_operator(
         fine_orders,
         coarse_orders,
         caches,
-        fine_offsets,
+        fine_dof_offsets,
         leaf_indices,
         coarse_solution,
         vector_fields,
-        dof_offsets,
+        coarse_dof_offsets,
     )
 
-    return sla.spsolve((1 - advection @ fine_scale_greens), advection)
+    return sla.spsolve((1 - advection @ fine_scale_greens), advection), proj
+
+
+def unresolved_scales(
+    mesh: Mesh2D,
+    system: KFormSystem,
+    elements: ElementCollection,
+    unknown_orders: UnknownOrderings,
+    system_codes: _CompiledCodeMatrix,
+    symmetric_codes: _CompiledCodeMatrix,
+    adv_codes: _CompiledCodeMatrix,
+    coarse_orders: FixedElementArray[np.uint32],
+    fine_orders: FixedElementArray[np.uint32],
+    caches: FemCache,
+    leaf_indices: npt.NDArray[np.uint32],
+    coarse_solution: FlexibleElementArray[np.float64, np.uint32],
+    vector_fields: Sequence[Function2D | KFormUnknown],
+    coarse_dof_offsets: FixedElementArray[np.uint32],
+    fine_dof_offsets: FixedElementArray[np.uint32],
+    fine_lagrange_counts: FixedElementArray[np.uint32],
+    top_indices: npt.NDArray[np.uint32],
+):
+    """Compute unresolved scales."""
+    # Compute the right side on the fine mesh
+
+    ## Full forcing from element integrals
+    forcing = call_per_leaf_flex(
+        elements,
+        1,
+        np.float64,
+        compute_element_rhs,
+        system,
+        caches,
+        fine_orders,
+        elements.corners_array,
+    )
+
+    ## Weak boundary condition forcings
+    _, weak_bcs = mesh_boundary_conditions(
+        [eq.right for eq in system.equations],
+        mesh,
+        unknown_orders,
+        elements,
+        coarse_dof_offsets,
+        top_indices,
+        (),
+        caches,
+    )
+
+    ## Add weak BCs
+    for bc in weak_bcs:
+        forcing[bc.i_e][bc.dofs] += bc.coeffs
+
+    main_vec = assemble_vector(
+        unknown_orders,
+        elements,
+        fine_dof_offsets,
+        fine_lagrange_counts,
+        forcing,
+    )
+
+    # TODO: check what about Lagrange multipliers
+
+    sgs_operator, projectors = suyash_green_operator(
+        system,
+        elements,
+        unknown_orders,
+        symmetric_codes,
+        adv_codes,
+        coarse_orders,
+        fine_orders,
+        caches,
+        leaf_indices,
+        coarse_solution,
+        vector_fields,
+        coarse_dof_offsets,
+        fine_dof_offsets,
+    )
+
+    # Project solution on the fine mesh
+    fine_solution = call_per_leaf_flex(
+        elements,
+        1,
+        np.float64,
+        lambda ie, sol, pro: pro[ie] @ sol[ie],
+        coarse_solution,
+        projectors,
+    )
+
+    vec_fields_array = call_per_element_fix(
+        elements.com,
+        np.object_,
+        len(vector_fields),
+        compute_element_vector_fields,
+        system,
+        elements.child_count_array,
+        coarse_orders,
+        fine_orders,
+        caches,
+        vector_fields,
+        elements.corners_array,
+        coarse_dof_offsets,
+        coarse_solution,
+    )
+
+    equation_values = call_per_leaf_flex(
+        elements,
+        1,
+        np.float64,
+        compute_leaf_vector,
+        system_codes,
+        unknown_orders,
+        fine_orders,
+        caches,
+        elements.corners_array,
+        vec_fields_array,
+        fine_solution,
+    )
+
+    main_value = assemble_forcing(
+        unknown_orders,
+        elements,
+        fine_dof_offsets,
+        equation_values,
+        fine_solution,
+    )
+
+    residual = main_vec - main_value
+
+    return sgs_operator @ residual

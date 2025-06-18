@@ -79,12 +79,32 @@ static PyObject *line_object_rich_compare(PyObject *self, PyObject *other, const
 PyDoc_STRVAR(line_object_type_docstring, "Line(begin: GeoID | int, end: GeoID | int)\n"
                                          "Geometrical object, which connects two points.\n"
                                          "\n"
+                                         "Lines can also be converted into :mod:`numpy` arrays directly,\n"
+                                         "which essentially converts their beginning and end indices into\n"
+                                         "integers equivalent to their :class:`GeoID` values.\n"
+                                         "\n"
                                          "Parameters\n"
                                          "----------\n"
                                          "begin : GeoID or int\n"
                                          "    ID of the point where the line beings.\n"
                                          "end : GeoID or int\n"
-                                         "    ID of the point where the line ends.\n");
+                                         "    ID of the point where the line ends.\n"
+                                         "\n"
+                                         "Examples\n"
+                                         "--------\n"
+                                         "This section just serves to briefly illustrate how a line can be used.\n"
+                                         "\n"
+                                         ".. jupyter-execute::\n"
+                                         "\n"
+                                         "    >>> import numpy as np\n"
+                                         "    >>> from mfv2d._mfv2d import Line\n"
+                                         "    >>> ln = Line(1, 2)\n"
+                                         "    >>> print(ln)\n"
+                                         "    >>> # this one has an invalid point\n"
+                                         "    >>> ln2 = Line(0, 3)\n"
+                                         "    >>> print(np.array(ln2))\n"
+                                         "    >>> print(bool(ln2.begin))\n"
+                                         "\n");
 
 static PyObject *line_object_get_begin(PyObject *self, void *Py_UNUSED(closure))
 {

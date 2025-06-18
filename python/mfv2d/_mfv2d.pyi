@@ -1,4 +1,8 @@
-"""Stub for the C implemented types and functions related to mimetics."""
+"""Stub for the C implemented types and functions.
+
+This file contains functions signatures and *copies* of docstrings for the
+C-extension which implements all the required fast code.
+"""
 
 from collections.abc import Sequence
 from typing import Self, final, overload
@@ -56,7 +60,7 @@ def lagrange1d(
 
     .. jupyter-execute::
 
-        >>> from interplib import lagrange1d
+        >>> from mfv2d._mfv2d import lagrange1d
         >>>
         >>> xpos = np.linspace(np.min(roots), np.max(roots), 128)
         >>> yvals = lagrange1d(roots, xpos)
@@ -244,7 +248,7 @@ def dlagrange1d(
 def compute_gll(
     order: int, max_iter: int = 10, tol: float = 1e-15
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Compute Gauss-Legendre-Lobatto integration nodes and weights.
+    r"""Compute Gauss-Legendre-Lobatto integration nodes and weights.
 
     If you are often re-using these, consider caching them.
 
@@ -263,6 +267,32 @@ def compute_gll(
        Array of ``order + 1`` integration nodes on the interval :math:`[-1, +1]`.
     array
        Array of integration weights which correspond to the nodes.
+
+    Examples
+    --------
+    Gauss-Legendre-Lobatto nodes computed using this function, along with
+    the weights.
+
+    .. jupyter-execute::
+
+        >>> import numpy as np
+        >>> from mfv2d._mfv2d import compute_gll
+        >>> from matplotlib import pyplot as plt
+        >>>
+        >>> n = 5
+        >>> nodes, weights = compute_gll(n)
+        >>>
+        >>> # Plot these
+        >>> plt.figure()
+        >>> plt.scatter(nodes, weights)
+        >>> plt.xlabel($\\xi$)
+        >>> plt.ylabel($w$)
+        >>> plt.grid()
+        >>> plt.show()
+
+    Since these are computed in an iterative way, giving a tolerance
+    which is too strict or not allowing for sufficient iterations
+    might cause an exception to be raised to do failiure to converge.
     """
     ...
 @final
@@ -395,7 +425,75 @@ class Manifold1D(Manifold):
         ...
 
 class Manifold2D(Manifold):
-    """A manifold of a finite number of dimensions."""
+    """Two dimensional manifold consisting of surfaces made of lines.
+
+    Has no constructor, but can be created from its class methods
+    :meth:`Manifold2D.from_irregular` and :meth:`Manifold2D.from_regular`. This type
+    provides convinience functions for computing its dual and obtaining specific lines or
+    surfaces.
+
+    Since manifold only contains topology, the only information it contains pertaining to
+    nodes is the tota lnumber of them.
+
+    Examples
+    --------
+    This is an example of how a manifold may be used:
+
+    .. jupyter-execute::
+
+        >>> import numpy as np
+        >>> from mfv2d._mfv2d import Manifold2D, Surface, Line, GeoID
+        >>>
+        >>> triangle = Manifold2D.from_regular(
+        ...     3,
+        ...     [Line(1, 2), Line(2, 3), Line(1, 3)],
+        ...     [Surface(1, 2, -3)],
+        ... )
+        >>> print(triangle)
+
+    The previous case only had one surface. In that case, or if all surface
+    have the same number of lines, the class method :meth:`Manifold2D.from_regular`
+    can be used. If the surface do not have the same number of lines, that can not be
+    used. Instead, the :meth:`Manifold2D.from_irregular` class method should be used.
+
+    .. jupyter-execute::
+
+        >>> house = Manifold2D.from_irregular(
+        ...     5,
+        ...     [
+        ...         (1, 2), (2, 3), (3, 4), (4, 1), #Square
+        ...         (1, 5), (5, 2), # Roof
+        ...     ],
+        ...     [
+        ...         (1, 2, 3, 4), # Square
+        ...         (-1, 5, 6),   # Triangle
+        ...     ]
+        ... )
+        >>> print(house)
+
+    From these manifolds, surfaces or edges can be querried back. This is mostly useful
+    when the dual is also computed, which allows to obtain information about neighbouring
+    objects. For example, if we want to know what points are neighbours of point with
+    index 2, we would do the following:
+
+    .. jupyter-execute::
+
+        >>> dual = house.compute_dual() # Get the dual manifold
+        >>> # Dual surface corresponding to primal point 1
+        >>> dual_surface = dual.get_surface(1)
+        >>> print(dual_surface)
+        >>> for line_id in dual_surface:
+        ...     if not line_id:
+        ...         continue
+        ...     primal_line = house.get_line(line_id)
+        ...     if primal_line.begin == 1:
+        ...         pt = primal_line.end
+        ...     else:
+        ...         assert primal_line.end == 1
+        ...         pt = primal_line.begin
+        ...     print(f"Point 1 neighbours point {pt}")
+
+    """
 
     @property
     def dimension(self) -> int:
@@ -1156,7 +1254,33 @@ def compute_element_matrix(
     basis: Basis2D,
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
-    """Compute a single element matrix."""
+    """Compute a single element matrix.
+
+    Parameters
+    ----------
+    form_orders : Sequence of int
+        Orders of differential forms for the degrees of freedom. Must be between 0 and 2.
+
+    expressions
+        Compiled bytecode to execute.
+
+    corners : (4, 2) array
+        Array of corners of the element.
+
+    vector_fields : Sequence of arrays
+        Vector field arrays as required for interior product evaluations.
+
+    basis : Basis2D
+        Basis functions with integration rules to use.
+
+    stack_memory : int, default: 1 << 24
+        Amount of memory to use for the evaluation stack.
+
+    Returns
+    -------
+    array
+        Element matrix for the specified system.
+    """
     ...
 
 def compute_element_vector(
@@ -1168,7 +1292,36 @@ def compute_element_vector(
     solution: npt.NDArray[np.float64],
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
-    """Compute a single element forcing."""
+    """Compute a single element forcing.
+
+    Parameters
+    ----------
+    form_orders : Sequence of int
+        Orders of differential forms for the degrees of freedom. Must be between 0 and 2.
+
+    expressions
+        Compiled bytecode to execute.
+
+    corners : (4, 2) array
+        Array of corners of the element.
+
+    vector_fields : Sequence of arrays
+        Vector field arrays as required for interior product evaluations.
+
+    basis : Basis2D
+        Basis functions with integration rules to use.
+
+    solution : array
+        Array with degrees of freedom for the element.
+
+    stack_memory : int, default: 1 << 24
+        Amount of memory to use for the evaluation stack.
+
+    Returns
+    -------
+    array
+        Element vector for the specified system.
+    """
     ...
 
 def compute_element_projector(
@@ -1208,7 +1361,7 @@ def compute_element_mass_matrix(
     corners: npt.NDArray[np.float64],
     basis: Basis2D,
     inverse: bool = False,
-):
+) -> npt.NDArray[np.float64]:
     """Compute element mass matrix for the specified form.
 
     Parameters

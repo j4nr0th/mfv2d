@@ -1,4 +1,8 @@
-"""Package dedicated to interpolation using data defined on different topologies."""
+"""Package dedicated to solving PDEs on 2D quad meshes.
+
+This file includes re-exports types and functions that are expected to be used
+by users, either for directly creating them, or to just use them for type-hinting.
+"""
 
 # Boundary
 from mfv2d.boundary import BoundaryCondition2DSteady as BoundaryCondition2DSteady

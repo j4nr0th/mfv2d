@@ -1,4 +1,10 @@
-"""Dealing with K-forms."""
+"""Types that allow for defining relations between forms.
+
+These are not directly used for computations, but rather serve as a way to express
+the relations between forms by taking advantage of Python's operator overloading.
+For actual evaluation, these must be translated into stack machine codes using the
+:mod:`mfv2d.eval` module.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +21,7 @@ Function2D = TypeAliasType(
     "Function2D",
     Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
 )
+"""Type of a function taking two inputs and returning an array-like."""
 
 
 @dataclass(frozen=True)
@@ -23,6 +30,15 @@ class Term:
 
     This type contains the most basic functionality and is mainly intended to help with
     type hints.
+
+    Parameters
+    ----------
+    dimension : int
+        Number of dimensions of the manifold.
+        TODO: REMOVE SINCE IT IS ALWAYS 2
+
+    label : str
+        How to identify the term.
     """
 
     dimension: int
@@ -38,6 +54,14 @@ class KForm(Term):
     """Differential K form.
 
     It is described by and order and identifier, that is used to print it.
+    It offers the following overloaded operations:
+
+    - ``*`` with another :class:`KForm` results in :class:`KInnerProduct`
+    - ``*`` with a callable results in :class:`KInteriorProduct`
+    - ``~`` will result in a :class:`KHodge` of itself
+
+    Its exterior derivative is also availabel through the :meth:`KForm.derivative`
+    method.
 
     Parameters
     ----------
@@ -192,10 +216,10 @@ class KHodge(KForm):
     The discrete version of the Hodge also maps a k-form onto a (n-k) form, but with a
     very specific choice of basis. If a polynomial can be written in terms of primal basis
     matrix :math:`\boldsymbol{\Psi}^{(k)}` and degree-of-freedom vector
-    :math:`\vec{p}^{(k)}`, which are defined by :eq:`khodge-psi` and :eq:`khodge-p`,
-    then the duals are defined by :math:`khodge-dual`. This allows for the resulting
-    system to be sparser, at the cost of having to obtain the primal values in
-    post-processing.
+    :math:`\vec{p}^{(k)}`, which are defined by equations :eq:`khodge-psi` and
+    :eq:`khodge-p`, then the duals are defined by :math:`khodge-dual`. This allows for
+    the resulting system to be sparser, at the cost of having to obtain the primal values
+    in post-processing.
 
     .. math::
         :label: khodge-psi
@@ -263,6 +287,9 @@ class KHodge(KForm):
 @dataclass(frozen=True, eq=False)
 class KWeight(KForm):
     """Differential K form represented with the dual basis.
+
+    Provides operators for forming element and boundary projections
+    throught the ``@`` and ``^`` operators respectively.
 
     Parameters
     ----------
@@ -474,14 +501,29 @@ class KInteriorProduct(KForm):
 
 @dataclass(frozen=True, eq=False)
 class KInteriorProductNonlinear(KForm):
-    """Represents an interior product of a K-form with a lowered 1-form."""
+    """Represents an interior product of a K-form with a lowered 1-form.
+
+    In two dimentions there are at total of four different types of interior products:
+
+    - primal 1-form
+    - primal 2-form
+    - dual 1-form
+    - dual 2-form
+
+    These all correspond to a different operation:
+
+    - primal 1-form: scalar cross product
+    - primal 2-form: multiplication with a vector field
+    - dual 1-form: dot product
+    - dual 2-form: vector cross product
+    """
 
     form: KFormUnknown | KHodge
     form_field: KFormUnknown
 
     def __post_init__(self) -> None:
         """Enforce the conditions for allowing interior product."""
-        # The form can not be a zero-form
+        # The form cannot be a zero-form
         if not (
             type(self.form) is KFormUnknown
             or (type(self.form) is KHodge and type(self.form.base_form) is KFormUnknown)
@@ -535,7 +577,10 @@ class KInteriorProductNonlinear(KForm):
 
 @dataclass(frozen=True, eq=False)
 class TermEvaluatable(Term):
-    """Terms which can be evaluated as blocks of the system matrix."""
+    """Terms which can be evaluated as blocks of the system matrix.
+
+    This is a base class for all terms which can be evaluated as blocks of the system.
+    """
 
     weight: KWeight
 
@@ -626,7 +671,7 @@ class TermEvaluatable(Term):
 
 
 def _extract_vector_fields(form: KForm) -> list[KFormUnknown | Function2D]:
-    """Extract vector fileds from the form, otherwise raises type error."""
+    """Extract vector fields from the form, otherwise raises type error."""
     if type(form) is KFormUnknown or type(form) is KWeight:
         return []
 
@@ -683,14 +728,14 @@ def _extract_unknowns(form: KForm) -> list[KFormUnknown]:
 class KInnerProduct(TermEvaluatable):
     r"""Inner product of a primal and dual form.
 
-    An inner product must be taken with a primal and dual forms of the same k-order.
+    An inner product must be taken with primal and dual forms of the same k-order.
     The discrete version of an inner product of two k-forms is expressed as a
     discrete inner product on the mass matrix:
 
     .. math::
 
-        \left< p^{(k)}, q^{(k)} \right> = \int\limts_{\mathcal{K}} p^{(k)} q^{(k)} =
-        \vec{p}^T \mathbb{M}^k \vec{q}
+        \left< p^{(k)}, q^{(k)} \right> = \int_{\mathcal{K}} p^{(k)} \wedge \star q^{(k)}
+        = \vec{p}^T \mathbb{M}^k \vec{q}
     """
 
     unknown_form: KForm
@@ -748,7 +793,6 @@ class KSum(TermEvaluatable):
         Coefficients and the inner products.
     """
 
-    # Check if order is even needed
     pairs: tuple[tuple[float, KExplicit | KInnerProduct], ...]
 
     def __init__(self, *pairs: tuple[float, TermEvaluatable]) -> None:
@@ -819,7 +863,7 @@ class KSum(TermEvaluatable):
         return tuple((k, p) for k, p in self.pairs if not isinstance(p, KExplicit))
 
     def split_terms_linear_nonlinear(self) -> tuple[KSum | None, KSum | None]:
-        """Split the sum into linear implicit, and non-linear implicit terms.
+        """Split the sum into linear implicit and non-linear implicit terms.
 
         Returns
         -------
@@ -851,7 +895,10 @@ class KSum(TermEvaluatable):
 
 @dataclass(frozen=True)
 class KExplicit(TermEvaluatable):
-    """Base class for explicit terms."""
+    """Base class for explicit terms.
+
+    This type just implements some common functionality.
+    """
 
     weight: KWeight
     func: Callable | None = None
@@ -879,7 +926,7 @@ class KElementProjection(KExplicit):
     weight : KWeight
         Weight form used.
     func : tuple[str, Callable], optional
-        The function to use, specified by a name and the callable to use. If it not
+        The function to use, specified by a name and the callable to use. If it is not
         specified or given as ``None``, then :math:`f = 0`.
     """
 
@@ -894,7 +941,7 @@ class KBoundaryProjection(KExplicit):
 
     .. math::
 
-        \int_{\partial \Omega} f w {d \vec{\Gamma}}
+        \int_{\partial \Omega} f^{(k)} \wedge \star w^{(k + 1)}
 
     Such terms typically arise from weak boundary conditions.
     """
@@ -1080,10 +1127,11 @@ def _form_size_2d(p: npt.NDArray[np.integer], k: int) -> npt.NDArray[np.integer]
 def _form_size_2d(p: int, k: int) -> int: ...
 
 
+# TODO: remove
 def _form_size_2d(
     p: npt.NDArray[np.integer] | int, k: int
 ) -> npt.NDArray[np.integer] | int:
-    """Compute number of degrees of freedom a form gets on an element with order."""
+    """Compute the number of degrees of freedom a form gets on an element with order."""
     if k == 0:
         return (p + 1) * (p + 1)
     if k == 1:
@@ -1374,7 +1422,7 @@ class KFormSystem:
         return s[:-1]  # strip the trailing new line.
 
     def get_form_indices_by_order(self, order: int) -> tuple[int, ...]:
-        """Return indices of forms with specified order.
+        """Return indices of forms with the specified order.
 
         Parameters
         ----------
@@ -1397,14 +1445,18 @@ class KFormSystem:
 
 
 class UnknownFormOrder(IntEnum):
-    """Orders of unknown differential forms."""
+    """Orders of unknown differential forms.
+
+    This enum is intended to replace just passing integers for the
+    order of forms, since this is easier to catch by type-checkers.
+    """
 
     FORM_ORDER_0 = 1
     FORM_ORDER_1 = 2
     FORM_ORDER_2 = 3
 
     def full_unknown_count(self, order_1: int, order_2: int) -> int:
-        """Return total number of DoFs based on two orders for a full element."""
+        """Return the total number of DoFs based on orders for a (full) leaf element."""
         if self == UnknownFormOrder.FORM_ORDER_0:
             return (order_1 + 1) * (order_2 + 1)
         if self == UnknownFormOrder.FORM_ORDER_1:
@@ -1417,7 +1469,10 @@ class UnknownFormOrder(IntEnum):
 
 @dataclass(frozen=True)
 class UnknownOrderings:
-    """Type for storing ordering of unknowns within an element."""
+    """Type for storing ordering of unknowns within an element.
+
+    It is intended to just be a sequence of the form orders.
+    """
 
     form_orders: tuple[UnknownFormOrder, ...]
 

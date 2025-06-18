@@ -442,12 +442,8 @@ end:
 }
 MFV2D_INTERNAL
 const char compute_element_projector_docstr[] =
-    "compute_projection_matrix(\n"
-    "    form_orders: Sequence[UnknownFormOrders],\n"
-    "    corners: array,\n"
-    "    basis_in: Basis2D,\n"
-    "    basis_out: Basis2D,\n"
-    ") -> tuple[array]:\n"
+    "compute_element_projector(form_orders: Sequence[UnknownFormOrders],  corners: array, basis_in: Basis2D, "
+    "basis_out: Basis2D) -> tuple[array]:\n"
     "Compute :math:`L^2` projection from one space to another.\n"
     "\n"
     "Projection takes DoFs from primal space of the first and takes\n"
@@ -700,12 +696,8 @@ end:
 
 MFV2D_INTERNAL
 const char compute_element_mass_matrix_docstr[] =
-    "compute_element_mass_matrix(\n"
-    "    form_orders: Sequence[UnknownFormOrders],\n"
-    "    corners: array,\n"
-    "    basis: Basis2D,\n"
-    "    inverse: bool = False,\n"
-    ")\n"
+    "compute_element_mass_matrix(form_orders: Sequence[UnknownFormOrders], corners: array, basis: Basis2D, inverse: "
+    "bool = False) -> array\n"
     "Compute mass matrix for a given element.\n"
     "\n"
     "Parameters\n"
@@ -713,7 +705,7 @@ const char compute_element_mass_matrix_docstr[] =
     "form_order : UnknownFormOrder\n"
     "    Order of the form for which the mass matrix should be computed.\n"
     "\n"
-    "corners : (4, 2)\n"
+    "corners : (4, 2) array\n"
     "    Array of corner points of the element.\n"
     "\n"
     "basis : Basis2D\n"

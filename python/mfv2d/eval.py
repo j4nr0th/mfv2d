@@ -1,4 +1,9 @@
-"""Conversion and evaluation of kforms as a stack machine."""
+"""Conversion and evaluation of kforms as a stack machine.
+
+This module is concerned with converting expressions from the representation of the
+:mod:`mfv2d.kform` module into a sequence of instructions which can be executed on a
+stack machine.
+"""
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -21,17 +26,34 @@ from mfv2d.kform import (
 
 @dataclass(frozen=True)
 class MatOp:
-    """Matrix operations which can be created."""
+    """Matrix operations which can be created.
+
+    This is just a base class for all other matrix operations.
+    """
 
 
 @dataclass(frozen=True)
 class Identity(MatOp):
-    """Identity operation."""
+    """Identity operation.
+
+    Do nothing to the matrix.
+    """
 
 
 @dataclass(frozen=True)
 class MassMat(MatOp):
-    """Mass matrix multiplication."""
+    """Mass matrix multiplication.
+
+    Multiply by either mass matrix or its inverse.
+
+    Parameters
+    ----------
+    order : int
+        Order of the k-form for the mass matrix.
+
+    inv : bool
+        Should the matrix be inverted.
+    """
 
     order: int
     inv: bool
@@ -39,7 +61,18 @@ class MassMat(MatOp):
 
 @dataclass(frozen=True)
 class Incidence(MatOp):
-    """Incidence matrix."""
+    """Incidence matrix.
+
+    Specifies application of an incidence matrix.
+
+    Parameters
+    ----------
+    begin : int
+        Order of the k-form for the incidence matrix from which to apply it.
+
+    dual : bool
+        Should the incidence matrix be applied as the dual.
+    """
 
     begin: int
     dual: int
@@ -47,31 +80,72 @@ class Incidence(MatOp):
 
 @dataclass(frozen=True)
 class Push(MatOp):
-    """Push the matrix on the stack."""
+    """Push the matrix on the stack.
+
+    Used for matrix multiplication and summation.
+    """
 
 
 @dataclass(frozen=True)
 class MatMul(MatOp):
-    """Multiply two matrices."""
+    """Multiply two matrices.
+
+    Multiply the current matrix with the one currently on the top of the stack.
+    """
 
 
 @dataclass(frozen=True)
 class Scale(MatOp):
-    """Scale the matrix."""
+    """Scale the matrix.
+
+    Mutliply the entire matrix with a constant.
+
+    Parameters
+    ----------
+    k : float
+        Value of the constant by which to scale the matrix.
+    """
 
     k: float
 
 
 @dataclass(frozen=True)
 class Sum(MatOp):
-    """Sum matrices together."""
+    """Sum matrices together.
+
+    Sum the top ``count`` matrices on the stack with the current matrix.
+
+    Parameters
+    ----------
+    count : int
+        Number of matrices to sum to the current matrix. As such must be greater
+        than zero.
+    """
 
     count: int
 
 
 @dataclass(frozen=True)
 class InterProd(MatOp):
-    """Compute interior product."""
+    """Compute interior product.
+
+    This is the most complicated operation.
+
+    Parameters
+    ----------
+    starting_order : int
+        Order of the k-form to which the interior product should be applied.
+
+    field_index : int
+        Index of the vector/scalar field from which the values of are taken.
+
+    dual : bool
+        Should the dual interior product be applied instead of the primal.
+
+    adjoint : bool
+        Should the adjoint interior product be applied, which is used by
+        the Newton-Raphson solver.
+    """
 
     starting_order: int
     field_index: int
@@ -80,7 +154,22 @@ class InterProd(MatOp):
 
 
 def simplify_expression(*operations: MatOp) -> list[MatOp]:
-    """Simplify expressions as much as possible."""
+    """Simplify expressions as much as possible.
+
+    Tries to merge operations that can be combined, and removes/simplifies
+    as much as possible.
+
+    Parameters
+    ----------
+    *operations : MatOp
+        Sequence of operations to simplify.
+
+    Returns
+    -------
+    list of MatOp
+        Simplified sequence of operations, which should be equivalent to the
+        input.
+    """
     ops = list(operations)
     nops = len(ops)
     initial_nops = 0
@@ -95,6 +184,7 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
                 and (type(ops[i + 1]) is not Sum and type(ops[i + 1]) is not Push)
                 and (i != 0 or type(ops[i - 1]) is not Push)
             ):
+                # Identity on anything except on sum or push is a no-op
                 del ops[i]
                 nops -= 1
                 continue
@@ -452,6 +542,7 @@ def _translate_equation(
     raise TypeError("Unknown type")
 
 
+# TODO: REMOVE
 class MassMatrixRequired(IntFlag):
     """Flags used to indicate which mass matrices need to be computed."""
 
@@ -464,7 +555,10 @@ class MassMatrixRequired(IntFlag):
 
 
 def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
-    """Print how the terms would be evaluated."""
+    """Print how the terms would be evaluated.
+
+    This is primarely just used to test if the procedure is correct.
+    """
     stack: list[tuple[float, str]] = []
     val: tuple[float, str] | None = None
     for op in expr:
@@ -557,7 +651,13 @@ def extract_mass_matrices(*ops: MatOp) -> set[MassMat]:
 
 
 class MatOpCode(IntEnum):
-    """Operation codes."""
+    """Operation codes.
+
+    Notes
+    -----
+    These values must be kept in sync with the ``matrix_op_t`` enum in the C code,
+    since that is how Python and C communicate with each other.
+    """
 
     INVALID = 0
     IDENTITY = 1
@@ -570,8 +670,22 @@ class MatOpCode(IntEnum):
     INTERPROD = 8
 
 
-def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
-    """Translate the operations into C-friendly values."""
+def translate_to_c_instructions(*ops: MatOp) -> list[MatOpCode | int | float]:
+    """Translate the operations into C-compatible values.
+
+    This translation is done since the C code can't handle arbitrary Python objects
+    and instead only deals with integers (or int enums) and floats.
+
+    Parameters
+    ----------
+    *ops : MatOp
+        Operations to translate.
+
+    Returns
+    -------
+    list of MatOpCode | int | float
+        List of translated operations.
+    """
     out: list[MatOpCode | int | float] = list()
     for op in ops:
         if type(op) is Identity:
@@ -606,12 +720,16 @@ def _ctranslate(*ops: MatOp) -> list[MatOpCode | int | float]:
     return out
 
 
+_CompiledCodeMatrix = Sequence[Sequence[Sequence[MatOpCode | int | float] | None]]
+"""Type used to type hint the compiled system."""
+
+
 def translate_system(
     system: KFormSystem,
     vector_fields: Sequence[Function2D | KFormUnknown],
     newton: bool,
-) -> tuple[tuple[tuple[MatOpCode | float | int, ...] | None, ...], ...]:
-    """Create the two dimensional instruction array for the C code to execute."""
+) -> _CompiledCodeMatrix:
+    """Create the two-dimensional instruction array for the C code to execute."""
     bytecodes = [
         translate_equation(eq.left, vector_fields, newton=newton, simplify=True)
         for eq in system.equations
@@ -622,7 +740,7 @@ def translate_system(
         row: list[tuple[MatOpCode | float | int, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(tuple(_ctranslate(*bite[f])))
+                row.append(tuple(translate_to_c_instructions(*bite[f])))
             else:
                 row.append(None)
 
@@ -630,17 +748,30 @@ def translate_system(
     return tuple(codes)
 
 
-_CompiledCodeMatrix = Sequence[Sequence[Sequence[MatOpCode | int | float] | None]]
-
-
 @dataclass(frozen=True, init=False)
 class CompiledSystem:
-    """System of equations compiled."""
+    """System of equations compiled.
+
+    This is a convenience class which first compiles the system and splits
+    it into explicit, linear implicit, and non-linear implicit equations, which
+    are then further used by different parts of the solver.
+
+    Parameters
+    ----------
+    system : KFormSystem
+        System to compile.
+    """
 
     lhs_full: _CompiledCodeMatrix
+    """All left-hand side codes of the equations. When evaluated, this will
+        produce the full left side of the equation."""
     rhs_codes: _CompiledCodeMatrix | None
+    """If not ``None``, contains the right-hand side codes of the equations."""
     linear_codes: _CompiledCodeMatrix
+    """All left-hand side codes of the equations, which are linear."""
     nonlin_codes: _CompiledCodeMatrix | None
+    """If not ``None``, contains the non-linear codes that can be used
+        for Newton-Raphson solver."""
 
     @staticmethod
     def _compile_system_part(
@@ -653,7 +784,11 @@ class CompiledSystem:
         bytecode = translate_equation(expr, system.vector_fields, newton, True)
 
         return tuple(
-            (tuple(_ctranslate(*bytecode[form])) if form in bytecode else None)
+            (
+                tuple(translate_to_c_instructions(*bytecode[form]))
+                if form in bytecode
+                else None
+            )
             for form in system.unknown_forms
         )
 

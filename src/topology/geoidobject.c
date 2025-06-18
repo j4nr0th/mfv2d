@@ -4,15 +4,13 @@
 
 #include "geoidobject.h"
 
-static
-PyObject *geoid_repr(PyObject *self)
+static PyObject *geoid_repr(PyObject *self)
 {
     const geo_id_object_t *this = (geo_id_object_t *)self;
     return PyUnicode_FromFormat("GeoID(%u, %u)", (unsigned)this->id.index, (unsigned)this->id.reverse);
 }
 
-static
-PyObject *geoid_str(PyObject *self)
+static PyObject *geoid_str(PyObject *self)
 {
     const geo_id_object_t *this = (geo_id_object_t *)self;
     return PyUnicode_FromFormat("%c%u", (unsigned)this->id.reverse ? '-' : '+', (unsigned)this->id.index);
@@ -111,12 +109,16 @@ static PyObject *geoid_rich_compare(PyObject *self, PyObject *other, const int o
         Py_RETURN_NOTIMPLEMENTED;
     }
     const geo_id_object_t *const this = (geo_id_object_t *)self;
-    if (!PyObject_TypeCheck(other, &geo_id_type_object))
+    geo_id_t that;
+    if (geo_id_from_object(other, &that) < 0)
     {
+        PyErr_Clear();
         Py_RETURN_NOTIMPLEMENTED;
     }
-    const geo_id_object_t *const that = (geo_id_object_t *)other;
-    const int val = this->id.reverse == that->id.reverse && this->id.index == that->id.index;
+
+    // Ignore the orientation of the invalid indices.
+    const int val =
+        this->id.index == that.index && (this->id.reverse == that.reverse || this->id.index == GEO_ID_INVALID);
     if (op == Py_NE)
     {
         return PyBool_FromLong(!val);
@@ -141,15 +143,39 @@ static PyNumberMethods geo_id_number_methods = {
     .nb_negative = geoid_negative,
 };
 
-PyDoc_STRVAR(geoid_type_docstring, "GeoID(index: int, reverse=False)\n"
-                                   "Type used to identify a geometrical object with an index and orientation.\n"
-                                   "\n"
-                                   "Parameters\n"
-                                   "----------\n"
-                                   "index : int\n"
-                                   "    Index of the geometrical object.\n"
-                                   "reverse : any, default: False\n"
-                                   "    The object's orientation should be reversed.\n");
+PyDoc_STRVAR(geoid_type_docstring,
+             "GeoID(index: int, reverse=False)\n"
+             "Type used to identify a geometrical object with an index and orientation.\n"
+             "\n"
+             "For many functions which take :class:`GeoID` argument(s), a 1-based integer\n"
+             "index can be used instead, with negative values indicating reverse orientation\n"
+             "and the value of ``0`` indicating an invalid value.\n"
+             "\n"
+             "There are also some convenience operators implemented on this type, such as\n"
+             "the negation operator to negate orientation, as well as a comparison operator,\n"
+             "which allows for comparison of GeoIDs with one another, as well as with :class:`int`\n"
+             "objects to check if they are indeed equivalent.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "index : int\n"
+             "    Index of the geometrical object. Can not be negative.\n"
+             "reverse : any, default: False\n"
+             "    The object's orientation should be reversed.\n"
+             "\n"
+             "Examples\n"
+             "--------\n"
+             "Here are some examples of how these objects can be used:\n"
+             "\n"
+             ".. jupyter-execute::\n"
+             "\n"
+             "    >>> from mfv2d._mfv2d import GeoID\n"
+             "    >>> id1 = GeoID(0)\n"
+             "    >>> print(id1)\n"
+             "    >>> print(-id1)\n"
+             "    >>> -id1 == -1\n"
+             "    True\n"
+             "\n");
 
 PyTypeObject geo_id_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.GeoID",

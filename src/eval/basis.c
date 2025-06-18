@@ -231,8 +231,8 @@ static PyGetSetDef basis_1d_getsets[] = {{.name = "order",
                                          },
                                          {NULL}};
 
-PyDoc_STRVAR(basis_1d_doc, "Basis1D(order: int)\n"
-                           "1D basis functions collection used for FEM space creation.\n"
+PyDoc_STRVAR(basis_1d_doc, "Basis1D(order: int, rule: IntegrationRule1D)\n"
+                           "One-dimensional basis functions collection used for FEM space creation.\n"
                            "\n"
                            "Parameters\n"
                            "----------\n"
@@ -240,7 +240,47 @@ PyDoc_STRVAR(basis_1d_doc, "Basis1D(order: int)\n"
                            "    Order of basis used.\n"
                            "\n"
                            "rule : IntegrationRule1D\n"
-                           "    Integration rule for basis creation.\n");
+                           "    Integration rule for basis creation.\n"
+                           "Examples\n"
+                           "--------\n"
+                           "An example of how these basis might look for a 3-rd order\n"
+                           "element is shown bellow.\n"
+                           "\n"
+                           ".. jupyter-execute::\n"
+                           "\n"
+                           "    >>> from matplotlib import pyplot\n"
+                           "    >>> from mfv2d._mfv2d import Basis1D, IntegrationRule1D\n"
+                           "    >>> \n"
+                           "    >>> #Make a high order rule to make it easy to visualize\n"
+                           "    >>> rule = IntegrationRule1D(order=31)\n"
+                           "    >>> basis = Basis1D(3, rule)\n"
+                           "\n"
+                           "Now the nodal basis can be plotted:\n"
+                           "\n"
+                           ".. jupyter-execute::\n"
+                           "\n"
+                           "    >>> plt.figure()\n"
+                           "    >>> for i in range(basis.order + 1):\n"
+                           "    ...     plt.plot(basis.rule.nodes, basis.node[i, ...], label=f\"$b_{{{i}}}$\")\n"
+                           "    >>> plt.grid()\n"
+                           "    >>> plt.legend()\n"
+                           "    >>> plt.xlabel(\"$\\\\xi$\")\n"
+                           "    >>> plt.title(\"Nodal basis\")\n"
+                           "    >>> plt.show()\n"
+                           "\n"
+                           "Edge basis can also be shown:\n"
+                           "\n"
+                           ".. jupyter-execute::\n"
+                           "\n"
+                           "    >>> plt.figure()\n"
+                           "    >>> for i in range(basis.order):\n"
+                           "    ...     plt.plot(basis.rule.nodes, basis.edge[i, ...], label=f\"$e_{{{i}}}$\")\n"
+                           "    >>> plt.grid()\n"
+                           "    >>> plt.legend()\n"
+                           "    >>> plt.xlabel(\"$\\\\xi$\")\n"
+                           "    >>> plt.title(\"Edge basis\")\n"
+                           "    >>> plt.show()\n"
+                           "\n");
 
 PyTypeObject basis_1d_type = {
     .tp_new = basis_1d_new,
@@ -305,6 +345,10 @@ static PyGetSetDef Basis2D_getset[] = {
     {NULL} // Sentinel
 };
 
+PyDoc_STRVAR(basis_2d_type_docstring,
+             "Basis2D(basis_xi: Basis1D, basis_eta: Basis1D)\n"
+             "Two dimensional basis resulting from a tensor product of one dimensional basis.\n");
+
 // Type definition
 PyTypeObject basis_2d_type = {
     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Basis2D",
@@ -314,5 +358,5 @@ PyTypeObject basis_2d_type = {
     .tp_new = basis_2d_new,
     .tp_repr = (reprfunc)basis_2d_repr,
     .tp_getset = Basis2D_getset,
-    // Optionally add docstring, etc.
+    .tp_doc = basis_2d_type_docstring,
 };

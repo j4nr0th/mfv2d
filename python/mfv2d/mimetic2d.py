@@ -1,4 +1,9 @@
-"""Implementation of the 2D mimetic meshes and manifolds."""
+"""Implementation of the 2D mimetic meshes and manifolds.
+
+This file contains many miscellaneous functions that are used in the implementation
+of the 2D mimetic meshes and manifolds, most of which can probably be factored out
+into a separate file.
+"""
 
 from __future__ import annotations
 
@@ -37,6 +42,7 @@ from mfv2d.kform import (
 )
 
 
+# TODO: remake incidence into working for two different orders
 def incidence_10(order: int) -> npt.NDArray[np.float64]:
     r"""Incidence matrix from 0.forms to 1-forms.
 
@@ -445,6 +451,7 @@ def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.uint32]:
     )
 
 
+# TODO: REMOVE
 class BasisCache:
     """Cache for basis evaluation to allow for faster evaluation of mass matrices.
 
@@ -723,6 +730,7 @@ class BasisCache:
         self._precomp_surf = None
 
 
+# TODO: REPLACE
 @dataclass(frozen=True, eq=False)
 class Element2D:
     """General 2D element."""
@@ -795,6 +803,7 @@ class Element2D:
         raise NotImplementedError
 
 
+# TODO: REPLACE
 @dataclass(frozen=True, eq=False)
 class ElementNode2D(Element2D):
     """Two dimensional element that contains children."""
@@ -953,6 +962,7 @@ class ElementNode2D(Element2D):
         return (self.child_bl, self.child_br, self.child_tr, self.child_tl)
 
 
+# TODO: REPLACE
 @dataclass(frozen=True, eq=False)
 class ElementLeaf2D(Element2D):
     """Two dimensional square element.
@@ -1455,6 +1465,7 @@ class ElementLeaf2D(Element2D):
         return parent, ((btm_l, btm_r), (top_l, top_r))
 
 
+# TODO: REPLACE
 def _very_old_rhs_2d_element_projection(
     right: KElementProjection, element: ElementLeaf2D, cache: BasisCache
 ) -> npt.NDArray[np.float64]:
@@ -1566,6 +1577,7 @@ def _very_old_rhs_2d_element_projection(
     return out_vec
 
 
+# TODO: REMOVE
 def _extract_rhs_2d(
     proj: Sequence[tuple[float, KExplicit]],
     weight: KWeight,
@@ -1594,6 +1606,7 @@ def _extract_rhs_2d(
     return vec
 
 
+# TODO: REMOVE
 def element_rhs(
     system: KFormSystem,
     element: ElementLeaf2D,
@@ -1627,13 +1640,44 @@ def element_rhs(
 
 
 class Mesh2D:
-    """Two dimensional manifold with associated geometry."""
+    """Two dimensional manifold with associated geometry.
+
+    Mesh holds the primal manifold, which describes the topology of surfaces
+    and lines that make it up. It also contains the dual mesh, which contains
+    duals of all primal geometrical objects. The dual is useful when connectivity
+    is needed.
+
+    Parameters
+    ----------
+    order : int or Sequence of int or array-like
+        Orders of elements. If a single value is specified, then the same order
+        is used for all elements. If a sequence is specified, then each element
+        is given that order.
+
+    positions : (N, 2) array-like
+        Positions of the nodes.
+
+    lines : (N, 2) array-like
+        Lines of the mesh specified as pairs of nodes connected. These
+        use 1-based indexing.
+
+    surfaces : (N, 4) array-like
+        Surfaces of the mesh specified in their positive orientation
+        as 1-based indices of lines that make up the surface, with
+        negative sign indicating reverse direction.
+    """
 
     orders: npt.NDArray[np.uint32]
+    """Orders of individual elements."""
     positions: npt.NDArray[np.float64]
+    """Array of positions for each node in the mesh."""
     primal: Manifold2D
+    """Primal topology of the mesh."""
     dual: Manifold2D
+    """Dual topology of the mesh."""
     boundary_indices: npt.NDArray[np.int32]
+    """Indices of lines that make up the boundary of the mesh. These
+        can be useful when prescribing boundary conditions."""
 
     def __init__(
         self,
@@ -1692,6 +1736,7 @@ class Mesh2D:
         """Number of (surface) elements in the mesh."""
         return self.primal.n_surfaces
 
+    # TODO: REPLACE
     def get_element(self, idx: int, /) -> ElementLeaf2D:
         """Obtain the 2D element corresponding to the index."""
         s = self.primal.get_surface(idx + 1)
@@ -1732,7 +1777,19 @@ class Mesh2D:
 
 
 class FemCache:
-    """Cache for integration rules and basis functions."""
+    """Cache for integration rules and basis functions.
+
+    This type allows for caching 1D integration rules and 1D basis.
+    The 2D basis are not cached, since the :class:`Basis2D` is just
+    a container for two 1D Basis objects, so it is probably just as
+    cheap to create a new one as it would be to cache it.
+
+    Parameters
+    ----------
+    order_difference : int
+        Difference of orders between the integration rule and the basis
+        in the case that it is not specified.
+    """
 
     order_diff: int
     _int_cache: dict[int, IntegrationRule1D]
@@ -1839,6 +1896,7 @@ class FemCache:
         self._b1_cache = dict()
 
 
+# TODO: REMOVE OR REPLACE
 def eval_expression(
     expr: Iterable[MatOp], element: ElementLeaf2D, cache: BasisCache
 ) -> npt.NDArray[np.float64] | np.float64:

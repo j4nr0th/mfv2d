@@ -69,7 +69,7 @@ int gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsign
 
 MFV2D_INTERNAL
 const char compute_gll_docstring[] =
-    "compute_gll(order: int, max_iter: int = 10, tol: float = 1e-15) -> tuple[array, array]\n"
+    "compute_gll(order: int, /, max_iter: int = 10, tol: float = 1e-15) -> tuple[array, array]\n"
     "Compute Gauss-Legendre-Lobatto integration nodes and weights.\n"
     "\n"
     "If you are often re-using these, consider caching them.\n"
@@ -88,7 +88,34 @@ const char compute_gll_docstring[] =
     "array\n"
     "   Array of ``order + 1`` integration nodes on the interval :math:`[-1, +1]`.\n"
     "array\n"
-    "   Array of integration weights which correspond to the nodes.\n";
+    "   Array of integration weights which correspond to the nodes.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    "Gauss-Legendre-Lobatto nodes computed using this function, along with\n"
+    "the weights.\n"
+    "\n"
+    ".. jupyter-execute::\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from mfv2d._mfv2d import compute_gll\n"
+    "    >>> from matplotlib import pyplot as plt\n"
+    "    >>>\n"
+    "    >>> n = 5\n"
+    "    >>> nodes, weights = compute_gll(n)\n"
+    "    >>>\n"
+    "    >>> # Plot these\n"
+    "    >>> plt.figure()\n"
+    "    >>> plt.scatter(nodes, weights)\n"
+    "    >>> plt.xlabel(\"$\\\\xi$\")\n"
+    "    >>> plt.ylabel(\"$w$\")\n"
+    "    >>> plt.grid()\n"
+    "    >>> plt.show()\n"
+    "\n"
+    "Since these are computed in an iterative way, giving a tolerance\n"
+    "which is too strict or not allowing for sufficient iterations\n"
+    "might cause an exception to be raised to do failiure to converge.\n"
+    "\n";
 
 MFV2D_INTERNAL
 PyObject *compute_gauss_lobatto_nodes(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
@@ -254,22 +281,25 @@ static PyObject *integration_rule_1d_repr(const integration_rule_1d_t *self)
     return PyUnicode_FromString(buffer);
 }
 
-static PyGetSetDef integration_rule_1d_getset[] = {{.name = "order",
-                                                    .get = (getter)integration_rule_1d_get_order,
-                                                    .set = NULL,
-                                                    .doc = "int : order of the rule",
-                                                    .closure = NULL},
-                                                   {.name = "nodes",
-                                                    .get = (getter)integration_rule_1d_get_nodes,
-                                                    .set = NULL,
-                                                    .doc = "array : Nodes for integration.",
-                                                    .closure = NULL},
-                                                   {.name = "weights",
-                                                    .get = (getter)integration_rule_1d_get_weights,
-                                                    .set = NULL,
-                                                    .doc = "array : Weights for integration.",
-                                                    .closure = NULL},
-                                                   {NULL}};
+static PyGetSetDef integration_rule_1d_getset[] = {
+    {.name = "order",
+     .get = (getter)integration_rule_1d_get_order,
+     .set = NULL,
+     .doc = "int : order of the rule",
+     .closure = NULL},
+    {.name = "nodes",
+     .get = (getter)integration_rule_1d_get_nodes,
+     .set = NULL,
+     .doc = "array : Position of integration nodes on the reference domain [-1, +1]\n"
+            "    where the integrated function should be evaluated.\n",
+     .closure = NULL},
+    {.name = "weights",
+     .get = (getter)integration_rule_1d_get_weights,
+     .set = NULL,
+     .doc = "array : Weight values by which the values of evaluated function should be\n"
+            "    multiplied by.\n",
+     .closure = NULL},
+    {NULL}};
 
 PyDoc_STRVAR(integration_rule_1d_docstr, "IntegrationRule1D(order: int)\n"
                                          "Type used to contain integration rule information.\n"
@@ -278,16 +308,7 @@ PyDoc_STRVAR(integration_rule_1d_docstr, "IntegrationRule1D(order: int)\n"
                                          "----------\n"
                                          "order : int\n"
                                          "    Order of integration rule used. Can not be negative.\n"
-                                         "\n"
-                                         "Attributes\n"
-                                         "----------\n"
-                                         "nodes : array\n"
-                                         "    Position of integration nodes on the reference domain [-1, +1]\n"
-                                         "    where the integrated function should be evaluated.\n"
-                                         "\n"
-                                         "weights : array\n"
-                                         "    Weight values by which the values of evaluated function should be\n"
-                                         "    multiplied by.\n");
+                                         "\n");
 
 PyTypeObject integration_rule_1d_type = {
     .tp_new = integration_rule_1d_new,

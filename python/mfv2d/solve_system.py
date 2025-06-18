@@ -1,8 +1,12 @@
-"""New implementation of solve functions."""
+"""Implementation of solve functions.
+
+Functions in this file all deal with solving the full system. Examples
+of these include the assembly of the global matrix, the application of the
+boundary conditions, and computing the right side of the system.
+"""
 
 from collections.abc import (
     Callable,
-    Iterator,
     Mapping,
     Sequence,
 )
@@ -67,6 +71,7 @@ OrderDivisionFunction = Callable[
 ]
 
 
+# TODO: REPLACE
 def check_and_refine(
     pred: Callable[[ElementLeaf2D, int], bool] | None,
     order_div: OrderDivisionFunction,
@@ -105,7 +110,42 @@ def compute_element_vector_fields_nonlin(
     unknown_offsets: npt.NDArray[np.uint32],
     solution: npt.NDArray[np.float64] | None,
 ) -> tuple[npt.NDArray[np.float64], ...]:
-    """Evaluate vector fields which may be non-linear."""
+    """Evaluate vector fields which may be non-linear.
+
+    Parameters
+    ----------
+    system : KFormSystem
+        System for which these vector fields should be computed.
+        TODO: REPLACE WITH JUST UNKNOWN FORMS
+
+    element_basis : Basis2D
+        Basis functions that the element uses. This needs to match
+        with the number of degrees of freedom of the element.
+
+    output_basis : Basis2D
+        Basis onto which the result is to be computed.
+
+    vector_fields : Sequence of Function2D or KFormUnknown
+        Description of the vector fields. Can be a callable which gives its
+        value at a point, or instead it can be an unknown in the system.
+
+    element_corners : (4, 2) array
+        Array of the element corner points.
+
+    unknown_offsets : array
+        Array with offsets of the degrees of freedom within the element. This
+        is used to pick correct degrees of freedom from the element DoFs vector.
+
+    solution : array, optional
+        Array of the element degrees of freedom. If not provided, all are assumed
+        to be zero instead.
+
+    Returns
+    -------
+    tuple of array
+        Tuple with arrays with values of the vector field at each point of the 2D
+        basis integration rules.
+    """
     vec_field_lists: list[npt.NDArray[np.float64]] = list()
     # Extract element DoFs
 
@@ -165,6 +205,7 @@ def compute_element_vector_fields_nonlin(
     return tuple(vec_field_lists)
 
 
+# TODO: REMOVE
 def compute_vector_fields_nonlin(
     system: KFormSystem,
     leaf_elements: Sequence[int] | npt.NDArray[np.integer],
@@ -252,12 +293,14 @@ def rhs_2d_element_projection(
 
     Parameters
     ----------
-    right : KFormProjection
-        The projection onto a k-form.
-    element : Element2D
-        The element on which the projection is evaluated on.
-    cache : BasisCache
-        Cache for the correct element order.
+    right : KElementProjection
+        The projection of a function on the element.
+
+    corners : (4, 2) array
+        Array with corners of the element.
+
+    basis : Basis2D
+        Basis to use for computing the projection.
 
     Returns
     -------
@@ -266,6 +309,7 @@ def rhs_2d_element_projection(
     """
     fn = right.func
 
+    # If `fn` is `None`, it is equal to just zeros
     if fn is None:
         n_dof: int
         if right.weight.order == 0:
@@ -290,8 +334,31 @@ def _extract_rhs_2d(
     corners: npt.NDArray[np.float64],
     basis: Basis2D,
 ) -> npt.NDArray[np.float64]:
-    """Extract the rhs resulting from element projections."""
+    """Extract the rhs resulting from element projections.
+
+    Combines the sequence of :class:`KExplicit` terms together.
+
+    Parameters
+    ----------
+    proj : Sequence of (float, KExplicit)
+        Sequence of projections to compute.
+
+    weight : KWeight
+        Weight form used for these projections.
+
+    corners : (4, 2) array
+        Array of corners of the element.
+
+    basis : Basis2D
+        Basis to use for computing the projection.
+
+    Returns
+    -------
+    array
+        Array of the resulting projection degrees of freedom.
+    """
     n_dof: int
+    # Create empty vector into which to accumulate
     if weight.order == 0:
         n_dof = (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
     elif weight.order == 1:
@@ -305,6 +372,7 @@ def _extract_rhs_2d(
 
     vec = np.zeros(n_dof, np.float64)
 
+    # Loop over all entries that are KElementProjection
     for k, f in filter(lambda v: isinstance(v[1], KElementProjection), proj):
         assert isinstance(f, KElementProjection)
         rhs = rhs_2d_element_projection(f, corners, basis)
@@ -322,7 +390,34 @@ def compute_element_rhs(
     orders: FixedElementArray[np.uint32],
     corners: FixedElementArray[np.float64],
 ) -> npt.NDArray[np.float64]:
-    """Compute rhs for an element."""
+    """Compute rhs for an element.
+
+    This basically means just concatenating the projections of the functions on the
+    element for each of the equations in the system.
+
+    Parameters
+    ----------
+    ie : int
+        Index of the element.
+        TODO: REPLACE WITH JUST ORDERS AND BASIS
+
+    system : KFormSystem
+        System for which to compute the rhs.
+
+    basis_cache : FemCache
+        Cache from which to get the basis from.
+
+    orders : FixedElementArray[np.uint32]
+        Array with orders of the elements.
+
+    corners : FixedElementArray[np.float64]
+        Array with corners of the elements.
+
+    Returns
+    -------
+    array
+        Array with the resulting rhs.
+    """
     vecs: list[npt.NDArray[np.float64]] = list()
     order_1, order_2 = orders[ie]
     basis = basis_cache.get_basis2d(order_1, order_2)
@@ -339,7 +434,19 @@ def compute_element_rhs(
 
 @dataclass(frozen=True)
 class ElementConstraint:
-    """Type intended to enforce a constraint on an element."""
+    """Type intended to enforce a constraint on an element.
+
+    Parameters
+    ----------
+    i_e : int
+        Index of the element for which this constraint is applied.
+
+    dofs : (n,) array
+        Array with indices of the degrees of freedom of the element involved.
+
+    coeffs : (n,) array
+        Array with coefficients of degrees of freedom of the element involved.
+    """
 
     i_e: int
     dofs: npt.NDArray[np.uint32]
@@ -348,7 +455,19 @@ class ElementConstraint:
 
 @dataclass(frozen=True)
 class Constraint:
-    """Type used to specify constraints on degrees of freedom."""
+    """Type used to specify constraints on degrees of freedom.
+
+    This type combines the individual :class:`ElementConstraint` together
+    with a right-hand side of the constraint.
+
+    Parameters
+    ----------
+    rhs : float
+        The right-hand side of the constraint.
+
+    *element_constraints : ElementConstraint
+        Constraints to combine together.
+    """
 
     rhs: float
     element_constraints: tuple[ElementConstraint, ...]
@@ -358,6 +477,7 @@ class Constraint:
         object.__setattr__(self, "element_constraints", element_constraints)
 
 
+# TODO: remove the slow version.
 @cache
 def continuity_matrices(
     n1: int, n2: int
@@ -2460,37 +2580,6 @@ def non_linear_solve_run(
 _T = TypeVar("_T", bound=np.generic)
 
 
-def assign_leaves(
-    element_collection: ElementCollection,
-    ndim: int,
-    dtype: type[_T],
-    iterable: Sequence[npt.NDArray[_T]],
-) -> FlexibleElementArray[_T, np.uint32]:
-    """Assign elements of the sequence object to the leaves."""
-
-    def _assign_element_matrix(
-        ie: int,
-        values: Iterator[npt.NDArray[_T]],
-        child_count: FixedElementArray[np.uint32],
-    ) -> npt.NDArray[_T]:
-        """Extract element matrices."""
-        cnt = int(child_count[ie][0])
-        if cnt != 0:
-            return np.zeros([0] * ndim, dtype=dtype)
-        return next(values)
-
-    linear_element_matrices = call_per_element_flex(
-        element_collection.com,
-        ndim,
-        dtype,
-        _assign_element_matrix,
-        iter(iterable),
-        element_collection.child_count_array,
-    )
-
-    return linear_element_matrices
-
-
 def extract_from_flat(
     elements: ElementCollection,
     element_offsets: npt.NDArray[np.integer],
@@ -2646,14 +2735,14 @@ class SolverSettings:
     .. math::
         :label: solve_system_equation
 
-        \mathbb{I}\left({\vec{u}}\rigth)\right) {\vec{u}} = \vec{E}\left({\vec{u}}^i
+        \mathbb{I}\left({\vec{u}}\right) {\vec{u}} = \vec{E}\left({\vec{u}}^i
         \right) + \vec{F}
 
 
     .. math::
         :label: solve_system_iteration
 
-        \Delta {\vec{u}}^i = \left(\mathbb{I}\left({\vec{u}}^i\rigth)\right)^{-1} \left(
+        \Delta {\vec{u}}^i = \left(\mathbb{I}\left({\vec{u}}^i\right)\right)^{-1} \left(
         \vec{E}\left({\vec{u}}^i\right) + \vec{F} + \vec{I}\left({\vec{u}}^i\right)\right)
 
     Parameters
@@ -2707,12 +2796,6 @@ class SolutionStatistics:
     n_lagrange: int
     n_elems: int
     n_leaves: int
-
-
-@dataclass(frozen=True)
-class SolutionStatisticsUnsteady(SolutionStatistics):
-    """Information about the unsteady solution."""
-
     iter_history: npt.NDArray[np.uint32]
     residual_history: npt.NDArray[np.float64]
 

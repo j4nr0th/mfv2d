@@ -26,7 +26,7 @@ from mfv2d.solve_system import (
     Constraint,
     ElementConstraint,
     RefinementSettings,
-    SolutionStatisticsUnsteady,
+    SolutionStatistics,
     SolverSettings,
     SystemSettings,
     TimeSettings,
@@ -67,7 +67,7 @@ def solve_system_2d(
     *,
     recon_order: int | None = None,
     print_residual: bool = False,
-) -> tuple[Sequence[pv.UnstructuredGrid], SolutionStatisticsUnsteady]:
+) -> tuple[Sequence[pv.UnstructuredGrid], SolutionStatistics]:
     """Solve the unsteady system on the specified mesh.
 
     Parameters
@@ -750,7 +750,7 @@ def solve_system_2d(
     orders, counts = np.unique(
         np.array(element_collection.orders_array), return_counts=True
     )
-    stats = SolutionStatisticsUnsteady(
+    stats = SolutionStatistics(
         element_orders={int(order): int(count) for order, count in zip(orders, counts)},
         n_total_dofs=explicit_vec.size,
         n_lagrange=int(lagrange_vec.size + np.array(lagrange_counts).sum()),

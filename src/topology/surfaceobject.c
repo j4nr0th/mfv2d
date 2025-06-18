@@ -71,13 +71,46 @@ static PyObject *surface_object_str(PyObject *self)
     return current_out;
 }
 
-PyDoc_STRVAR(surface_object_type_docstring, "Surface(*ids)\n"
-                                            "Two dimensional geometrical object, which is bound by lines.\n"
-                                            "\n"
-                                            "Parameters\n"
-                                            "----------\n"
-                                            "*ids : GeoID or int\n"
-                                            "    Ids of the lines which are the boundary of the surface.\n");
+PyDoc_STRVAR(surface_object_type_docstring,
+             "Surface(*ids: GeoID | int)\n"
+             "Two dimensional geometrical object, which is bound by lines.\n"
+             "\n"
+             "Since surface can contain a variable number of lines, it has methods\n"
+             "based on containers, such as ``len``, which allow for iterations.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "*ids : GeoID or int\n"
+             "    Ids of the lines which are the boundary of the surface.\n"
+             "\n"
+             "Examples\n"
+             "--------\n"
+             "Some examples of what can be done with surfaces are presented here.\n"
+             "\n"
+             "First, the length of the surface can be obtained by using :func:`len` build-in.\n"
+             "\n"
+             ".. jupyter-execute::\n"
+             "\n"
+             "    >>> import numpy as np\n"
+             "    >>> from mfv2d._mfv2d import GeoID, Surface\n"
+             "    >>> \n"
+             "    >>> surf = Surface(1, 2, 3, -4)\n"
+             "    >>> len(surf)\n"
+             "    4\n"
+             "\n"
+             "Next, the surface can be iterated over:\n"
+             "\n"
+             ".. jupyter-execute::\n"
+             "\n"
+             "    >>> for gid in surf:\n"
+             "    ...     print(gid)\n"
+             "\n"
+             "The surface can also be converted into a :mod:`numpy` array directly.\n"
+             "\n"
+             ".. jupyter-execute::\n"
+             "\n"
+             "    >>> print(np.array(surf))\n"
+             "\n");
 
 static PyObject *surface_object_rich_compare(PyObject *self, PyObject *other, const int op)
 {

@@ -177,7 +177,7 @@ def dlagrange1d(
 
     .. jupyter-execute::
 
-        >>> from interplib import dlagrange1d
+        >>> from mfv2d._mfv2d import dlagrange1d
         >>>
         >>> xpos = np.linspace(np.min(roots), np.max(roots), 128)
         >>> yvals = dlagrange1d(roots, xpos)

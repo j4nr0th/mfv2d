@@ -20,7 +20,6 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
     "sphinx.ext.viewcode",
-    # "sphinx_gallery.gen_gallery",
     "jupyter_sphinx",
 ]
 

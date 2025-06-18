@@ -52,6 +52,7 @@ docs = [
     "sphinx-toolbox",
     "sphinxcontrib-websupport",
     "sphinxcontrib-asciinema",
+    "sphinxcontrib-bibtex",
     "jupyter-sphinx",
 ]
 

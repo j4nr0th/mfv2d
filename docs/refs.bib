@@ -1,0 +1,54 @@
+
+@misc{gerritsma_mimetic_2018,
+	title = {Mimetic {Spectral} {Element} {Method} for {Anisotropic} {Diffusion}},
+	url = {https://arxiv.org/abs/1802.04597v1},
+	abstract = {This paper addresses the topological structure of steady, anisotropic, inhomogeneous diffusion problems. Two discrete formulations: a) mixed and b) direct formulations are discussed. Differential operators are represented by sparse incidence matrices, while weighted mass matrices play the role of metric-dependent Hodge matrices. The resulting mixed formulations are point-wise divergence-free if the right hand side function f = 0. The method is inf-sup stable and displays optimal convergence on orthogonal and non-affine grids.},
+	language = {en},
+	urldate = {2025-06-15},
+	journal = {arXiv.org},
+	author = {Gerritsma, Marc and Palha, Artur and Jain, Varun and Zhang, Yi},
+	month = feb,
+	year = {2018},
+}
+
+
+@article{shrestha_optimal_2025,
+	title = {Optimal solutions employing an algebraic {Variational} {Multiscale} approach part {I}: {Steady} {Linear} {Problems}},
+	volume = {438},
+	issn = {0045-7825},
+	shorttitle = {Optimal solutions employing an algebraic {Variational} {Multiscale} approach part {I}},
+	url = {https://www.sciencedirect.com/science/article/pii/S0045782525001045},
+	doi = {10.1016/j.cma.2025.117832},
+	abstract = {This work extends our previous study from S. Shrestha et al. (2024) by introducing a new abstract framework for Variational Multiscale (VMS) methods at the discrete level. We introduce the concept of what we define as the optimal projector and present a discretisation approach that yields a numerical solution closely approximating the optimal projection of the infinite-dimensional continuous solution. In this approach, the infinite-dimensional unresolved scales are approximated in a finite-dimensional subspace using the numerically computed Fine-Scale Greens’ function of the underlying symmetric problem. The proposed approach involves solving the VMS problem on two separate meshes: a coarse mesh for the full PDE and a fine mesh for the symmetric part of the continuous differential operator. We consider the 1D and 2D steady advection–diffusion problems in both direct and mixed formulations as the test cases in this paper. We first present an error analysis of the proposed approach and show that the projected solution is achieved as the approximate Greens’ function converges to the exact one. Subsequently, we demonstrate the working of this method where we show that it can exponentially converge to the chosen optimal projection. We note that the implementation of the present work employs the Mimetic Spectral Element Method (MSEM), although, it may be applied to other Finite/Spectral Element or Isogeometric frameworks. Furthermore, we propose that VMS should not be viewed as a stabilisation technique; instead, the base scheme should be inherently stable, with VMS enhancing the solution quality by supplementing the base scheme.},
+	urldate = {2025-03-10},
+	journal = {Computer Methods in Applied Mechanics and Engineering},
+	author = {Shrestha, Suyash and Gerritsma, Marc and Rubio, Gonzalo and Hulshoff, Steven and Ferrer, Esteban},
+	month = apr,
+	year = {2025},
+	keywords = {Fine-Scale Greens’ function, Optimal projections, Spectral Element Method, Steady advection–diffusion equation, Variational Multiscale},
+	pages = {117832},
+}
+
+
+@misc{valgrind,
+	title = {Valgrind {Home}},
+	url = {https://valgrind.org/},
+	urldate = {2025-06-15},
+}
+
+
+@misc{jain_construction_2020,
+	title = {Construction and application of algebraic dual polynomial representations for finite element methods on quadrilateral and hexahedral meshes},
+	url = {http://arxiv.org/abs/1712.09472},
+	doi = {10.48550/arXiv.1712.09472},
+	abstract = {Given a sequence of finite element spaces which form a de Rham sequence, we will construct a dual representation of these spaces with associated differential operators which connect these spaces such that they also form a de Rham sequence. The matrix which converts primal representations to dual representations -- the Hodge matrix -- is the mass or Gram matrix. It will be shown that a bilinear form of a primal and a dual representation is equal to the vector inner product of the expansion coefficients (degrees of freedom) of both representations. This leads to very sparse system matrices, even for high order methods. The derivative of dual representations will be defined. Vector operations, grad, curl and div, for primal and dual representations are both topological and do not depend on the metric, i.e. the size and shape of the mesh or the order of the numerical method. Derivatives are evaluated by applying sparse incidence and inclusion matrices to the expansion coefficients of the representations. As illustration of the use of dual representations, the method will be applied to i) a mixed formulation for the Poisson problem in 3D, ii) it will be shown that this approach allows one to preserve the equivalence between Dirichlet and Neumann problems in the finite dimensional setting and, iii) the method will be applied to the approximation of grad-div eigenvalue problem on affine and non-affine meshes.},
+	urldate = {2025-02-12},
+	publisher = {arXiv},
+	author = {Jain, Varun and Zhang, Yi and Palha, Artur and Gerritsma, Marc},
+	month = sep,
+	year = {2020},
+	note = {arXiv:1712.09472 [math]},
+	keywords = {Computer Science - Numerical Analysis, Mathematics - Numerical Analysis},
+	annote = {Comment: This is version5 of this article},
+	file = {Preprint PDF:/home/jan/Zotero/storage/T9DWBKNH/Jain et al. - 2020 - Construction and application of algebraic dual polynomial representations for finite element methods.pdf:application/pdf;Snapshot:/home/jan/Zotero/storage/GMT5KUKA/1712.html:text/html},
+}

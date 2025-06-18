@@ -35,3 +35,6 @@ dmypy.json
 
 # Custom
 sandbox/
+
+# Sphinx
+docs/_*

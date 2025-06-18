@@ -285,8 +285,8 @@ def compute_gll(
         >>> # Plot these
         >>> plt.figure()
         >>> plt.scatter(nodes, weights)
-        >>> plt.xlabel($\\xi$)
-        >>> plt.ylabel($w$)
+        >>> plt.xlabel("$\\xi$")
+        >>> plt.ylabel("$w$")
         >>> plt.grid()
         >>> plt.show()
 

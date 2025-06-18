@@ -1,6 +1,7 @@
 name: documentation
 
-on: workflow_dispatch
+on: 
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,7 +20,7 @@ jobs:
           pip install .[docs]
       - name: Build the docs
         run: |
-          sphinx-build doc _build
+          sphinx-build docs _build
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:

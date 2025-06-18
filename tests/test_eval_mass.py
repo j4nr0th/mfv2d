@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 from mfv2d._mfv2d import check_bytecode, element_matrices
-from mfv2d.eval import _ctranslate, translate_equation
+from mfv2d.eval import translate_equation, translate_to_c_instructions
 from mfv2d.kform import KFormUnknown
 from mfv2d.mimetic2d import BasisCache, ElementLeaf2D
 
@@ -64,7 +64,7 @@ def test_bytecode():
     )
     for form in operations:
         ops = operations[form]
-        bytecode_in = _ctranslate(*ops)
+        bytecode_in = translate_to_c_instructions(*ops)
         bytecode_out = check_bytecode(bytecode_in)
 
         for b1, b2 in zip(bytecode_in, bytecode_out, strict=True):
@@ -78,7 +78,7 @@ def test_bytecode():
     )
     for form in operations:
         ops = operations[form]
-        bytecode_in = _ctranslate(*ops)
+        bytecode_in = translate_to_c_instructions(*ops)
         bytecode_out = check_bytecode(bytecode_in)
 
         for b1, b2 in zip(bytecode_in, bytecode_out, strict=True):

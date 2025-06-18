@@ -5,7 +5,7 @@ from typing import Callable
 import numpy as np
 import numpy.typing as npt
 from mfv2d._mfv2d import compute_element_matrices
-from mfv2d.eval import MatOp, MatOpCode, _ctranslate, translate_equation
+from mfv2d.eval import MatOp, MatOpCode, translate_equation, translate_to_c_instructions
 from mfv2d.kform import KFormSystem, KFormUnknown
 from mfv2d.mimetic2d import BasisCache, ElementLeaf2D, _very_old_rhs_2d_element_projection
 
@@ -116,7 +116,7 @@ def test_advect_21_undeformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -259,7 +259,7 @@ def test_advect_10_undeformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -390,7 +390,7 @@ def test_advect_21_regular_deformed_1() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -532,7 +532,7 @@ def test_advect_21_regular_deformed_2() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -679,7 +679,7 @@ def test_advect_10_refgular_deformed_1() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -814,7 +814,7 @@ def test_advect_10_refgular_deformed_2() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -944,7 +944,7 @@ def test_advect_21_irregular_deformed_1() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -1090,7 +1090,7 @@ def test_advect_10_irrefgular_deformed_1() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -1223,7 +1223,7 @@ def test_div_21_irregular_deformed_1() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -1350,7 +1350,7 @@ def test_dual_advect_21_undeformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -1496,7 +1496,7 @@ def test_dual_advect_21_rotated() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -1642,7 +1642,7 @@ def test_dual_advect_21_irregular_deformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -1789,7 +1789,7 @@ def test_dual_advect_10_undeformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -1922,7 +1922,7 @@ def test_dual_advect_10_rotated() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -2055,7 +2055,7 @@ def test_dual_advect_10_irregular_deformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -2191,7 +2191,7 @@ def test_advect_non_linear_10_irregular_deformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -2319,7 +2319,7 @@ def test_advect_dual_non_linear_10_irregular_deformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -2440,7 +2440,7 @@ def test_advect_non_linear_21_irregular_deformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)
@@ -2562,7 +2562,7 @@ def test_advect_dual_non_linear_21_irregular_deformed() -> None:
         expr_row: list[tuple[MatOp, ...] | None] = list()
         for f in system.unknown_forms:
             if f in bite:
-                row.append(_ctranslate(*bite[f]))
+                row.append(translate_to_c_instructions(*bite[f]))
                 expr_row.append(tuple(bite[f]))
             else:
                 row.append(None)

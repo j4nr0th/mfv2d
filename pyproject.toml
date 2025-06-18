@@ -53,6 +53,7 @@ docs = [
     "sphinxcontrib-websupport",
     "sphinxcontrib-asciinema",
     "sphinxcontrib-bibtex",
+    "sphinx_book_theme",
     "jupyter-sphinx",
 ]
 

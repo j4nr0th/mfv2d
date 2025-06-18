@@ -1,0 +1,1734 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mfv2d._mfv2d &#8212; mfv2d  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/thebelab.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/thebelab-helper.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mfv2d/_mfv2d';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mfv2d  documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../basis.html">Mimetic Spectral Elements Method</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mfv2d._mfv2d</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Stub for the C implemented types and functions.</span>
+
+<span class="sd">This file contains functions signatures and *copies* of docstrings for the</span>
+<span class="sd">C-extension which implements all the required fast code.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span><span class="p">,</span> <span class="n">final</span><span class="p">,</span> <span class="n">overload</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.eval</span><span class="w"> </span><span class="kn">import</span> <span class="n">MatOpCode</span><span class="p">,</span> <span class="n">_CompiledCodeMatrix</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnknownFormOrder</span>
+
+<div class="viewcode-block" id="lagrange1d">
+<a class="viewcode-back" href="../../modules/_mfv2d.html#mfv2d._mfv2d.lagrange1d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">lagrange1d</span><span class="p">(</span>
+    <span class="n">roots</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">/</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Evaluate Lagrange polynomials.</span>
+
+<span class="sd">    This function efficiently evaluates Lagrange basis polynomials, defined by</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">       \mathcal{L}^n_i (x) = \prod\limits_{j=1, j \neq i}^{n} \frac{x - x_j}{x_i - x_j},</span>
+
+<span class="sd">    where the ``roots`` specifies the zeros of the Polynomials</span>
+<span class="sd">    :math:`\{x_1, \dots, x_n\}`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    roots : array_like</span>
+<span class="sd">       Roots of Lagrange polynomials.</span>
+<span class="sd">    x : array_like</span>
+<span class="sd">       Points where the polynomials should be evaluated.</span>
+<span class="sd">    out : array, optional</span>
+<span class="sd">       Array where the results should be written to. If not given, a new one will be</span>
+<span class="sd">       created and returned. It should have the same shape as ``x``, but with an extra</span>
+<span class="sd">       dimension added, the length of which is ``len(roots)``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">       Array of Lagrange polynomial values at positions specified by ``x``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    This example here shows the most basic use of the function to evaluate Lagrange</span>
+<span class="sd">    polynomials. First, let us define the roots.</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; order = 7</span>
+<span class="sd">        &gt;&gt;&gt; roots = - np.cos(np.linspace(0, np.pi, order + 1))</span>
+
+<span class="sd">    Next, we can evaluate the polynomials at positions. Here the interval between the</span>
+<span class="sd">    roots is chosen.</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; from mfv2d._mfv2d import lagrange1d</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; xpos = np.linspace(np.min(roots), np.max(roots), 128)</span>
+<span class="sd">        &gt;&gt;&gt; yvals = lagrange1d(roots, xpos)</span>
+
+<span class="sd">    Note that if we were to give an output array to write to, it would also be the</span>
+<span class="sd">    return value of the function (as in no copy is made).</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; yvals is lagrange1d(roots, xpos, yvals)</span>
+<span class="sd">        True</span>
+
+<span class="sd">    Now we can plot these polynomials.</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; from matplotlib import pyplot as plt</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; plt.figure()</span>
+<span class="sd">        &gt;&gt;&gt; for i in range(order + 1):</span>
+<span class="sd">        ...     plt.plot(</span>
+<span class="sd">        ...         xpos,</span>
+<span class="sd">        ...         yvals[..., i],</span>
+<span class="sd">        ...         label=f&quot;$\\mathcal{{L}}^{{{order}}}_{{{i + 1}}}$&quot;</span>
+<span class="sd">        ...     )</span>
+<span class="sd">        &gt;&gt;&gt; plt.gca().set(</span>
+<span class="sd">        ...     xlabel=&quot;$x$&quot;,</span>
+<span class="sd">        ...     ylabel=&quot;$y$&quot;,</span>
+<span class="sd">        ...     title=f&quot;Lagrange polynomials of order {order}&quot;</span>
+<span class="sd">        ... )</span>
+<span class="sd">        &gt;&gt;&gt; plt.legend()</span>
+<span class="sd">        &gt;&gt;&gt; plt.grid()</span>
+<span class="sd">        &gt;&gt;&gt; plt.show()</span>
+
+<span class="sd">    Accuracy is retained even at very high polynomial order. The following</span>
+<span class="sd">    snippet shows that even at absurdly high order of 51, the results still</span>
+<span class="sd">    have high accuracy and don&#39;t suffer from rounding errors. It also performs</span>
+<span class="sd">    well (in this case, the 52 polynomials are each evaluated at 1025 points).</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; from time import perf_counter</span>
+<span class="sd">        &gt;&gt;&gt; order = 51</span>
+<span class="sd">        &gt;&gt;&gt; roots = - np.cos(np.linspace(0, np.pi, order + 1))</span>
+<span class="sd">        &gt;&gt;&gt; xpos = np.linspace(np.min(roots), np.max(roots), 1025)</span>
+<span class="sd">        &gt;&gt;&gt; t0 = perf_counter()</span>
+<span class="sd">        &gt;&gt;&gt; yvals = lagrange1d(roots, xpos)</span>
+<span class="sd">        &gt;&gt;&gt; t1 = perf_counter()</span>
+<span class="sd">        &gt;&gt;&gt; print(f&quot;Calculations took {t1 - t0: e} seconds.&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; plt.figure()</span>
+<span class="sd">        &gt;&gt;&gt; for i in range(order + 1):</span>
+<span class="sd">        ...     plt.plot(</span>
+<span class="sd">        ...         xpos,</span>
+<span class="sd">        ...         yvals[..., i],</span>
+<span class="sd">        ...         label=f&quot;$\\mathcal{{L}}^{{{order}}}_{{{i + 1}}}$&quot;</span>
+<span class="sd">        ...     )</span>
+<span class="sd">        &gt;&gt;&gt; plt.gca().set(</span>
+<span class="sd">        ...     xlabel=&quot;$x$&quot;,</span>
+<span class="sd">        ...     ylabel=&quot;$y$&quot;,</span>
+<span class="sd">        ...     title=f&quot;Lagrange polynomials of order {order}&quot;</span>
+<span class="sd">        ... )</span>
+<span class="sd">        &gt;&gt;&gt; # plt.legend() # No, this is too long</span>
+<span class="sd">        &gt;&gt;&gt; plt.grid()</span>
+<span class="sd">        &gt;&gt;&gt; plt.show()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="dlagrange1d">
+<a class="viewcode-back" href="../../modules/_mfv2d.html#mfv2d._mfv2d.dlagrange1d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">dlagrange1d</span><span class="p">(</span>
+    <span class="n">roots</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">/</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Evaluate derivatives of Lagrange polynomials.</span>
+
+<span class="sd">    This function efficiently evaluates Lagrange basis polynomials derivatives, defined by</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">       \frac{d \mathcal{L}^n_i (x)}{d x} =</span>
+<span class="sd">       \sum\limits_{j=0,j \neq i}^n \prod\limits_{k=0, k \neq i, k \neq j}^{n}</span>
+<span class="sd">       \frac{1}{x_i - x_j} \cdot \frac{x - x_k}{x_i - x_k},</span>
+
+<span class="sd">    where the ``roots`` specifies the zeros of the Polynomials</span>
+<span class="sd">    :math:`\{x_0, \dots, x_n\}`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    roots : array_like</span>
+<span class="sd">       Roots of Lagrange polynomials.</span>
+<span class="sd">    x : array_like</span>
+<span class="sd">       Points where the derivatives of polynomials should be evaluated.</span>
+<span class="sd">    out : array, optional</span>
+<span class="sd">       Array where the results should be written to. If not given, a new one will be</span>
+<span class="sd">       created and returned. It should have the same shape as ``x``, but with an extra</span>
+<span class="sd">       dimension added, the length of which is ``len(roots)``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">       Array of Lagrange polynomial derivatives at positions specified by ``x``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    This example here shows the most basic use of the function to evaluate derivatives of</span>
+<span class="sd">    Lagrange polynomials. First, let us define the roots.</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; order = 7</span>
+<span class="sd">        &gt;&gt;&gt; roots = - np.cos(np.linspace(0, np.pi, order + 1))</span>
+
+<span class="sd">    Next, we can evaluate the polynomials at positions. Here the interval between the</span>
+<span class="sd">    roots is chosen.</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; from mfv2d._mfv2d import dlagrange1d</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; xpos = np.linspace(np.min(roots), np.max(roots), 128)</span>
+<span class="sd">        &gt;&gt;&gt; yvals = dlagrange1d(roots, xpos)</span>
+
+<span class="sd">    Note that if we were to give an output array to write to, it would also be the</span>
+<span class="sd">    return value of the function (as in no copy is made).</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; yvals is dlagrange1d(roots, xpos, yvals)</span>
+<span class="sd">        True</span>
+
+<span class="sd">    Now we can plot these polynomials.</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; from matplotlib import pyplot as plt</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; plt.figure()</span>
+<span class="sd">        &gt;&gt;&gt; for i in range(order + 1):</span>
+<span class="sd">        ...     plt.plot(</span>
+<span class="sd">        ...         xpos,</span>
+<span class="sd">        ...         yvals[..., i],</span>
+<span class="sd">        ...         label=f&quot;${{\\mathcal{{L}}^{{{order}}}_{{{i}}}}}^\\prime$&quot;</span>
+<span class="sd">        ...     )</span>
+<span class="sd">        &gt;&gt;&gt; plt.gca().set(</span>
+<span class="sd">        ...     xlabel=&quot;$x$&quot;,</span>
+<span class="sd">        ...     ylabel=&quot;$y$&quot;,</span>
+<span class="sd">        ...     title=f&quot;Lagrange polynomials of order {order}&quot;</span>
+<span class="sd">        ... )</span>
+<span class="sd">        &gt;&gt;&gt; plt.legend()</span>
+<span class="sd">        &gt;&gt;&gt; plt.grid()</span>
+<span class="sd">        &gt;&gt;&gt; plt.show()</span>
+
+<span class="sd">    Accuracy is retained even at very high polynomial order. The following</span>
+<span class="sd">    snippet shows that even at absurdly high order of 51, the results still</span>
+<span class="sd">    have high accuracy and don&#39;t suffer from rounding errors. It also performs</span>
+<span class="sd">    well (in this case, the 52 polynomials are each evaluated at 1025 points).</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; from time import perf_counter</span>
+<span class="sd">        &gt;&gt;&gt; order = 51</span>
+<span class="sd">        &gt;&gt;&gt; roots = - np.cos(np.linspace(0, np.pi, order + 1))</span>
+<span class="sd">        &gt;&gt;&gt; xpos = np.linspace(np.min(roots), np.max(roots), 1025)</span>
+<span class="sd">        &gt;&gt;&gt; t0 = perf_counter()</span>
+<span class="sd">        &gt;&gt;&gt; yvals = dlagrange1d(roots, xpos)</span>
+<span class="sd">        &gt;&gt;&gt; t1 = perf_counter()</span>
+<span class="sd">        &gt;&gt;&gt; print(f&quot;Calculations took {t1 - t0: e} seconds.&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; plt.figure()</span>
+<span class="sd">        &gt;&gt;&gt; for i in range(order + 1):</span>
+<span class="sd">        ...     plt.plot(</span>
+<span class="sd">        ...         xpos,</span>
+<span class="sd">        ...         yvals[..., i],</span>
+<span class="sd">        ...         label=f&quot;${{\\mathcal{{L}}^{{{order}}}_{{{i}}}}}^\\prime$&quot;</span>
+<span class="sd">        ...     )</span>
+<span class="sd">        &gt;&gt;&gt; plt.gca().set(</span>
+<span class="sd">        ...     xlabel=&quot;$x$&quot;,</span>
+<span class="sd">        ...     ylabel=&quot;$y$&quot;,</span>
+<span class="sd">        ...     title=f&quot;Lagrange polynomials of order {order}&quot;</span>
+<span class="sd">        ... )</span>
+<span class="sd">        &gt;&gt;&gt; # plt.legend() # No, this is too long</span>
+<span class="sd">        &gt;&gt;&gt; plt.grid()</span>
+<span class="sd">        &gt;&gt;&gt; plt.show()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span></div>
+
+
+<div class="viewcode-block" id="compute_gll">
+<a class="viewcode-back" href="../../modules/_mfv2d.html#mfv2d._mfv2d.compute_gll">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_gll</span><span class="p">(</span>
+    <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">max_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-15</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Compute Gauss-Legendre-Lobatto integration nodes and weights.</span>
+
+<span class="sd">    If you are often re-using these, consider caching them.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    order : int</span>
+<span class="sd">       Order of the scheme. The number of node-weight pairs is one more.</span>
+<span class="sd">    max_iter : int, default: 10</span>
+<span class="sd">       Maximum number of iterations used to further refine the values.</span>
+<span class="sd">    tol : float, default: 1e-15</span>
+<span class="sd">       Tolerance for stopping the refinement of the nodes.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">       Array of ``order + 1`` integration nodes on the interval :math:`[-1, +1]`.</span>
+<span class="sd">    array</span>
+<span class="sd">       Array of integration weights which correspond to the nodes.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    Gauss-Legendre-Lobatto nodes computed using this function, along with</span>
+<span class="sd">    the weights.</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">        &gt;&gt;&gt; from mfv2d._mfv2d import compute_gll</span>
+<span class="sd">        &gt;&gt;&gt; from matplotlib import pyplot as plt</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; n = 5</span>
+<span class="sd">        &gt;&gt;&gt; nodes, weights = compute_gll(n)</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; # Plot these</span>
+<span class="sd">        &gt;&gt;&gt; plt.figure()</span>
+<span class="sd">        &gt;&gt;&gt; plt.scatter(nodes, weights)</span>
+<span class="sd">        &gt;&gt;&gt; plt.xlabel(&quot;$\\xi$&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; plt.ylabel(&quot;$w$&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; plt.grid()</span>
+<span class="sd">        &gt;&gt;&gt; plt.show()</span>
+
+<span class="sd">    Since these are computed in an iterative way, giving a tolerance</span>
+<span class="sd">    which is too strict or not allowing for sufficient iterations</span>
+<span class="sd">    might cause an exception to be raised to do failiure to converge.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span></div>
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GeoID</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type used to identify a geometrical object with an index and orientation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    index : int</span>
+<span class="sd">        Index of the geometrical object.</span>
+<span class="sd">    reversed : any, default: False</span>
+<span class="sd">        The object&#39;s orientation should be reversed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">reverse</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Index of the object referenced by id.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reversed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Is the orientation of the object reversed.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__bool__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeoID</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Line</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Geometrical object, which connects two points.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    begin : GeoID or int</span>
+<span class="sd">        ID of the point where the line beings.</span>
+<span class="sd">    end : GeoID or int</span>
+<span class="sd">        ID of the point where the line ends.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">begin</span><span class="p">:</span> <span class="n">GeoID</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="n">GeoID</span> <span class="o">|</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">begin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeoID</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;ID of the point where the line beings.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">end</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeoID</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;ID of the point where the line ends.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Surface</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Two dimensional geometrical object, which is bound by lines.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    *ids : GeoID or int</span>
+<span class="sd">        Ids of the lines which are the boundary of the surface.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">ids</span><span class="p">:</span> <span class="n">GeoID</span> <span class="o">|</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeoID</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Manifold</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A manifold of a finite number of dimensions.&quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dimension of the manifold.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Manifold1D</span><span class="p">(</span><span class="n">Manifold</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;One dimensional manifold.&quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_lines</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of lines in the manifold.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of points in the manifold.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_line</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="n">GeoID</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Line</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the line of the specified ID.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">find_line</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">line</span><span class="p">:</span> <span class="n">Line</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GeoID</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find the ID of the specified line.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">line_mesh</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">segments</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Manifold1D</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new Manifold1D which represents a line.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        segments : int</span>
+<span class="sd">            Number of segments the line is split into. There will be one more point.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Manifold1D</span>
+<span class="sd">            Manifold that represents the topology of the line.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_dual</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Manifold1D</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the dual to the manifold.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Manifold1D</span>
+<span class="sd">            The dual to the manifold.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Manifold2D</span><span class="p">(</span><span class="n">Manifold</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Two dimensional manifold consisting of surfaces made of lines.</span>
+
+<span class="sd">    Has no constructor, but can be created from its class methods</span>
+<span class="sd">    :meth:`Manifold2D.from_irregular` and :meth:`Manifold2D.from_regular`. This type</span>
+<span class="sd">    provides convinience functions for computing its dual and obtaining specific lines or</span>
+<span class="sd">    surfaces.</span>
+
+<span class="sd">    Since manifold only contains topology, the only information it contains pertaining to</span>
+<span class="sd">    nodes is the tota lnumber of them.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    This is an example of how a manifold may be used:</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">        &gt;&gt;&gt; from mfv2d._mfv2d import Manifold2D, Surface, Line, GeoID</span>
+<span class="sd">        &gt;&gt;&gt;</span>
+<span class="sd">        &gt;&gt;&gt; triangle = Manifold2D.from_regular(</span>
+<span class="sd">        ...     3,</span>
+<span class="sd">        ...     [Line(1, 2), Line(2, 3), Line(1, 3)],</span>
+<span class="sd">        ...     [Surface(1, 2, -3)],</span>
+<span class="sd">        ... )</span>
+<span class="sd">        &gt;&gt;&gt; print(triangle)</span>
+
+<span class="sd">    The previous case only had one surface. In that case, or if all surface</span>
+<span class="sd">    have the same number of lines, the class method :meth:`Manifold2D.from_regular`</span>
+<span class="sd">    can be used. If the surface do not have the same number of lines, that can not be</span>
+<span class="sd">    used. Instead, the :meth:`Manifold2D.from_irregular` class method should be used.</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; house = Manifold2D.from_irregular(</span>
+<span class="sd">        ...     5,</span>
+<span class="sd">        ...     [</span>
+<span class="sd">        ...         (1, 2), (2, 3), (3, 4), (4, 1), #Square</span>
+<span class="sd">        ...         (1, 5), (5, 2), # Roof</span>
+<span class="sd">        ...     ],</span>
+<span class="sd">        ...     [</span>
+<span class="sd">        ...         (1, 2, 3, 4), # Square</span>
+<span class="sd">        ...         (-1, 5, 6),   # Triangle</span>
+<span class="sd">        ...     ]</span>
+<span class="sd">        ... )</span>
+<span class="sd">        &gt;&gt;&gt; print(house)</span>
+
+<span class="sd">    From these manifolds, surfaces or edges can be querried back. This is mostly useful</span>
+<span class="sd">    when the dual is also computed, which allows to obtain information about neighbouring</span>
+<span class="sd">    objects. For example, if we want to know what points are neighbours of point with</span>
+<span class="sd">    index 2, we would do the following:</span>
+
+<span class="sd">    .. jupyter-execute::</span>
+
+<span class="sd">        &gt;&gt;&gt; dual = house.compute_dual() # Get the dual manifold</span>
+<span class="sd">        &gt;&gt;&gt; # Dual surface corresponding to primal point 1</span>
+<span class="sd">        &gt;&gt;&gt; dual_surface = dual.get_surface(1)</span>
+<span class="sd">        &gt;&gt;&gt; print(dual_surface)</span>
+<span class="sd">        &gt;&gt;&gt; for line_id in dual_surface:</span>
+<span class="sd">        ...     if not line_id:</span>
+<span class="sd">        ...         continue</span>
+<span class="sd">        ...     primal_line = house.get_line(line_id)</span>
+<span class="sd">        ...     if primal_line.begin == 1:</span>
+<span class="sd">        ...         pt = primal_line.end</span>
+<span class="sd">        ...     else:</span>
+<span class="sd">        ...         assert primal_line.end == 1</span>
+<span class="sd">        ...         pt = primal_line.begin</span>
+<span class="sd">        ...     print(f&quot;Point 1 neighbours point {pt}&quot;)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dimension of the manifold.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of points in the mesh.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_lines</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of lines in the mesh.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n_surfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of surfaces in the mesh.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_line</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">GeoID</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Line</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the line from the mesh.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        index : int or GeoID</span>
+<span class="sd">           Id of the line to get in 1-based indexing or GeoID. If negative, the</span>
+<span class="sd">           orientation will be reversed.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Line</span>
+<span class="sd">           Line object corresponding to the ID.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_surface</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">GeoID</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Surface</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the surface from the mesh.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        index : int or GeoID</span>
+<span class="sd">           Id of the surface to get in 1-based indexing or GeoID. If negative,</span>
+<span class="sd">           the orientation will be reversed.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Surface</span>
+<span class="sd">           Surface object corresponding to the ID.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_irregular</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">n_points</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">line_connectivity</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+        <span class="n">surface_connectivity</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create Manifold2D from surfaces with non-constant number of lines.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        n_points : int</span>
+<span class="sd">            Number of points in the mesh.</span>
+<span class="sd">        line_connectivity : (N, 2) array_like</span>
+<span class="sd">            Connectivity of points which form lines in 0-based indexing.</span>
+<span class="sd">        surface_connectivity : Sequence of array_like</span>
+<span class="sd">            Sequence of arrays specifying connectivity of mesh surfaces in 1-based</span>
+<span class="sd">            indexing, where a negative value means that the line&#39;s orientation is</span>
+<span class="sd">            reversed.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Self</span>
+<span class="sd">            Two dimensional manifold.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_regular</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">n_points</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">line_connectivity</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+        <span class="n">surface_connectivity</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create Manifold2D from surfaces with constant number of lines.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        n_points : int</span>
+<span class="sd">            Number of points in the mesh.</span>
+<span class="sd">        line_connectivity : (N, 2) array_like</span>
+<span class="sd">            Connectivity of points which form lines in 0-based indexing.</span>
+<span class="sd">        surface_connectivity : array_like</span>
+<span class="sd">            Two dimensional array-like object specifying connectivity of mesh</span>
+<span class="sd">            surfaces in 1-based indexing, where a negative value means that</span>
+<span class="sd">            the line&#39;s orientation is reversed.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Self</span>
+<span class="sd">            Two dimensional manifold.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_dual</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Manifold2D</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the dual to the manifold.</span>
+
+<span class="sd">        A dual of each k-dimensional object in an n-dimensional space is a</span>
+<span class="sd">        (n-k)-dimensional object. This means that duals of surfaces are points,</span>
+<span class="sd">        duals of lines are also lines, and that the duals of points are surfaces.</span>
+
+<span class="sd">        A dual line connects the dual points which correspond to surfaces which</span>
+<span class="sd">        the line was a part of. Since the change over a line is computed by</span>
+<span class="sd">        subtracting the value at the beginning from that at the end, the dual point</span>
+<span class="sd">        which corresponds to the primal surface where the primal line has a</span>
+<span class="sd">        positive orientation is the end point of the dual line and conversely the end</span>
+<span class="sd">        dual point is the one corresponding to the surface which contained the primal</span>
+<span class="sd">        line in the negative orientation. Since lines may only be contained in a</span>
+<span class="sd">        single primal surface, they may have an invalid ID as either their beginning or</span>
+<span class="sd">        their end. This can be used to determine if the line is actually a boundary of</span>
+<span class="sd">        the manifold.</span>
+
+<span class="sd">        A dual surface corresponds to a point and contains dual lines which correspond</span>
+<span class="sd">        to primal lines, which contained the primal point of which the dual surface is</span>
+<span class="sd">        the result of. The orientation of dual lines in this dual surface is positive if</span>
+<span class="sd">        the primal line of which they are duals originated in the primal point in question</span>
+<span class="sd">        and negative if it was their end point.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Manifold2D</span>
+<span class="sd">            Dual manifold.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="n">_SerializedBasisCache</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">[</span>
+    <span class="nb">int</span><span class="p">,</span>
+    <span class="nb">int</span><span class="p">,</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+<span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_matrices</span><span class="p">(</span>
+    <span class="n">form_orders</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">expressions</span><span class="p">:</span> <span class="n">_CompiledCodeMatrix</span><span class="p">,</span>
+    <span class="n">pos_bl</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">pos_br</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">pos_tr</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">pos_tl</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">element_orders</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">vector_fields</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">element_field_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">],</span>
+    <span class="n">serialized_caches</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_SerializedBasisCache</span><span class="p">],</span>
+    <span class="n">thread_stack_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">24</span><span class="p">),</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute element matrices based on the given instructions with tail calls.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    form_orders : Sequence of int</span>
+<span class="sd">        Orders of the unknown differential forms.</span>
+
+<span class="sd">    expressions : 2D matrix of (Sequence of (MatOpCode, int, and float) or None)</span>
+<span class="sd">        Two dimensional matrix of instructions to compute the entry of the element matrix.</span>
+<span class="sd">        It can be left as None, which means there is no contribution.</span>
+
+<span class="sd">    pos_bl : (N, 2) array</span>
+<span class="sd">        Array of position vectors for the bottom left corners of elements.</span>
+
+<span class="sd">    pos_br : (N, 2) array</span>
+<span class="sd">        Array of position vectors for the bottom right corners of elements.</span>
+
+<span class="sd">    pos_tr : (N, 2) array</span>
+<span class="sd">        Array of position vectors for the top right corners of elements.</span>
+
+<span class="sd">    pos_tl : (N, 2) array</span>
+<span class="sd">        Array of position vectors for the top left corners of elements.</span>
+
+<span class="sd">    element_orders : (N,) array</span>
+<span class="sd">        Array of orders of the elements. There must be an entry for this in</span>
+<span class="sd">        the ``serialized_caches``.</span>
+
+<span class="sd">    vector_fields : tuple of arrays</span>
+<span class="sd">        Tuple of vector field values used for interior products. These are compuated at</span>
+<span class="sd">        integration nodes for each element, then flattened, and packed in a tuple. The</span>
+<span class="sd">        ordering of the fields in the tuple must match that of the system instructions</span>
+<span class="sd">        were generated from.</span>
+
+<span class="sd">    element_field_offsets : array</span>
+<span class="sd">        Array of offsets that indicates where the vector fields for each element begins.</span>
+<span class="sd">        It should contain one more entry than the element count.</span>
+
+<span class="sd">    serialized_caches : Sequence of _SerializedBasisCache</span>
+<span class="sd">        All the serialized caches to use for the elements. Only one is allowed</span>
+<span class="sd">        per element order.</span>
+
+<span class="sd">    thread_stack_size : int, default: 2 ** 24</span>
+<span class="sd">        Default amount of memory allocated to each worker thread for the element they&#39;re</span>
+<span class="sd">        working on.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of N arrays</span>
+<span class="sd">        Tuple of element matices.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_explicit</span><span class="p">(</span>
+    <span class="n">dofs</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">form_orders</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">expressions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">MatOpCode</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]],</span>
+    <span class="n">pos_bl</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">pos_br</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">pos_tr</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">pos_tl</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">element_orders</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">vector_fields</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
+    <span class="n">element_field_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">],</span>
+    <span class="n">serialized_caches</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_SerializedBasisCache</span><span class="p">],</span>
+    <span class="n">thread_stack_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">24</span><span class="p">),</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute element equations based on degrees of freedom given.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dofs : array</span>
+<span class="sd">        Array containing degrees of freedom for all elements.</span>
+
+<span class="sd">    offsets : (N,) array</span>
+<span class="sd">        Array of offsets into the ``dofs`` array for each element.</span>
+
+<span class="sd">    form_orders : Sequence of int</span>
+<span class="sd">        Orders of the unknown differential forms.</span>
+
+<span class="sd">    expressions : 2D matrix of (Sequence of (MatOpCode, int, and float) or None)</span>
+<span class="sd">        Two dimensional matrix of instructions to compute the entry of the element matrix.</span>
+<span class="sd">        It can be left as None, which means there is no contribution.</span>
+
+<span class="sd">    pos_bl : (N, 2) array</span>
+<span class="sd">        Array of position vectors for the bottom left corners of elements.</span>
+
+<span class="sd">    pos_br : (N, 2) array</span>
+<span class="sd">        Array of position vectors for the bottom right corners of elements.</span>
+
+<span class="sd">    pos_tr : (N, 2) array</span>
+<span class="sd">        Array of position vectors for the top right corners of elements.</span>
+
+<span class="sd">    pos_tl : (N, 2) array</span>
+<span class="sd">        Array of position vectors for the top left corners of elements.</span>
+
+<span class="sd">    element_orders : (N,) array</span>
+<span class="sd">        Array of orders of the elements. There must be an entry for this in</span>
+<span class="sd">        the ``serialized_caches``.</span>
+
+<span class="sd">    vector_fields : tuple of arrays</span>
+<span class="sd">        Tuple of vector field values used for interior products. These are compuated at</span>
+<span class="sd">        integration nodes for each element, then flattened, and packed in a tuple. The</span>
+<span class="sd">        ordering of the fields in the tuple must match that of the system instructions</span>
+<span class="sd">        were generated from.</span>
+
+<span class="sd">    element_field_offsets : array</span>
+<span class="sd">        Array of offsets that indicates where the vector fields for each element begins.</span>
+<span class="sd">        It should contain one more entry than the element count.</span>
+
+<span class="sd">    serialized_caches : Sequence of _SerializedBasisCache</span>
+<span class="sd">        All the serialized caches to use for the elements. Only one is allowed</span>
+<span class="sd">        per element order.</span>
+
+<span class="sd">    thread_stack_size : int, default: 2 ** 24</span>
+<span class="sd">        Default amount of memory allocated to each worker thread for the element they&#39;re</span>
+<span class="sd">        working on.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of N arrays</span>
+<span class="sd">        Tuple of element matices.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">element_matrices</span><span class="p">(</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">x1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">x2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">x3</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">y1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">y2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">y3</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">serialized_cache</span><span class="p">:</span> <span class="n">_SerializedBasisCache</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+<span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the element matrices.&quot;&quot;&quot;</span>
+    <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">check_bytecode</span><span class="p">(</span><span class="n">expression</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOpCode</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">],</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert bytecode to C-values, then back to Python.</span>
+
+<span class="sd">    This function is meant for testing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">check_incidence</span><span class="p">(</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="o">/</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">in_form</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">transpose</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">right</span><span class="p">:</span> <span class="nb">bool</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply the incidence matrix to the input matrix.</span>
+
+<span class="sd">    This function is meant for testing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">continuity</span><span class="p">(</span>
+    <span class="n">primal</span><span class="p">:</span> <span class="n">Manifold2D</span><span class="p">,</span>
+    <span class="n">dual</span><span class="p">:</span> <span class="n">Manifold2D</span><span class="p">,</span>
+    <span class="n">form_orders</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">element_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">element_orders</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create continuity equation for different forms.&quot;&quot;&quot;</span>
+    <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SparseVector</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Vector which stores only the non-zero components.&quot;&quot;&quot;</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_entries</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">indices</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create sparse vector from an array of indices and values.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        n : int</span>
+<span class="sd">            Dimension of the vector.</span>
+
+<span class="sd">        indices : array_like</span>
+<span class="sd">            Indices of the entries. Must be sorted.</span>
+
+<span class="sd">        values : array_like</span>
+<span class="sd">            Values of the entries.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        SparseVector</span>
+<span class="sd">            New vector with indices and values as given.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dimension of the vector.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@n</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Values of non-zero entries of the vector.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Indices of non-zero entries of the vector.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the vector to a full array.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">slice</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SparseVector</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">concatenate</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">vectors</span><span class="p">:</span> <span class="n">SparseVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Merge sparse vectors together into a single vector.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *vectors : SparseVector</span>
+<span class="sd">            Sparse vectors that should be concatenated.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Self</span>
+<span class="sd">            Newly created sparse vector.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of entries in the vector.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">GivensRotation</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Representation of a Givens rotation matrix.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">i1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">i2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dimension of the rotation.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">i1</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;First index of rotation.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">i2</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Second index of rotation.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cosine rotation value.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">s</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sine rotation value.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the object into a full numpy matrix.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span> <span class="o">...</span>
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">SparseVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SparseVector</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">T</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GivensRotation</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inverse rotation.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">GivensSeries</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Series of GivensRotations.&quot;&quot;&quot;</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">rotations</span><span class="p">:</span> <span class="n">GivensRotation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">n</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Size of the rotations.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return number of Givens rotations.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="c1"># @overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GivensRotation</span><span class="p">:</span> <span class="o">...</span>
+    <span class="c1"># @overload</span>
+    <span class="c1"># def __getitem__(self, idx: slice, /) -&gt; GivensSeries: ...</span>
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">SparseVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SparseVector</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply in-place as fast as possible.</span>
+
+<span class="sd">        This function works as fast as possible, without any allocations.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        v : array</span>
+<span class="sd">            One dimensional array to rotate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">LiLMatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Matrix which has a list of is used to store sparse rows.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rows : int</span>
+<span class="sd">        Number of rows of the matrix.</span>
+<span class="sd">    cols : int</span>
+<span class="sd">        Number of columns of the matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">cols</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the shape of the matrix.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SparseVector</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the row of the matrix.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">SparseVector</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the row of the matrix.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">count_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of entries in the matrix.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the matrix into a numpy array.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_full</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">mat</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create A LiLMatrix from a full matrix.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mat : array</span>
+<span class="sd">            Full matrix to convert.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        LiLMatrix</span>
+<span class="sd">            Matrix represented in the LiLMatrix format.ž</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">qr_decompose</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GivensSeries</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Decompose the matrix into a series of Givens rotations and a triangular matrix.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        n : int, optional</span>
+<span class="sd">            Maximum number of steps to perform.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        (GivensRotation, ...)</span>
+<span class="sd">            Givens rotations in the order they were applied to the matrix.</span>
+<span class="sd">            This means that for the solution, they should be applied in the</span>
+<span class="sd">            reversed order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">block_diag</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">blocks</span><span class="p">:</span> <span class="n">LiLMatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a new matrix from blocks along the diagonal.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *blocks : LiLMatrix</span>
+<span class="sd">            Block matrices. These are placed on the diagonal of the resulting matrix.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        LiLMatrix</span>
+<span class="sd">            Block diagonal matrix resulting from the blocks.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_columns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">cols</span><span class="p">:</span> <span class="n">SparseVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add columns to the matrix.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *cols : SparseVectors</span>
+<span class="sd">            Columns to be added to the matrix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">rows</span><span class="p">:</span> <span class="n">SparseVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LiLMatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new matrix with added rows.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *rows : SparaseVector</span>
+<span class="sd">            Rows to be added.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        LiLMatrix</span>
+<span class="sd">            Matrix with new rows added.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve_upper_triangular</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">rsh</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="o">/</span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Use back-substitution to solve find the right side.</span>
+
+<span class="sd">        This assumes the matrix is upper triangualr.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        rhs : array_like</span>
+<span class="sd">            Vector or matrix that gives the right side of the equation.</span>
+
+<span class="sd">        out : array, optional</span>
+<span class="sd">            Array to be used as output. If not given a new one will be created and</span>
+<span class="sd">            returned, otherwise, the given value is returned. It must match the shape</span>
+<span class="sd">            of the input array exactly and have the correct data type.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        array</span>
+<span class="sd">            Vector or matrix that yields the rhs when matrix multiplication is used.</span>
+<span class="sd">            If the ``out`` parameter is given, the value returned will be exactly that</span>
+<span class="sd">            matrix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">empty_diagonal</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create empty square matrix with zeros on the diagonal.</span>
+
+<span class="sd">        This is intended for padding that allows for computing QR decompositions.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        n : int</span>
+<span class="sd">            Size of the square matrix.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        LiLMatrix</span>
+<span class="sd">            Sparse matrix that is square and has only zeros on its diagonal.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">usage</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of non-zero entries.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_scipy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert itself into an array of values and an array of coorinates.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        (N,) array of floats</span>
+<span class="sd">            Values of the entries stored in the matrx.</span>
+
+<span class="sd">        (N, 2) array of uint64</span>
+<span class="sd">            Positions of entries as ``(row, col)``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_matrix_test</span><span class="p">(</span>
+    <span class="n">corners</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">order_1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">order_2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">basis_1_nodal</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">basis_1_edge</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">weights_1</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">nodes_1</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">basis_2_nodal</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">basis_2_edge</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">weights_2</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">nodes_2</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test computing element matrices for a single element.&quot;&quot;&quot;</span>
+    <span class="o">...</span>
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">IntegrationRule1D</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type used to contain integration rule information.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    order : int</span>
+<span class="sd">        Order of integration rule used. Can not be negative.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    nodes : array</span>
+<span class="sd">        Position of integration nodes on the reference domain [-1, +1]</span>
+<span class="sd">        where the integrated function should be evaluated.</span>
+
+<span class="sd">    weights : array</span>
+<span class="sd">        Weight values by which the values of evaluated function should be</span>
+<span class="sd">        multiplied by.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">]:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">]:</span> <span class="o">...</span>
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Basis1D</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;1D basis functions collection used for FEM space creation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    order : int</span>
+<span class="sd">        Order of basis used.</span>
+
+<span class="sd">    rule : IntegrationRule1D</span>
+<span class="sd">        Integration rule for basis creation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">rule</span><span class="p">:</span> <span class="n">IntegrationRule1D</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Order of the basis.&quot;&quot;&quot;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">node</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Nodal basis values.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">edge</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Edge basis values.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IntegrationRule1D</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">roots</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Roots of the nodal basis.&quot;&quot;&quot;</span>
+        <span class="o">...</span>
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Basis2D</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;2D basis functions collection used for FEM space creation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    basis_xi : Basis1D</span>
+<span class="sd">        Basis used in the Xi direction.</span>
+
+<span class="sd">    basis_eta : Basis1D</span>
+<span class="sd">        Basis used in the Eta direction.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">basis_xi</span><span class="p">:</span> <span class="n">Basis1D</span><span class="p">,</span> <span class="n">basis_eta</span><span class="p">:</span> <span class="n">Basis1D</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">basis_xi</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Basis1D</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">basis_eta</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Basis1D</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_matrix</span><span class="p">(</span>
+    <span class="n">form_orders</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>  <span class="c1"># TODO: make this unknown order enum</span>
+    <span class="n">expressions</span><span class="p">:</span> <span class="n">_CompiledCodeMatrix</span><span class="p">,</span>
+    <span class="n">corners</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">vector_fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
+    <span class="n">basis</span><span class="p">:</span> <span class="n">Basis2D</span><span class="p">,</span>
+    <span class="n">stack_memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">24</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute a single element matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    form_orders : Sequence of int</span>
+<span class="sd">        Orders of differential forms for the degrees of freedom. Must be between 0 and 2.</span>
+
+<span class="sd">    expressions</span>
+<span class="sd">        Compiled bytecode to execute.</span>
+
+<span class="sd">    corners : (4, 2) array</span>
+<span class="sd">        Array of corners of the element.</span>
+
+<span class="sd">    vector_fields : Sequence of arrays</span>
+<span class="sd">        Vector field arrays as required for interior product evaluations.</span>
+
+<span class="sd">    basis : Basis2D</span>
+<span class="sd">        Basis functions with integration rules to use.</span>
+
+<span class="sd">    stack_memory : int, default: 1 &lt;&lt; 24</span>
+<span class="sd">        Amount of memory to use for the evaluation stack.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">        Element matrix for the specified system.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_vector</span><span class="p">(</span>
+    <span class="n">form_orders</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>  <span class="c1"># TODO: make this unknown order enum</span>
+    <span class="n">expressions</span><span class="p">:</span> <span class="n">_CompiledCodeMatrix</span><span class="p">,</span>
+    <span class="n">corners</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">vector_fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
+    <span class="n">basis</span><span class="p">:</span> <span class="n">Basis2D</span><span class="p">,</span>
+    <span class="n">solution</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">stack_memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">24</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute a single element forcing.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    form_orders : Sequence of int</span>
+<span class="sd">        Orders of differential forms for the degrees of freedom. Must be between 0 and 2.</span>
+
+<span class="sd">    expressions</span>
+<span class="sd">        Compiled bytecode to execute.</span>
+
+<span class="sd">    corners : (4, 2) array</span>
+<span class="sd">        Array of corners of the element.</span>
+
+<span class="sd">    vector_fields : Sequence of arrays</span>
+<span class="sd">        Vector field arrays as required for interior product evaluations.</span>
+
+<span class="sd">    basis : Basis2D</span>
+<span class="sd">        Basis functions with integration rules to use.</span>
+
+<span class="sd">    solution : array</span>
+<span class="sd">        Array with degrees of freedom for the element.</span>
+
+<span class="sd">    stack_memory : int, default: 1 &lt;&lt; 24</span>
+<span class="sd">        Amount of memory to use for the evaluation stack.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">        Element vector for the specified system.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_projector</span><span class="p">(</span>
+    <span class="n">form_orders</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">UnknownFormOrder</span><span class="p">],</span>
+    <span class="n">corners</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">basis_in</span><span class="p">:</span> <span class="n">Basis2D</span><span class="p">,</span>
+    <span class="n">basis_out</span><span class="p">:</span> <span class="n">Basis2D</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute :math:`L^2` projection from one space to another.</span>
+
+<span class="sd">    Projection takes DoFs from primal space of the first and takes</span>
+<span class="sd">    them to the primal space of the other.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    form_orders : Sequence of UnknownFormOrder</span>
+<span class="sd">        Sequence of orders of forms which are to be projected.</span>
+
+<span class="sd">    corners : (4, 2) array</span>
+<span class="sd">        Array of corner points of the element.</span>
+
+<span class="sd">    basis_in : Basis2D</span>
+<span class="sd">        Basis from which the DoFs should be taken.</span>
+
+<span class="sd">    basis_out : Basis2D</span>
+<span class="sd">        Basis to which the DoFs are taken.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of square arrays</span>
+<span class="sd">        Tuple where each entry is the respective projection matrix for that form.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_mass_matrix</span><span class="p">(</span>
+    <span class="n">form_order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span><span class="p">,</span>
+    <span class="n">corners</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">basis</span><span class="p">:</span> <span class="n">Basis2D</span><span class="p">,</span>
+    <span class="n">inverse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute element mass matrix for the specified form.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    form_order : UnknownFormOrder</span>
+<span class="sd">        Order of the form for which the mass matrix should be computed.</span>
+
+<span class="sd">    corners : (4, 2)</span>
+<span class="sd">        Array of corner points of the element.</span>
+
+<span class="sd">    basis : Basis2D</span>
+<span class="sd">        Basis used for the test and sample space.</span>
+
+<span class="sd">    inverse : bool, default: False</span>
+<span class="sd">        Should the inverse of the matrix be computed instead of its value directly.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">        Mass matrix (or its inverse if specified) for the appropriate form.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="o">...</span>
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Jan Roth
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Jan Roth.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

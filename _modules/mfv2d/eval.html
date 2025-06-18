@@ -1,0 +1,1241 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mfv2d.eval &#8212; mfv2d  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/thebelab.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/thebelab-helper.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mfv2d/eval';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mfv2d  documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../basis.html">Mimetic Spectral Elements Method</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mfv2d.eval</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Conversion and evaluation of kforms as a stack machine.</span>
+
+<span class="sd">This module is concerned with converting expressions from the representation of the</span>
+<span class="sd">:mod:`mfv2d.kform` module into a sequence of instructions which can be executed on a</span>
+<span class="sd">stack machine.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span><span class="p">,</span> <span class="n">IntFlag</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Function2D</span><span class="p">,</span>
+    <span class="n">KFormDerivative</span><span class="p">,</span>
+    <span class="n">KFormSystem</span><span class="p">,</span>
+    <span class="n">KFormUnknown</span><span class="p">,</span>
+    <span class="n">KHodge</span><span class="p">,</span>
+    <span class="n">KInnerProduct</span><span class="p">,</span>
+    <span class="n">KInteriorProduct</span><span class="p">,</span>
+    <span class="n">KInteriorProductNonlinear</span><span class="p">,</span>
+    <span class="n">KSum</span><span class="p">,</span>
+    <span class="n">KWeight</span><span class="p">,</span>
+    <span class="n">Term</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="MatOp">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.MatOp">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MatOp</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Matrix operations which can be created.</span>
+
+<span class="sd">    This is just a base class for all other matrix operations.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="Identity">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.Identity">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Identity</span><span class="p">(</span><span class="n">MatOp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Identity operation.</span>
+
+<span class="sd">    Do nothing to the matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="MassMat">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.MassMat">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MassMat</span><span class="p">(</span><span class="n">MatOp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mass matrix multiplication.</span>
+
+<span class="sd">    Multiply by either mass matrix or its inverse.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    order : int</span>
+<span class="sd">        Order of the k-form for the mass matrix.</span>
+
+<span class="sd">    inv : bool</span>
+<span class="sd">        Should the matrix be inverted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">order</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">inv</span><span class="p">:</span> <span class="nb">bool</span></div>
+
+
+
+<div class="viewcode-block" id="Incidence">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.Incidence">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Incidence</span><span class="p">(</span><span class="n">MatOp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Incidence matrix.</span>
+
+<span class="sd">    Specifies application of an incidence matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    begin : int</span>
+<span class="sd">        Order of the k-form for the incidence matrix from which to apply it.</span>
+
+<span class="sd">    dual : bool</span>
+<span class="sd">        Should the incidence matrix be applied as the dual.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">begin</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">dual</span><span class="p">:</span> <span class="nb">int</span></div>
+
+
+
+<div class="viewcode-block" id="Push">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.Push">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Push</span><span class="p">(</span><span class="n">MatOp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Push the matrix on the stack.</span>
+
+<span class="sd">    Used for matrix multiplication and summation.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="MatMul">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.MatMul">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MatMul</span><span class="p">(</span><span class="n">MatOp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Multiply two matrices.</span>
+
+<span class="sd">    Multiply the current matrix with the one currently on the top of the stack.</span>
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="Scale">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.Scale">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Scale</span><span class="p">(</span><span class="n">MatOp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Scale the matrix.</span>
+
+<span class="sd">    Mutliply the entire matrix with a constant.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    k : float</span>
+<span class="sd">        Value of the constant by which to scale the matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">k</span><span class="p">:</span> <span class="nb">float</span></div>
+
+
+
+<div class="viewcode-block" id="Sum">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.Sum">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Sum</span><span class="p">(</span><span class="n">MatOp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sum matrices together.</span>
+
+<span class="sd">    Sum the top ``count`` matrices on the stack with the current matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    count : int</span>
+<span class="sd">        Number of matrices to sum to the current matrix. As such must be greater</span>
+<span class="sd">        than zero.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">count</span><span class="p">:</span> <span class="nb">int</span></div>
+
+
+
+<div class="viewcode-block" id="InterProd">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.InterProd">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">InterProd</span><span class="p">(</span><span class="n">MatOp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute interior product.</span>
+
+<span class="sd">    This is the most complicated operation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    starting_order : int</span>
+<span class="sd">        Order of the k-form to which the interior product should be applied.</span>
+
+<span class="sd">    field_index : int</span>
+<span class="sd">        Index of the vector/scalar field from which the values of are taken.</span>
+
+<span class="sd">    dual : bool</span>
+<span class="sd">        Should the dual interior product be applied instead of the primal.</span>
+
+<span class="sd">    adjoint : bool</span>
+<span class="sd">        Should the adjoint interior product be applied, which is used by</span>
+<span class="sd">        the Newton-Raphson solver.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">starting_order</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">field_index</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">dual</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">adjoint</span><span class="p">:</span> <span class="nb">bool</span></div>
+
+
+
+<div class="viewcode-block" id="simplify_expression">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.simplify_expression">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">simplify_expression</span><span class="p">(</span><span class="o">*</span><span class="n">operations</span><span class="p">:</span> <span class="n">MatOp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOp</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simplify expressions as much as possible.</span>
+
+<span class="sd">    Tries to merge operations that can be combined, and removes/simplifies</span>
+<span class="sd">    as much as possible.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    *operations : MatOp</span>
+<span class="sd">        Sequence of operations to simplify.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of MatOp</span>
+<span class="sd">        Simplified sequence of operations, which should be equivalent to the</span>
+<span class="sd">        input.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ops</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">operations</span><span class="p">)</span>
+    <span class="n">nops</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>
+    <span class="n">initial_nops</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">initial_nops</span> <span class="o">!=</span> <span class="n">nops</span><span class="p">:</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">initial_nops</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nops</span><span class="p">)</span>
+        <span class="n">r</span><span class="p">:</span> <span class="n">Identity</span> <span class="o">|</span> <span class="n">Scale</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">nops</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">nops</span> <span class="o">-</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">2</span>
+                <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Identity</span>
+                <span class="ow">and</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Sum</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Push</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Push</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="c1"># Identity on anything except on sum or push is a no-op</span>
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">nops</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">nops</span> <span class="o">-</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">is</span> <span class="n">MassMat</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">MassMat</span>
+            <span class="p">):</span>
+                <span class="c1"># Mass matrix and its inverse result in identity</span>
+                <span class="n">m1</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">m2</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MassMat</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">m2</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MassMat</span>
+                <span class="k">if</span> <span class="n">m1</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">m2</span><span class="o">.</span><span class="n">order</span> <span class="ow">and</span> <span class="n">m1</span><span class="o">.</span><span class="n">inv</span> <span class="o">!=</span> <span class="n">m2</span><span class="o">.</span><span class="n">inv</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
+                    <span class="n">nops</span> <span class="o">-=</span> <span class="mi">1</span>
+                    <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">nops</span> <span class="o">-</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Identity</span>
+                <span class="ow">and</span> <span class="p">(</span>
+                    <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">MassMat</span>
+                    <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Incidence</span>
+                    <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Push</span>
+                    <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Scale</span>
+                    <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">InterProd</span>
+                <span class="p">)</span>
+            <span class="p">):</span>
+                <span class="c1"># Identity does nothing to these</span>
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">nops</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">nops</span> <span class="o">-</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Scale</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Scale</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="c1"># Merge identities/scaling</span>
+                <span class="n">v1</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">v2</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">v1</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">v2</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">:</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">v2</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Scale</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">v2</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">v1</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Scale</span>
+                    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">v2</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">:</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">v1</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">v2</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Scale</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">Scale</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">k</span> <span class="o">*</span> <span class="n">v2</span><span class="o">.</span><span class="n">k</span><span class="p">)</span>
+
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+                <span class="n">nops</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">nops</span> <span class="o">-</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Sum</span><span class="p">):</span>
+                <span class="c1"># Sum of zero stack values is no-op</span>
+                <span class="n">sop</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">sop</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Sum</span>
+                <span class="k">if</span> <span class="n">sop</span><span class="o">.</span><span class="n">count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">nops</span> <span class="o">-=</span> <span class="mi">1</span>
+                    <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">nops</span> <span class="o">-</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">3</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Push</span>
+                <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Identity</span>
+                <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">])</span> <span class="ow">is</span> <span class="n">MatMul</span>
+            <span class="p">):</span>
+                <span class="c1"># Multiplication by identity is no-op</span>
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span>
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">nops</span> <span class="o">-=</span> <span class="mi">3</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">nops</span> <span class="o">-</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">3</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Push</span>
+                <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Scale</span>
+                <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">])</span> <span class="ow">is</span> <span class="n">MatMul</span>
+            <span class="p">):</span>
+                <span class="c1"># MatMul by Scale-only matrix is same as scaling itself</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span>
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span>
+                <span class="n">nops</span> <span class="o">-=</span> <span class="mi">2</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">nops</span> <span class="o">-</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">5</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Push</span>
+                <span class="ow">and</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Scale</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Push</span>
+                <span class="ow">and</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Scale</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">4</span><span class="p">])</span> <span class="ow">is</span> <span class="n">Sum</span>
+            <span class="p">):</span>
+                <span class="c1"># Sum of two pure identity/scale matrices can be pre-computed</span>
+                <span class="n">v1</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">v2</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">v1</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">v2</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">:</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">Scale</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">v2</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Scale</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">Scale</span><span class="p">(</span><span class="n">v2</span><span class="o">.</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">v1</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Scale</span>
+                    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">v2</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">:</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">Scale</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">v2</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Scale</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="n">Scale</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">k</span> <span class="o">+</span> <span class="n">v2</span><span class="o">.</span><span class="n">k</span><span class="p">)</span>
+                <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+                <span class="n">sop</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">4</span><span class="p">]</span>
+                <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">sop</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Sum</span>
+                <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">Sum</span><span class="p">(</span><span class="n">sop</span><span class="o">.</span><span class="n">count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span>
+                <span class="k">del</span> <span class="n">ops</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span>
+                <span class="n">nops</span> <span class="o">-=</span> <span class="mi">2</span>
+                <span class="k">continue</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">ops</span></div>
+
+
+
+<div class="viewcode-block" id="translate_equation">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.translate_equation">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">translate_equation</span><span class="p">(</span>
+    <span class="n">form</span><span class="p">:</span> <span class="n">Term</span><span class="p">,</span>
+    <span class="n">vec_fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Function2D</span> <span class="o">|</span> <span class="n">KFormUnknown</span><span class="p">],</span>
+    <span class="n">newton</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">simplify</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Term</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOp</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the matrix operations on individual forms.</span>
+
+<span class="sd">    Parameter</span>
+<span class="sd">    ---------</span>
+<span class="sd">    form : Term</span>
+<span class="sd">        Form to evaluate.</span>
+<span class="sd">    vec_fields : Sequence of Function2D or KFormUnknown</span>
+<span class="sd">        Sequence to use when determining the index of vector fields passed to evaluation</span>
+<span class="sd">        function.</span>
+<span class="sd">    newton : bool</span>
+<span class="sd">        When ``True``, non-linear terms will yield terms two terms used to determine the</span>
+<span class="sd">        derivative. Otherwise, only the terms to evaluate the value are returned.</span>
+<span class="sd">    simplify : bool, default: True</span>
+<span class="sd">        Simplify the expressions at the top level</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict of KForm -&gt; array or float</span>
+<span class="sd">        Dictionary mapping forms to either a matrix that represents the operation to</span>
+<span class="sd">        perform on them, or ``float``, if it should be multiplication with a constant.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">_translate_equation</span><span class="p">(</span>
+        <span class="n">form</span><span class="o">=</span><span class="n">form</span><span class="p">,</span> <span class="n">vec_fields</span><span class="o">=</span><span class="n">vec_fields</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="n">newton</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">simplify</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
+            <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplify_expression</span><span class="p">(</span><span class="o">*</span><span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+
+    <span class="c1"># We no longer use the Transpose instruction :)</span>
+    <span class="k">return</span> <span class="n">v</span></div>
+
+
+
+<div class="viewcode-block" id="_translate_equation">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval._translate_equation">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_translate_equation</span><span class="p">(</span>
+    <span class="n">form</span><span class="p">:</span> <span class="n">Term</span><span class="p">,</span>
+    <span class="n">vec_fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Function2D</span> <span class="o">|</span> <span class="n">KFormUnknown</span><span class="p">],</span>
+    <span class="n">newton</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">transpose</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Term</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOp</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the matrix operations on individual forms.</span>
+
+<span class="sd">    Parameter</span>
+<span class="sd">    ---------</span>
+<span class="sd">    form : Term</span>
+<span class="sd">        Form to evaluate.</span>
+<span class="sd">    vec_fields : Sequence of Function2D or KFormUnknown</span>
+<span class="sd">        Sequence to use when determining the index of vector fields passed to evaluation</span>
+<span class="sd">        function.</span>
+<span class="sd">    newton : bool</span>
+<span class="sd">        When ``True``, non-linear terms will yield terms two terms used to determine the</span>
+<span class="sd">        derivative. Otherwise, only the terms to evaluate the value are returned.</span>
+<span class="sd">    transpose : bool</span>
+<span class="sd">        Should instructions be transposed.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict of KForm -&gt; array or float</span>
+<span class="sd">        Dictionary mapping forms to either a matrix that represents the operation to</span>
+<span class="sd">        perform on them, or ``float``, if it should be multiplication with a constant.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mass</span><span class="p">:</span> <span class="n">Identity</span> <span class="o">|</span> <span class="n">MassMat</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KSum</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Term</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOp</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">accum</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Term</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOp</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">counts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Term</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">ip</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">pairs</span><span class="p">:</span>
+            <span class="n">right</span> <span class="o">=</span> <span class="n">_translate_equation</span><span class="p">(</span>
+                <span class="n">form</span><span class="o">=</span><span class="n">ip</span><span class="p">,</span> <span class="n">vec_fields</span><span class="o">=</span><span class="n">vec_fields</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="n">newton</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="n">transpose</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">c</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">right</span><span class="p">:</span>
+                    <span class="n">right</span><span class="p">[</span><span class="n">f</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Scale</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">right</span><span class="p">:</span>
+                <span class="n">vr</span> <span class="o">=</span> <span class="n">right</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">accum</span><span class="p">:</span>
+                    <span class="n">accum</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Push</span><span class="p">())</span>
+                    <span class="n">accum</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">vr</span><span class="p">)</span>
+                    <span class="n">counts</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">accum</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">vr</span>  <span class="c1"># k is not in left</span>
+                    <span class="n">counts</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">accum</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">accum</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="n">cnt</span> <span class="o">=</span> <span class="n">counts</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">cnt</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Sum</span><span class="p">(</span><span class="n">cnt</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KInnerProduct</span><span class="p">:</span>
+        <span class="n">unknown</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Term</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOp</span><span class="p">]]</span>
+        <span class="c1"># if isinstance(form.function, KHodge):</span>
+        <span class="c1">#     unknown = _translate_equation(form.function.base_form)</span>
+        <span class="c1"># else:</span>
+        <span class="n">unknown</span> <span class="o">=</span> <span class="n">_translate_equation</span><span class="p">(</span>
+            <span class="n">form</span><span class="o">=</span><span class="n">form</span><span class="o">.</span><span class="n">unknown_form</span><span class="p">,</span> <span class="n">vec_fields</span><span class="o">=</span><span class="n">vec_fields</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="n">newton</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+        <span class="n">weight</span> <span class="o">=</span> <span class="n">_translate_equation</span><span class="p">(</span>
+            <span class="n">form</span><span class="o">=</span><span class="n">form</span><span class="o">.</span><span class="n">weight_form</span><span class="p">,</span> <span class="n">vec_fields</span><span class="o">=</span><span class="n">vec_fields</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="n">newton</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">dv</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">weight</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">unknown</span><span class="p">:</span>
+            <span class="n">vd</span> <span class="o">=</span> <span class="n">weight</span><span class="p">[</span><span class="n">dv</span><span class="p">]</span>
+            <span class="n">vp</span> <span class="o">=</span> <span class="n">unknown</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="n">order_p</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">unknown_form</span><span class="o">.</span><span class="n">primal_order</span>
+            <span class="n">order_d</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">weight_form</span><span class="o">.</span><span class="n">primal_order</span>
+            <span class="k">assert</span> <span class="n">order_p</span> <span class="o">==</span> <span class="n">order_d</span>
+
+            <span class="k">if</span> <span class="n">order_p</span> <span class="o">==</span> <span class="n">order_d</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">unknown_form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">weight_form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
+                        <span class="n">mass</span> <span class="o">=</span> <span class="n">MassMat</span><span class="p">(</span><span class="n">order_p</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">mass</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">weight_form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
+                        <span class="n">mass</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">mass</span> <span class="o">=</span> <span class="n">MassMat</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Order </span><span class="si">{</span><span class="n">form</span><span class="o">.</span><span class="n">unknown_form</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2"> can&#39;t be used on a 2D mesh.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">transpose</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">vp</span> <span class="o">+</span> <span class="p">[</span><span class="n">mass</span><span class="p">]</span> <span class="o">+</span> <span class="n">vd</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">vd</span> <span class="o">+</span> <span class="p">[</span><span class="n">mass</span><span class="p">]</span> <span class="o">+</span> <span class="n">vp</span>
+            <span class="n">unknown</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span>
+        <span class="k">return</span> <span class="n">unknown</span>
+
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KFormDerivative</span><span class="p">:</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">_translate_equation</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="p">,</span> <span class="n">vec_fields</span><span class="p">,</span> <span class="n">newton</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="n">transpose</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+            <span class="n">vr</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">transpose</span><span class="p">:</span>
+                <span class="n">vr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Incidence</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">res</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">Incidence</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">),</span>
+                    <span class="n">Scale</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+                <span class="p">]</span> <span class="o">+</span> <span class="n">vr</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KHodge</span><span class="p">:</span>
+        <span class="n">unknown</span> <span class="o">=</span> <span class="n">_translate_equation</span><span class="p">(</span>
+            <span class="n">form</span><span class="o">=</span><span class="n">form</span><span class="o">.</span><span class="n">base_form</span><span class="p">,</span> <span class="n">vec_fields</span><span class="o">=</span><span class="n">vec_fields</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="n">newton</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="n">transpose</span>
+        <span class="p">)</span>
+        <span class="n">prime_order</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">primal_order</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">unknown</span><span class="p">:</span>
+            <span class="n">mass</span> <span class="o">=</span> <span class="n">MassMat</span><span class="p">(</span><span class="n">prime_order</span><span class="p">,</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">base_form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">)</span>
+            <span class="n">uv</span> <span class="o">=</span> <span class="n">unknown</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">transpose</span><span class="p">:</span>
+                <span class="n">uv</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mass</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">uv</span> <span class="o">=</span> <span class="p">[</span><span class="n">mass</span><span class="p">]</span> <span class="o">+</span> <span class="n">uv</span>
+            <span class="n">unknown</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">uv</span>
+        <span class="k">return</span> <span class="n">unknown</span>
+
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KFormUnknown</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">form</span><span class="p">:</span> <span class="p">[</span><span class="n">Identity</span><span class="p">()]}</span>
+
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KWeight</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">form</span><span class="p">:</span> <span class="p">[</span><span class="n">Identity</span><span class="p">()]}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KInteriorProduct</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KInteriorProductNonlinear</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">transpose</span><span class="p">:</span>
+            <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Can not transpose interior product instructions (yet?).&quot;</span><span class="p">)</span>
+
+        <span class="n">res</span> <span class="o">=</span> <span class="n">_translate_equation</span><span class="p">(</span>
+            <span class="n">form</span><span class="o">=</span><span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="p">,</span> <span class="n">vec_fields</span><span class="o">=</span><span class="n">vec_fields</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="n">newton</span><span class="p">,</span> <span class="n">transpose</span><span class="o">=</span><span class="n">transpose</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KInteriorProduct</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">vec_fields</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">vector_field</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KInteriorProductNonlinear</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">vec_fields</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form_field</span><span class="p">)</span>
+
+        <span class="n">prod_instruct</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOp</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">InterProd</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
+            <span class="n">prod_instruct</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="p">[</span><span class="n">MassMat</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">)]</span>
+                <span class="o">+</span> <span class="n">prod_instruct</span>
+                <span class="o">+</span> <span class="p">[</span><span class="n">MassMat</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span><span class="p">,</span> <span class="kc">True</span><span class="p">)]</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+            <span class="n">res</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">prod_instruct</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KInteriorProductNonlinear</span> <span class="ow">and</span> <span class="n">newton</span><span class="p">:</span>
+            <span class="n">other_form</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">form_field</span>
+            <span class="k">if</span> <span class="n">other_form</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Can not translate equation which would require sum with adjoint &quot;</span>
+                    <span class="s2">&quot;non-linear product.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KHodge</span><span class="p">:</span>
+                <span class="n">base</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">base_form</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">base</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span>
+
+            <span class="n">qidx</span> <span class="o">=</span> <span class="n">vec_fields</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+            <span class="n">extra_op</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOp</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">InterProd</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">qidx</span><span class="p">,</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
+                <span class="n">extra_op</span> <span class="o">+=</span> <span class="p">[</span><span class="n">MassMat</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span><span class="p">,</span> <span class="kc">True</span><span class="p">)]</span>
+            <span class="n">res</span><span class="p">[</span><span class="n">other_form</span><span class="p">]</span> <span class="o">=</span> <span class="n">extra_op</span>
+
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown type&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># TODO: REMOVE</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MassMatrixRequired</span><span class="p">(</span><span class="n">IntFlag</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Flags used to indicate which mass matrices need to be computed.&quot;&quot;&quot;</span>
+
+    <span class="n">MASS_NODE</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">0</span>
+    <span class="n">MASS_EDGE</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span>
+    <span class="n">MASS_SURF</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">2</span>
+    <span class="n">MASS_INDE</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">3</span>
+    <span class="n">MASS_IEDG</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">4</span>
+    <span class="n">MASS_ISRF</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">5</span>
+
+
+<div class="viewcode-block" id="print_eval_procedure">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.print_eval_procedure">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_eval_procedure</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">MatOp</span><span class="p">],</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print how the terms would be evaluated.</span>
+
+<span class="sd">    This is primarely just used to test if the procedure is correct.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">stack</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">val</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">expr</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MassMat</span><span class="p">:</span>
+            <span class="n">mat</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;M(</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2">)&quot;</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;^{-1}&quot;</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">inv</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">mat</span> <span class="o">+</span> <span class="s2">&quot; @ &quot;</span> <span class="o">+</span> <span class="n">s</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">mat</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Incidence</span><span class="p">:</span>
+            <span class="n">mat</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;E(</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">begin</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">begin</span><span class="si">}</span><span class="s2">)&quot;</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;*&quot;</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dual</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">mat</span> <span class="o">+</span> <span class="s2">&quot; @ &quot;</span> <span class="o">+</span> <span class="n">s</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">mat</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Push</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid Push operation.&quot;</span><span class="p">)</span>
+            <span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Scale</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="s2">&quot;I&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="n">op</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MatMul</span><span class="p">:</span>
+            <span class="n">k</span><span class="p">,</span> <span class="n">mat</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid MatMul operation.&quot;</span><span class="p">)</span>
+
+            <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">val</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="n">k</span><span class="p">,</span> <span class="n">s</span> <span class="o">+</span> <span class="s2">&quot; @ &quot;</span> <span class="o">+</span> <span class="n">mat</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Sum</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">count</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Sum must be of a non-zero number of matrices.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid Sum operation.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Not enough matrices on the stack to Sum (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span><span class="si">}</span><span class="s2"> on stack,&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; but </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> should be summed).&quot;</span>
+                <span class="p">)</span>
+            <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">val</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">c</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="n">k</span><span class="p">,</span> <span class="n">mat</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="p">(</span><span class="s2">&quot; + &quot;</span> <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot; - &quot;</span><span class="p">)</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">mat</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="s2">&quot;I&quot;</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">InterProd</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">dual</span><span class="p">:</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;M(</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">starting_order</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">starting_order</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">; </span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">field_index</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;M*(</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">starting_order</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">starting_order</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">; </span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">field_index</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">mat</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">mat</span> <span class="o">+</span> <span class="s2">&quot; @ &quot;</span> <span class="o">+</span> <span class="n">s</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown operation.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span><span class="si">}</span><span class="s2"> matrices still on the stack.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;I&quot;</span>
+    <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">)&quot;</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_mass_matrices</span><span class="p">(</span><span class="o">*</span><span class="n">ops</span><span class="p">:</span> <span class="n">MatOp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">MassMat</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract mass matrices which will be needed.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">op</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">op</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">MassMat</span><span class="p">),</span> <span class="n">ops</span><span class="p">))</span>  <span class="c1"># type: ignore</span>
+
+
+<div class="viewcode-block" id="MatOpCode">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.MatOpCode">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MatOpCode</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Operation codes.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    These values must be kept in sync with the ``matrix_op_t`` enum in the C code,</span>
+<span class="sd">    since that is how Python and C communicate with each other.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">INVALID</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">IDENTITY</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">MASS</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">INCIDENCE</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">PUSH</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">MATMUL</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">SCALE</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">SUM</span> <span class="o">=</span> <span class="mi">7</span>
+    <span class="n">INTERPROD</span> <span class="o">=</span> <span class="mi">8</span></div>
+
+
+
+<div class="viewcode-block" id="translate_to_c_instructions">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.translate_to_c_instructions">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">translate_to_c_instructions</span><span class="p">(</span><span class="o">*</span><span class="n">ops</span><span class="p">:</span> <span class="n">MatOp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOpCode</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Translate the operations into C-compatible values.</span>
+
+<span class="sd">    This translation is done since the C code can&#39;t handle arbitrary Python objects</span>
+<span class="sd">    and instead only deals with integers (or int enums) and floats.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    *ops : MatOp</span>
+<span class="sd">        Operations to translate.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of MatOpCode | int | float</span>
+<span class="sd">        List of translated operations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">out</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOpCode</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Identity</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">IDENTITY</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MassMat</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">MASS</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">order</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">inv</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Incidence</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">INCIDENCE</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">begin</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">dual</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Push</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">PUSH</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Scale</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">SCALE</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">k</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Sum</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">count</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MatMul</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">MATMUL</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">InterProd</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">INTERPROD</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">starting_order</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">field_index</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">dual</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">adjoint</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown instruction&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">out</span></div>
+
+
+
+<span class="n">_CompiledCodeMatrix</span> <span class="o">=</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">MatOpCode</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]]</span>
+<span class="sd">&quot;&quot;&quot;Type used to type hint the compiled system.&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="translate_system">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.translate_system">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">translate_system</span><span class="p">(</span>
+    <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span><span class="p">,</span>
+    <span class="n">vector_fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Function2D</span> <span class="o">|</span> <span class="n">KFormUnknown</span><span class="p">],</span>
+    <span class="n">newton</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_CompiledCodeMatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create the two-dimensional instruction array for the C code to execute.&quot;&quot;&quot;</span>
+    <span class="n">bytecodes</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">translate_equation</span><span class="p">(</span><span class="n">eq</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="n">vector_fields</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="n">newton</span><span class="p">,</span> <span class="n">simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">eq</span> <span class="ow">in</span> <span class="n">system</span><span class="o">.</span><span class="n">equations</span>
+    <span class="p">]</span>
+
+    <span class="n">codes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="kc">None</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">MatOpCode</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">bite</span> <span class="ow">in</span> <span class="n">bytecodes</span><span class="p">:</span>
+        <span class="n">row</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">MatOpCode</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">bite</span><span class="p">:</span>
+                <span class="n">row</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">translate_to_c_instructions</span><span class="p">(</span><span class="o">*</span><span class="n">bite</span><span class="p">[</span><span class="n">f</span><span class="p">])))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">row</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">codes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">codes</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="CompiledSystem">
+<a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.CompiledSystem">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CompiledSystem</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;System of equations compiled.</span>
+
+<span class="sd">    This is a convenience class which first compiles the system and splits</span>
+<span class="sd">    it into explicit, linear implicit, and non-linear implicit equations, which</span>
+<span class="sd">    are then further used by different parts of the solver.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    system : KFormSystem</span>
+<span class="sd">        System to compile.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">lhs_full</span><span class="p">:</span> <span class="n">_CompiledCodeMatrix</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;All left-hand side codes of the equations. When evaluated, this will</span>
+<span class="sd">        produce the full left side of the equation.&quot;&quot;&quot;</span>
+    <span class="n">rhs_codes</span><span class="p">:</span> <span class="n">_CompiledCodeMatrix</span> <span class="o">|</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;If not ``None``, contains the right-hand side codes of the equations.&quot;&quot;&quot;</span>
+    <span class="n">linear_codes</span><span class="p">:</span> <span class="n">_CompiledCodeMatrix</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;All left-hand side codes of the equations, which are linear.&quot;&quot;&quot;</span>
+    <span class="n">nonlin_codes</span><span class="p">:</span> <span class="n">_CompiledCodeMatrix</span> <span class="o">|</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;If not ``None``, contains the non-linear codes that can be used</span>
+<span class="sd">        for Newton-Raphson solver.&quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compile_system_part</span><span class="p">(</span>
+        <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span><span class="p">,</span> <span class="n">expr</span><span class="p">:</span> <span class="n">KSum</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">newton</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">MatOpCode</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compile an expression and fit it into the row of the expression matrix.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">expr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,)</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">)</span>
+
+        <span class="n">bytecode</span> <span class="o">=</span> <span class="n">translate_equation</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">system</span><span class="o">.</span><span class="n">vector_fields</span><span class="p">,</span> <span class="n">newton</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="nb">tuple</span><span class="p">(</span><span class="n">translate_to_c_instructions</span><span class="p">(</span><span class="o">*</span><span class="n">bytecode</span><span class="p">[</span><span class="n">form</span><span class="p">]))</span>
+                <span class="k">if</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">bytecode</span>
+                <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Split the system into the explicit, linear implicit, and non-linear implicit</span>
+        <span class="c1"># explicit: list[tuple[tuple[float, KExplicit], ...] | None] = list()</span>
+        <span class="n">implicit_rhs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">KSum</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">linear_lhs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">KSum</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">nonlin_lhs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">KSum</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+        <span class="c1"># Loop over equations</span>
+        <span class="k">for</span> <span class="n">equation</span> <span class="ow">in</span> <span class="n">system</span><span class="o">.</span><span class="n">equations</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="n">equation</span><span class="o">.</span><span class="n">left</span><span class="o">.</span><span class="n">explicit_terms</span>
+            <span class="c1"># rhs_expl = equation.right.explicit_terms</span>
+            <span class="c1"># explicit.append(rhs_expl if rhs_expl else None)</span>
+            <span class="n">rhs_impl</span> <span class="o">=</span> <span class="n">equation</span><span class="o">.</span><span class="n">right</span><span class="o">.</span><span class="n">implicit_terms</span>
+            <span class="n">implicit_rhs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">KSum</span><span class="p">(</span><span class="o">*</span><span class="n">rhs_impl</span><span class="p">)</span> <span class="k">if</span> <span class="n">rhs_impl</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">linear</span><span class="p">,</span> <span class="n">nonlinear</span> <span class="o">=</span> <span class="n">equation</span><span class="o">.</span><span class="n">left</span><span class="o">.</span><span class="n">split_terms_linear_nonlinear</span><span class="p">()</span>
+            <span class="n">linear_lhs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">linear</span><span class="p">)</span>
+            <span class="n">nonlin_lhs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nonlinear</span><span class="p">)</span>
+
+        <span class="n">rhs_codes</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">CompiledSystem</span><span class="o">.</span><span class="n">_compile_system_part</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">implicit_rhs</span>
+        <span class="p">)</span>
+
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="s2">&quot;rhs_codes&quot;</span><span class="p">,</span>
+            <span class="n">rhs_codes</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">any</span><span class="p">(</span><span class="n">e</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rhs_codes</span><span class="p">)</span>
+            <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">linear_codes</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">CompiledSystem</span><span class="o">.</span><span class="n">_compile_system_part</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">linear_lhs</span>
+        <span class="p">)</span>
+
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;linear_codes&quot;</span><span class="p">,</span> <span class="n">linear_codes</span><span class="p">)</span>
+
+        <span class="n">nonlinear_codes</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">CompiledSystem</span><span class="o">.</span><span class="n">_compile_system_part</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">nonlin_lhs</span>
+        <span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="s2">&quot;nonlin_codes&quot;</span><span class="p">,</span>
+            <span class="n">nonlinear_codes</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">any</span><span class="p">(</span><span class="n">e</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">nonlinear_codes</span><span class="p">)</span>
+            <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="s2">&quot;lhs_full&quot;</span><span class="p">,</span>
+            <span class="nb">tuple</span><span class="p">(</span>
+                <span class="n">CompiledSystem</span><span class="o">.</span><span class="n">_compile_system_part</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">eq</span><span class="o">.</span><span class="n">left</span><span class="p">,</span> <span class="n">newton</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">eq</span> <span class="ow">in</span> <span class="n">system</span><span class="o">.</span><span class="n">equations</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Jan Roth
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Jan Roth.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

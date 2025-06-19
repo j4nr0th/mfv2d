@@ -65,6 +65,7 @@ from mfv2d.mimetic2d import (
     Mesh2D,
     vtk_lagrange_ordering,
 )
+from mfv2d.progress import ProgressTracker
 
 OrderDivisionFunction = Callable[
     [int, int, int], tuple[int | None, tuple[int, int, int, int]]
@@ -2401,6 +2402,7 @@ def non_linear_solve_run(
     Based on how the compiled system looks, this may only take a single iteration,
     otherwise, it may run for as long as it needs to converge.
     """
+    progress_tracker: None | ProgressTracker = None
     iter_cnt = 0
     base_vec = np.array(explicit_vec, copy=True)  # Make a copy
     if time_carry_term is not None:
@@ -2494,7 +2496,14 @@ def non_linear_solve_run(
         max_residual = np.abs(residual).max()
         residuals[iter_cnt] = max_residual
         if print_residual:
-            print(f"Iteration {iter_cnt} has residual of {max_residual:.4e}", end="\r")
+            if progress_tracker is None:
+                progress_tracker = ProgressTracker(
+                    atol, max_residual, max_residual, max_iterations, err_width=20
+                )
+            else:
+                progress_tracker.update_iteration(max_residual)
+            print(progress_tracker.state_str("{} - {} | {}"), end="\r")
+            # print(f"Iteration {iter_cnt} has residual of {max_residual:.4e}", end="\r")
 
         if not (max_residual > atol and max_residual > max_mag * rtol):
             break

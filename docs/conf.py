@@ -21,6 +21,7 @@ extensions = [
     "sphinx.ext.doctest",
     "sphinx.ext.viewcode",
     "jupyter_sphinx",
+    "sphinx_gallery.gen_gallery",
 ]
 
 templates_path = ["_templates"]
@@ -75,3 +76,19 @@ napoleon_type_aliases = {
     "ArrayLike": ":obj:`numpy.ArrayLike <numpy:ArrayLike>`",
     "array": ":obj:`numpy.ndarray <numpy:ndarray>`",
 }
+
+# -- Options for Sphinx Gallery ----------------------------------------------
+# https://sphinx-gallery.github.io/stable/index.html
+sphinx_gallery_conf = {
+    "examples_dirs": "../examples",
+    "subsection_order": ["../examples/steady", "../examples/unsteady"],
+    "gallery_dirs": "auto_examples",
+    "reference_url": {
+        # The module you locally document uses None
+        "mfv2d": None,
+    },
+    "image_scrapers": ("matplotlib", "pyvista"),
+}
+import pyvista  # noqa: E402
+
+pyvista.BUILDING_GALLERY = True

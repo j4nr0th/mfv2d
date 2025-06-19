@@ -38,3 +38,4 @@ sandbox/
 
 # Sphinx
 docs/_*
+docs/auto_examples/

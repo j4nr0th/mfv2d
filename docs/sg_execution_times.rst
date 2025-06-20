@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:07.944** total execution time for 2 files **from all galleries**:
+**00:06.921** total execution time for 4 files **from all galleries**:
 
 .. container::
 
@@ -32,9 +32,15 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
+   * - :ref:`sphx_glr_auto_examples_steady_plot_linear_adv_dif.py` (``../examples/steady/plot_linear_adv_dif.py``)
+     - 00:06.921
+     - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson.py` (``../examples/steady/plot_direct_poisson.py``)
-     - 00:04.413
+     - 00:00.000
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined.py` (``../examples/steady/plot_direct_poisson_refined.py``)
+     - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_mixed_poisson.py` (``../examples/steady/plot_mixed_poisson.py``)
-     - 00:03.531
+     - 00:00.000
      - 0.0

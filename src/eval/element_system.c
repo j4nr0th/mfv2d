@@ -2,7 +2,6 @@
 #include "allocator.h"
 #include "basis.h"
 #include "element_eval.h"
-#include "evaluation.h"
 #include "fem_space.h"
 
 #include <numpy/ndarrayobject.h>

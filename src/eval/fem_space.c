@@ -1,5 +1,18 @@
 #include "fem_space.h"
 
+static const char *mass_name[MASS_CNT] = {
+    [MASS_0] = "MASS_0",     [MASS_1] = "MASS_1",     [MASS_2] = "MASS_2",
+    [MASS_0_I] = "MASS_0_I", [MASS_1_I] = "MASS_1_I", [MASS_2_I] = "MASS_2_I",
+};
+
+MFV2D_INTERNAL
+const char *mass_mtx_indices_str(mass_mtx_indices_t v)
+{
+    if (v < MASS_0 || v >= MASS_CNT)
+        return "UNKNOWN";
+    return mass_name[v];
+}
+
 MFV2D_INTERNAL mfv2d_result_t fem_space_2d_create(const fem_space_1d_t *space_h, const fem_space_1d_t *space_v,
                                                   const quad_info_t *const quad, fem_space_2d_t **p_out,
                                                   const allocator_callbacks *allocator)

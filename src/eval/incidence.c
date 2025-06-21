@@ -4,6 +4,8 @@
 
 #include "incidence.h"
 
+#include "system_template.h"
+
 static mfv2d_result_t check_dims(const matrix_full_t *const mat, const unsigned rows, const unsigned cols)
 {
     if ((rows != 0 && mat->base.rows != rows) || (cols != 0 && mat->base.cols != cols))

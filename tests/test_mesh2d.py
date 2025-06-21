@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from mfv2d.mimetic2d import ElementLeaf2D
+from mfv2d.mimetic2d import apply_e10, apply_e21
 
 
 def check_e01():
@@ -36,11 +36,7 @@ def check_e01():
     ).reshape((-1,))
     y = np.concatenate((y1, y2))
 
-    e = ElementLeaf2D(3, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-
-    e10 = e.incidence_10()
-
-    y_e = e10 @ x
+    y_e = apply_e10(3, x)
     assert pytest.approx(y_e) == y
 
 
@@ -74,17 +70,5 @@ def check_e12():
     ).reshape((-1,))
     x = np.concatenate((x1, x2))
 
-    e = ElementLeaf2D(3, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-
-    e21 = e.incidence_21()
-
-    y_e = e21 @ x
+    y_e = apply_e21(3, x)
     assert pytest.approx(y_e) == y
-
-
-def check_e10_e21_null():
-    """Product of E21 @ E10 should be zero."""
-    e = ElementLeaf2D(10, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e10 = e.incidence_10()
-    e21 = e.incidence_21()
-    assert np.all(e21 @ e10 == 0)

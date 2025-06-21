@@ -1,15 +1,21 @@
-"""Check that interior product implementation actually works."""
+"""Check that element system is correctly computed."""
 
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import numpy.typing as npt
-from mfv2d._mfv2d import compute_element_matrices
-from mfv2d.eval import MatOp, MatOpCode, translate_equation, translate_to_c_instructions
-from mfv2d.kform import KFormSystem, KFormUnknown
-from mfv2d.mimetic2d import BasisCache, ElementLeaf2D, _very_old_rhs_2d_element_projection
+import pytest
+from mfv2d._mfv2d import (
+    Basis1D,
+    Basis2D,
+    IntegrationRule1D,
+    compute_element_matrix,
+)
+from mfv2d.element import element_dual_dofs, element_primal_dofs, poly_x, poly_y
+from mfv2d.eval import CompiledSystem
+from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder
 
-type Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
+Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 
 
 def exact_interior_prod_2_dual(vec: Function2D, form2: Function2D) -> Function2D:
@@ -72,7 +78,152 @@ def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
     return wrapped
 
 
-def test_advect_21_undeformed() -> None:
+def compute_system_matrix_nonlin(
+    u_exact: Function2D,
+    omega_exact: Function2D,
+    omega: KFormUnknown,
+    u: KFormUnknown,
+    system: KFormSystem,
+    basis_2d: Basis2D,
+    corners: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Compute system matrix."""
+    vector_fields = system.vector_fields
+    compiled = CompiledSystem(system)
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+        list() for _ in vector_fields
+    )
+
+    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
+    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
+    x = poly_x(corners[:, 0], nodes_xi, nodes_eta)
+    y = poly_y(corners[:, 1], nodes_xi, nodes_eta)
+    func_dict = {omega: omega_exact, u: u_exact}
+    for i, vec_fld in enumerate(vector_fields):
+        assert type(vec_fld) is KFormUnknown
+        assert not callable(vec_fld)
+        fn = func_dict[vec_fld]
+        vf = fn(x, y)
+        if vec_fld.order != 1:
+            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
+        vf = np.reshape(vf, (-1, 2))
+        vec_field_lists[i].append(vf)
+
+    vec_fields = tuple(
+        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+    )
+    del vec_field_lists
+    assert compiled.nonlin_codes is not None
+    emat = compute_element_matrix(
+        [form.order for form in system.unknown_forms],
+        compiled.nonlin_codes,
+        corners,
+        vec_fields,
+        basis_2d,
+    )
+
+    return emat
+
+
+def compute_system_matrix_lin(
+    system: KFormSystem,
+    basis_2d: Basis2D,
+    corners: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Compute system matrix."""
+    vector_fields = system.vector_fields
+    compiled = CompiledSystem(system)
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+        list() for _ in vector_fields
+    )
+
+    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
+    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
+    x = poly_x(corners[:, 0], nodes_xi, nodes_eta)
+    y = poly_y(corners[:, 1], nodes_xi, nodes_eta)
+    for i, vec_fld in enumerate(vector_fields):
+        assert type(vec_fld) is not KFormUnknown
+        assert callable(vec_fld)
+
+        vf = np.asarray(vec_fld(x, y), np.float64)
+        if vf.shape[-1] != 2:
+            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
+        vf = np.reshape(vf, (-1, 2))
+        vec_field_lists[i].append(vf)
+
+    vec_fields = tuple(
+        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+    )
+    del vec_field_lists
+    emat = compute_element_matrix(
+        [form.order for form in system.unknown_forms],
+        compiled.lhs_full,
+        corners,
+        vec_fields,
+        basis_2d,
+    )
+
+    return emat
+
+
+def compute_system_matrix_adj(
+    system: KFormSystem,
+    basis_2d: Basis2D,
+    corners: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """Compute system matrix."""
+    vector_fields = system.vector_fields
+    compiled = CompiledSystem(system)
+
+    # Compute vector fields at integration points for leaf elements
+    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
+        list() for _ in vector_fields
+    )
+
+    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
+    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
+    x = poly_x(corners[:, 0], nodes_xi, nodes_eta)
+    y = poly_y(corners[:, 1], nodes_xi, nodes_eta)
+    for i, vec_fld in enumerate(vector_fields):
+        assert type(vec_fld) is not KFormUnknown
+        assert callable(vec_fld)
+
+        vf = np.asarray(vec_fld(x, y), np.float64)
+        if vf.shape[-1] != 2:
+            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
+        vf = np.reshape(vf, (-1, 2))
+        vec_field_lists[i].append(vf)
+
+    vec_fields = tuple(
+        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
+    )
+    del vec_field_lists
+    assert compiled.nonlin_codes is not None
+    emat = compute_element_matrix(
+        [form.order for form in system.unknown_forms],
+        compiled.nonlin_codes,
+        corners,
+        vec_fields,
+        basis_2d,
+    )
+
+    return emat
+
+
+_CORNER_TEST_VALUES = (
+    ((-1, -1), (+1, -1), (+1, +1), (-1, +1)),
+    ((-0.1, -2), (+0.1, -2), (+0.1, +2), (-0.1, +2)),
+    ((-2, -0.1), (+2, -0.1), (+2, +0.1), (-2, +0.1)),
+    ((-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0)),
+)
+
+
+@pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
+def test_advect_10(corner_vals: npt.ArrayLike) -> None:
     """Check that interior product of a 2-form with a 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -90,2054 +241,104 @@ def test_advect_21_undeformed() -> None:
         """Compute exact field."""
         v0 = np.asarray(x)
         v1 = np.asarray(y)
-        return v0 - v1**3
+        return np.stack(
+            (v0 * v1**3, -(v0**2) * v1),
+            axis=-1,
+            dtype=np.float64,
+        )
 
-    omega = KFormUnknown(2, "omega", 2)
+    omega = KFormUnknown(2, "omega", 1)
     v = omega.weight
-    g = KFormUnknown(2, "g", 1)
+    g = KFormUnknown(2, "g", 0)
     w = g.weight
 
     system = KFormSystem(
         (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == (v @ 0),
+        (v * g.derivative) == v @ 0,
+        sorting=lambda f: f.order,
+    )
+
+    N = 6
+    N2 = 10
+
+    int_rule = IntegrationRule1D(N2)
+    basis_1d = Basis1D(N, int_rule)
+    basis_2d = Basis2D(basis_1d, basis_1d)
+    corners = np.array(corner_vals, np.float64)
+
+    emat = compute_system_matrix_lin(system, basis_2d, corners)
+    emat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) :]
+
+    exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
+
+    omega_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, omega_exact
+    )
+    lhs = emat @ omega_proj
+    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_0, corners, basis_2d, exact_eprod)
+
+    assert np.max(np.abs(lhs - rhs)) < 1e-14
+
+
+@pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
+def test_dual_advect_10(corner_vals: npt.ArrayLike) -> None:
+    """Check dual interior product of a 1-form with a 0-form is computed correctly."""
+
+    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            (v0**2 * v1, -v0 * v1**3),
+            # (v0**2 * v1, -v0 * v1**3),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            (v0 * v1**3, -(v0**2) * v1),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    omega = KFormUnknown(2, "omega", 1)
+    v = omega.weight
+    g = KFormUnknown(2, "g", 2)
+    w = g.weight
+
+    system = KFormSystem(
+        (w * (u_exact * ~omega)) == w @ 0,
+        (v.derivative * g) == v @ 0,
         sorting=lambda f: f.order,
     )
     # print(system)
 
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
+    N = 6
+    N2 = 10
 
     N = 5
     N2 = 10
+    int_rule = IntegrationRule1D(N2)
+    basis_1d = Basis1D(N, int_rule)
+    basis_2d = Basis2D(basis_1d, basis_1d)
+    corners = np.array(corner_vals, np.float64)
+    emat = compute_system_matrix_lin(system, basis_2d, corners)
 
-    cache = BasisCache(N, N2)
+    emat = emat[2 * (N + 1) * N :, : 2 * (N + 1) * N]
 
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
-    print(emat.shape)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-    assert np.max(np.abs(lhs - rhs)) < 1e-15
-
-    # print(lhs)
-    # print(rhs)
-
-    # eta_1 = lhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # eta_2 = rhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # xi_1 = lhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-    # xi_2 = rhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-
-    # plt.figure()
-    # plt.imshow(eta_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(eta_2)
-    # plt.colorbar()
-    # plt.show()
-
-    # plt.figure()
-    # plt.imshow(xi_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(xi_2)
-    # plt.colorbar()
-    # plt.show()
-
-
-def test_advect_10_undeformed() -> None:
-    """Check that interior product of a 2-form with a 1-form is computed correctly."""
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0 * v1**3, -(v0**2) * v1),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    omega = KFormUnknown(2, "omega", 1)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 0)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == v @ 0,
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 6
-    N2 = 10
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_node(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_node(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print(lhs)
-    # print(rhs)
-
-    # v_1 = lhs.reshape((N + 1, N + 1))
-    # v_2 = rhs.reshape((N + 1, N + 1))
-
-    # plt.figure()
-    # plt.imshow(v_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(v_2)
-    # plt.colorbar()
-    # plt.show()
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
-
-
-def test_advect_21_regular_deformed_1() -> None:
-    """Check that interior product of a 2-form with a 1-form is computed correctly.
-
-    Here deformation is applied by just scaling, without shear.
-    """
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return v0 - v1**3
-
-    omega = KFormUnknown(2, "omega", 2)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 1)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == (v @ 0),
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 5
-    N2 = 10
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-0.1, -2), (+0.1, -2), (+0.1, +2), (-0.1, +2))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print(lhs / rhs)
-
-    # eta_1 = lhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # eta_2 = rhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # xi_1 = lhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-    # xi_2 = rhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-
-    # plt.figure()
-    # plt.imshow(eta_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(eta_2)
-    # plt.colorbar()
-    # plt.show()
-
-    # plt.figure()
-    # plt.imshow(xi_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(xi_2)
-    # plt.colorbar()
-    # plt.show()
-    # print(np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
-
-
-def test_advect_21_regular_deformed_2() -> None:
-    """Check that interior product of a 2-form with a 1-form is computed correctly.
-
-    Here deformation is applied by just scaling, without shear.
-    """
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return v0 - v1**3
-
-    omega = KFormUnknown(2, "omega", 2)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 1)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == (v @ 0),
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 5
-    N2 = 10
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-2, -0.1), (+2, -0.1), (+2, +0.1), (-2, +0.1))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print(lhs / rhs)
-
-    # eta_1 = lhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # eta_2 = rhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # xi_1 = lhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-    # xi_2 = rhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-
-    # plt.figure()
-    # plt.imshow(eta_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(eta_2)
-    # plt.colorbar()
-    # plt.show()
-
-    # plt.figure()
-    # plt.imshow(xi_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(xi_2)
-    # plt.colorbar()
-    # plt.show()
-    # print(np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
-
-
-def test_advect_10_refgular_deformed_1() -> None:
-    """Check that interior product of a 1-form with a 1-form is computed correctly.
-
-    Here deformation is applied by just scaling, without shear.
-    """
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (0 * v0**2 * v1, 1 + 0 * -v0 * v1**3),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (1 + 0 * v0 * v1**3, 0 * -(v0**2) * v1),
-            (v0 * v1**3, -(v0**2) * v1),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    omega = KFormUnknown(2, "omega", 1)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 0)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == v @ 0,
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 8
-    N2 = 20
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-0.1, -2), (+0.1, -2), (+0.1, +2), (-0.1, +2))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_node(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_node(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print("Exact:   ", rhs)
-    # print("Computed:", lhs)
-
-    # v_1 = lhs.reshape((N + 1, N + 1))
-    # v_2 = rhs.reshape((N + 1, N + 1))
-
-    # plt.figure()
-    # plt.imshow(v_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(v_2)
-    # plt.colorbar()
-    # plt.show()
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
-
-
-def test_advect_10_refgular_deformed_2() -> None:
-    """Check that interior product of a 1-form with a 1-form is computed correctly.
-
-    Here deformation is applied by just scaling, without shear.
-    """
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0 * v1**3, -(v0**2) * v1),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    omega = KFormUnknown(2, "omega", 1)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 0)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == v @ 0,
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 8
-    N2 = 20
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-2, -0.1), (+2, -0.1), (+2, +0.1), (-2, +0.1))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_node(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_node(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print(lhs / rhs)
-
-    # v_1 = lhs.reshape((N + 1, N + 1))
-    # v_2 = rhs.reshape((N + 1, N + 1))
-
-    # plt.figure()
-    # plt.imshow(v_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(v_2)
-    # plt.colorbar()
-    # plt.show()
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
-
+    exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
 
-def test_advect_21_irregular_deformed_1() -> None:
-    """Check that interior product of a 2-form with a 1-form is computed correctly.
-
-    Here deformation is applied by twisting and rotation.
-    """
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return v0 - v1**3
-
-    omega = KFormUnknown(2, "omega", 2)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 1)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == (v @ 0),
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 6
-    N2 = 15
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print(lhs / rhs)
-
-    # eta_1 = lhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # eta_2 = rhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # xi_1 = lhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-    # xi_2 = rhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-
-    # plt.figure()
-    # plt.imshow(eta_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(eta_2)
-    # plt.colorbar()
-    # plt.show()
-
-    # plt.figure()
-    # plt.imshow(xi_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(xi_2)
-    # plt.colorbar()
-    # plt.show()
-    # print(np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-11
-
-
-def test_advect_10_irrefgular_deformed_1() -> None:
-    """Check that interior product of a 1-form with a 1-form is computed correctly.
-
-    Here deformation is applied by twisting and rotation.
-    """
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0 * v1**3, -(v0**2) * v1),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    omega = KFormUnknown(2, "omega", 1)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 0)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == v @ 0,
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 6
-    N2 = 20
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_node(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_node(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print(lhs / rhs)
-
-    # v_1 = lhs.reshape((N + 1, N + 1))
-    # v_2 = rhs.reshape((N + 1, N + 1))
-
-    # plt.figure()
-    # plt.imshow(v_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(v_2)
-    # plt.colorbar()
-    # plt.show()
-    # print(np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-11
-
-
-def test_div_21_irregular_deformed_1() -> None:
-    """Check that interior product of a 2-form with a 1-form is computed correctly.
-
-    This checks divergence can be computed correctly.
-    """
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return v0 - v1**3
-
-    def div_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact divergence of v * omega field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return 3 * v0**2 * v1 - 2 * v0 * v1**4 - 3 * v0**2 * v1**2 + 6 * v0 * v1**5
-
-    omega = KFormUnknown(2, "omega", 2)
-    v = omega.weight
-
-    system = KFormSystem(
-        (v * (~(u_exact * omega)).derivative) == v @ 0,
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 8
-    N2 = 15
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
-    # e = ElementLeaf2D(None, N, (-2, +0.1), (-2, -0.1), (+2, -0.1), (+2, +0.1))
-    # e = ElementLeaf2D(None, N, (-1, +1), (-1, -1), (+1, -1), (+1, +1))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_surface(cache), emat @ omega_proj).reshape((N, N))
-    rhs = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(v @ div_exact, e, cache),
-    ).reshape((N, N))
-
-    # print(lhs / rhs)
-    # print(lhs - rhs)
-
-    # plt.figure()
-    # plt.imshow(rhs)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(lhs)
-    # plt.colorbar()
-    # plt.show()
-
-    # plt.show()
-    # print(np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-11
-
-
-def test_dual_advect_21_undeformed() -> None:
-    """Check dual interior product of a 2-form with a 1-form is computed correctly."""
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (0 + 0 * (v0 + v1), 1 + 0 * (-v0 * v1**3)),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return v0 - v1**3
-        # return 1 + 0 * (v0 - v1**3)
-
-    omega = KFormUnknown(2, "omega", 0)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 1)
-    w = g.weight
-    system = KFormSystem(
-        (w * (u_exact * (~omega))) == w @ 0,
-        (v.derivative * g) == (v @ 0),
-        sorting=lambda f: 5 - f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 6
-    N2 = 10
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0][: 2 * N * (N + 1), 2 * N * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_2_dual(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_node(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-    # print("Max error:", np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-15
-
-    # print("Computed:", lhs)
-    # print("Exact:   ", rhs)
-
-    # eta_1 = lhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # eta_2 = rhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # xi_1 = lhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-    # xi_2 = rhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-
-    # plt.figure()
-    # plt.imshow(eta_1)
-    # plt.colorbar()
-    # plt.title("Computed eta")
-
-    # plt.figure()
-    # plt.imshow(eta_2)
-    # plt.colorbar()
-    # plt.title("Exact eta")
-    # plt.show()
-
-    # plt.figure()
-    # plt.imshow(xi_1)
-    # plt.colorbar()
-    # plt.title("Computed xi")
-
-    # plt.figure()
-    # plt.imshow(xi_2)
-    # plt.colorbar()
-    # plt.title("Exact xi")
-    # plt.show()
-
-
-def test_dual_advect_21_rotated() -> None:
-    """Check that dual interior product of a 2-form with a 1-form is computed correctly.
-
-    Here the element is rotated, but not deformed.
-    """
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (0 + 0 * (v0 + v1), 1 + 0 * (-v0 * v1**3)),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return v0 - v1**3
-        # return 1 + 0 * (v0 - v1**3)
-
-    omega = KFormUnknown(2, "omega", 0)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 1)
-    w = g.weight
-    system = KFormSystem(
-        (w * (u_exact * (~omega))) == w @ 0,
-        (v.derivative * g) == (v @ 0),
-        sorting=lambda f: 5 - f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 6
-    N2 = 10
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, +1), (-1, -1), (+1, -1), (+1, +1))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0][: 2 * N * (N + 1), 2 * N * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_2_dual(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_node(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-    # print("Max error:", np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-15
-
-    # print("Computed:", lhs)
-    # print("Exact:   ", rhs)
-
-    # eta_1 = lhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # eta_2 = rhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # xi_1 = lhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-    # xi_2 = rhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-
-    # plt.figure()
-    # plt.imshow(eta_1)
-    # plt.colorbar()
-    # plt.title("Computed eta")
-
-    # plt.figure()
-    # plt.imshow(eta_2)
-    # plt.colorbar()
-    # plt.title("Exact eta")
-    # plt.show()
-
-    # plt.figure()
-    # plt.imshow(xi_1)
-    # plt.colorbar()
-    # plt.title("Computed xi")
-
-    # plt.figure()
-    # plt.imshow(xi_2)
-    # plt.colorbar()
-    # plt.title("Exact xi")
-    # plt.show()
-
-
-def test_dual_advect_21_irregular_deformed() -> None:
-    """Check that dual interior product of a 2-form with a 1-form is computed correctly.
-
-    Here the element is deformed in an irregular way.
-    """
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            # (0 + 0 * (v0 + v1), 1 + 0 * (-v0 * v1**3)),
-            (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return v0 - v1**3
-        # return 1 + 0 * (v0 - v1**3)
-
-    omega = KFormUnknown(2, "omega", 0)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 1)
-    w = g.weight
-    system = KFormSystem(
-        (w * (u_exact * (~omega))) == w @ 0,
-        (v.derivative * g) == (v @ 0),
-        sorting=lambda f: 5 - f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 6
-    N2 = 10
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
+    omega_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, omega_exact
     )
+    lhs = emat @ omega_proj
+    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_2, corners, basis_2d, exact_eprod)
 
-    emat = mats[0][: 2 * N * (N + 1), 2 * N * (N + 1) :]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_2_dual(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_node(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_edge(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-    # print("Max error:", np.max(np.abs(lhs - rhs)))
     assert np.max(np.abs(lhs - rhs)) < 1e-13
-
-    # print("Computed:", lhs)
-    # print("Exact:   ", rhs)
-
-    # eta_1 = lhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # eta_2 = rhs[0 * N * (N + 1) : 1 * N * (N + 1)].reshape((N + 1, N))
-    # xi_1 = lhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-    # xi_2 = rhs[1 * N * (N + 1) : 2 * N * (N + 1)].reshape((N, N + 1))
-
-    # plt.figure()
-    # plt.imshow(eta_1)
-    # plt.colorbar()
-    # plt.title("Computed eta")
-
-    # plt.figure()
-    # plt.imshow(eta_2)
-    # plt.colorbar()
-    # plt.title("Exact eta")
-    # plt.show()
-
-    # plt.figure()
-    # plt.imshow(xi_1)
-    # plt.colorbar()
-    # plt.title("Computed xi")
-
-    # plt.figure()
-    # plt.imshow(xi_2)
-    # plt.colorbar()
-    # plt.title("Exact xi")
-    # plt.show()
-
-
-def test_dual_advect_10_undeformed() -> None:
-    """Check dual interior product of a 1-form with a 0-form is computed correctly."""
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0**2 * v1, -v0 * v1**3),
-            # (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0 * v1**3, -(v0**2) * v1),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    omega = KFormUnknown(2, "omega", 1)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 2)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * ~omega)) == w @ 0,
-        (v.derivative * g) == v @ 0,
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 6
-    N2 = 10
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[2 * (N + 1) * N :, : 2 * (N + 1) * N]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_surface(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print("Computed:", lhs)
-    # print("Exact:   ", rhs)
-
-    # v_1 = lhs.reshape((N, N))
-    # v_2 = rhs.reshape((N, N))
-
-    # plt.figure()
-    # plt.imshow(v_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(v_2)
-    # plt.colorbar()
-    # plt.show()
-    # print(np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
-
-
-def test_dual_advect_10_rotated() -> None:
-    """Check dual interior product of a 1-form with a 0-form is computed correctly."""
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0**2 * v1, -v0 * v1**3),
-            # (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0 * v1**3, -(v0**2) * v1),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    omega = KFormUnknown(2, "omega", 1)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 2)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * ~omega)) == w @ 0,
-        (v.derivative * g) == v @ 0,
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 6
-    N2 = 10
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, +1), (-1, -1), (+1, -1), (+1, +1))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[2 * (N + 1) * N :, : 2 * (N + 1) * N]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_surface(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print("Computed:", lhs)
-    # print("Exact:   ", rhs)
-
-    # v_1 = lhs.reshape((N, N))
-    # v_2 = rhs.reshape((N, N))
-
-    # plt.figure()
-    # plt.imshow(v_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(v_2)
-    # plt.colorbar()
-    # plt.show()
-    # print(np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
-
-
-def test_dual_advect_10_irregular_deformed() -> None:
-    """Check dual interior product of a 1-form with a 0-form is computed correctly."""
-
-    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0**2 * v1, -v0 * v1**3),
-            # (v0**2 * v1, -v0 * v1**3),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute exact field."""
-        v0 = np.asarray(x)
-        v1 = np.asarray(y)
-        return np.stack(
-            (v0 * v1**3, -(v0**2) * v1),
-            axis=-1,
-            dtype=np.float64,
-        )
-
-    omega = KFormUnknown(2, "omega", 1)
-    v = omega.weight
-    g = KFormUnknown(2, "g", 2)
-    w = g.weight
-
-    system = KFormSystem(
-        (w * (u_exact * ~omega)) == w @ 0,
-        (v.derivative * g) == v @ 0,
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
-    N = 6
-    N2 = 10
-
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    for i, vec_fld in enumerate(vector_fields):
-        assert callable(vec_fld)
-        vec_field_lists[i].append(np.reshape(vec_fld(x, y), (-1, 2)))
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    emat = emat[2 * (N + 1) * N :, : 2 * (N + 1) * N]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-    lhs = np.linalg.solve(e.mass_matrix_surface(cache), emat @ omega_proj)
-    rhs = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(w @ exact_eprod, e, cache),
-    )
-
-    # print("Computed:", lhs)
-    # print("Exact:   ", rhs)
-
-    # v_1 = lhs.reshape((N, N))
-    # v_2 = rhs.reshape((N, N))
-
-    # plt.figure()
-    # plt.imshow(v_1)
-    # plt.colorbar()
-
-    # plt.figure()
-    # plt.imshow(v_2)
-    # plt.colorbar()
-    # plt.show()
-    # print(np.max(np.abs(lhs - rhs)))
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
 
 
 def test_advect_non_linear_10_irregular_deformed() -> None:
@@ -2178,92 +379,29 @@ def test_advect_non_linear_10_irregular_deformed() -> None:
         sorting=lambda f: f.order + ord(f.label[0]),
     )
     # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
     N = 6
     N2 = 10
+    int_rule = IntegrationRule1D(N2)
+    basis_1d = Basis1D(N, int_rule)
+    basis_2d = Basis2D(basis_1d, basis_1d)
 
-    cache = BasisCache(N, N2)
+    corners = np.array(((-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0)), np.float64)
 
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    func_dict = {omega: omega_exact, u: u_exact}
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is KFormUnknown
-        assert not callable(vec_fld)
-        fn = func_dict[vec_fld]
-        vf = fn(x, y)
-        if vec_fld.order != 1:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
-        vec_field_lists[i].append(vf)
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
+    emat = compute_system_matrix_nonlin(
+        u_exact, omega_exact, omega, u, system, basis_2d, corners
     )
 
-    emat = mats[0]
     fmat = emat[: (N + 1) * (N + 1), -2 * (N + 1) * N :]
-    emat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) : -2 * (N + 1) * N]
-    # print(emat)
+    gmat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) : -2 * (N + 1) * N]
 
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
+    omega_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, omega_exact
     )
 
-    u_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ u_exact, e, cache),
+    u_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, u_exact
     )
-    v1 = emat @ omega_proj
+    v1 = gmat @ omega_proj
     v2 = fmat @ u_proj
     assert np.max(np.abs(v1 - v2)) < 1e-15
 
@@ -2307,93 +445,136 @@ def test_advect_dual_non_linear_10_irregular_deformed() -> None:
     )
     # print(system)
 
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
+    N = 6
+    N2 = 10
 
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
+    int_rule = IntegrationRule1D(N2)
+    basis_1d = Basis1D(N, int_rule)
+    basis_2d = Basis2D(basis_1d, basis_1d)
+    corners = np.array(((-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0)), np.float64)
 
-        codes.append(row)
+    emat = compute_system_matrix_nonlin(
+        u_exact, omega_exact, omega, u, system, basis_2d, corners
+    )
+
+    fmat = emat[: N * N, -2 * (N + 1) * N :]
+    gmat = emat[: N * N, N * N : -2 * (N + 1) * N]
+
+    omega_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, omega_exact
+    )
+
+    u_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, u_exact
+    )
+    v1 = gmat @ omega_proj
+    v2 = fmat @ u_proj
+    assert np.max(np.abs(v1 - v2)) < 1e-13
+
+
+@pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
+def test_advect_21(corner_vals: npt.ArrayLike) -> None:
+    """Check that interior product of a 2-form with a 1-form is computed correctly."""
+
+    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
+            (v0**2 * v1, -v0 * v1**3),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return v0 - v1**3
+
+    omega = KFormUnknown(2, "omega", 2)
+    v = omega.weight
+    g = KFormUnknown(2, "g", 1)
+    w = g.weight
+
+    system = KFormSystem(
+        (w * (u_exact * omega)) == w @ 0,
+        (v * g.derivative) == (v @ 0),
+        sorting=lambda f: f.order,
+    )
+
+    N = 5
+    N2 = 10
+    int_rule = IntegrationRule1D(N2)
+    basis_1d = Basis1D(N, int_rule)
+    basis_2d = Basis2D(basis_1d, basis_1d)
+    corners = np.array(corner_vals, np.float64)
+    emat = compute_system_matrix_lin(system, basis_2d, corners)
+    emat = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
+
+    exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
+
+    omega_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_2, corners, basis_2d, omega_exact
+    )
+    lhs = emat @ omega_proj
+    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, exact_eprod)
+
+    assert np.max(np.abs(lhs - rhs)) < 1e-13
+
+
+@pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
+def test_dual_advect_21_undeformed(corner_vals: npt.ArrayLike) -> None:
+    """Check dual interior product of a 2-form with a 1-form is computed correctly."""
+
+    def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return np.stack(
+            (v0**2 * v1, -v0 * v1**3),
+            axis=-1,
+            dtype=np.float64,
+        )
+
+    def omega_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
+        """Compute exact field."""
+        v0 = np.asarray(x)
+        v1 = np.asarray(y)
+        return v0 - v1**3
+        # return 1 + 0 * (v0 - v1**3)
+
+    omega = KFormUnknown(2, "omega", 0)
+    v = omega.weight
+    g = KFormUnknown(2, "g", 1)
+    w = g.weight
+    system = KFormSystem(
+        (w * (u_exact * (~omega))) == w @ 0,
+        (v.derivative * g) == (v @ 0),
+        sorting=lambda f: 5 - f.order,
+    )
 
     N = 6
     N2 = 10
 
-    cache = BasisCache(N, N2)
+    int_rule = IntegrationRule1D(N2)
+    basis_1d = Basis1D(N, int_rule)
+    basis_2d = Basis2D(basis_1d, basis_1d)
+    corners = np.array(corner_vals, np.float64)
+    emat = compute_system_matrix_lin(system, basis_2d, corners)
 
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
+    emat = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
+
+    exact_eprod = exact_interior_prod_2_dual(u_exact, omega_exact)
+
+    omega_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_0, corners, basis_2d, omega_exact
     )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
+    lhs = emat @ omega_proj
+    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, exact_eprod)
 
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    func_dict = {omega: omega_exact, u: u_exact}
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is KFormUnknown
-        assert not callable(vec_fld)
-        fn = func_dict[vec_fld]
-        vf = fn(x, y)
-        if vec_fld.order != 1:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
-        vec_field_lists[i].append(vf)
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
-    )
-
-    emat = mats[0]
-    fmat = emat[: N * N, -2 * (N + 1) * N :]
-    emat = emat[: N * N, N * N : -2 * (N + 1) * N]
-    # print(emat)
-
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
-    )
-
-    u_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(v @ u_exact, e, cache),
-    )
-    v1 = emat @ omega_proj
-    v2 = fmat @ u_proj
-    assert np.max(np.abs(v1 - v2)) < 1e-13
+    assert np.max(np.abs(lhs - rhs)) < 1e-14
 
 
 def test_advect_non_linear_21_irregular_deformed() -> None:
@@ -2420,100 +601,34 @@ def test_advect_non_linear_21_irregular_deformed() -> None:
     v = omega.weight
     u = KFormUnknown(2, "u", 1)
     h = u.weight
+    corners = np.array(((-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0)), np.float64)
 
     system = KFormSystem(
         (h * (u ^ omega)) == h @ 0,
         (v * u.derivative) == v @ 0,
         sorting=lambda f: f.order,
     )
-    print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
-
     N = 6
     N2 = 10
+    int_rule = IntegrationRule1D(N2)
+    basis_1d = Basis1D(N, int_rule)
+    basis_2d = Basis2D(basis_1d, basis_1d)
 
-    cache = BasisCache(N, N2)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
-    # e = ElementLeaf2D(None, N, (-2, -2), (+2, -2), (+2, +2), (-2, +2))
-
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    func_dict = {omega: omega_exact, u: u_exact}
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is KFormUnknown
-        assert not callable(vec_fld)
-        fn = func_dict[vec_fld]
-        vf = fn(x, y)
-        if vec_fld.order != 1:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
-        vec_field_lists[i].append(vf)
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
+    emat = compute_system_matrix_nonlin(
+        u_exact, omega_exact, omega, u, system, basis_2d, corners
     )
 
-    emat = mats[0]
     fmat = emat[: N**2, : 2 * (N + 1) * N]
-    emat = emat[: N**2, 2 * (N + 1) * N :]
-    # print(emat)
+    gmat = emat[: N**2, 2 * (N + 1) * N :]
 
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.show()
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_surface(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
+    omega_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_2, corners, basis_2d, omega_exact
     )
 
-    u_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(h @ u_exact, e, cache),
+    u_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, u_exact
     )
-    v1 = emat @ omega_proj
+    v1 = gmat @ omega_proj
     v2 = fmat @ u_proj
     assert np.max(np.abs(v1 - v2)) < 1e-13
 
@@ -2527,7 +642,7 @@ def test_advect_dual_non_linear_21_irregular_deformed() -> None:
         v1 = np.asarray(y)
         return np.stack(
             # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
-            (1 + 0 * v0**2 * v1, -1 + 0 * -v0 * v1**3),
+            (0 + 0 * v0**2 * v1, 1 + 0 * -v0 * v1**3),
             axis=-1,
             dtype=np.float64,
         )
@@ -2548,103 +663,31 @@ def test_advect_dual_non_linear_21_irregular_deformed() -> None:
         (v.derivative * u) == v @ 0,
         sorting=lambda f: f.order,
     )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=True, simplify=True)
-        for eq in system.equations
-    ]
-
-    codes: list[list[None | list[MatOpCode | float | int]]] = list()
-    for bite in bytecodes:
-        row: list[list[MatOpCode | float | int] | None] = list()
-        expr_row: list[tuple[MatOp, ...] | None] = list()
-        for f in system.unknown_forms:
-            if f in bite:
-                row.append(translate_to_c_instructions(*bite[f]))
-                expr_row.append(tuple(bite[f]))
-            else:
-                row.append(None)
-                expr_row.append(None)
-
-        codes.append(row)
 
     N = 6
     N2 = 10
 
-    cache = BasisCache(N, N2)
+    int_rule = IntegrationRule1D(N2)
+    basis_1d = Basis1D(N, int_rule)
+    basis_2d = Basis2D(basis_1d, basis_1d)
 
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-    vec_field_offsets = np.zeros(2, np.uint64)
-    e = ElementLeaf2D(None, N, (-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0))
-    # e = ElementLeaf2D(None, N, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
+    corners = np.array(((-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0)), np.float64)
 
-    x = e.poly_x(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    y = e.poly_y(cache.int_nodes_1d[None, :], cache.int_nodes_1d[:, None])
-    func_dict = {omega: omega_exact, u: u_exact}
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is KFormUnknown
-        assert not callable(vec_fld)
-        fn = func_dict[vec_fld]
-        vf = fn(x, y)
-        if vec_fld.order != 1:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
-        vec_field_lists[i].append(vf)
-    vec_field_offsets[1] = vec_field_offsets[0] + (cache.integration_order + 1) ** 2
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    mats = compute_element_matrices(
-        tuple(form.order for form in system.unknown_forms),
-        codes,
-        np.array([e.bottom_left], np.float64),
-        np.array([e.bottom_right], np.float64),
-        np.array([e.top_right], np.float64),
-        np.array([e.top_left], np.float64),
-        np.array((e.order,), np.uint32),
-        vec_fields,
-        vec_field_offsets,
-        (cache.c_serialization(),),
+    emat = compute_system_matrix_nonlin(
+        u_exact, omega_exact, omega, u, system, basis_2d, corners
     )
 
-    emat = mats[0]
     fmat = emat[(N + 1) ** 2 :, (N + 1) ** 2 :]
-    emat = emat[(N + 1) ** 2 :, : (N + 1) ** 2]
-    # print(emat)
+    gmat = emat[(N + 1) ** 2 :, : (N + 1) ** 2]
 
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # plt.imshow(emat)
-    # plt.colorbar()
-    # plt.figure()
-    # plt.imshow(fmat)
-    # plt.colorbar()
-    # plt.figure()
-    # plt.imshow(e.mass_matrix_edge(cache))
-    # plt.colorbar()
-    # plt.show()
-
-    omega_proj = np.linalg.solve(
-        e.mass_matrix_node(cache),
-        _very_old_rhs_2d_element_projection(v @ omega_exact, e, cache),
+    omega_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_0, corners, basis_2d, omega_exact
     )
 
-    u_proj = np.linalg.solve(
-        e.mass_matrix_edge(cache),
-        _very_old_rhs_2d_element_projection(h @ u_exact, e, cache),
+    u_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, u_exact
     )
-    v1 = emat @ omega_proj
+    v1 = gmat @ omega_proj
     v2 = fmat @ u_proj
-
-    # p1 = np.linalg.solve(e.mass_matrix_edge(cache), v1)
-    # p2 = np.linalg.solve(e.mass_matrix_edge(cache), v2)
 
     assert np.max(np.abs(v1 - v2)) < 1e-13

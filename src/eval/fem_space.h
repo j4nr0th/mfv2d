@@ -3,6 +3,20 @@
 
 #include "matrix.h"
 
+typedef enum
+{
+    MASS_0 = 0,
+    MASS_1 = 1,
+    MASS_2 = 2,
+    MASS_0_I = 3,
+    MASS_1_I = 4,
+    MASS_2_I = 5,
+    MASS_CNT,
+} mass_mtx_indices_t;
+
+MFV2D_INTERNAL
+const char *mass_mtx_indices_str(mass_mtx_indices_t v);
+
 /**
  * @brief Type describing FEM space defined by functions in 1D.
  */

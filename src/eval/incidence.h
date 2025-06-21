@@ -6,7 +6,7 @@
 #define INCIDENCE_H
 
 #include "../error.h"
-#include "evaluation.h"
+#include "matrix.h"
 
 MFV2D_INTERNAL
 mfv2d_result_t apply_e10_left(unsigned order, const matrix_full_t *in, matrix_full_t *out,

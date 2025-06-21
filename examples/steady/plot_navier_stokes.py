@@ -197,7 +197,7 @@ solutions, stats = solve_system_2d(
         absolute_tolerance=1e-10,
         relative_tolerance=0,
     ),
-    print_residual=True,
+    print_residual=False,
     recon_order=25,
 )
 print(stats)

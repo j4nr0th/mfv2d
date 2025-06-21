@@ -105,7 +105,7 @@ solutions, stats = solve_system_2d(
         relative_tolerance=0,
     ),
     time_settings=TimeSettings(dt=5, nt=20, time_march_relations={w_vel: vel}),
-    print_residual=True,
+    print_residual=False,
     recon_order=25,
 )
 print(stats)

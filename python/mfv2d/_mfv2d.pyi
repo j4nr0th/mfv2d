@@ -1384,3 +1384,28 @@ def compute_element_mass_matrix(
         Mass matrix (or its inverse if specified) for the appropriate form.
     """
     ...
+@final
+class ElementMassMatrixCache:
+    """Caches element mass matrices."""
+
+    basis: Basis2D
+
+    @property
+    def corners(self) -> npt.NDArray[np.float64]:
+        """Get the element corners as a (4, 2) array."""
+        ...
+
+    @property
+    def mass_node(self) -> npt.NDArray[np.float64]:
+        """Return (cached) node mass matrix."""
+        ...
+
+    @property
+    def mass_edge(self) -> npt.NDArray[np.float64]:
+        """Return (cached) node edge matrix."""
+        ...
+
+    @property
+    def mass_surf(self) -> npt.NDArray[np.float64]:
+        """Return (cached) node surface matrix."""
+        ...

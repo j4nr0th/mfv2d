@@ -172,14 +172,16 @@ class FlexibleElementArray(
 
     def resize_entry(self, i: int, new_size: int | Sequence[int], /) -> None:
         """Change the size of the entry, which also zeroes it."""
+        if np.all(self.shapes[i] == new_size):
+            return
+
         self.shapes[i] = new_size
+        v = list(self.values)
+        v[i] = np.zeros(new_size, self.dtype)
         object.__setattr__(
             self,
             "values",
-            tuple(
-                (np.zeros(self.shapes[i], self.dtype) if j == i else v)
-                for j, v in enumerate(self.values)
-            ),
+            tuple(v),
         )
 
     def copy(

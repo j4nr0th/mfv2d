@@ -32,6 +32,10 @@
     <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="../_static/jupyter-sphinx.css" />
     <link rel="stylesheet" type="text/css" href="../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
@@ -157,6 +161,9 @@
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../basis.html">Mimetic Spectral Elements Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auto_examples/index.html">Examples</a></li>
+
+
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../modules.html">Modules</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="boundary.html">boundary</a></li>
@@ -502,7 +509,7 @@ so that they can be translated into C almost line by line.</p>
 <section id="mesh-geometry">
 <h2>Mesh Geometry<a class="headerlink" href="#mesh-geometry" title="Link to this heading">#</a></h2>
 <p>Mesh geometry is handled by the <a class="reference internal" href="#mfv2d.mimetic2d.Mesh2D" title="mfv2d.mimetic2d.Mesh2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mesh2D</span></code></a> type. This uses
-<code class="xref py py-class docutils literal notranslate"><span class="pre">mfv2d._mfv2d.Manifold2D</span></code> to store its topology and its dual topology,
+<a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Manifold2D" title="mfv2d._mfv2d.Manifold2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">mfv2d._mfv2d.Manifold2D</span></code></a> to store its topology and its dual topology,
 but also contains geometry. It is also equiped with helper methods for
 obtaining elements and plotting with <code class="xref py py-mod docutils literal notranslate"><span class="pre">pyvista</span></code>.</p>
 <dl class="py class">
@@ -551,7 +558,7 @@ can be useful when prescribing boundary conditions.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mfv2d.mimetic2d.Mesh2D.dual">
-<span class="sig-name descname"><span class="pre">dual</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Manifold2D</span></em><a class="headerlink" href="#mfv2d.mimetic2d.Mesh2D.dual" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">dual</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Manifold2D" title="mfv2d._mfv2d.Manifold2D"><span class="pre">Manifold2D</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.Mesh2D.dual" title="Link to this definition">#</a></dt>
 <dd><p>Dual topology of the mesh.</p>
 </dd></dl>
 
@@ -581,7 +588,7 @@ can be useful when prescribing boundary conditions.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mfv2d.mimetic2d.Mesh2D.primal">
-<span class="sig-name descname"><span class="pre">primal</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Manifold2D</span></em><a class="headerlink" href="#mfv2d.mimetic2d.Mesh2D.primal" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">primal</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Manifold2D" title="mfv2d._mfv2d.Manifold2D"><span class="pre">Manifold2D</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.Mesh2D.primal" title="Link to this definition">#</a></dt>
 <dd><p>Primal topology of the mesh.</p>
 </dd></dl>
 
@@ -591,10 +598,10 @@ can be useful when prescribing boundary conditions.</p>
 <section id="caching-basis">
 <h2>Caching Basis<a class="headerlink" href="#caching-basis" title="Link to this heading">#</a></h2>
 <p>Since only a handful of basis and integration orders are ever used in the solve
-and creating <code class="xref py py-class docutils literal notranslate"><span class="pre">mfv2d._mfv2d.Basis1D</span></code> and
-<code class="xref py py-class docutils literal notranslate"><span class="pre">mfv2d._mfv2d.IntegrationRule1D</span></code> both is not extremely cheap, the
+and creating <a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis1D" title="mfv2d._mfv2d.Basis1D"><code class="xref py py-class docutils literal notranslate"><span class="pre">mfv2d._mfv2d.Basis1D</span></code></a> and
+<a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D"><code class="xref py py-class docutils literal notranslate"><span class="pre">mfv2d._mfv2d.IntegrationRule1D</span></code></a> both is not extremely cheap, the
 <a class="reference internal" href="#mfv2d.mimetic2d.FemCache" title="mfv2d.mimetic2d.FemCache"><code class="xref py py-class docutils literal notranslate"><span class="pre">FemCache</span></code></a> is introduced to deal with caching them. It does not
-deal with caching <code class="xref py py-class docutils literal notranslate"><span class="pre">mfv2d._mfv2d.Basis2D</span></code> objects, since they are
+deal with caching <a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">mfv2d._mfv2d.Basis2D</span></code></a> objects, since they are
 just containers for two objects and so are not a significant cost to newly
 construct each time.</p>
 <dl class="py class">
@@ -619,7 +626,7 @@ in the case that it is not specified.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="mfv2d.mimetic2d.FemCache.get_basis1d">
-<span class="sig-name descname"><span class="pre">get_basis1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Basis1D</span></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#FemCache.get_basis1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.FemCache.get_basis1d" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_basis1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis1D" title="mfv2d._mfv2d.Basis1D"><span class="pre">Basis1D</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#FemCache.get_basis1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.FemCache.get_basis1d" title="Link to this definition">#</a></dt>
 <dd><p>Get requested one-dimensional basis.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -633,14 +640,14 @@ then <code class="docutils literal notranslate"><span class="pre">order</span> <
 <dd class="field-even"><p>One-dimensional basis.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Basis1D</p>
+<dd class="field-odd"><p><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis1D" title="mfv2d._mfv2d.Basis1D">Basis1D</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="mfv2d.mimetic2d.FemCache.get_basis2d">
-<span class="sig-name descname"><span class="pre">get_basis2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">order2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_order1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_order2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Basis2D</span></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#FemCache.get_basis2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.FemCache.get_basis2d" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_basis2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">order2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_order1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_order2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#FemCache.get_basis2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.FemCache.get_basis2d" title="Link to this definition">#</a></dt>
 <dd><p>Get two-dimensional basis.</p>
 <p>These are not cached, since there is zero calculations involved in
 their computations.</p>
@@ -659,14 +666,14 @@ it defaults to <code class="docutils literal notranslate"><span class="pre">orde
 <dd class="field-even"><p>Requested two-dimensional basis.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Basis2D</p>
+<dd class="field-odd"><p><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D">Basis2D</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="mfv2d.mimetic2d.FemCache.get_integration_rule">
-<span class="sig-name descname"><span class="pre">get_integration_rule</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">IntegrationRule1D</span></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#FemCache.get_integration_rule"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.FemCache.get_integration_rule" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_integration_rule</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D"><span class="pre">IntegrationRule1D</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#FemCache.get_integration_rule"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.FemCache.get_integration_rule" title="Link to this definition">#</a></dt>
 <dd><p>Return integration rule.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -677,7 +684,7 @@ it defaults to <code class="docutils literal notranslate"><span class="pre">orde
 it was previously not there.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>IntegrationRule1D</p>
+<dd class="field-odd"><p><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D">IntegrationRule1D</a></p>
 </dd>
 </dl>
 </dd></dl>

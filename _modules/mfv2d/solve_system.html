@@ -31,6 +31,10 @@
     <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
     <link rel="stylesheet" type="text/css" href="../../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
@@ -155,6 +159,9 @@
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../basis.html">Mimetic Spectral Elements Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../auto_examples/index.html">Examples</a></li>
+
+
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
@@ -335,6 +342,7 @@ document.write(`
     <span class="n">Mesh2D</span><span class="p">,</span>
     <span class="n">vtk_lagrange_ordering</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.progress</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProgressTracker</span>
 
 <span class="n">OrderDivisionFunction</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span>
     <span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
@@ -2769,6 +2777,7 @@ document.write(`
 <span class="sd">    Based on how the compiled system looks, this may only take a single iteration,</span>
 <span class="sd">    otherwise, it may run for as long as it needs to converge.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">progress_tracker</span><span class="p">:</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">ProgressTracker</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">iter_cnt</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">base_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">explicit_vec</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Make a copy</span>
     <span class="k">if</span> <span class="n">time_carry_term</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -2862,7 +2871,14 @@ document.write(`
         <span class="n">max_residual</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
         <span class="n">residuals</span><span class="p">[</span><span class="n">iter_cnt</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_residual</span>
         <span class="k">if</span> <span class="n">print_residual</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Iteration </span><span class="si">{</span><span class="n">iter_cnt</span><span class="si">}</span><span class="s2"> has residual of </span><span class="si">{</span><span class="n">max_residual</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">progress_tracker</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">progress_tracker</span> <span class="o">=</span> <span class="n">ProgressTracker</span><span class="p">(</span>
+                    <span class="n">atol</span><span class="p">,</span> <span class="n">max_residual</span><span class="p">,</span> <span class="n">max_residual</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">,</span> <span class="n">err_width</span><span class="o">=</span><span class="mi">20</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">progress_tracker</span><span class="o">.</span><span class="n">update_iteration</span><span class="p">(</span><span class="n">max_residual</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">progress_tracker</span><span class="o">.</span><span class="n">state_str</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> - </span><span class="si">{}</span><span class="s2"> | </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># print(f&quot;Iteration {iter_cnt} has residual of {max_residual:.4e}&quot;, end=&quot;\r&quot;)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">max_residual</span> <span class="o">&gt;</span> <span class="n">atol</span> <span class="ow">and</span> <span class="n">max_residual</span> <span class="o">&gt;</span> <span class="n">max_mag</span> <span class="o">*</span> <span class="n">rtol</span><span class="p">):</span>
             <span class="k">break</span>

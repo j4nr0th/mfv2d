@@ -29,6 +29,7 @@ corruption or leaks.
    :caption: Contents:
 
    basis
+   auto_examples/index
    modules
 
 .. bibliography::

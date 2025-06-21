@@ -32,6 +32,10 @@
     <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
     <link rel="stylesheet" type="text/css" href="../_static/jupyter-sphinx.css" />
     <link rel="stylesheet" type="text/css" href="../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
@@ -157,6 +161,9 @@
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../basis.html">Mimetic Spectral Elements Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auto_examples/index.html">Examples</a></li>
+
+
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../modules.html">Modules</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="boundary.html">boundary</a></li>
@@ -321,10 +328,64 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_gll"><code class="docutils literal notranslate"><span class="pre">compute_gll()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basis">Basis</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#topology">Topology</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluating-terms">Evaluating Terms</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#projections">Projections</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basis">Basis</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.IntegrationRule1D"><code class="docutils literal notranslate"><span class="pre">IntegrationRule1D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.IntegrationRule1D.nodes"><code class="docutils literal notranslate"><span class="pre">IntegrationRule1D.nodes</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.IntegrationRule1D.order"><code class="docutils literal notranslate"><span class="pre">IntegrationRule1D.order</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.IntegrationRule1D.weights"><code class="docutils literal notranslate"><span class="pre">IntegrationRule1D.weights</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D"><code class="docutils literal notranslate"><span class="pre">Basis1D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.edge"><code class="docutils literal notranslate"><span class="pre">Basis1D.edge</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.node"><code class="docutils literal notranslate"><span class="pre">Basis1D.node</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.order"><code class="docutils literal notranslate"><span class="pre">Basis1D.order</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.roots"><code class="docutils literal notranslate"><span class="pre">Basis1D.roots</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.rule"><code class="docutils literal notranslate"><span class="pre">Basis1D.rule</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis2D"><code class="docutils literal notranslate"><span class="pre">Basis2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis2D.basis_eta"><code class="docutils literal notranslate"><span class="pre">Basis2D.basis_eta</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis2D.basis_xi"><code class="docutils literal notranslate"><span class="pre">Basis2D.basis_xi</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#topology">Topology</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.GeoID"><code class="docutils literal notranslate"><span class="pre">GeoID</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.GeoID.index"><code class="docutils literal notranslate"><span class="pre">GeoID.index</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.GeoID.reversed"><code class="docutils literal notranslate"><span class="pre">GeoID.reversed</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Line"><code class="docutils literal notranslate"><span class="pre">Line</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Line.begin"><code class="docutils literal notranslate"><span class="pre">Line.begin</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Line.end"><code class="docutils literal notranslate"><span class="pre">Line.end</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Surface"><code class="docutils literal notranslate"><span class="pre">Surface</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D"><code class="docutils literal notranslate"><span class="pre">Manifold2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.compute_dual"><code class="docutils literal notranslate"><span class="pre">Manifold2D.compute_dual()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.dimension"><code class="docutils literal notranslate"><span class="pre">Manifold2D.dimension</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.from_irregular"><code class="docutils literal notranslate"><span class="pre">Manifold2D.from_irregular()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.from_regular"><code class="docutils literal notranslate"><span class="pre">Manifold2D.from_regular()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.get_line"><code class="docutils literal notranslate"><span class="pre">Manifold2D.get_line()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.get_surface"><code class="docutils literal notranslate"><span class="pre">Manifold2D.get_surface()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.n_lines"><code class="docutils literal notranslate"><span class="pre">Manifold2D.n_lines</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.n_points"><code class="docutils literal notranslate"><span class="pre">Manifold2D.n_points</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.n_surfaces"><code class="docutils literal notranslate"><span class="pre">Manifold2D.n_surfaces</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluating-terms">Evaluating Terms</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_element_matrix"><code class="docutils literal notranslate"><span class="pre">compute_element_matrix()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_element_vector"><code class="docutils literal notranslate"><span class="pre">compute_element_vector()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#projections">Projections</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_element_mass_matrix"><code class="docutils literal notranslate"><span class="pre">compute_element_mass_matrix()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_element_projector"><code class="docutils literal notranslate"><span class="pre">compute_element_projector()</span></code></a></li>
+</ul>
+</li>
 </ul>
             </nav>
         </div>
@@ -350,7 +411,7 @@ also preserve accuracy for large degrees of these polynomials.</p>
 and associated integration weights.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="mfv2d._mfv2d.lagrange1d">
-<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">lagrange1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">roots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">array</span></span></span><a class="reference internal" href="../_modules/mfv2d/_mfv2d.html#lagrange1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d._mfv2d.lagrange1d" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">lagrange1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">roots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">array</span></span></span><a class="headerlink" href="#mfv2d._mfv2d.lagrange1d" title="Link to this definition">#</a></dt>
 <dd><p>Evaluate Lagrange polynomials.</p>
 <p>This function efficiently evaluates Lagrange basis polynomials, defined by</p>
 <div class="math notranslate nohighlight">
@@ -477,7 +538,7 @@ well (in this case, the 52 polynomials are each evaluated at 1025 points).</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Calculations took  9.027630e-04 seconds.
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Calculations took  8.374610e-04 seconds.
 </pre></div>
 </div>
 <img alt="../_images/_mfv2d_4_1.png" src="../_images/_mfv2d_4_1.png" />
@@ -487,15 +548,14 @@ well (in this case, the 52 polynomials are each evaluated at 1025 points).</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="mfv2d._mfv2d.dlagrange1d">
-<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">dlagrange1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">roots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Buffer" title="(in Python v3.13)"><span class="pre">Buffer</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">_SupportsArray</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">_NestedSequence</span><span class="p"><span class="pre">[</span></span><span class="pre">_SupportsArray</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#complex" title="(in Python v3.13)"><span class="pre">complex</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bytes" title="(in Python v3.13)"><span class="pre">bytes</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">_NestedSequence</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#complex" title="(in Python v3.13)"><span class="pre">complex</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bytes" title="(in Python v3.13)"><span class="pre">bytes</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Buffer" title="(in Python v3.13)"><span class="pre">Buffer</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">_SupportsArray</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">_NestedSequence</span><span class="p"><span class="pre">[</span></span><span class="pre">_SupportsArray</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#complex" title="(in Python v3.13)"><span class="pre">complex</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bytes" title="(in Python v3.13)"><span class="pre">bytes</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">_NestedSequence</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#complex" title="(in Python v3.13)"><span class="pre">complex</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bytes" title="(in Python v3.13)"><span class="pre">bytes</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/_mfv2d.html#dlagrange1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d._mfv2d.dlagrange1d" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">dlagrange1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">roots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">array</span></span></span><a class="headerlink" href="#mfv2d._mfv2d.dlagrange1d" title="Link to this definition">#</a></dt>
 <dd><p>Evaluate derivatives of Lagrange polynomials.</p>
 <p>This function efficiently evaluates Lagrange basis polynomials derivatives, defined by</p>
 <div class="math notranslate nohighlight">
 \[\frac{d \mathcal{L}^n_i (x)}{d x} =
 \sum\limits_{j=0,j \neq i}^n \prod\limits_{k=0, k \neq i, k \neq j}^{n}
 \frac{1}{x_i - x_j} \cdot \frac{x - x_k}{x_i - x_k},\]</div>
-<p>where the <code class="docutils literal notranslate"><span class="pre">roots</span></code> specifies the zeros of the Polynomials
-<span class="math notranslate nohighlight">\(\{x_0, \dots, x_n\}\)</span>.</p>
+<p>where the <code class="docutils literal notranslate"><span class="pre">roots</span></code> specifies the zeros of the Polynomials <span class="math notranslate nohighlight">\(\{x_0, \dots, x_n\}\)</span>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -514,8 +574,8 @@ dimension added, the length of which is <code class="docutils literal notranslat
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<p>This example here shows the most basic use of the function to evaluate derivatives of
-Lagrange polynomials. First, let us define the roots.</p>
+<p>This example here shows the most basic use of the function to evaluate derivatives of Lagrange
+polynomials. First, let us define the roots.</p>
 <div class="jupyter_cell jupyter_container docutils container">
 <div class="cell_input code_cell docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -617,7 +677,7 @@ well (in this case, the 52 polynomials are each evaluated at 1025 points).</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Calculations took  3.012636e-02 seconds.
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Calculations took  3.029082e-02 seconds.
 </pre></div>
 </div>
 <img alt="../_images/_mfv2d_9_1.png" src="../_images/_mfv2d_9_1.png" />
@@ -627,7 +687,7 @@ well (in this case, the 52 polynomials are each evaluated at 1025 points).</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="mfv2d._mfv2d.compute_gll">
-<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">compute_gll</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-15</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/_mfv2d.html#compute_gll"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d._mfv2d.compute_gll" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">compute_gll</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-15</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><span class="pre">array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">array</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#mfv2d._mfv2d.compute_gll" title="Link to this definition">#</a></dt>
 <dd><p>Compute Gauss-Legendre-Lobatto integration nodes and weights.</p>
 <p>If you are often re-using these, consider caching them.</p>
 <dl class="field-list simple">
@@ -681,29 +741,291 @@ might cause an exception to be raised to do failiure to converge.</p>
 <section id="basis">
 <h2>Basis<a class="headerlink" href="#basis" title="Link to this heading">#</a></h2>
 <p>In order to define a set of basis, which can be integrated, an integration
-rule is defined by an <code class="xref py py-class docutils literal notranslate"><span class="pre">IntegrationRule1D</span></code>. This is essentially wrapped
+rule is defined by an <a class="reference internal" href="#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntegrationRule1D</span></code></a>. This is essentially wrapped
 result of <a class="reference internal" href="#mfv2d._mfv2d.compute_gll" title="mfv2d._mfv2d.compute_gll"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_gll()</span></code></a>, but as an object.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.IntegrationRule1D">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">IntegrationRule1D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mfv2d._mfv2d.IntegrationRule1D" title="Link to this definition">#</a></dt>
+<dd><p>Type used to contain integration rule information.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of integration rule used. Can not be negative.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.IntegrationRule1D.nodes">
+<span class="sig-name descname"><span class="pre">nodes</span></span><a class="headerlink" href="#mfv2d._mfv2d.IntegrationRule1D.nodes" title="Link to this definition">#</a></dt>
+<dd><p>Position of integration nodes on the reference domain [-1, +1]
+where the integrated function should be evaluated.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.IntegrationRule1D.order">
+<span class="sig-name descname"><span class="pre">order</span></span><a class="headerlink" href="#mfv2d._mfv2d.IntegrationRule1D.order" title="Link to this definition">#</a></dt>
+<dd><p>order of the rule</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.IntegrationRule1D.weights">
+<span class="sig-name descname"><span class="pre">weights</span></span><a class="headerlink" href="#mfv2d._mfv2d.IntegrationRule1D.weights" title="Link to this definition">#</a></dt>
+<dd><p>Weight values by which the values of evaluated function should be
+multiplied by.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <p>Based on an integration rule, one-dimensional basis can be defined with the
-<code class="xref py py-class docutils literal notranslate"><span class="pre">Basis1D</span></code> type. This</p>
+<a class="reference internal" href="#mfv2d._mfv2d.Basis1D" title="mfv2d._mfv2d.Basis1D"><code class="xref py py-class docutils literal notranslate"><span class="pre">Basis1D</span></code></a> type. This</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Basis1D">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">Basis1D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">rule</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D"><span class="pre">IntegrationRule1D</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mfv2d._mfv2d.Basis1D" title="Link to this definition">#</a></dt>
+<dd><p>One-dimensional basis functions collection used for FEM space creation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of basis used.</p></li>
+<li><p><strong>rule</strong> (<a class="reference internal" href="#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D"><em>IntegrationRule1D</em></a>) – Integration rule for basis creation.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>An example of how these basis might look for a 3-rd order
+element is shown bellow.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Basis1D</span><span class="p">,</span> <span class="n">IntegrationRule1D</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="c1">#Make a high order rule to make it easy to visualize</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">rule</span> <span class="o">=</span> <span class="n">IntegrationRule1D</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">31</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">basis</span> <span class="o">=</span> <span class="n">Basis1D</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">rule</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>Now the nodal basis can be plotted:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+<span class="o">...</span>     <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span> <span class="n">basis</span><span class="o">.</span><span class="n">node</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;$b_</span><span class="se">{{</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">}}</span><span class="s2">$&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">xi$&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Nodal basis&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../_images/_mfv2d_12_0.png" src="../_images/_mfv2d_12_0.png" />
+</div>
+</div>
+<p>Edge basis can also be shown:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">order</span><span class="p">):</span>
+<span class="o">...</span>     <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span> <span class="n">basis</span><span class="o">.</span><span class="n">edge</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;$e_</span><span class="se">{{</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">}}</span><span class="s2">$&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">xi$&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Edge basis&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../_images/_mfv2d_13_0.png" src="../_images/_mfv2d_13_0.png" />
+</div>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Basis1D.edge">
+<span class="sig-name descname"><span class="pre">edge</span></span><a class="headerlink" href="#mfv2d._mfv2d.Basis1D.edge" title="Link to this definition">#</a></dt>
+<dd><p>Edge basis values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Basis1D.node">
+<span class="sig-name descname"><span class="pre">node</span></span><a class="headerlink" href="#mfv2d._mfv2d.Basis1D.node" title="Link to this definition">#</a></dt>
+<dd><p>Nodal basis values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Basis1D.order">
+<span class="sig-name descname"><span class="pre">order</span></span><a class="headerlink" href="#mfv2d._mfv2d.Basis1D.order" title="Link to this definition">#</a></dt>
+<dd><p>Order of the basis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Basis1D.roots">
+<span class="sig-name descname"><span class="pre">roots</span></span><a class="headerlink" href="#mfv2d._mfv2d.Basis1D.roots" title="Link to this definition">#</a></dt>
+<dd><p>Roots of the nodal basis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Basis1D.rule">
+<span class="sig-name descname"><span class="pre">rule</span></span><a class="headerlink" href="#mfv2d._mfv2d.Basis1D.rule" title="Link to this definition">#</a></dt>
+<dd><p>integration rule used</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D">IntegrationRule1D</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <p>Two dimensional basis are constructed from tensor products of one-dimensional
-basis. As such the <code class="xref py py-class docutils literal notranslate"><span class="pre">Basis2D</span></code> type is merely a container for two
+basis. As such the <a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">Basis2D</span></code></a> type is merely a container for two
 one-dimensional basis.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Basis2D">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">Basis2D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">basis_xi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.Basis1D" title="mfv2d._mfv2d.Basis1D"><span class="pre">Basis1D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis_eta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.Basis1D" title="mfv2d._mfv2d.Basis1D"><span class="pre">Basis1D</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mfv2d._mfv2d.Basis2D" title="Link to this definition">#</a></dt>
+<dd><p>Two dimensional basis resulting from a tensor product of one dimensional basis.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Basis2D.basis_eta">
+<span class="sig-name descname"><span class="pre">basis_eta</span></span><a class="headerlink" href="#mfv2d._mfv2d.Basis2D.basis_eta" title="Link to this definition">#</a></dt>
+<dd><p>Basis used for the Eta direction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#mfv2d._mfv2d.Basis1D" title="mfv2d._mfv2d.Basis1D">Basis1D</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Basis2D.basis_xi">
+<span class="sig-name descname"><span class="pre">basis_xi</span></span><a class="headerlink" href="#mfv2d._mfv2d.Basis2D.basis_xi" title="Link to this definition">#</a></dt>
+<dd><p>Basis used for the Xi direction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#mfv2d._mfv2d.Basis1D" title="mfv2d._mfv2d.Basis1D">Basis1D</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="topology">
 <h2>Topology<a class="headerlink" href="#topology" title="Link to this heading">#</a></h2>
 <p>Toplogy information is used when constructing continuity constraints on degrees
 of freedom. As such, these types allow for very quick and precice lookup of
 neighbours, computations of duals, and other required operations.</p>
-<p>The base building block is the <code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code> type, which is a combination of
+<p>The base building block is the <a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code></a> type, which is a combination of
 a geometrical object’s index and an indicator of its orientation. Often time
-functions will allow <code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code> arguments to be replaced by 1-based integer
+functions will allow <a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code></a> arguments to be replaced by 1-based integer
 index, with its sign indicating orientation.</p>
-<p>The index of a <code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code> can also be considered invalid. For functions
-that allow integer along with <code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code> this would correspond to passing
+<p>The index of a <a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code></a> can also be considered invalid. For functions
+that allow integer along with <a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code></a> this would correspond to passing
 the value of 0. In that case a value would be equivalent to <code class="docutils literal notranslate"><span class="pre">False</span></code> in
 any boolean context.</p>
-<p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">Line</span></code> is a one-dimensional topological object that connects two
-points with their respective <code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code> indices. For a dual line,
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.GeoID">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">GeoID</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mfv2d._mfv2d.GeoID" title="Link to this definition">#</a></dt>
+<dd><p>Type used to identify a geometrical object with an index and orientation.</p>
+<p>For many functions which take <a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code></a> argument(s), a 1-based integer
+index can be used instead, with negative values indicating reverse orientation
+and the value of <code class="docutils literal notranslate"><span class="pre">0</span></code> indicating an invalid value.</p>
+<p>There are also some convenience operators implemented on this type, such as
+the negation operator to negate orientation, as well as a comparison operator,
+which allows for comparison of GeoIDs with one another, as well as with <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>
+objects to check if they are indeed equivalent.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Index of the geometrical object. Can not be negative.</p></li>
+<li><p><strong>reverse</strong> (<em>any</em><em>, </em><em>default: False</em>) – The object’s orientation should be reversed.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>Here are some examples of how these objects can be used:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoID</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">id1</span> <span class="o">=</span> <span class="n">GeoID</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">id1</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="o">-</span><span class="n">id1</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="o">-</span><span class="n">id1</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span>
+<span class="kc">True</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>+0
+-0
+</pre></div>
+</div>
+<div class="output text_plain highlight-none notranslate"><div class="highlight"><pre><span></span>True
+</pre></div>
+</div>
+</div>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.GeoID.index">
+<span class="sig-name descname"><span class="pre">index</span></span><a class="headerlink" href="#mfv2d._mfv2d.GeoID.index" title="Link to this definition">#</a></dt>
+<dd><p>Index of the object referenced by id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.GeoID.reversed">
+<span class="sig-name descname"><span class="pre">reversed</span></span><a class="headerlink" href="#mfv2d._mfv2d.GeoID.reversed" title="Link to this definition">#</a></dt>
+<dd><p>Is the orientation of the object reversed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<p>A <a class="reference internal" href="#mfv2d._mfv2d.Line" title="mfv2d._mfv2d.Line"><code class="xref py py-class docutils literal notranslate"><span class="pre">Line</span></code></a> is a one-dimensional topological object that connects two
+points with their respective <a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code></a> indices. For a dual line,
 point indices indicate indices of primal surfaces valid index, with its
 orientation indicating whether or not the line was in the surface in its
 positive or negative orientation.</p>
@@ -711,14 +1033,370 @@ positive or negative orientation.</p>
 This happens when a primal line is on the external boundary of the manifold.
 In that case, the side which has no valid index is comming from bordering on
 no surfaces on that side.</p>
-<p>The last of the topological primitives is the <code class="xref py py-class docutils literal notranslate"><span class="pre">Surface</span></code>. Surfaces
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Line">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">Line</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">begin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><span class="pre">GeoID</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><span class="pre">GeoID</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mfv2d._mfv2d.Line" title="Link to this definition">#</a></dt>
+<dd><p>Geometrical object, which connects two points.</p>
+<p>Lines can also be converted into <a class="reference external" href="https://numpy.org/doc/stable/reference/index.html#module-numpy" title="(in NumPy v2.3)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">numpy</span></code></a> arrays directly,
+which essentially converts their beginning and end indices into
+integers equivalent to their <a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><code class="xref py py-class docutils literal notranslate"><span class="pre">GeoID</span></code></a> values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>begin</strong> (<a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><em>GeoID</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – ID of the point where the line beings.</p></li>
+<li><p><strong>end</strong> (<a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><em>GeoID</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – ID of the point where the line ends.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>This section just serves to briefly illustrate how a line can be used.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Line</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">ln</span> <span class="o">=</span> <span class="n">Line</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">ln</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="c1"># this one has an invalid point</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">ln2</span> <span class="o">=</span> <span class="n">Line</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ln2</span><span class="p">))</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">ln2</span><span class="o">.</span><span class="n">begin</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>(+0 -&gt; +1)
+[-2147483648           3]
+False
+</pre></div>
+</div>
+</div>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Line.begin">
+<span class="sig-name descname"><span class="pre">begin</span></span><a class="headerlink" href="#mfv2d._mfv2d.Line.begin" title="Link to this definition">#</a></dt>
+<dd><p>ID of the point where the line beings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID">GeoID</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Line.end">
+<span class="sig-name descname"><span class="pre">end</span></span><a class="headerlink" href="#mfv2d._mfv2d.Line.end" title="Link to this definition">#</a></dt>
+<dd><p>ID of the point where the line ends.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID">GeoID</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<p>The last of the topological primitives is the <a class="reference internal" href="#mfv2d._mfv2d.Surface" title="mfv2d._mfv2d.Surface"><code class="xref py py-class docutils literal notranslate"><span class="pre">Surface</span></code></a>. Surfaces
 consist of an arbitraty number of lines. This is because dual surfaces
 corresponding to nodes on the corners of a mesh will in almost all cases
 have a number of lines different than four.</p>
-<p>Surfaces can together form a <code class="xref py py-class docutils literal notranslate"><span class="pre">Manifold2D</span></code> object. This is a
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Surface">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">Surface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">ids</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><span class="pre">GeoID</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mfv2d._mfv2d.Surface" title="Link to this definition">#</a></dt>
+<dd><p>Two dimensional geometrical object, which is bound by lines.</p>
+<p>Since surface can contain a variable number of lines, it has methods
+based on containers, such as <code class="docutils literal notranslate"><span class="pre">len</span></code>, which allow for iterations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>*ids</strong> (<a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><em>GeoID</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Ids of the lines which are the boundary of the surface.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>Some examples of what can be done with surfaces are presented here.</p>
+<p>First, the length of the surface can be obtained by using <a class="reference external" href="https://docs.python.org/3/library/functions.html#len" title="(in Python v3.13)"><code class="xref py py-func docutils literal notranslate"><span class="pre">len()</span></code></a> build-in.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoID</span><span class="p">,</span> <span class="n">Surface</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">surf</span> <span class="o">=</span> <span class="n">Surface</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">4</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">surf</span><span class="p">)</span>
+<span class="mi">4</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-none notranslate"><div class="highlight"><pre><span></span>4
+</pre></div>
+</div>
+</div>
+</div>
+<p>Next, the surface can be iterated over:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">gid</span> <span class="ow">in</span> <span class="n">surf</span><span class="p">:</span>
+<span class="o">...</span>     <span class="nb">print</span><span class="p">(</span><span class="n">gid</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>+0
++1
++2
+-3
+</pre></div>
+</div>
+</div>
+</div>
+<p>The surface can also be converted into a <a class="reference external" href="https://numpy.org/doc/stable/reference/index.html#module-numpy" title="(in NumPy v2.3)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">numpy</span></code></a> array directly.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">surf</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>[ 1  2  3 -4]
+</pre></div>
+</div>
+</div>
+</div>
+</dd></dl>
+
+<p>Surfaces can together form a <a class="reference internal" href="#mfv2d._mfv2d.Manifold2D" title="mfv2d._mfv2d.Manifold2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">Manifold2D</span></code></a> object. This is a
 collection of surfaces which supports most of needed topological
 operations. It is used as the main workhorse of
 <a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.Mesh2D" title="mfv2d.mimetic2d.Mesh2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">mfv2d.mimetic2d.Mesh2D</span></code></a> functionality.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">Manifold2D</span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D" title="Link to this definition">#</a></dt>
+<dd><p>Two dimensional manifold consisting of surfaces made of lines.
+.. rubric:: Examples</p>
+<p>This is an example of how a manifold may be used:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Manifold2D</span><span class="p">,</span> <span class="n">Surface</span><span class="p">,</span> <span class="n">Line</span><span class="p">,</span> <span class="n">GeoID</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">triangle</span> <span class="o">=</span> <span class="n">Manifold2D</span><span class="o">.</span><span class="n">from_regular</span><span class="p">(</span>
+<span class="o">...</span>     <span class="mi">3</span><span class="p">,</span>
+<span class="o">...</span>     <span class="p">[</span><span class="n">Line</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">Line</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">Line</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+<span class="o">...</span>     <span class="p">[</span><span class="n">Surface</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">3</span><span class="p">)],</span>
+<span class="o">...</span> <span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">triangle</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Manifold2D(3 points, 3 lines, 1 surfaces)
+</pre></div>
+</div>
+</div>
+</div>
+<p>The previous case only had one surface. In that case, or if all surface
+have the same number of lines, the class method <a class="reference internal" href="#mfv2d._mfv2d.Manifold2D.from_regular" title="mfv2d._mfv2d.Manifold2D.from_regular"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Manifold2D.from_regular()</span></code></a>
+can be used. If the surface do not have the same number of lines, that can not be
+used. Instead, the <a class="reference internal" href="#mfv2d._mfv2d.Manifold2D.from_irregular" title="mfv2d._mfv2d.Manifold2D.from_irregular"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Manifold2D.from_irregular()</span></code></a> class method should be used.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="n">house</span> <span class="o">=</span> <span class="n">Manifold2D</span><span class="o">.</span><span class="n">from_irregular</span><span class="p">(</span>
+<span class="o">...</span>     <span class="mi">5</span><span class="p">,</span>
+<span class="o">...</span>     <span class="p">[</span>
+<span class="o">...</span>         <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="c1">#Square</span>
+<span class="o">...</span>         <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="c1"># Roof</span>
+<span class="o">...</span>     <span class="p">],</span>
+<span class="o">...</span>     <span class="p">[</span>
+<span class="o">...</span>         <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="c1"># Square</span>
+<span class="o">...</span>         <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>   <span class="c1"># Triangle</span>
+<span class="o">...</span>     <span class="p">]</span>
+<span class="o">...</span> <span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">house</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Manifold2D(5 points, 6 lines, 2 surfaces)
+</pre></div>
+</div>
+</div>
+</div>
+<p>From these manifolds, surfaces or edges can be querried back. This is mostly useful
+when the dual is also computed, which allows to obtain information about neighbouring
+objects. For example, if we want to know what points are neighbours of point with
+index 2, we would do the following:</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="n">pt_id</span> <span class="o">=</span> <span class="n">GeoID</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">dual</span> <span class="o">=</span> <span class="n">house</span><span class="o">.</span><span class="n">compute_dual</span><span class="p">()</span> <span class="c1"># Get the dual manifold</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="c1"># Dual surface corresponding to primal point 1</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">dual_surface</span> <span class="o">=</span> <span class="n">dual</span><span class="o">.</span><span class="n">get_surface</span><span class="p">(</span><span class="n">pt_id</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">dual_surface</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">line_id</span> <span class="ow">in</span> <span class="n">dual_surface</span><span class="p">:</span>
+<span class="o">...</span>     <span class="k">if</span> <span class="ow">not</span> <span class="n">line_id</span><span class="p">:</span>
+<span class="o">...</span>         <span class="k">continue</span>
+<span class="o">...</span>     <span class="n">primal_line</span> <span class="o">=</span> <span class="n">house</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">line_id</span><span class="p">)</span>
+<span class="o">...</span>     <span class="k">if</span> <span class="n">primal_line</span><span class="o">.</span><span class="n">begin</span> <span class="o">==</span> <span class="n">pt_id</span><span class="p">:</span>
+<span class="o">...</span>         <span class="n">pt</span> <span class="o">=</span> <span class="n">primal_line</span><span class="o">.</span><span class="n">end</span>
+<span class="o">...</span>     <span class="k">else</span><span class="p">:</span>
+<span class="o">...</span>         <span class="k">assert</span> <span class="n">primal_line</span><span class="o">.</span><span class="n">end</span> <span class="o">==</span> <span class="n">pt_id</span>
+<span class="o">...</span>         <span class="n">pt</span> <span class="o">=</span> <span class="n">primal_line</span><span class="o">.</span><span class="n">begin</span>
+<span class="o">...</span>     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Point </span><span class="si">{</span><span class="n">pt_id</span><span class="si">}</span><span class="s2"> neighbours point </span><span class="si">{</span><span class="n">pt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>(-0 -&gt; +1 -&gt; -5 -&gt;)
+Point +1 neighbours point +0
+Point +1 neighbours point +2
+Point +1 neighbours point +4
+</pre></div>
+</div>
+</div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D.compute_dual">
+<span class="sig-name descname"><span class="pre">compute_dual</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d._mfv2d.Manifold2D" title="mfv2d._mfv2d.Manifold2D"><span class="pre">Manifold2D</span></a></span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D.compute_dual" title="Link to this definition">#</a></dt>
+<dd><p>Compute the dual to the manifold.</p>
+<p>A dual of each k-dimensional object in an n-dimensional space is a
+(n-k)-dimensional object. This means that duals of surfaces are points,
+duals of lines are also lines, and that the duals of points are surfaces.</p>
+<p>A dual line connects the dual points which correspond to surfaces which
+the line was a part of. Since the change over a line is computed by
+subtracting the value at the beginning from that at the end, the dual point
+which corresponds to the primal surface where the primal line has a
+positive orientation is the end point of the dual line and conversely the end
+dual point is the one corresponding to the surface which contained the primal
+line in the negative orientation. Since lines may only be contained in a
+single primal surface, they may have an invalid ID as either their beginning or
+their end. This can be used to determine if the line is actually a boundary of
+the manifold.</p>
+<p>A dual surface corresponds to a point and contains dual lines which correspond
+to primal lines, which contained the primal point of which the dual surface is
+the result of. The orientation of dual lines in this dual surface is positive if
+the primal line of which they are duals originated in the primal point in question
+and negative if it was their end point.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dual manifold.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#mfv2d._mfv2d.Manifold2D" title="mfv2d._mfv2d.Manifold2D">Manifold2D</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D.dimension">
+<span class="sig-name descname"><span class="pre">dimension</span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D.dimension" title="Link to this definition">#</a></dt>
+<dd><p>Dimension of the manifold.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D.from_irregular">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_irregular</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_connectivity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface_connectivity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">array_like</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Self</span></span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D.from_irregular" title="Link to this definition">#</a></dt>
+<dd><p>Create Manifold2D from surfaces with non-constant number of lines.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Number of points in the mesh.</p></li>
+<li><p><strong>line_connectivity</strong> (<em>(</em><em>N</em><em>, </em><em>2</em><em>) </em><em>array_like</em>) – Connectivity of points which form lines in 0-based indexing.</p></li>
+<li><p><strong>surface_connectivity</strong> (<em>Sequence</em><em> of </em><em>array_like</em>) – Sequence of arrays specifying connectivity of mesh surfaces in 1-based
+indexing, where a negative value means that the line’s orientation is
+reversed.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Two dimensional manifold.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Self</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D.from_regular">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_regular</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_connectivity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface_connectivity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Self</span></span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D.from_regular" title="Link to this definition">#</a></dt>
+<dd><p>Create Manifold2D from surfaces with constant number of lines.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Number of points in the mesh.</p></li>
+<li><p><strong>line_connectivity</strong> (<em>(</em><em>N</em><em>, </em><em>2</em><em>) </em><em>array_like</em>) – Connectivity of points which form lines in 0-based indexing.</p></li>
+<li><p><strong>surface_connectivity</strong> (<em>array_like</em>) – Two dimensional array-like object specifying connectivity of mesh
+surfaces in 1-based indexing, where a negative value means that
+the line’s orientation is reversed.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Two dimensional manifold.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Self</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D.get_line">
+<span class="sig-name descname"><span class="pre">get_line</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><span class="pre">GeoID</span></a></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d._mfv2d.Line" title="mfv2d._mfv2d.Line"><span class="pre">Line</span></a></span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D.get_line" title="Link to this definition">#</a></dt>
+<dd><p>Get the line from the mesh.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> or </em><a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><em>GeoID</em></a>) – Id of the line to get in 1-based indexing or GeoID. If negative,
+the orientation will be reversed.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Line object corresponding to the ID.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#mfv2d._mfv2d.Line" title="mfv2d._mfv2d.Line">Line</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D.get_surface">
+<span class="sig-name descname"><span class="pre">get_surface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><span class="pre">GeoID</span></a></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d._mfv2d.Surface" title="mfv2d._mfv2d.Surface"><span class="pre">Surface</span></a></span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D.get_surface" title="Link to this definition">#</a></dt>
+<dd><p>Get the surface from the mesh.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> or </em><a class="reference internal" href="#mfv2d._mfv2d.GeoID" title="mfv2d._mfv2d.GeoID"><em>GeoID</em></a>) – Id of the surface to get in 1-based indexing or GeoID. If negative,
+the orientation will be reversed.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Surface object corresponding to the ID.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#mfv2d._mfv2d.Surface" title="mfv2d._mfv2d.Surface">Surface</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D.n_lines">
+<span class="sig-name descname"><span class="pre">n_lines</span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D.n_lines" title="Link to this definition">#</a></dt>
+<dd><p>Number of lines in the mesh.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D.n_points">
+<span class="sig-name descname"><span class="pre">n_points</span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D.n_points" title="Link to this definition">#</a></dt>
+<dd><p>Number of points in the mesh.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.Manifold2D.n_surfaces">
+<span class="sig-name descname"><span class="pre">n_surfaces</span></span><a class="headerlink" href="#mfv2d._mfv2d.Manifold2D.n_surfaces" title="Link to this definition">#</a></dt>
+<dd><p>Number of surfaces in the mesh.</p>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="evaluating-terms">
 <h2>Evaluating Terms<a class="headerlink" href="#evaluating-terms" title="Link to this heading">#</a></h2>
@@ -729,27 +1407,122 @@ translation and generation is handled by the <code class="xref py py-mod docutil
 so as far as <code class="xref py py-mod docutils literal notranslate"><span class="pre">mfv2d._mfv2d</span></code> code is concerned, it receives parsed
 bytecode it just needs to execute.</p>
 <p>One of the most important functions in the entire module is
-<code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_matrix()</span></code>. This can be used to generate individual
+<a class="reference internal" href="#mfv2d._mfv2d.compute_element_matrix" title="mfv2d._mfv2d.compute_element_matrix"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_matrix()</span></code></a>. This can be used to generate individual
 element matrices for the system, which can then be combined into the
 global system matrix.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.compute_element_matrix">
+<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">compute_element_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">form_orders</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expressions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">_CompiledCodeMatrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corners</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_fields</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">stack_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span> <span class="pre">&lt;&lt;</span> <span class="pre">24</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">NDArray</span></span></span><a class="headerlink" href="#mfv2d._mfv2d.compute_element_matrix" title="Link to this definition">#</a></dt>
+<dd><p>Compute a single element matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>form_orders</strong> (<em>Sequence</em><em> of </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Orders of differential forms for the degrees of freedom. Must be between 0 and 2.</p></li>
+<li><p><strong>expressions</strong> – Compiled bytecode to execute.</p></li>
+<li><p><strong>corners</strong> (<em>(</em><em>4</em><em>, </em><em>2</em><em>) </em><em>array</em>) – Array of corners of the element.</p></li>
+<li><p><strong>vector_fields</strong> (<em>Sequence</em><em> of </em><em>arrays</em>) – Vector field arrays as required for interior product evaluations.</p></li>
+<li><p><strong>basis</strong> (<a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><em>Basis2D</em></a>) – Basis functions with integration rules to use.</p></li>
+<li><p><strong>stack_memory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><em>default: 1 &lt;&lt; 24</em>) – Amount of memory to use for the evaluation stack.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Element matrix for the specified system.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
 <p>If evaluation of the product of the solution vector with the matrix is
-needed, instead of computing it with <code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_matrix()</span></code>, it can
-instead be obtained from <code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_vector()</span></code>. This is especially
+needed, instead of computing it with <a class="reference internal" href="#mfv2d._mfv2d.compute_element_matrix" title="mfv2d._mfv2d.compute_element_matrix"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_matrix()</span></code></a>, it can
+instead be obtained from <a class="reference internal" href="#mfv2d._mfv2d.compute_element_vector" title="mfv2d._mfv2d.compute_element_vector"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_vector()</span></code></a>. This is especially
 useful for non-linear terms, since they would require matrices to be evaulated
 at every iteration.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.compute_element_vector">
+<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">compute_element_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">form_orders</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expressions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">_CompiledCodeMatrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corners</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_fields</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stack_memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span> <span class="pre">&lt;&lt;</span> <span class="pre">24</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">array</span></span></span><a class="headerlink" href="#mfv2d._mfv2d.compute_element_vector" title="Link to this definition">#</a></dt>
+<dd><p>Compute a single element forcing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>form_orders</strong> (<em>Sequence</em><em> of </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Orders of differential forms for the degrees of freedom. Must be between 0 and 2.</p></li>
+<li><p><strong>expressions</strong> – Compiled bytecode to execute.</p></li>
+<li><p><strong>corners</strong> (<em>(</em><em>4</em><em>, </em><em>2</em><em>) </em><em>array</em>) – Array of corners of the element.</p></li>
+<li><p><strong>vector_fields</strong> (<em>Sequence</em><em> of </em><em>arrays</em>) – Vector field arrays as required for interior product evaluations.</p></li>
+<li><p><strong>basis</strong> (<a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><em>Basis2D</em></a>) – Basis functions with integration rules to use.</p></li>
+<li><p><strong>solution</strong> (<em>array</em>) – Array with degrees of freedom for the element.</p></li>
+<li><p><strong>stack_memory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><em>default: 1 &lt;&lt; 24</em>) – Amount of memory to use for the evaluation stack.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Element vector for the specified system.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 <section id="projections">
 <h2>Projections<a class="headerlink" href="#projections" title="Link to this heading">#</a></h2>
 <p>There are two functions related to projection of degrees of freedom. These are
 concerned with two different types of projection. First is the less intuitive
 one and is the the projection between primal and dual degrees of freedom.
-This is done by the <code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_mass_matrix()</span></code> function, which does
+This is done by the <a class="reference internal" href="#mfv2d._mfv2d.compute_element_mass_matrix" title="mfv2d._mfv2d.compute_element_mass_matrix"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_mass_matrix()</span></code></a> function, which does
 exactly as its name would suggest.</p>
-<p>The second kind of projection is from a lower order <code class="xref py py-class docutils literal notranslate"><span class="pre">Basis2D</span></code> to
-higher order <code class="xref py py-class docutils literal notranslate"><span class="pre">Basis2D</span></code> or vice versa. This is performed by the
-matrices computed by <code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_projector()</span></code>. If its resulting
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.compute_element_mass_matrix">
+<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">compute_element_mass_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">form_orders</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">UnknownFormOrders</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corners</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">inverse</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">array</span></span></span><a class="headerlink" href="#mfv2d._mfv2d.compute_element_mass_matrix" title="Link to this definition">#</a></dt>
+<dd><p>Compute mass matrix for a given element.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>form_order</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><em>UnknownFormOrder</em></a>) – Order of the form for which the mass matrix should be computed.</p></li>
+<li><p><strong>corners</strong> (<em>(</em><em>4</em><em>, </em><em>2</em><em>) </em><em>array</em>) – Array of corner points of the element.</p></li>
+<li><p><strong>basis</strong> (<a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><em>Basis2D</em></a>) – Basis used for the test and sample space.</p></li>
+<li><p><strong>inverse</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>, </em><em>default: False</em>) – Should the inverse of the matrix be computed instead of its value directly.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Mass matrix (or its inverse if specified) for the appropriate form.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p>The second kind of projection is from a lower order <a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">Basis2D</span></code></a> to
+higher order <a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">Basis2D</span></code></a> or vice versa. This is performed by the
+matrices computed by <a class="reference internal" href="#mfv2d._mfv2d.compute_element_projector" title="mfv2d._mfv2d.compute_element_projector"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_element_projector()</span></code></a>. If its resulting
 projection matirx is transposed, it will instead act as the projector for
 dual degrees of freedom.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.compute_element_projector">
+<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">compute_element_projector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">form_orders</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">UnknownFormOrders</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corners</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple[array]:</span></span></span><a class="headerlink" href="#mfv2d._mfv2d.compute_element_projector" title="Link to this definition">#</a></dt>
+<dd><p>Compute <span class="math notranslate nohighlight">\(L^2\)</span> projection from one space to another.</p>
+<p>Projection takes DoFs from primal space of the first and takes
+them to the primal space of the other.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>form_orders</strong> (<em>Sequence</em><em> of </em><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><em>UnknownFormOrder</em></a>) – Sequence of orders of forms which are to be projected.</p></li>
+<li><p><strong>corners</strong> (<em>(</em><em>4</em><em>, </em><em>2</em><em>) </em><em>array</em>) – Array of corner points of the element.</p></li>
+<li><p><strong>basis_in</strong> (<a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><em>Basis2D</em></a>) – Basis from which the DoFs should be taken.</p></li>
+<li><p><strong>basis_out</strong> (<a class="reference internal" href="#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><em>Basis2D</em></a>) – Basis to which the DoFs are taken.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tuple where each entry is the respective projection matrix for that form.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a> of square arrays</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 </section>
 
@@ -804,10 +1577,64 @@ dual degrees of freedom.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_gll"><code class="docutils literal notranslate"><span class="pre">compute_gll()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basis">Basis</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#topology">Topology</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluating-terms">Evaluating Terms</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#projections">Projections</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basis">Basis</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.IntegrationRule1D"><code class="docutils literal notranslate"><span class="pre">IntegrationRule1D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.IntegrationRule1D.nodes"><code class="docutils literal notranslate"><span class="pre">IntegrationRule1D.nodes</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.IntegrationRule1D.order"><code class="docutils literal notranslate"><span class="pre">IntegrationRule1D.order</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.IntegrationRule1D.weights"><code class="docutils literal notranslate"><span class="pre">IntegrationRule1D.weights</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D"><code class="docutils literal notranslate"><span class="pre">Basis1D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.edge"><code class="docutils literal notranslate"><span class="pre">Basis1D.edge</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.node"><code class="docutils literal notranslate"><span class="pre">Basis1D.node</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.order"><code class="docutils literal notranslate"><span class="pre">Basis1D.order</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.roots"><code class="docutils literal notranslate"><span class="pre">Basis1D.roots</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis1D.rule"><code class="docutils literal notranslate"><span class="pre">Basis1D.rule</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis2D"><code class="docutils literal notranslate"><span class="pre">Basis2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis2D.basis_eta"><code class="docutils literal notranslate"><span class="pre">Basis2D.basis_eta</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Basis2D.basis_xi"><code class="docutils literal notranslate"><span class="pre">Basis2D.basis_xi</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#topology">Topology</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.GeoID"><code class="docutils literal notranslate"><span class="pre">GeoID</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.GeoID.index"><code class="docutils literal notranslate"><span class="pre">GeoID.index</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.GeoID.reversed"><code class="docutils literal notranslate"><span class="pre">GeoID.reversed</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Line"><code class="docutils literal notranslate"><span class="pre">Line</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Line.begin"><code class="docutils literal notranslate"><span class="pre">Line.begin</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Line.end"><code class="docutils literal notranslate"><span class="pre">Line.end</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Surface"><code class="docutils literal notranslate"><span class="pre">Surface</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D"><code class="docutils literal notranslate"><span class="pre">Manifold2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.compute_dual"><code class="docutils literal notranslate"><span class="pre">Manifold2D.compute_dual()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.dimension"><code class="docutils literal notranslate"><span class="pre">Manifold2D.dimension</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.from_irregular"><code class="docutils literal notranslate"><span class="pre">Manifold2D.from_irregular()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.from_regular"><code class="docutils literal notranslate"><span class="pre">Manifold2D.from_regular()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.get_line"><code class="docutils literal notranslate"><span class="pre">Manifold2D.get_line()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.get_surface"><code class="docutils literal notranslate"><span class="pre">Manifold2D.get_surface()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.n_lines"><code class="docutils literal notranslate"><span class="pre">Manifold2D.n_lines</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.n_points"><code class="docutils literal notranslate"><span class="pre">Manifold2D.n_points</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.Manifold2D.n_surfaces"><code class="docutils literal notranslate"><span class="pre">Manifold2D.n_surfaces</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluating-terms">Evaluating Terms</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_element_matrix"><code class="docutils literal notranslate"><span class="pre">compute_element_matrix()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_element_vector"><code class="docutils literal notranslate"><span class="pre">compute_element_vector()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#projections">Projections</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_element_mass_matrix"><code class="docutils literal notranslate"><span class="pre">compute_element_mass_matrix()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_element_projector"><code class="docutils literal notranslate"><span class="pre">compute_element_projector()</span></code></a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 

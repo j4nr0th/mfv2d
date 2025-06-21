@@ -325,7 +325,7 @@ The total integrated time error in the two norms is now examined.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 10.477 seconds)
+   **Total running time of the script:** (0 minutes 10.565 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_vector_reaction.py:

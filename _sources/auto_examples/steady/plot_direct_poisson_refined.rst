@@ -401,7 +401,7 @@ Results in :math:`L^2` Norm
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 21.258 seconds)
+   **Total running time of the script:** (0 minutes 21.443 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_direct_poisson_refined.py:

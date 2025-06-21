@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**04:30.230** total execution time for 6 files **from auto_examples/unsteady**:
+**04:37.789** total execution time for 6 files **from auto_examples/unsteady**:
 
 .. container::
 
@@ -33,20 +33,20 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_reaction_mixed.py` (``plot_reaction_mixed.py``)
-     - 01:29.190
+     - 01:32.578
      - 0.0
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_reaction.py` (``plot_reaction.py``)
-     - 01:24.023
+     - 01:27.826
      - 0.0
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_heat_mixed.py` (``plot_heat_mixed.py``)
-     - 00:43.224
+     - 00:43.356
      - 0.0
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_heat_direct.py` (``plot_heat_direct.py``)
-     - 00:33.739
+     - 00:33.864
      - 0.0
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_vector_reaction.py` (``plot_vector_reaction.py``)
-     - 00:10.477
+     - 00:10.565
      - 0.0
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_cavity_flow.py` (``plot_cavity_flow.py``)
-     - 00:09.578
+     - 00:09.601
      - 0.0

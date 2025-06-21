@@ -277,7 +277,7 @@ Here we solve the system.
             absolute_tolerance=1e-10,
             relative_tolerance=0,
         ),
-        print_residual=True,
+        print_residual=False,
         recon_order=25,
     )
     print(stats)
@@ -290,7 +290,7 @@ Here we solve the system.
 
  .. code-block:: none
 
-    ⠋ - Iteration  0 out of 20[          ] | Error at 6.963e-02 / 1.000e-10 [*|                    | ]    ⠙ - Iteration  1 out of 20[          ] | Error at 9.026e-02 / 1.000e-10 [*|                    | ]    ⠹ - Iteration  2 out of 20[█         ] | Error at 1.796e-11 / 1.000e-10 [ |                    |*]    SolutionStatistics(element_orders={6: 98}, n_total_dofs=11270, n_leaf_dofs=10045, n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([6.96336197e-02, 9.02580252e-02, 1.79589468e-11]))
+    SolutionStatistics(element_orders={6: 98}, n_total_dofs=11270, n_leaf_dofs=10045, n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([6.96336197e-02, 9.02580252e-02, 1.79589468e-11]))
 
 
 
@@ -441,7 +441,7 @@ Pyvista allows for very simple 2D streamline plots.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 7.812 seconds)
+   **Total running time of the script:** (0 minutes 5.287 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_navier_stokes.py:

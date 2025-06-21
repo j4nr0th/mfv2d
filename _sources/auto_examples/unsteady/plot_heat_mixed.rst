@@ -295,7 +295,7 @@ is symplectic.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 43.224 seconds)
+   **Total running time of the script:** (0 minutes 43.356 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_heat_mixed.py:

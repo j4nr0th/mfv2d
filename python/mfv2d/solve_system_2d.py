@@ -9,6 +9,7 @@ import pyvista as pv
 import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
+from mfv2d._mfv2d import ElementMassMatrixCache
 from mfv2d.element import (
     ElementCollection,
     FixedElementArray,
@@ -16,6 +17,7 @@ from mfv2d.element import (
     call_per_element_fix,
     call_per_element_flex,
     call_per_leaf_flex,
+    call_per_leaf_obj,
     compute_dof_sizes,
     compute_lagrange_sizes,
 )
@@ -204,6 +206,27 @@ def solve_system_2d(
     # Explicit right side
     explicit_vec: npt.NDArray[np.float64]
 
+    def compute_element_cache(
+        ie: int,
+        fem_cache: FemCache,
+        orders: FixedElementArray[np.uint32],
+        corners: FixedElementArray[np.float64],
+    ) -> ElementMassMatrixCache:
+        """Compute cache for that element."""
+        order_1, order_2 = orders[ie]
+        basis = fem_cache.get_basis2d(order_1, order_2)
+        return ElementMassMatrixCache(basis, corners[ie])
+
+    # Create element caches
+    element_caches = call_per_leaf_obj(
+        element_collection,
+        ElementMassMatrixCache,
+        compute_element_cache,
+        cache_2d,
+        element_collection.orders_array,
+        element_collection.corners_array,
+    )
+
     # Prepare for evaluation of matrices/vectors
 
     leaf_elements = np.flatnonzero(
@@ -211,14 +234,7 @@ def solve_system_2d(
     )
 
     linear_vectors = call_per_leaf_flex(
-        element_collection,
-        1,
-        np.float64,
-        compute_element_rhs,
-        system,
-        cache_2d,
-        element_collection.orders_array,
-        element_collection.corners_array,
+        element_collection, 1, np.float64, compute_element_rhs, system, element_caches
     )
 
     unknown_ordering = UnknownOrderings(*(form.order for form in system.unknown_forms))
@@ -251,8 +267,7 @@ def solve_system_2d(
             unknown_ordering,
             initial_funcs,
             element_collection.orders_array,
-            element_collection.corners_array,
-            cache_2d,
+            element_caches,
         )
 
         initial_solution = call_per_element_flex(
@@ -263,8 +278,7 @@ def solve_system_2d(
             unknown_ordering,
             initial_vectors,
             element_collection.orders_array,
-            element_collection.corners_array,
-            cache_2d,
+            element_caches,
         )
 
     else:
@@ -323,6 +337,7 @@ def solve_system_2d(
         dof_offsets,
         solution,
     )
+
     linear_element_matrices = call_per_leaf_flex(
         element_collection,
         2,
@@ -330,9 +345,7 @@ def solve_system_2d(
         compute_leaf_matrix,
         compiled_system.linear_codes,
         unknown_ordering,
-        element_collection.orders_array,
-        cache_2d,
-        element_collection.corners_array,
+        element_caches,
         vec_fields_array,
     )
 
@@ -560,6 +573,7 @@ def solve_system_2d(
                 element_collection,
                 leaf_elements,
                 cache_2d,
+                element_caches,
                 compiled_system,
                 explicit_vec,
                 dof_offsets,
@@ -585,8 +599,7 @@ def solve_system_2d(
                 unknown_ordering,
                 new_solution,
                 element_collection.orders_array,
-                element_collection.corners_array,
-                cache_2d,
+                element_caches,
             )
             assert time_carry_index_array is not None
             new_solution_carry = extract_carry(
@@ -640,6 +653,7 @@ def solve_system_2d(
             element_collection,
             leaf_elements,
             cache_2d,
+            element_caches,
             compiled_system,
             explicit_vec,
             dof_offsets,

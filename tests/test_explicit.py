@@ -6,8 +6,8 @@ import pytest
 from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
+    ElementMassMatrixCache,
     IntegrationRule1D,
-    compute_element_mass_matrix,
     compute_element_matrix,
     compute_element_vector,
 )
@@ -98,32 +98,29 @@ def test_explicit_evaluation():
     )
     del vec_field_lists
 
+    elem_cache = ElementMassMatrixCache(basis_2d, corners)
     sys_mat = compute_element_matrix(
-        [form.order for form in system.unknown_forms],
+        [UnknownFormOrder(form.order + 1) for form in system.unknown_forms],
         codes,
-        corners,
         vec_fields,
-        basis_2d,
+        elem_cache,
     )
 
-    proj_vor = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_0, corners, basis_2d, vor_exact
-    )
-    proj_vel = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, vel_exact
-    )
-    proj_pre = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_2, corners, basis_2d, pre_exact
-    )
+    proj_vor = element_primal_dofs(UnknownFormOrder.FORM_ORDER_0, elem_cache, vor_exact)
+    proj_vel = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, elem_cache, vel_exact)
+    proj_pre = element_primal_dofs(UnknownFormOrder.FORM_ORDER_2, elem_cache, pre_exact)
 
     exact_lhs = np.concatenate((proj_vor, proj_vel, proj_pre), dtype=np.float64)
 
     explicit_rhs = compute_element_vector(
-        [0, 1, 2],
+        [
+            UnknownFormOrder.FORM_ORDER_0,
+            UnknownFormOrder.FORM_ORDER_1,
+            UnknownFormOrder.FORM_ORDER_2,
+        ],
         codes,
-        corners,
         vec_fields,
-        basis_2d,
+        elem_cache,
         exact_lhs,
     )
 
@@ -144,13 +141,15 @@ def test_explicit_evaluation():
         )
 
     # momentum_rhs = rhs[(N + 1) ** 2 : (N + 1) ** 2 + 2 * N * (N + 1)]
-    mass_edge = compute_element_mass_matrix(
-        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d
-    )
+    mass_edge = elem_cache.mass_from_order(UnknownFormOrder.FORM_ORDER_1)
     momentum_rhs = np.linalg.solve(
         mass_edge, rhs[(N + 1) ** 2 : (N + 1) ** 2 + 2 * N * (N + 1)]
     )
     proj_momentum_rhs = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d, exact_momentum
+        UnknownFormOrder.FORM_ORDER_1, elem_cache, exact_momentum
     )
     assert np.abs(momentum_rhs - proj_momentum_rhs).max() < 1e-6
+
+
+if __name__ == "__main__":
+    test_explicit_evaluation()

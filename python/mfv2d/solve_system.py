@@ -23,8 +23,8 @@ from scipy.sparse import linalg as sla
 
 from mfv2d._mfv2d import (
     Basis2D,
+    ElementMassMatrixCache,
     Surface,
-    compute_element_mass_matrix,
     compute_element_matrix,
     compute_element_vector,
     compute_gll,
@@ -36,6 +36,7 @@ from mfv2d.element import (
     ElementSide,
     FixedElementArray,
     FlexibleElementArray,
+    ObjectElementArray,
     _compute_element_lagrange_multipliers,
     call_per_element_fix,
     call_per_element_flex,
@@ -207,9 +208,7 @@ def compute_element_vector_fields_nonlin(
 
 
 def rhs_2d_element_projection(
-    right: KElementProjection,
-    corners: npt.NDArray[np.float64],
-    basis: Basis2D,
+    right: KElementProjection, element_cache: ElementMassMatrixCache
 ) -> npt.NDArray[np.float64]:
     """Evaluate the differential form projections on the 1D element.
 
@@ -233,6 +232,7 @@ def rhs_2d_element_projection(
 
     # If `fn` is `None`, it is equal to just zeros
     if fn is None:
+        basis = element_cache.basis_2d
         n_dof: int
         if right.weight.order == 0:
             n_dof = (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
@@ -247,14 +247,13 @@ def rhs_2d_element_projection(
 
         return np.zeros(n_dof)
 
-    return element_dual_dofs(UnknownFormOrder(right.weight.order + 1), corners, basis, fn)
+    return element_dual_dofs(UnknownFormOrder(right.weight.order + 1), element_cache, fn)
 
 
 def _extract_rhs_2d(
     proj: Sequence[tuple[float, KExplicit]],
     weight: KWeight,
-    corners: npt.NDArray[np.float64],
-    basis: Basis2D,
+    element_cache: ElementMassMatrixCache,
 ) -> npt.NDArray[np.float64]:
     """Extract the rhs resulting from element projections.
 
@@ -281,6 +280,7 @@ def _extract_rhs_2d(
     """
     n_dof: int
     # Create empty vector into which to accumulate
+    basis = element_cache.basis_2d
     if weight.order == 0:
         n_dof = (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
     elif weight.order == 1:
@@ -297,7 +297,7 @@ def _extract_rhs_2d(
     # Loop over all entries that are KElementProjection
     for k, f in filter(lambda v: isinstance(v[1], KElementProjection), proj):
         assert isinstance(f, KElementProjection)
-        rhs = rhs_2d_element_projection(f, corners, basis)
+        rhs = rhs_2d_element_projection(f, element_cache)
         if k != 1.0:
             rhs *= k
         vec += rhs
@@ -308,9 +308,7 @@ def _extract_rhs_2d(
 def compute_element_rhs(
     ie: int,
     system: KFormSystem,
-    basis_cache: FemCache,
-    orders: FixedElementArray[np.uint32],
-    corners: FixedElementArray[np.float64],
+    element_caches: ObjectElementArray[ElementMassMatrixCache],
 ) -> npt.NDArray[np.float64]:
     """Compute rhs for an element.
 
@@ -341,14 +339,11 @@ def compute_element_rhs(
         Array with the resulting rhs.
     """
     vecs: list[npt.NDArray[np.float64]] = list()
-    order_1, order_2 = orders[ie]
-    basis = basis_cache.get_basis2d(order_1, order_2)
-    element_corners = corners[ie]
+
+    elem_cache = element_caches[ie]
     for equation in system.equations:
         vecs.append(
-            _extract_rhs_2d(
-                equation.right.explicit_terms, equation.weight, element_corners, basis
-            )
+            _extract_rhs_2d(equation.right.explicit_terms, equation.weight, elem_cache)
         )
 
     return np.concatenate(vecs, dtype=np.float64)
@@ -2096,22 +2091,18 @@ def compute_leaf_matrix(
     ie: int,
     expressions: _CompiledCodeMatrix,
     unknowns: UnknownOrderings,
-    orders: FixedElementArray[np.uint32],
-    basis_cache: FemCache,
-    corners: FixedElementArray[np.float64],
+    element_caches: ObjectElementArray[ElementMassMatrixCache],
     fields: FixedElementArray[np.object_],
 ) -> npt.NDArray[np.float64]:
     """Compute the element matrix."""
-    order_1, order_2 = orders[ie]
-    basis = basis_cache.get_basis2d(order_1, order_2)
+    elem_cache = element_caches[ie]
     vec_fields = tuple(fields[ie])
 
     mat = compute_element_matrix(
-        [form.value - 1 for form in unknowns.form_orders],
+        unknowns.form_orders,
         expressions,
-        corners[ie],
         vec_fields,
-        basis,
+        elem_cache,
     )
 
     return mat
@@ -2121,23 +2112,19 @@ def compute_leaf_vector(
     ie: int,
     expressions: _CompiledCodeMatrix,
     unknowns: UnknownOrderings,
-    orders: FixedElementArray[np.uint32],
-    basis_cache: FemCache,
-    corners: FixedElementArray[np.float64],
+    element_caches: ObjectElementArray[ElementMassMatrixCache],
     fields: FixedElementArray[np.object_],
     solution: FlexibleElementArray[np.float64, np.uint32],
 ) -> npt.NDArray[np.float64]:
     """Compute the element vector."""
-    order_1, order_2 = orders[ie]
-    basis = basis_cache.get_basis2d(order_1, order_2)
+    elem_cache = element_caches[ie]
     vec_fields = tuple(fields[ie])
 
     vec = compute_element_vector(
-        [form.value - 1 for form in unknowns.form_orders],
+        unknowns.form_orders,
         expressions,
-        corners[ie],
         vec_fields,
-        basis,
+        elem_cache,
         solution[ie],
     )
 
@@ -2151,19 +2138,17 @@ def compute_element_dual(
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike] | None
     ],
     orders: FixedElementArray[np.uint32],
-    corners: FixedElementArray[np.float64],
-    basis_cache: FemCache,
+    element_caches: ObjectElementArray[ElementMassMatrixCache],
 ) -> npt.NDArray[np.float64]:
     """Compute element L2 projection."""
     order_1, order_2 = orders[ie]
-    basis = basis_cache.get_basis2d(order_1, order_2)
     vecs: list[npt.NDArray[np.float64]] = list()
     for order, func in zip(ordering.form_orders, functions, strict=True):
         if func is None:
             vecs.append(np.zeros(order.full_unknown_count(order_1, order_2), np.float64))
         else:
             vecs.append(
-                np.asarray(element_dual_dofs(order, corners[ie], basis, func), np.float64)
+                np.asarray(element_dual_dofs(order, element_caches[ie], func), np.float64)
             )
 
     return np.concatenate(vecs)
@@ -2174,14 +2159,12 @@ def compute_element_primal(
     ordering: UnknownOrderings,
     dual_dofs: FlexibleElementArray[np.float64, np.uint32],
     orders: FixedElementArray[np.uint32],
-    corners: FixedElementArray[np.float64],
-    basis_cache: FemCache,
+    element_caches: ObjectElementArray[ElementMassMatrixCache],
 ) -> npt.NDArray[np.float64]:
     """Compute primal dofs from dual."""
-    dual = np.array(dual_dofs[ie], np.float64, copy=True)
     order_1, order_2 = orders[ie]
-    basis = basis_cache.get_basis2d(order_1, order_2)
-    element_corners = corners[ie]
+    dual = np.array(dual_dofs[ie], np.float64, copy=True)
+    elem_cache = element_caches[ie]
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
     for form in ordering.form_orders:
@@ -2190,7 +2173,7 @@ def compute_element_primal(
         if form in mats:
             m = mats[form]
         else:
-            m = compute_element_mass_matrix(form, element_corners, basis, True)
+            m = elem_cache.mass_from_order(form, inverse=True)
             mats[form] = m
 
         dual[offset : offset + cnt] = m @ v
@@ -2205,14 +2188,12 @@ def compute_element_primal_to_dual(
     ordering: UnknownOrderings,
     primal_dofs: FlexibleElementArray[np.float64, np.uint32],
     orders: FixedElementArray[np.uint32],
-    corners: FixedElementArray[np.float64],
-    basis_cache: FemCache,
+    element_caches: ObjectElementArray[ElementMassMatrixCache],
 ) -> npt.NDArray[np.float64]:
     """Compute primal dofs from dual."""
     primal = np.array(primal_dofs[ie], np.float64, copy=True)
     order_1, order_2 = orders[ie]
-    basis = basis_cache.get_basis2d(order_1, order_2)
-    element_corners = corners[ie]
+    elem_cache = element_caches[ie]
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
     for form in ordering.form_orders:
@@ -2221,7 +2202,7 @@ def compute_element_primal_to_dual(
         if form in mats:
             m = mats[form]
         else:
-            m = compute_element_mass_matrix(form, element_corners, basis, False)
+            m = elem_cache.mass_from_order(form, inverse=False)
             mats[form] = m
 
         primal[offset : offset + cnt] = m @ v
@@ -2234,21 +2215,17 @@ def compute_element_primal_to_dual(
 def compute_leaf_full_mass_matrix(
     ie: int,
     ordering: UnknownOrderings,
-    orders: FixedElementArray[np.uint32],
-    corners: FixedElementArray[np.float64],
-    basis_cache: FemCache,
+    element_caches: ObjectElementArray[ElementMassMatrixCache],
 ) -> npt.NDArray[np.float64]:
     """Compute primal dofs from dual."""
-    order_1, order_2 = orders[ie]
-    basis = basis_cache.get_basis2d(order_1, order_2)
-    element_corners = corners[ie]
+    elem_cache = element_caches[ie]
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
     diags: list[npt.NDArray[np.float64]] = list()
     for form in ordering.form_orders:
         if form in mats:
             m = mats[form]
         else:
-            m = compute_element_mass_matrix(form, element_corners, basis, False)
+            m = elem_cache.mass_from_order(form, inverse=False)
             mats[form] = m
 
         diags.append(m)
@@ -2303,6 +2280,7 @@ def non_linear_solve_run(
     element_collection: ElementCollection,
     leaf_elements: npt.NDArray[np.integer],
     cache_2d: FemCache,
+    element_caches: ObjectElementArray[ElementMassMatrixCache],
     compiled_system: CompiledSystem,
     explicit_vec: npt.NDArray[np.float64],
     dof_offsets: FixedElementArray[np.uint32],
@@ -2365,9 +2343,7 @@ def non_linear_solve_run(
             compute_leaf_vector,
             compiled_system.lhs_full,
             unknown_ordering,
-            element_collection.orders_array,
-            cache_2d,
-            element_collection.corners_array,
+            element_caches,
             vec_fields_array,
             solution,
         )
@@ -2391,9 +2367,7 @@ def non_linear_solve_run(
                 compute_leaf_vector,
                 compiled_system.rhs_codes,
                 unknown_ordering,
-                element_collection.orders_array,
-                cache_2d,
-                element_collection.corners_array,
+                element_caches,
                 vec_fields_array,
                 solution,
             )
@@ -2437,9 +2411,7 @@ def non_linear_solve_run(
                 compute_leaf_matrix,
                 compiled_system.nonlin_codes,
                 unknown_ordering,
-                element_collection.orders_array,
-                cache_2d,
-                element_collection.corners_array,
+                element_caches,
                 vec_fields_array,
             )
             element_matrices = call_per_leaf_flex(

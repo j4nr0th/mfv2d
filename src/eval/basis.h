@@ -39,4 +39,7 @@ typedef struct
 MFV2D_INTERNAL
 extern PyTypeObject basis_2d_type;
 
+MFV2D_INTERNAL
+basis_2d_t *create_basis_2d_object(PyTypeObject *type, basis_1d_t *basis_xi, basis_1d_t *basis_eta);
+
 #endif // BASIS_H

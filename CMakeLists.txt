@@ -28,13 +28,10 @@ set(MFV2D_SOURCE_FILES
         src/topology/lineobject.c
         src/topology/surfaceobject.c
         src/topology/manifold.c
-        src/topology/manifold1d.c
         src/topology/manifold2d.c
         # Evaluation
         src/eval/allocator.c
-        src/eval/evaluation.c
         src/eval/incidence.c
-        src/eval/precomp.c
         src/eval/bytecode.c
         src/eval/matrix.c
         src/eval/element_system.c
@@ -63,13 +60,10 @@ set(MFV2D_HEADER_FILES
         src/topology/lineobject.h
         src/topology/surfaceobject.h
         src/topology/manifold.h
-        src/topology/manifold1d.h
         src/topology/manifold2d.h
         # Evaluation
         src/eval/allocator.h
-        src/eval/evaluation.h
         src/eval/incidence.h
-        src/eval/precomp.h
         src/eval/bytecode.h
         src/eval/matrix.h
         src/eval/element_system.h

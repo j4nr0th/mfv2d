@@ -294,6 +294,21 @@ PyTypeObject basis_1d_type = {
     .tp_itemsize = 0,
 };
 
+MFV2D_INTERNAL
+basis_2d_t *create_basis_2d_object(PyTypeObject *type, basis_1d_t *basis_xi, basis_1d_t *basis_eta)
+{
+    basis_2d_t *const self = (basis_2d_t *)type->tp_alloc(type, 0);
+    if (!self)
+    {
+        return NULL;
+    }
+
+    Py_INCREF(basis_xi);
+    Py_INCREF(basis_eta);
+    self->basis_xi = basis_xi;
+    self->basis_eta = basis_eta;
+    return self;
+}
 // __new__ method
 static PyObject *basis_2d_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
@@ -303,14 +318,8 @@ static PyObject *basis_2d_new(PyTypeObject *type, PyObject *args, PyObject *kwds
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!", kwlist, &basis_1d_type, &basis_xi, &basis_1d_type, &basis_eta))
         return NULL;
 
-    basis_2d_t *const self = (basis_2d_t *)type->tp_alloc(type, 0);
-    if (!self)
-        return NULL;
+    basis_2d_t *const self = create_basis_2d_object(type, basis_xi, basis_eta);
 
-    Py_INCREF(basis_xi);
-    Py_INCREF(basis_eta);
-    self->basis_xi = basis_xi;
-    self->basis_eta = basis_eta;
     return (PyObject *)self;
 }
 

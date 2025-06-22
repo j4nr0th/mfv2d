@@ -6,6 +6,7 @@ import pytest
 from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
+    ElementMassMatrixCache,
     IntegrationRule1D,
     compute_element_projector,
 )
@@ -31,9 +32,10 @@ def test_reconstruction_nodal() -> None:
     int_rule = IntegrationRule1D(N + 2)
     basis_1d = Basis1D(N, int_rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
+    element_cache = ElementMassMatrixCache(basis_2d, corners)
 
     dual = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_0, corners, basis_2d, test_function
+        UnknownFormOrder.FORM_ORDER_0, element_cache, test_function
     )
     test_v = np.linspace(-1, +1, 21)
     recon = reconstruct(corners, 0, dual, test_v[None, :], test_v[:, None], basis_2d)
@@ -58,9 +60,10 @@ def test_reconstruction_surf() -> None:
     int_rule = IntegrationRule1D(N + 2)
     basis_1d = Basis1D(N, int_rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
+    element_cache = ElementMassMatrixCache(basis_2d, corners)
 
     dual = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_2, corners, basis_2d, test_function
+        UnknownFormOrder.FORM_ORDER_2, element_cache, test_function
     )
     test_v = np.linspace(-1, +1, 21)
     recon = reconstruct(corners, 2, dual, test_v[None, :], test_v[:, None], basis_2d)
@@ -106,13 +109,15 @@ def test_projection_contained_node() -> None:
         return x * y - 2 * x + y - 2
 
     corners = np.array([(-2, -1.5), (+0.9, -1), (+1, +1), (-1.5, +1.1)], np.float64)
+    element_high = ElementMassMatrixCache(basis_2d_high, corners)
+    element_low = ElementMassMatrixCache(basis_2d_low, corners)
 
     low_dofs = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_0, corners, basis_2d_low, test_function
+        UnknownFormOrder.FORM_ORDER_0, element_low, test_function
     )
 
     high_dofs = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_0, corners, basis_2d_high, test_function
+        UnknownFormOrder.FORM_ORDER_0, element_high, test_function
     )
 
     projector = compute_element_projector(
@@ -149,13 +154,15 @@ def test_projection_contained_edge() -> None:
         return np.stack((x * y - 2 * x + y - 2, 3 * y - 2 * x * y + 1), axis=-1)
 
     corners = np.array([(-2, -1.5), (+0.9, -1), (+1, +1), (-1.5, +1.1)], np.float64)
+    element_high = ElementMassMatrixCache(basis_2d_high, corners)
+    element_low = ElementMassMatrixCache(basis_2d_low, corners)
 
     low_dofs = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d_low, test_function
+        UnknownFormOrder.FORM_ORDER_1, element_low, test_function
     )
 
     high_dofs = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, corners, basis_2d_high, test_function
+        UnknownFormOrder.FORM_ORDER_1, element_high, test_function
     )
 
     projector = compute_element_projector(
@@ -192,13 +199,15 @@ def test_projection_contained_surf() -> None:
         return x * y - 2 * x + y - 2
 
     corners = np.array([(-2, -1.5), (+0.9, -1), (+1, +1), (-1.5, +1.1)], np.float64)
+    element_high = ElementMassMatrixCache(basis_2d_high, corners)
+    element_low = ElementMassMatrixCache(basis_2d_low, corners)
 
     low_dofs = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_2, corners, basis_2d_low, test_function
+        UnknownFormOrder.FORM_ORDER_2, element_low, test_function
     )
 
     high_dofs = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_2, corners, basis_2d_high, test_function
+        UnknownFormOrder.FORM_ORDER_2, element_high, test_function
     )
 
     projector = compute_element_projector(

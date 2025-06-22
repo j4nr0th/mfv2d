@@ -1015,32 +1015,102 @@ class Basis2D:
     @property
     def basis_eta(self) -> Basis1D: ...
 
+@final
+class ElementMassMatrixCache:
+    """Caches element mass matrices."""
+
+    def __new__(cls, basis: Basis2D, corners: npt.NDArray[np.float64]) -> Self: ...
+    @property
+    def basis_xi(self) -> Basis1D:
+        """Get 1D basis functions for the first dimension."""
+        ...
+
+    @property
+    def basis_eta(self) -> Basis1D:
+        """Get 2D basis functions for the second dimension."""
+        ...
+
+    @property
+    def basis_2d(self) -> Basis2D:
+        """Get 2D basis functions."""
+        ...
+
+    @property
+    def corners(self) -> npt.NDArray[np.float64]:
+        """Get the element corners as a (4, 2) array."""
+        ...
+
+    @property
+    def mass_node(self) -> npt.NDArray[np.float64]:
+        """Return (cached) node mass matrix."""
+        ...
+
+    @property
+    def mass_edge(self) -> npt.NDArray[np.float64]:
+        """Return (cached) edge mass matrix."""
+        ...
+
+    @property
+    def mass_surf(self) -> npt.NDArray[np.float64]:
+        """Return (cached) surface mass matrix."""
+        ...
+    @property
+    def mass_node_inv(self) -> npt.NDArray[np.float64]:
+        """Return (cached) inverse node mass matrix."""
+        ...
+
+    @property
+    def mass_edge_inv(self) -> npt.NDArray[np.float64]:
+        """Return (cached) inverse edge mass matrix."""
+        ...
+
+    @property
+    def mass_surf_inv(self) -> npt.NDArray[np.float64]:
+        """Return (cached) inverse surface mass matrix."""
+        ...
+
+    def mass_from_order(
+        self, order: UnknownFormOrder, inverse: bool = False
+    ) -> npt.NDArray[np.float64]:
+        """Compute mass matrix for the given order.
+
+        Parameters
+        ----------
+        order : UnknownFormOrder
+            Order of the differential for to get the matrix from.
+
+        inverse : bool, default: False
+            Should the matrix be inverted.
+
+        Returns
+        -------
+        array
+            Mass matrix of the specified order (or inverse if specified).
+        """
+        ...
+
 def compute_element_matrix(
-    form_orders: Sequence[int],  # TODO: make this unknown order enum
+    form_orders: Sequence[UnknownFormOrder],
     expressions: _CompiledCodeMatrix,
-    corners: npt.NDArray[np.float64],
     vector_fields: Sequence[npt.NDArray[np.float64]],
-    basis: Basis2D,
+    element_cache: ElementMassMatrixCache,
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
     """Compute a single element matrix.
 
     Parameters
     ----------
-    form_orders : Sequence of int
+    form_orders : Sequence of UnknownFormOrder
         Orders of differential forms for the degrees of freedom. Must be between 0 and 2.
 
     expressions
         Compiled bytecode to execute.
 
-    corners : (4, 2) array
-        Array of corners of the element.
-
     vector_fields : Sequence of arrays
         Vector field arrays as required for interior product evaluations.
 
-    basis : Basis2D
-        Basis functions with integration rules to use.
+    element_cache : ElementMassMatrixCache
+        Cache of the element basis and mass matrices.
 
     stack_memory : int, default: 1 << 24
         Amount of memory to use for the evaluation stack.
@@ -1053,11 +1123,10 @@ def compute_element_matrix(
     ...
 
 def compute_element_vector(
-    form_orders: Sequence[int],  # TODO: make this unknown order enum
+    form_orders: Sequence[UnknownFormOrder],
     expressions: _CompiledCodeMatrix,
-    corners: npt.NDArray[np.float64],
     vector_fields: Sequence[npt.NDArray[np.float64]],
-    basis: Basis2D,
+    element_cache: ElementMassMatrixCache,
     solution: npt.NDArray[np.float64],
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
@@ -1065,20 +1134,17 @@ def compute_element_vector(
 
     Parameters
     ----------
-    form_orders : Sequence of int
+    form_orders : Sequence of UnknownFormOrder
         Orders of differential forms for the degrees of freedom. Must be between 0 and 2.
 
     expressions
         Compiled bytecode to execute.
 
-    corners : (4, 2) array
-        Array of corners of the element.
-
     vector_fields : Sequence of arrays
         Vector field arrays as required for interior product evaluations.
 
-    basis : Basis2D
-        Basis functions with integration rules to use.
+    element_cache : ElementMassMatrixCache
+        Cache of the element basis and mass matrices.
 
     solution : array
         Array with degrees of freedom for the element.
@@ -1124,57 +1190,3 @@ def compute_element_projector(
         Tuple where each entry is the respective projection matrix for that form.
     """
     ...
-
-def compute_element_mass_matrix(
-    form_order: UnknownFormOrder,
-    corners: npt.NDArray[np.float64],
-    basis: Basis2D,
-    inverse: bool = False,
-) -> npt.NDArray[np.float64]:
-    """Compute element mass matrix for the specified form.
-
-    Parameters
-    ----------
-    form_order : UnknownFormOrder
-        Order of the form for which the mass matrix should be computed.
-
-    corners : (4, 2)
-        Array of corner points of the element.
-
-    basis : Basis2D
-        Basis used for the test and sample space.
-
-    inverse : bool, default: False
-        Should the inverse of the matrix be computed instead of its value directly.
-
-    Returns
-    -------
-    array
-        Mass matrix (or its inverse if specified) for the appropriate form.
-    """
-    ...
-@final
-class ElementMassMatrixCache:
-    """Caches element mass matrices."""
-
-    basis: Basis2D
-
-    @property
-    def corners(self) -> npt.NDArray[np.float64]:
-        """Get the element corners as a (4, 2) array."""
-        ...
-
-    @property
-    def mass_node(self) -> npt.NDArray[np.float64]:
-        """Return (cached) node mass matrix."""
-        ...
-
-    @property
-    def mass_edge(self) -> npt.NDArray[np.float64]:
-        """Return (cached) node edge matrix."""
-        ...
-
-    @property
-    def mass_surf(self) -> npt.NDArray[np.float64]:
-        """Return (cached) node surface matrix."""
-        ...

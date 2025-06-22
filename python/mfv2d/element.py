@@ -19,7 +19,7 @@ future.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import IntEnum
 from itertools import accumulate
@@ -28,7 +28,7 @@ from typing import Concatenate, Generic, ParamSpec, SupportsIndex, TypeVar
 import numpy as np
 import numpy.typing as npt
 
-from mfv2d._mfv2d import Basis2D, compute_element_mass_matrix, dlagrange1d, lagrange1d
+from mfv2d._mfv2d import Basis2D, ElementMassMatrixCache, dlagrange1d, lagrange1d
 from mfv2d.kform import UnknownFormOrder, UnknownOrderings
 from mfv2d.mimetic2d import Element2D, ElementLeaf2D, ElementNode2D
 
@@ -93,6 +93,63 @@ class ElementArrayBase(Generic[_ElementDataType]):
     def __iter__(self) -> Iterator[npt.NDArray[_ElementDataType]]:
         """Iterate over all elements."""
         return iter(self.values)
+
+
+_ElementObjectType = TypeVar("_ElementObjectType", bound=object)
+
+
+@dataclass(frozen=True)
+class ObjectElementArray(Generic[_ElementObjectType]):
+    """Element array that stores Python objects."""
+
+    com: ArrayCom
+    dtype: type[_ElementObjectType]
+    values: list[_ElementObjectType | None]
+
+    def __init__(
+        self,
+        com: ArrayCom,
+        dtype: type[_ElementObjectType],
+        values: Iterable[_ElementObjectType] | None = None,
+    ) -> None:
+        object.__setattr__(self, "com", com)
+        object.__setattr__(self, "dtype", dtype)
+        vals: list[_ElementObjectType | None]
+        if values is None:
+            vals = [None] * com.element_cnt
+        else:
+            vals = list(values)
+            if len(vals) != com.element_cnt:
+                raise ValueError(
+                    "Length of the values iterable must have the same number of elements"
+                    " as there are in com."
+                )
+        object.__setattr__(self, "values", vals)
+
+    def __getitem__(self, i: SupportsIndex, /) -> _ElementObjectType:
+        """Return element's values."""
+        val = self.values[i]
+        if val is None:
+            raise RuntimeError(
+                f"Value for element {i} was accessed before it was assigned."
+            )
+        return val
+
+    def __setitem__(self, i: SupportsIndex, val: _ElementObjectType, /) -> None:
+        """Set the value for the current element."""
+        self.values[int(i)] = val
+
+    def __delitem__(self, i: SupportsIndex, /) -> None:
+        """Set the value for the current element."""
+        self.values[int(i)] = None
+
+    def __len__(self) -> int:
+        """Return the number of elements."""
+        return self.com.element_cnt
+
+    def __iter__(self) -> Iterator[_ElementObjectType]:
+        """Iterate over all elements."""
+        return (self[i] for i in range(len(self)))
 
 
 @dataclass(frozen=True)
@@ -445,7 +502,8 @@ def call_per_element_flex(
     out = FlexibleElementArray(com, dtype, shapes)
     for ie in range(com.element_cnt):
         res = np.asarray(fn(ie, *args, **kwargs), dtype, copy=None)
-        out.resize_entry(ie, res.shape)
+        if not np.all(out.shapes[ie] == res.shape):
+            out.resize_entry(ie, res.shape)
         out[ie] = res
 
     return out
@@ -494,7 +552,8 @@ def call_per_leaf_flex(
         child_cnt = col.child_count_array[ie][0]
         if child_cnt == 0:
             res = np.asarray(fn(ie, *args, **kwargs), dtype, copy=None)
-            out.resize_entry(ie, res.shape)
+            if not np.all(out.shapes[ie] == res.shape):
+                out.resize_entry(ie, res.shape)
             out[ie] = res
 
     return out
@@ -544,6 +603,8 @@ def call_per_root_flex(
         if parent == 0:
             res = np.asarray(fn(ie, *args, **kwargs), dtype, copy=None)
             out.resize_entry(ie, res.shape)
+            if not np.all(out.shapes[ie] == res.shape):
+                out.resize_entry(ie, res.shape)
             out[ie] = res
 
     return out
@@ -588,6 +649,49 @@ def call_per_element_fix(
     for ie in range(com.element_cnt):
         results[ie] = fn(ie, *args, **kwargs)
     return results
+
+
+def call_per_leaf_obj(
+    col: ElementCollection,
+    dtype: type[_ElementObjectType],
+    fn: Callable[Concatenate[int, _FuncArgs], _ElementObjectType],
+    *args: _FuncArgs.args,
+    **kwargs: _FuncArgs.kwargs,
+) -> ObjectElementArray[_ElementObjectType]:
+    """Call a function for each leaf element and return the result as a flexible array.
+
+    Note that this is only done for leaf elements (elements with no children).
+
+    Parameters
+    ----------
+    col : ElementCollection
+        Element collection to use.
+
+    dtype : type
+        Type of the result.
+
+    fn : Callable
+        Function to call for each leaf element.
+
+    *args
+        Arguments passed to the function.
+
+    **kwargs
+        Keyword arguments passed to the function.
+
+    Returns
+    -------
+    ObjectElementArray[dtype]
+        Flexible array containing the results.
+    """
+    out = ObjectElementArray(col.com, dtype)
+    for ie in range(col.com.element_cnt):
+        child_cnt = col.child_count_array[ie][0]
+        if child_cnt == 0:
+            res = fn(ie, *args, **kwargs)
+            out[ie] = res
+
+    return out
 
 
 def _compute_element_dofs(
@@ -944,8 +1048,7 @@ def poly_y(
 
 def element_dual_dofs(
     order: UnknownFormOrder,
-    corners: npt.NDArray[np.float64],
-    basis: Basis2D,
+    element_cache: ElementMassMatrixCache,
     function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
 ) -> npt.NDArray[np.float64]:
     r"""Compute the dual degrees of freedom (projection) of the function on the element.
@@ -1004,6 +1107,8 @@ def element_dual_dofs(
     array
         Array with dual degrees of freedom.
     """
+    corners = element_cache.corners
+    basis = element_cache.basis_2d
     ((x0, y0), (x1, y1), (x2, y2), (x3, y3)) = corners
     nds_xi = basis.basis_xi.rule.nodes[None, :]
     nds_eta = basis.basis_eta.rule.nodes[:, None]
@@ -1066,8 +1171,7 @@ def element_dual_dofs(
 
 def element_primal_dofs(
     order: UnknownFormOrder,
-    corners: npt.NDArray[np.float64],
-    basis: Basis2D,
+    element_cache: ElementMassMatrixCache,
     function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
 ) -> npt.NDArray[np.float64]:
     r"""Compute the primal degrees of freedom of projection of a function on the element.
@@ -1102,11 +1206,12 @@ def element_primal_dofs(
     array
         Array with primal degrees of freedom.
     """
-    dofs = element_dual_dofs(order, corners, basis, function)
-    mat = compute_element_mass_matrix(order, corners, basis, True)
+    dofs = element_dual_dofs(order, element_cache, function)
+    mat = element_cache.mass_from_order(order, inverse=True)
     assert np.allclose(
-        mat, np.linalg.inv(compute_element_mass_matrix(order, corners, basis, False))
+        mat, np.linalg.inv(element_cache.mass_from_order(order, inverse=False))
     )
+
     return np.astype(mat @ dofs, np.float64, copy=False)
 
 

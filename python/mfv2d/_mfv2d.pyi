@@ -376,54 +376,6 @@ class Manifold:
         """Dimension of the manifold."""
         ...
 
-@final
-class Manifold1D(Manifold):
-    """One dimensional manifold."""
-
-    @property
-    def n_lines(self) -> int:
-        """Number of lines in the manifold."""
-        ...
-
-    @property
-    def n_points(self) -> int:
-        """Number of points in the manifold."""
-        ...
-
-    def get_line(self, index: GeoID | int, /) -> Line:
-        """Get the line of the specified ID."""
-        ...
-
-    def find_line(self, line: Line) -> GeoID:
-        """Find the ID of the specified line."""
-        ...
-
-    @classmethod
-    def line_mesh(cls, segments: int, /) -> Manifold1D:
-        """Create a new Manifold1D which represents a line.
-
-        Parameters
-        ----------
-        segments : int
-            Number of segments the line is split into. There will be one more point.
-
-        Returns
-        -------
-        Manifold1D
-            Manifold that represents the topology of the line.
-        """
-        ...
-
-    def compute_dual(self) -> Manifold1D:
-        """Compute the dual to the manifold.
-
-        Returns
-        -------
-        Manifold1D
-            The dual to the manifold.
-        """
-        ...
-
 class Manifold2D(Manifold):
     """Two dimensional manifold consisting of surfaces made of lines.
 
@@ -635,178 +587,6 @@ class Manifold2D(Manifold):
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
-_SerializedBasisCache = tuple[
-    int,
-    int,
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-]
-
-def compute_element_matrices(
-    form_orders: Sequence[int],
-    expressions: _CompiledCodeMatrix,
-    pos_bl: npt.NDArray[np.float64],
-    pos_br: npt.NDArray[np.float64],
-    pos_tr: npt.NDArray[np.float64],
-    pos_tl: npt.NDArray[np.float64],
-    element_orders: npt.NDArray[np.uint32],
-    vector_fields: tuple[npt.NDArray[np.float64], ...],
-    element_field_offsets: npt.NDArray[np.uint64],
-    serialized_caches: Sequence[_SerializedBasisCache],
-    thread_stack_size: int = (1 << 24),
-) -> tuple[npt.NDArray[np.float64]]:
-    """Compute element matrices based on the given instructions with tail calls.
-
-    Parameters
-    ----------
-    form_orders : Sequence of int
-        Orders of the unknown differential forms.
-
-    expressions : 2D matrix of (Sequence of (MatOpCode, int, and float) or None)
-        Two dimensional matrix of instructions to compute the entry of the element matrix.
-        It can be left as None, which means there is no contribution.
-
-    pos_bl : (N, 2) array
-        Array of position vectors for the bottom left corners of elements.
-
-    pos_br : (N, 2) array
-        Array of position vectors for the bottom right corners of elements.
-
-    pos_tr : (N, 2) array
-        Array of position vectors for the top right corners of elements.
-
-    pos_tl : (N, 2) array
-        Array of position vectors for the top left corners of elements.
-
-    element_orders : (N,) array
-        Array of orders of the elements. There must be an entry for this in
-        the ``serialized_caches``.
-
-    vector_fields : tuple of arrays
-        Tuple of vector field values used for interior products. These are compuated at
-        integration nodes for each element, then flattened, and packed in a tuple. The
-        ordering of the fields in the tuple must match that of the system instructions
-        were generated from.
-
-    element_field_offsets : array
-        Array of offsets that indicates where the vector fields for each element begins.
-        It should contain one more entry than the element count.
-
-    serialized_caches : Sequence of _SerializedBasisCache
-        All the serialized caches to use for the elements. Only one is allowed
-        per element order.
-
-    thread_stack_size : int, default: 2 ** 24
-        Default amount of memory allocated to each worker thread for the element they're
-        working on.
-
-    Returns
-    -------
-    tuple of N arrays
-        Tuple of element matices.
-    """
-    ...
-
-def compute_element_explicit(
-    dofs: npt.NDArray[np.float64],
-    offsets: npt.NDArray[np.uint32],
-    form_orders: Sequence[int],
-    expressions: Sequence[Sequence[Sequence[MatOpCode | int | float] | None]],
-    pos_bl: npt.NDArray[np.float64],
-    pos_br: npt.NDArray[np.float64],
-    pos_tr: npt.NDArray[np.float64],
-    pos_tl: npt.NDArray[np.float64],
-    element_orders: npt.NDArray[np.uint32],
-    vector_fields: tuple[npt.NDArray[np.float64], ...],
-    element_field_offsets: npt.NDArray[np.uint64],
-    serialized_caches: Sequence[_SerializedBasisCache],
-    thread_stack_size: int = (1 << 24),
-) -> tuple[npt.NDArray[np.float64]]:
-    """Compute element equations based on degrees of freedom given.
-
-    Parameters
-    ----------
-    dofs : array
-        Array containing degrees of freedom for all elements.
-
-    offsets : (N,) array
-        Array of offsets into the ``dofs`` array for each element.
-
-    form_orders : Sequence of int
-        Orders of the unknown differential forms.
-
-    expressions : 2D matrix of (Sequence of (MatOpCode, int, and float) or None)
-        Two dimensional matrix of instructions to compute the entry of the element matrix.
-        It can be left as None, which means there is no contribution.
-
-    pos_bl : (N, 2) array
-        Array of position vectors for the bottom left corners of elements.
-
-    pos_br : (N, 2) array
-        Array of position vectors for the bottom right corners of elements.
-
-    pos_tr : (N, 2) array
-        Array of position vectors for the top right corners of elements.
-
-    pos_tl : (N, 2) array
-        Array of position vectors for the top left corners of elements.
-
-    element_orders : (N,) array
-        Array of orders of the elements. There must be an entry for this in
-        the ``serialized_caches``.
-
-    vector_fields : tuple of arrays
-        Tuple of vector field values used for interior products. These are compuated at
-        integration nodes for each element, then flattened, and packed in a tuple. The
-        ordering of the fields in the tuple must match that of the system instructions
-        were generated from.
-
-    element_field_offsets : array
-        Array of offsets that indicates where the vector fields for each element begins.
-        It should contain one more entry than the element count.
-
-    serialized_caches : Sequence of _SerializedBasisCache
-        All the serialized caches to use for the elements. Only one is allowed
-        per element order.
-
-    thread_stack_size : int, default: 2 ** 24
-        Default amount of memory allocated to each worker thread for the element they're
-        working on.
-
-    Returns
-    -------
-    tuple of N arrays
-        Tuple of element matices.
-    """
-    ...
-
-def element_matrices(
-    x0: float,
-    x1: float,
-    x2: float,
-    x3: float,
-    y0: float,
-    y1: float,
-    y2: float,
-    y3: float,
-    serialized_cache: _SerializedBasisCache,
-) -> tuple[
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-]:
-    """Compute the element matrices."""
-    ...
-
 def check_bytecode(expression: list[MatOpCode | int | float], /) -> list[int | float]:
     """Convert bytecode to C-values, then back to Python.
 
@@ -821,17 +601,6 @@ def check_incidence(
 
     This function is meant for testing.
     """
-    ...
-
-def continuity(
-    primal: Manifold2D,
-    dual: Manifold2D,
-    form_orders: npt.ArrayLike,
-    element_offsets: npt.ArrayLike,
-    dof_offsets: npt.ArrayLike,
-    element_orders: npt.ArrayLike,
-) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.uint32]]:
-    """Create continuity equation for different forms."""
     ...
 
 class SparseVector:
@@ -1246,32 +1015,102 @@ class Basis2D:
     @property
     def basis_eta(self) -> Basis1D: ...
 
+@final
+class ElementMassMatrixCache:
+    """Caches element mass matrices."""
+
+    def __new__(cls, basis: Basis2D, corners: npt.NDArray[np.float64]) -> Self: ...
+    @property
+    def basis_xi(self) -> Basis1D:
+        """Get 1D basis functions for the first dimension."""
+        ...
+
+    @property
+    def basis_eta(self) -> Basis1D:
+        """Get 2D basis functions for the second dimension."""
+        ...
+
+    @property
+    def basis_2d(self) -> Basis2D:
+        """Get 2D basis functions."""
+        ...
+
+    @property
+    def corners(self) -> npt.NDArray[np.float64]:
+        """Get the element corners as a (4, 2) array."""
+        ...
+
+    @property
+    def mass_node(self) -> npt.NDArray[np.float64]:
+        """Return (cached) node mass matrix."""
+        ...
+
+    @property
+    def mass_edge(self) -> npt.NDArray[np.float64]:
+        """Return (cached) edge mass matrix."""
+        ...
+
+    @property
+    def mass_surf(self) -> npt.NDArray[np.float64]:
+        """Return (cached) surface mass matrix."""
+        ...
+    @property
+    def mass_node_inv(self) -> npt.NDArray[np.float64]:
+        """Return (cached) inverse node mass matrix."""
+        ...
+
+    @property
+    def mass_edge_inv(self) -> npt.NDArray[np.float64]:
+        """Return (cached) inverse edge mass matrix."""
+        ...
+
+    @property
+    def mass_surf_inv(self) -> npt.NDArray[np.float64]:
+        """Return (cached) inverse surface mass matrix."""
+        ...
+
+    def mass_from_order(
+        self, order: UnknownFormOrder, inverse: bool = False
+    ) -> npt.NDArray[np.float64]:
+        """Compute mass matrix for the given order.
+
+        Parameters
+        ----------
+        order : UnknownFormOrder
+            Order of the differential for to get the matrix from.
+
+        inverse : bool, default: False
+            Should the matrix be inverted.
+
+        Returns
+        -------
+        array
+            Mass matrix of the specified order (or inverse if specified).
+        """
+        ...
+
 def compute_element_matrix(
-    form_orders: Sequence[int],  # TODO: make this unknown order enum
+    form_orders: Sequence[UnknownFormOrder],
     expressions: _CompiledCodeMatrix,
-    corners: npt.NDArray[np.float64],
     vector_fields: Sequence[npt.NDArray[np.float64]],
-    basis: Basis2D,
+    element_cache: ElementMassMatrixCache,
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
     """Compute a single element matrix.
 
     Parameters
     ----------
-    form_orders : Sequence of int
+    form_orders : Sequence of UnknownFormOrder
         Orders of differential forms for the degrees of freedom. Must be between 0 and 2.
 
     expressions
         Compiled bytecode to execute.
 
-    corners : (4, 2) array
-        Array of corners of the element.
-
     vector_fields : Sequence of arrays
         Vector field arrays as required for interior product evaluations.
 
-    basis : Basis2D
-        Basis functions with integration rules to use.
+    element_cache : ElementMassMatrixCache
+        Cache of the element basis and mass matrices.
 
     stack_memory : int, default: 1 << 24
         Amount of memory to use for the evaluation stack.
@@ -1284,11 +1123,10 @@ def compute_element_matrix(
     ...
 
 def compute_element_vector(
-    form_orders: Sequence[int],  # TODO: make this unknown order enum
+    form_orders: Sequence[UnknownFormOrder],
     expressions: _CompiledCodeMatrix,
-    corners: npt.NDArray[np.float64],
     vector_fields: Sequence[npt.NDArray[np.float64]],
-    basis: Basis2D,
+    element_cache: ElementMassMatrixCache,
     solution: npt.NDArray[np.float64],
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
@@ -1296,20 +1134,17 @@ def compute_element_vector(
 
     Parameters
     ----------
-    form_orders : Sequence of int
+    form_orders : Sequence of UnknownFormOrder
         Orders of differential forms for the degrees of freedom. Must be between 0 and 2.
 
     expressions
         Compiled bytecode to execute.
 
-    corners : (4, 2) array
-        Array of corners of the element.
-
     vector_fields : Sequence of arrays
         Vector field arrays as required for interior product evaluations.
 
-    basis : Basis2D
-        Basis functions with integration rules to use.
+    element_cache : ElementMassMatrixCache
+        Cache of the element basis and mass matrices.
 
     solution : array
         Array with degrees of freedom for the element.
@@ -1353,34 +1188,5 @@ def compute_element_projector(
     -------
     tuple of square arrays
         Tuple where each entry is the respective projection matrix for that form.
-    """
-    ...
-
-def compute_element_mass_matrix(
-    form_order: UnknownFormOrder,
-    corners: npt.NDArray[np.float64],
-    basis: Basis2D,
-    inverse: bool = False,
-) -> npt.NDArray[np.float64]:
-    """Compute element mass matrix for the specified form.
-
-    Parameters
-    ----------
-    form_order : UnknownFormOrder
-        Order of the form for which the mass matrix should be computed.
-
-    corners : (4, 2)
-        Array of corner points of the element.
-
-    basis : Basis2D
-        Basis used for the test and sample space.
-
-    inverse : bool, default: False
-        Should the inverse of the matrix be computed instead of its value directly.
-
-    Returns
-    -------
-    array
-        Mass matrix (or its inverse if specified) for the appropriate form.
     """
     ...

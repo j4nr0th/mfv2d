@@ -20,13 +20,13 @@ int system_template_create(system_template_t *this, PyObject *orders, PyObject *
         for (unsigned i = 0; i < n_forms; ++i)
         {
             const unsigned o = p_o[i];
-            if (o > 2)
+            if (o > 3 || o == 0)
             {
                 PyErr_Format(PyExc_ValueError, "Form can not be of order higher than 2 (it was %u)", o);
                 Py_DECREF(order_array);
                 return 0;
             }
-            this->form_orders[i] = o + 1;
+            this->form_orders[i] = o;
         }
         Py_DECREF(order_array);
     }

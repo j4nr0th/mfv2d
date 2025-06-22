@@ -1,8 +1,8 @@
 #include "element_system.h"
 #include "allocator.h"
 #include "basis.h"
+#include "element_cache.h"
 #include "element_eval.h"
-#include "evaluation.h"
 #include "fem_space.h"
 
 #include <numpy/ndarrayobject.h>
@@ -13,29 +13,26 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     PyArrayObject *return_value = NULL;
     PyObject *form_orders_obj = NULL;
     PyObject *expressions = NULL;
-    PyObject *corners = NULL;
     PyObject *vector_fields_obj = NULL;
-    basis_2d_t *basis = NULL;
+    element_mass_matrix_cache_t *element_cache = NULL;
     Py_ssize_t stack_memory = 1 << 24;
 
-    static char *kwlist[7] = {"form_orders", "expressions",    "corners", "vector_fields",
-                              "basis ",      " stack_memory ", NULL};
+    static char *kwlist[7] = {"form_orders", "expressions", "vector_fields", "element_cache", " stack_memory ", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOOO!|n", kwlist,
-                                     &form_orders_obj,   // Sequence[int]
-                                     &expressions,       // _CompiledCodeMatrix (PyObject*)
-                                     &corners,           // np.ndarray
-                                     &vector_fields_obj, // Sequence[np.ndarray]
-                                     &basis_2d_type,     // For type checking
-                                     &basis,             // Basis2D
-                                     &stack_memory       // int
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO!|n", kwlist,
+                                     &form_orders_obj,                // Sequence[int]
+                                     &expressions,                    // _CompiledCodeMatrix (PyObject*)
+                                     &vector_fields_obj,              // Sequence[np.ndarray]
+                                     &element_mass_matrix_cache_type, // For type checking
+                                     &element_cache,                  // element cache
+                                     &stack_memory                    // int
                                      ))
     {
         return NULL;
     }
 
-    const unsigned order_1 = basis->basis_xi->order;
-    const unsigned order_2 = basis->basis_eta->order;
+    const unsigned order_1 = element_cache->basis_xi->order;
+    const unsigned order_2 = element_cache->basis_eta->order;
     if (order_1 != order_2)
     {
         PyErr_Format(PyExc_NotImplementedError,
@@ -65,13 +62,8 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         return NULL;
     }
 
-    // Validate corners, basis, weights, stack_memory are NumPy arrays of type float64
-    if (check_input_array((PyArrayObject *)corners, 2, (const npy_intp[2]){4, 2}, NPY_DOUBLE,
-                          NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "corners") < 0)
-        return NULL;
-
-    const fem_space_1d_t space_1 = basis_1d_as_fem_space(basis->basis_xi),
-                         space_2 = basis_1d_as_fem_space(basis->basis_eta);
+    const fem_space_1d_t space_1 = basis_1d_as_fem_space(element_cache->basis_xi),
+                         space_2 = basis_1d_as_fem_space(element_cache->basis_eta);
 
     const unsigned n1 = space_1.n_pts, n2 = space_2.n_pts;
 
@@ -115,12 +107,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     if (!return_value)
         goto cleanup_template;
 
-    const quad_info_t *const quad = PyArray_DATA((PyArrayObject *)corners);
-    fem_space_2d_t *fem_space = NULL;
-    mfv2d_result_t res = fem_space_2d_create(&space_1, &space_2, quad, &fem_space, &SYSTEM_ALLOCATOR);
-    if (res != MFV2D_SUCCESS)
-        goto cleanup_template;
-
+    mfv2d_result_t res = MFV2D_SUCCESS;
     error_stack_t *const err_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
     matrix_t *matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * system_template.max_stack);
     allocator_stack_t *const allocator_stack = allocator_stack_create((size_t)stack_memory, &SYSTEM_ALLOCATOR);
@@ -132,7 +119,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         if (allocator_stack)
             deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
         deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
-        goto cleanup_fem_space;
+        goto cleanup_template;
     }
     memset(matrix_stack, 0, sizeof *matrix_stack * system_template.max_stack);
 
@@ -155,7 +142,7 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
             }
 
             matrix_full_t mat;
-            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, fem_space,
+            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, element_cache,
                                  &element_field_information, system_template.max_stack, matrix_stack,
                                  &allocator_stack->base, &mat, NULL);
             if (res != MFV2D_SUCCESS)
@@ -207,8 +194,6 @@ cleanup_stacks:
     deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
     deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
 
-cleanup_fem_space:
-    deallocate(&SYSTEM_ALLOCATOR, fem_space);
 cleanup_template:
     system_template_destroy(&system_template, &SYSTEM_ALLOCATOR);
 end:
@@ -227,31 +212,29 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     PyArrayObject *return_value = NULL;
     PyObject *form_orders_obj = NULL;
     PyObject *expressions = NULL;
-    PyObject *corners = NULL;
     PyObject *vector_fields_obj = NULL;
+    element_mass_matrix_cache_t *element_cache = NULL;
     PyArrayObject *solution = NULL;
-    basis_2d_t *basis = NULL;
     Py_ssize_t stack_memory = 1 << 24;
 
-    static char *kwlist[8] = {"form_orders", "expressions", "corners",        "vector_fields",
-                              "basis ",      "solution",    " stack_memory ", NULL};
+    static char *kwlist[8] = {"form_orders",    "expressions", "vector_fields", "element_cache", "solution",
+                              " stack_memory ", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOOO!O|n", kwlist,
-                                     &form_orders_obj,   // Sequence[int]
-                                     &expressions,       // _CompiledCodeMatrix (PyObject*)
-                                     &corners,           // np.ndarray
-                                     &vector_fields_obj, // Sequence[np.ndarray]
-                                     &basis_2d_type,     // For type checking
-                                     &basis,             // Basis2D
-                                     &solution,          // np.ndarray
-                                     &stack_memory       // int
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO!O|n", kwlist,
+                                     &form_orders_obj,                // Sequence[int]
+                                     &expressions,                    // _CompiledCodeMatrix (PyObject*)
+                                     &vector_fields_obj,              // Sequence[np.ndarray]
+                                     &element_mass_matrix_cache_type, // For type checking
+                                     &element_cache,                  // element cache
+                                     &solution,                       // np.ndarray
+                                     &stack_memory                    // int
                                      ))
     {
         return NULL;
     }
 
-    const unsigned order_1 = basis->basis_xi->order;
-    const unsigned order_2 = basis->basis_eta->order;
+    const unsigned order_1 = element_cache->basis_xi->order;
+    const unsigned order_2 = element_cache->basis_eta->order;
     if (order_1 != order_2)
     {
         PyErr_Format(PyExc_NotImplementedError,
@@ -281,13 +264,8 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         return NULL;
     }
 
-    // Validate corners, basis, weights, stack_memory are NumPy arrays of type float64
-    if (check_input_array((PyArrayObject *)corners, 2, (const npy_intp[2]){4, 2}, NPY_DOUBLE,
-                          NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "corners") < 0)
-        return NULL;
-
-    const fem_space_1d_t space_1 = basis_1d_as_fem_space(basis->basis_xi),
-                         space_2 = basis_1d_as_fem_space(basis->basis_eta);
+    const fem_space_1d_t space_1 = basis_1d_as_fem_space(element_cache->basis_xi),
+                         space_2 = basis_1d_as_fem_space(element_cache->basis_eta);
 
     const unsigned n1 = space_1.n_pts, n2 = space_2.n_pts;
 
@@ -338,12 +316,7 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     if (!return_value)
         goto cleanup_template;
 
-    const quad_info_t *const quad = PyArray_DATA((PyArrayObject *)corners);
-    fem_space_2d_t *fem_space = NULL;
-    mfv2d_result_t res = fem_space_2d_create(&space_1, &space_2, quad, &fem_space, &SYSTEM_ALLOCATOR);
-    if (res != MFV2D_SUCCESS)
-        goto cleanup_template;
-
+    mfv2d_result_t res = MFV2D_SUCCESS;
     error_stack_t *const err_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
     matrix_t *matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * system_template.max_stack);
     allocator_stack_t *const allocator_stack = allocator_stack_create((size_t)stack_memory, &SYSTEM_ALLOCATOR);
@@ -355,7 +328,7 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         if (allocator_stack)
             deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
         deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
-        goto cleanup_fem_space;
+        goto cleanup_template;
     }
     memset(matrix_stack, 0, sizeof *matrix_stack * system_template.max_stack);
     double *restrict const output_mat = PyArray_DATA(return_value);
@@ -379,7 +352,7 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
             matrix_full_t mat;
             const matrix_full_t initial = {.base = {.type = MATRIX_TYPE_FULL, .rows = col_len, .cols = 1},
                                            .data = solution_vec + col_offset};
-            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, fem_space,
+            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, element_cache,
                                  &element_field_information, system_template.max_stack, matrix_stack,
                                  &allocator_stack->base, &mat, &initial);
             if (res != MFV2D_SUCCESS)
@@ -427,8 +400,6 @@ cleanup_stacks:
     deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
     deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
 
-cleanup_fem_space:
-    deallocate(&SYSTEM_ALLOCATOR, fem_space);
 cleanup_template:
     system_template_destroy(&system_template, &SYSTEM_ALLOCATOR);
 end:
@@ -609,54 +580,48 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
             goto end;
         }
 
-        // Compute the inverse mass matrix
-        const bytecode_t bytecode[4] = {
-            [0] = {.u32 = 3},
-            [1] = {.op = MATOP_MASS},
-            [2] = {.u32 = order - 1},
-            [3] = {.u32 = 1},
-        };
+        matrix_full_t mass;
+        switch (order)
+        {
+        case FORM_ORDER_0:
+            res = compute_mass_matrix_node_double(fem_space_out, fem_space_out, &mass, &SYSTEM_ALLOCATOR);
+            break;
 
-        matrix_full_t out_mat;
-        error_stack_t *error_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
-        if (!error_stack)
-        {
-            res = MFV2D_FAILED_ALLOC;
-            deallocate(&SYSTEM_ALLOCATOR, mat.data);
-            goto end;
+        case FORM_ORDER_1:
+            res = compute_mass_matrix_edge_double(fem_space_out, fem_space_out, &mass, &SYSTEM_ALLOCATOR);
+            break;
+
+        case FORM_ORDER_2:
+            res = compute_mass_matrix_surf_double(fem_space_out, fem_space_out, &mass, &SYSTEM_ALLOCATOR);
+            break;
         }
-        enum
-        {
-            MATRIX_STACK_SIZE = 3
-        };
-        matrix_t *matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * MATRIX_STACK_SIZE);
-        if (!matrix_stack)
-        {
-            res = MFV2D_FAILED_ALLOC;
-            deallocate(&SYSTEM_ALLOCATOR, error_stack);
-            deallocate(&SYSTEM_ALLOCATOR, mat.data);
-            goto end;
-        }
-        memset(matrix_stack, 0, sizeof *matrix_stack * MATRIX_STACK_SIZE);
-        res = evaluate_block(error_stack, order, -1, bytecode, fem_space_out, NULL, MATRIX_STACK_SIZE, matrix_stack,
-                             &SYSTEM_ALLOCATOR, &out_mat, &mat);
-        deallocate(&SYSTEM_ALLOCATOR, mat.data);
-        deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
-        if (error_stack->position != 0)
-        {
-            for (unsigned i = 0; i < error_stack->position; ++i)
-            {
-                error_message_t *const msg = error_stack->messages + i;
-                fprintf(stderr, "%s:%d in %s: (%s) - %s\n", msg->file, msg->line, msg->function,
-                        mfv2d_result_str(msg->code), msg->message);
-                deallocate(error_stack->allocator, msg);
-            }
-        }
-        deallocate(&SYSTEM_ALLOCATOR, error_stack);
 
         if (res != MFV2D_SUCCESS)
         {
-            PyErr_Format(PyExc_RuntimeError, "Could not compute mixed mass matrix for order %d, error code %s.", order,
+            PyErr_Format(PyExc_RuntimeError, "Could not compute mass matrix for order %d, error code %s.", order,
+                         mfv2d_result_str(res));
+            deallocate(&SYSTEM_ALLOCATOR, mat.data);
+            goto end;
+        }
+
+        matrix_full_t inv_mat;
+        res = matrix_full_invert(&mass, &inv_mat, &SYSTEM_ALLOCATOR);
+        deallocate(&SYSTEM_ALLOCATOR, mass.data);
+        if (res != MFV2D_SUCCESS)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Could not invert mass matrix for order %d, error code %s.", order,
+                         mfv2d_result_str(res));
+            deallocate(&SYSTEM_ALLOCATOR, mat.data);
+            goto end;
+        }
+
+        matrix_full_t out_mat;
+        res = matrix_full_multiply(&inv_mat, &mat, &out_mat, &SYSTEM_ALLOCATOR);
+        deallocate(&SYSTEM_ALLOCATOR, mat.data);
+        deallocate(&SYSTEM_ALLOCATOR, inv_mat.data);
+        if (res != MFV2D_SUCCESS)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Could not compute projection matrix of order %d, error code %s.", order,
                          mfv2d_result_str(res));
             goto end;
         }

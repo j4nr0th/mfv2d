@@ -38,8 +38,10 @@ from mfv2d.element import (
     FlexibleElementArray,
     ObjectElementArray,
     _compute_element_lagrange_multipliers,
+    call_per_element,
     call_per_element_fix,
     call_per_element_flex,
+    call_per_leaf,
     call_per_leaf_flex,
     element_dual_dofs,
     poly_x,
@@ -2131,6 +2133,29 @@ def compute_leaf_vector(
     return vec
 
 
+def update_leaf_vector(
+    ie: int,
+    expressions: _CompiledCodeMatrix,
+    unknowns: UnknownOrderings,
+    element_caches: ObjectElementArray[ElementMassMatrixCache],
+    fields: FixedElementArray[np.object_],
+    solution: FlexibleElementArray[np.float64, np.uint32],
+    result_array: FlexibleElementArray[np.float64, np.uint32],
+) -> None:
+    """Compute the element vector."""
+    elem_cache = element_caches[ie]
+    vec_fields = tuple(fields[ie])
+
+    vec = compute_element_vector(
+        unknowns.form_orders,
+        expressions,
+        vec_fields,
+        elem_cache,
+        solution[ie],
+    )
+    result_array[ie] = vec
+
+
 def compute_element_dual(
     ie: int,
     ordering: UnknownOrderings,
@@ -2314,38 +2339,46 @@ def non_linear_solve_run(
         assert time_carry_index_array is None
     residuals = np.zeros(max_iterations, np.float64)
     max_residual = 0.0
+    vec_fields_array = FixedElementArray(element_collection.com, 0, np.object_)
+    equation_values = FlexibleElementArray(
+        element_collection.com, np.float64, solution.shapes
+    )
+    explicit_values = FlexibleElementArray(
+        element_collection.com, np.float64, solution.shapes
+    )
+
     while iter_cnt < max_iterations:
         # Recompute vector fields
         # Compute vector fields at integration points for leaf elements
 
-        vec_fields_array = call_per_element_fix(
-            element_collection.com,
-            np.object_,
-            len(vector_fields),
-            compute_element_vector_fields,
-            system,
-            element_collection.child_count_array,
-            element_collection.orders_array,
-            element_collection.orders_array,
-            cache_2d,
-            vector_fields,
-            element_collection.corners_array,
-            dof_offsets,
-            solution,
-        )
+        if len(vector_fields):
+            vec_fields_array = call_per_element_fix(
+                element_collection.com,
+                np.object_,
+                len(vector_fields),
+                compute_element_vector_fields,
+                system,
+                element_collection.child_count_array,
+                element_collection.orders_array,
+                element_collection.orders_array,
+                cache_2d,
+                vector_fields,
+                element_collection.corners_array,
+                dof_offsets,
+                solution,
+            )
 
         combined_solution = np.concatenate(solution, dtype=np.float64)
 
-        equation_values = call_per_leaf_flex(
+        call_per_leaf(
             element_collection,
-            1,
-            np.float64,
-            compute_leaf_vector,
+            update_leaf_vector,
             compiled_system.lhs_full,
             unknown_ordering,
             element_caches,
             vec_fields_array,
             solution,
+            equation_values,
         )
 
         main_value = assemble_forcing(
@@ -2360,16 +2393,15 @@ def non_linear_solve_run(
             main_vec = np.array(base_vec, copy=True)  # Make a copy
             # Update RHS implicit terms
 
-            explicit_values = call_per_leaf_flex(
+            call_per_leaf(
                 element_collection,
-                1,
-                np.float64,
-                compute_leaf_vector,
+                update_leaf_vector,
                 compiled_system.rhs_codes,
                 unknown_ordering,
                 element_caches,
                 vec_fields_array,
                 solution,
+                explicit_values,
             )
 
             for off, cnt, vals in (
@@ -2456,17 +2488,17 @@ def non_linear_solve_run(
             ie: int,
             sol: FlexibleElementArray[np.float64, np.uint32],
             up: FlexibleElementArray[np.float64, np.uint32],
-        ) -> npt.NDArray[np.float64]:
+            out: FlexibleElementArray[np.float64, np.uint32],
+        ) -> None:
             """Compute solution given update value."""
-            return sol[ie] + up[ie]
+            out[ie] = sol[ie] + up[ie]
 
-        solution = call_per_element_flex(
+        call_per_element(
             element_collection.com,
-            1,
-            np.float64,
             _update_solution,
             solution,
             sol_updates,
+            solution,
         )
 
         iter_cnt += 1

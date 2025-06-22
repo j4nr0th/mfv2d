@@ -23,7 +23,7 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import IntEnum
 from itertools import accumulate
-from typing import Concatenate, Generic, ParamSpec, SupportsIndex, TypeVar
+from typing import Any, Concatenate, Generic, ParamSpec, SupportsIndex, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -692,6 +692,74 @@ def call_per_leaf_obj(
             out[ie] = res
 
     return out
+
+
+def call_per_leaf(
+    col: ElementCollection,
+    fn: Callable[Concatenate[int, _FuncArgs], Any],
+    *args: _FuncArgs.args,
+    **kwargs: _FuncArgs.kwargs,
+) -> None:
+    """Call a function for each leaf element and return the result as a flexible array.
+
+    Note that this is only done for leaf elements (elements with no children).
+
+    Parameters
+    ----------
+    col : ElementCollection
+        Element collection to use.
+
+    fn : Callable
+        Function to call for each leaf element.
+
+    *args
+        Arguments passed to the function.
+
+    **kwargs
+        Keyword arguments passed to the function.
+
+    Returns
+    -------
+    ObjectElementArray[dtype]
+        Flexible array containing the results.
+    """
+    for ie in range(col.com.element_cnt):
+        child_cnt = col.child_count_array[ie][0]
+        if child_cnt == 0:
+            fn(ie, *args, **kwargs)
+
+
+def call_per_element(
+    com: ArrayCom,
+    fn: Callable[Concatenate[int, _FuncArgs], Any],
+    *args: _FuncArgs.args,
+    **kwargs: _FuncArgs.kwargs,
+) -> None:
+    """Call a function for each leaf element and return the result as a flexible array.
+
+    Note that this is only done for leaf elements (elements with no children).
+
+    Parameters
+    ----------
+    col : ElementCollection
+        Element collection to use.
+
+    fn : Callable
+        Function to call for each leaf element.
+
+    *args
+        Arguments passed to the function.
+
+    **kwargs
+        Keyword arguments passed to the function.
+
+    Returns
+    -------
+    ObjectElementArray[dtype]
+        Flexible array containing the results.
+    """
+    for ie in range(com.element_cnt):
+        fn(ie, *args, **kwargs)
 
 
 def _compute_element_dofs(

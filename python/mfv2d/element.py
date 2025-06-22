@@ -250,24 +250,18 @@ class ElementCollection:
        Number of children is stored in `child_count_array`.
     """
 
-    # TODO: REMOVE THIS.
-    ordering: FixedElementArray[np.uint32]
-    """Array with the order of how the elements appear in the mesh."""
-
     def __init__(self, elements: Sequence[Element2D]) -> None:
         com = ArrayCom(len(elements))
         orders_array = FixedElementArray(com, 2, np.uint32)
         corners_array = FixedElementArray(com, (4, 2), np.float64)
         parent_array = FixedElementArray(com, 1, np.uint32)
         child_count_array = FixedElementArray(com, 1, np.uint32)
-        ordering = FixedElementArray(com, 1, np.uint32)
 
         self.com = com
         self.orders_array = orders_array
         self.corners_array = corners_array
         self.parent_array = parent_array
         self.child_count_array = child_count_array
-        self.ordering = ordering
 
         # Loop over elements and extract all information related to orders and
         # children.
@@ -307,12 +301,6 @@ class ElementCollection:
             if type(element) is not ElementNode2D:
                 continue
             child_array[ie] = [elements.index(e) for e in element.children()]
-
-        i_current = 0
-        for ie in range(len(elements)):
-            if parent_array[ie] != 0:
-                continue
-            i_current = _order_elements(ie, i_current, ordering, child_array)
 
     def get_element_children(self, i: int, /) -> tuple[int, ...]:
         """Get children of an element."""

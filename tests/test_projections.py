@@ -10,7 +10,6 @@ from mfv2d._mfv2d import (
     compute_element_projector,
 )
 from mfv2d.element import (
-    ElementLeaf2D,
     element_primal_dofs,
     poly_x,
     poly_y,
@@ -27,10 +26,7 @@ def test_reconstruction_nodal() -> None:
         """Test function."""
         return x**3 + 2 * y - x * y
 
-    e = ElementLeaf2D(None, N, (-2, -1.1), (+0.7, -1.5), (+1, +1), (-1.2, +1))
-    corners = np.array(
-        [e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64
-    )
+    corners = np.array([(-2, -1.1), (+0.7, -1.5), (+1, +1), (-1.2, +1)], np.float64)
 
     int_rule = IntegrationRule1D(N + 2)
     basis_1d = Basis1D(N, int_rule)
@@ -57,10 +53,7 @@ def test_reconstruction_surf() -> None:
         """Test function."""
         return x**3 + 2 * y - x * y
 
-    e = ElementLeaf2D(None, N, (-2, -1.1), (+0.7, -1.5), (+1, +1), (-1.2, +1))
-    corners = np.array(
-        [e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64
-    )
+    corners = np.array([(-2, -1.1), (+0.7, -1.5), (+1, +1), (-1.2, +1)], np.float64)
 
     int_rule = IntegrationRule1D(N + 2)
     basis_1d = Basis1D(N, int_rule)
@@ -86,10 +79,7 @@ def test_projection_self_check(n: int) -> None:
     basis_1d = Basis1D(n, int_rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
 
-    e = ElementLeaf2D(None, n, (-2, -1.1), (+0.7, -1.5), (+1, +1), (-1.2, +1))
-    corners = np.array(
-        [e.bottom_left, e.bottom_right, e.top_right, e.top_left], np.float64
-    )
+    corners = np.array([(-2, -1.1), (+0.7, -1.5), (+1, +1), (-1.2, +1)], np.float64)
 
     for m, order in zip(((n + 1) ** 2, 2 * n * (n + 1), n**2), UnknownFormOrder):
         (mat,) = compute_element_projector([order], corners, basis_2d, basis_2d)

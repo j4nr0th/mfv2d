@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from itertools import accumulate
 
 import numpy as np
 import numpy.typing as npt
@@ -439,51 +438,6 @@ class Element2D:
 
     parent: ElementNode2D | None
 
-    def order_on_side(self, side: int) -> int:
-        """Effective order of the element on the specified side."""
-        raise NotImplementedError
-
-    def dof_sizes(self, form_orders: Sequence[int]) -> tuple[int, ...]:
-        """Compute number unknown DoFs for differential forms."""
-        raise NotImplementedError
-
-    def dof_offsets(self, form_orders: Sequence[int]) -> tuple[int, ...]:
-        """Compute offset of unknown DoFs."""
-        sizes = self.dof_sizes(form_orders)
-        return (0, *accumulate(sizes))
-
-    def element_edge_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
-        """Get non-offset indices of edge DoFs on the boundary of an element."""
-        raise NotImplementedError
-
-    def element_node_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
-        """Get non-offset indices of node DoFs on the boundary of an element."""
-        raise NotImplementedError
-
-    def total_dof_count(
-        self, form_orders: Sequence[int], lagrange: bool, children: bool
-    ) -> int:
-        """Return the number of all DoFs needed by the element.
-
-        Lagrange multipliers involved in the continuity between child and parent elements
-        can included in this.
-
-        Parameters
-        ----------
-        form_orders : Sequence of int
-            Orders of differential forms defined in the element.
-        lagrange : bool
-            Include Lagrange multiplier related degrees of freedom.
-        children : bool
-            Include all child degrees of freedom.
-
-        Returns
-        -------
-        int
-            Number of specified degrees of freedom.
-        """
-        raise NotImplementedError
-
     @property
     def bottom_left(self) -> tuple[float, float]:
         """Coordinates of the bottom left corner."""
@@ -516,128 +470,6 @@ class ElementNode2D(Element2D):
     child_tr: Element2D
 
     maximum_order: int | None = None
-
-    def order_on_side(self, side: int) -> int:
-        """Effective order of the element on the specified side."""
-        if side == 0:
-            base_size = self.child_bl.order_on_side(0) + self.child_br.order_on_side(0)
-        elif side == 1:
-            base_size = self.child_br.order_on_side(1) + self.child_tr.order_on_side(1)
-        elif side == 2:
-            base_size = self.child_tr.order_on_side(2) + self.child_tl.order_on_side(2)
-        elif side == 3:
-            base_size = self.child_tl.order_on_side(3) + self.child_bl.order_on_side(3)
-        else:
-            raise ValueError(f"Invalid value of the side (can not be {side}).")
-
-        if self.maximum_order is not None:
-            base_size = min(self.maximum_order, base_size)
-
-        return base_size
-
-    def dof_sizes(self, form_orders: Sequence[int]) -> tuple[int, ...]:
-        """Compute number unknown DoFs for differential forms."""
-        sizes: list[int] = list()
-        for form_order in form_orders:
-            if form_order == 2:
-                n = 0
-            elif form_order == 1 or form_order == 0:
-                n = sum(self.order_on_side(i_side) for i_side in range(4))
-            else:
-                raise ValueError(f"Invalid differential form order {form_order}.")
-            sizes.append(n)
-
-        return tuple(sizes)
-
-    def total_dof_count(
-        self, form_orders: Sequence[int], lagrange: bool, children: bool
-    ) -> int:
-        """Return the number of all DoFs needed by the element.
-
-        Lagrange multipliers involved in the continuity between child and parent elements
-        can included in this.
-
-        Parameters
-        ----------
-        form_orders : Sequence of int
-            Orders of differential forms defined in the element.
-        lagrange : bool
-            Include Lagrange multiplier related degrees of freedom.
-        children : bool
-            Include all child degrees of freedom.
-
-        Returns
-        -------
-        int
-            Number of specified degrees of freedom.
-        """
-        n_lagrange = 0
-        if lagrange:
-            for order in form_orders:
-                if order == 2:
-                    continue
-
-                # There's always the same number of parent-child as the order of the child
-                # on that boundary
-                n_btm = self.child_bl.order_on_side(0) + self.child_br.order_on_side(0)
-                n_rth = self.child_br.order_on_side(1) + self.child_tr.order_on_side(1)
-                n_top = self.child_tr.order_on_side(2) + self.child_tl.order_on_side(2)
-                n_lft = self.child_tl.order_on_side(3) + self.child_bl.order_on_side(3)
-
-                n_lagrange += n_btm + n_rth + n_top + n_lft
-
-                n_bl_br = max(
-                    self.child_bl.order_on_side(1), self.child_br.order_on_side(3)
-                )
-                n_br_tr = max(
-                    self.child_br.order_on_side(2), self.child_tr.order_on_side(0)
-                )
-                n_tr_tl = max(
-                    self.child_tr.order_on_side(3), self.child_tl.order_on_side(1)
-                )
-                n_tl_bl = max(
-                    self.child_tl.order_on_side(0), self.child_bl.order_on_side(2)
-                )
-
-                n_lagrange += n_bl_br + n_br_tr + n_tr_tl + n_tl_bl
-
-                if order == 0:
-                    # Add the center node connectivity relations (but not cyclical)
-                    n_lagrange += 3
-
-        count = sum(self.dof_sizes(form_orders)) + n_lagrange
-
-        if children:
-            count += (
-                self.child_bl.total_dof_count(form_orders, lagrange, children)
-                + self.child_br.total_dof_count(form_orders, lagrange, children)
-                + self.child_tl.total_dof_count(form_orders, lagrange, children)
-                + self.child_tr.total_dof_count(form_orders, lagrange, children)
-            )
-
-        return count
-
-    def element_edge_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
-        """Get non-offset indices of edge DoFs on the boundary of an element."""
-        offset = sum(self.order_on_side(i_side) for i_side in range(bnd_idx))
-        count = self.order_on_side(bnd_idx)
-
-        return np.astype(
-            offset + np.arange(count, dtype=np.uint32), np.uint32, copy=False
-        )
-
-    def element_node_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
-        """Get non-offset indices of node DoFs on the boundary of an element."""
-        offset = sum(self.order_on_side(i_side) for i_side in range(bnd_idx))
-        count = self.order_on_side(bnd_idx) + 1
-
-        res = np.astype(offset + np.arange(count, dtype=np.uint32), np.uint32, copy=False)
-
-        if bnd_idx == 3:
-            # This node is shared between left and bottom side
-            res[-1] = 0
-
-        return res
 
     @property
     def bottom_left(self) -> tuple[float, float]:
@@ -676,15 +508,17 @@ class ElementLeaf2D(Element2D):
 
     Parameters
     ----------
-    p : int
-        Order of the basis functions used for the nodal basis.
-    bl : (float, float)
+    order_h : int
+        Order of the basis functions used for the nodal basis in the first dimension.
+    order_v : int
+        Order of the basis functions used for the nodal basis in the second dimension.
+    bottom_left : (float, float)
         Coordinates of the bottom left corner.
-    br : (float, float)
+    bottom_right : (float, float)
         Coordinates of the bottom right corner.
-    tr : (float, float)
+    top_right : (float, float)
         Coordinates of the top right corner.
-    tl : (float, float)
+    top_left : (float, float)
         Coordinates of the top left corner.
     """
 
@@ -714,220 +548,6 @@ class ElementLeaf2D(Element2D):
     def top_left(self) -> tuple[float, float]:
         """Coordinates of the top left corner."""
         return self._top_left
-
-    def element_node_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
-        """Get non-offset indices of node DoFs on the boundary of an element."""
-        n = self.order
-
-        if bnd_idx == 0:
-            return np.arange(0, n + 1, dtype=np.uint32)
-
-        elif bnd_idx == 1:
-            return np.astype(
-                n + np.arange(0, n + 1, dtype=np.uint32) * (n + 1),
-                np.uint32,
-                copy=False,
-            )
-
-        elif bnd_idx == 2:
-            return np.astype(
-                np.flip((n + 1) * n + np.arange(0, n + 1, dtype=np.uint32)),
-                np.uint32,
-                copy=False,
-            )
-
-        elif bnd_idx == 3:
-            return np.astype(
-                np.flip(np.arange(0, n + 1, dtype=np.uint32) * (n + 1)),
-                np.uint32,
-                copy=False,
-            )
-
-        raise ValueError("Only boundary ID of up to 3 is allowed.")
-
-    def element_edge_dofs(self, bnd_idx: int, /) -> npt.NDArray[np.uint32]:
-        """Get non-offset indices of edge DoFs on the boundary of an element."""
-        n = self.order
-        if bnd_idx == 0:
-            return np.arange(0, n, dtype=np.uint32)
-
-        elif bnd_idx == 1:
-            return np.astype(
-                (n * (n + 1)) + n + np.arange(0, n, dtype=np.uint32) * (n + 1),
-                np.uint32,
-                copy=False,
-            )
-
-        elif bnd_idx == 2:
-            return np.astype(
-                np.flip(n * n + np.arange(0, n, dtype=np.uint32)),
-                np.uint32,
-                copy=False,
-            )
-
-        elif bnd_idx == 3:
-            return np.astype(
-                np.flip((n * (n + 1)) + np.arange(0, n, dtype=np.uint32) * (n + 1)),
-                np.uint32,
-                copy=False,
-            )
-
-        raise ValueError("Only boundary ID of up to 3 is allowed.")
-
-    def order_on_side(self, side: int) -> int:
-        """Effective order of the element on the specified side."""
-        if side < 0 or side >= 4:
-            raise ValueError(f"Side index can not be {side}.")
-        return self.order
-
-    def dof_sizes(self, form_orders: Sequence[int]) -> tuple[int, ...]:
-        """Compute number unknown DoFs for differential forms."""
-        sizes: list[int] = list()
-        for form_order in form_orders:
-            if form_order == 2:
-                n = self.order**2
-            elif form_order == 1:
-                n = self.order * (self.order + 1) * 2
-            elif form_order == 0:
-                n = (self.order + 1) ** 2
-            else:
-                raise ValueError(f"Invalid differential form order {form_order}.")
-            sizes.append(n)
-
-        return tuple(sizes)
-
-    def total_dof_count(
-        self, form_orders: Sequence[int], lagrange: bool, children: bool
-    ) -> int:
-        """Return the number of all DoFs needed by the element.
-
-        Lagrange multipliers involved in the continuity between child and parent elements
-        can included in this.
-
-        Parameters
-        ----------
-        form_orders : Sequence of int
-            Orders of differential forms defined in the element.
-        lagrange : bool
-            Include Lagrange multiplier related degrees of freedom.
-        children : bool
-            Include all child degrees of freedom.
-
-        Returns
-        -------
-        int
-            Number of specified degrees of freedom.
-        """
-        del lagrange, children
-        return sum(self.dof_sizes(form_orders))
-
-    def poly_x(self, xi: npt.ArrayLike, eta: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute the x-coordiate of (xi, eta) points."""
-        t0 = np.asarray(xi)
-        t1 = np.asarray(eta)
-        b11 = (1 - t0) / 2
-        b12 = (1 + t0) / 2
-        b21 = (1 - t1) / 2
-        b22 = (1 + t1) / 2
-        return np.astype(
-            (self._bottom_left[0] * b11 + self._bottom_right[0] * b12) * b21
-            + (self._top_left[0] * b11 + self._top_right[0] * b12) * b22,
-            np.float64,
-            copy=False,
-        )
-
-    def poly_y(self, xi: npt.ArrayLike, eta: npt.ArrayLike) -> npt.NDArray[np.float64]:
-        """Compute the y-coordiate of (xi, eta) points."""
-        t0 = np.asarray(xi)
-        t1 = np.asarray(eta)
-        b11 = (1 - t0) / 2
-        b12 = (1 + t0) / 2
-        b21 = (1 - t1) / 2
-        b22 = (1 + t1) / 2
-        return np.astype(
-            (self._bottom_left[1] * b11 + self._bottom_right[1] * b12) * b21
-            + (self._top_left[1] * b11 + self._top_right[1] * b12) * b22,
-            np.float64,
-            copy=False,
-        )
-
-    def jacobian(
-        self, xi: npt.ArrayLike, eta: npt.ArrayLike, /
-    ) -> tuple[
-        tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-        tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-    ]:
-        r"""Evaluate the Jacobian matrix entries.
-
-        The Jacobian matrix :math:`\mathbf{J}` is defined such that:
-
-        .. math::
-
-            \mathbf{J} = \begin{bmatrix}
-            \frac{\partial x}{\partial \xi} & \frac{\partial y}{\partial \xi} \\
-            \frac{\partial x}{\partial \eta} & \frac{\partial y}{\partial \eta} \\
-            \end{bmatrix}
-
-        Which means that a coordinate transformation is performed by:
-
-        .. math::
-
-            \begin{bmatrix} {dx} \\ {dy} \end{bmatrix} = \mathbf{J}
-            \begin{bmatrix} {d\xi} \\ {d\eta} \end{bmatrix}
-
-        Parameters
-        ----------
-        xi : array_like
-            The first computational component for the element where the Jacobian should
-            be evaluated.
-        eta : array_like
-            The second computational component for the element where the Jacobian should
-            be evaluated.
-
-        Returns
-        -------
-        j00 : array
-            The :math:`(1, 1)` component of the Jacobian corresponding to the value of
-            :math:`\frac{\partial x}{\partial \xi}`.
-
-        j01 : array
-            The :math:`(1, 2)` component of the Jacobian corresponding to the value of
-            :math:`\frac{\partial y}{\partial \xi}`.
-
-        j10 : array
-            The :math:`(2, 1)` component of the Jacobian corresponding to the value of
-            :math:`\frac{\partial x}{\partial \eta}`.
-
-        j11 : array
-            The :math:`(2, 2)` component of the Jacobian corresponding to the value of
-            :math:`\frac{\partial y}{\partial \eta}`.
-        """
-        t0 = np.asarray(xi)
-        t1 = np.asarray(eta)
-
-        x0 = self._bottom_left[0]
-        x1 = self._bottom_right[0]
-        x2 = self._top_right[0]
-        x3 = self._top_left[0]
-
-        y0 = self._bottom_left[1]
-        y1 = self._bottom_right[1]
-        y2 = self._top_right[1]
-        y3 = self._top_left[1]
-
-        dx_dxi = np.astype(
-            ((x1 - x0) * (1 - t1) + (x2 - x3) * (1 + t1)) / 4, np.float64, copy=False
-        )
-        dx_deta = np.astype(
-            ((x3 - x0) * (1 - t0) + (x2 - x1) * (1 + t0)) / 4, np.float64, copy=False
-        )
-        dy_dxi = np.astype(
-            ((y1 - y0) * (1 - t1) + (y2 - y3) * (1 + t1)) / 4, np.float64, copy=False
-        )
-        dy_deta = np.astype(
-            ((y3 - y0) * (1 - t0) + (y2 - y1) * (1 + t0)) / 4, np.float64, copy=False
-        )
-        return ((dx_dxi, dy_dxi), (dx_deta, dy_deta))
 
     def divide(
         self,
@@ -965,15 +585,15 @@ class ElementLeaf2D(Element2D):
             tuple will give bottom/top for the first axis and left/right for the
             second.
         """
-        bottom_mid = (np.array(self._bottom_left) + np.array(self._bottom_right)) / 2
-        left_mid = (np.array(self._bottom_left) + np.array(self._top_left)) / 2
-        right_mid = (np.array(self._bottom_right) + np.array(self._top_right)) / 2
-        top_mid = (np.array(self._top_left) + np.array(self._top_right)) / 2
+        bottom_mid = (np.array(self.bottom_left) + np.array(self.bottom_right)) / 2
+        left_mid = (np.array(self.bottom_left) + np.array(self.top_left)) / 2
+        right_mid = (np.array(self.bottom_right) + np.array(self.top_right)) / 2
+        top_mid = (np.array(self.top_left) + np.array(self.top_right)) / 2
         center_mid = (
-            np.array(self._bottom_left)
-            + np.array(self._bottom_right)
-            + np.array(self._top_left)
-            + np.array(self._top_right)
+            np.array(self.bottom_left)
+            + np.array(self.bottom_right)
+            + np.array(self.top_left)
+            + np.array(self.top_right)
         ) / 4
         btm_l = ElementLeaf2D(
             None,

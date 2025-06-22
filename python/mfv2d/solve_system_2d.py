@@ -205,19 +205,10 @@ def solve_system_2d(
     explicit_vec: npt.NDArray[np.float64]
 
     # Prepare for evaluation of matrices/vectors
-    # corners = np.stack([v for v in element_collection.corners_array], axis=0)
+
     leaf_elements = np.flatnonzero(
         np.concatenate(element_collection.child_count_array.values) == 0
     )
-    # bl = corners[leaf_elements, 0]
-    # br = corners[leaf_elements, 1]
-    # tr = corners[leaf_elements, 2]
-    # tl = corners[leaf_elements, 3]
-    # # NOTE: does not work with differing orders yet
-    # orde = np.array(element_collection.orders_array)[leaf_elements, 0]
-
-    # Release cache element memory. If they will be needed in the future,
-    # they will be recomputed, but they consume LOTS of memory
 
     linear_vectors = call_per_leaf_flex(
         element_collection,
@@ -665,68 +656,6 @@ def solve_system_2d(
             True,
         )
 
-        # if vms_settings is not None:
-        #     symmetric_compiled = CompiledSystem(vms_settings.symmetric_part)
-        #     advection_compiled = CompiledSystem(vms_settings.advection_part)
-        #     full_compiled = CompiledSystem(vms_settings.full_system)
-
-        #     fine_orders = call_per_element_fix(
-        #         element_collection.com,
-        #         np.uint32,
-        #         2,
-        #         lambda ie, orders: orders[ie] + 1,
-        #         element_collection.orders_array,
-        #     )
-        #     fine_elements = replace(element_collection, orders_array=fine_orders)
-
-        #     fine_dof_sizes = compute_dof_sizes(fine_elements, unknown_ordering)
-        #     fine_lagrange_counts = compute_lagrange_sizes(fine_elements,
-        # unknown_ordering)
-
-        #     fine_dof_offsets = call_per_element_fix(
-        #         fine_elements.com,
-        #         np.uint32,
-        #         dof_sizes.shape[0] + 1,
-        #         lambda i, x: np.pad(np.cumsum(x[i]), (1, 0)),
-        #         fine_dof_sizes,
-        #     )
-        #     # fine_total_dof_counts = call_per_element_fix(
-        #     #     element_collection.com,
-        #     #     np.uint32,
-        #     #     1,
-        #     #     lambda i, x, y: x[i][-1] + y[i],
-        #     #     fine_dof_offsets,
-        #     #     fine_lagrange_counts,
-        #     # )
-        #     # fine_element_offset = np.astype(
-        #     #     np.pad(
-        #     #         np.array(fine_total_dof_counts, np.uint32).flatten().cumsum(),
-        #     # (1, 0)
-        #     #     ),
-        #     #     np.uint32,
-        #     #     copy=False,
-        #     # )
-
-        #     unresolved = unresolved_scales(
-        #         mesh,
-        #         system,
-        #         element_collection,
-        #         unknown_ordering,
-        #         full_compiled.lhs_full,
-        #         symmetric_compiled.lhs_full,
-        #         advection_compiled.lhs_full,
-        #         element_collection.orders_array,
-        #         fine_orders,
-        #         cache_2d,
-        #         np.astype(leaf_elements, np.uint32, copy=False),
-        #         solution,
-        #         vector_fields,
-        #         dof_offsets,
-        #         fine_dof_offsets,
-        #         fine_lagrange_counts,
-        #         top_indices,
-        #     )
-
         changes = np.asarray(changes, np.float64)[: iter_cnt + 1]  # type: ignore
         iters = np.array((iter_cnt,), np.uint32)  # type: ignore
 
@@ -746,7 +675,6 @@ def solve_system_2d(
 
         resulting_grids.append(grid)
 
-    # TODO: solution statistics
     orders, counts = np.unique(
         np.array(element_collection.orders_array), return_counts=True
     )

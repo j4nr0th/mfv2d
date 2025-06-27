@@ -670,8 +670,8 @@ def solve_system_2d(
             True,
         )
 
-        changes = np.asarray(changes, np.float64)[: iter_cnt + 1]  # type: ignore
-        iters = np.array((iter_cnt,), np.uint32)  # type: ignore
+        changes = np.asarray(changes, np.float64)[: iter_cnt + 1]
+        iters = np.array((iter_cnt,), np.uint32)
 
         solution = new_solution
         del new_solution

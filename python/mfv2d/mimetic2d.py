@@ -746,10 +746,10 @@ class Mesh2D:
         return ElementLeaf2D(
             None,
             int(self.orders[idx]),
-            tuple(self.positions[indices[0], :]),  # type: ignore
-            tuple(self.positions[indices[1], :]),  # type: ignore
-            tuple(self.positions[indices[2], :]),  # type: ignore
-            tuple(self.positions[indices[3], :]),  # type: ignore
+            tuple(self.positions[indices[0], :]),
+            tuple(self.positions[indices[1], :]),
+            tuple(self.positions[indices[2], :]),
+            tuple(self.positions[indices[3], :]),
         )
 
     def as_polydata(self) -> pv.PolyData:

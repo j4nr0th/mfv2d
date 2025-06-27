@@ -45,6 +45,7 @@ set(MFV2D_SOURCE_FILES
         src/solve/svector.c
         src/solve/givens.c
         src/solve/lil_matrix.c
+        src/solve/element_equation.c
 )
 set(MFV2D_HEADER_FILES
         # Common
@@ -77,6 +78,7 @@ set(MFV2D_HEADER_FILES
         src/solve/svector.h
         src/solve/givens.h
         src/solve/lil_matrix.h
+        src/solve/element_equation.h
 )
 
 Python_add_library(_mfv2d

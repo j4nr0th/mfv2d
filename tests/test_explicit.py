@@ -149,7 +149,3 @@ def test_explicit_evaluation():
         UnknownFormOrder.FORM_ORDER_1, elem_cache, exact_momentum
     )
     assert np.abs(momentum_rhs - proj_momentum_rhs).max() < 1e-6
-
-
-if __name__ == "__main__":
-    test_explicit_evaluation()

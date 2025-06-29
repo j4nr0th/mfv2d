@@ -4,7 +4,7 @@ This file contains functions signatures and *copies* of docstrings for the
 C-extension which implements all the required fast code.
 """
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from typing import Self, final, overload
 
 import numpy as np
@@ -628,6 +628,25 @@ class SparseVector:
         """
         ...
 
+    @classmethod
+    def from_pairs(cls, n: int, *pairs: tuple[int, float]) -> Self:
+        """Create sparse vector from an index-coefficient pairs.
+
+        Parameters
+        ----------
+        n : int
+            Dimension of the vector.
+
+        *pairs : tuple[int, float]
+            Pairs of values and indices for the vector.
+
+        Returns
+        -------
+        SparseVector
+            New vector with indices and values as given.
+        """
+        ...
+
     @property
     def n(self) -> int:
         """Dimension of the vector."""
@@ -1190,46 +1209,3 @@ def compute_element_projector(
         Tuple where each entry is the respective projection matrix for that form.
     """
     ...
-@final
-class ElementDofEquation:
-    """Describes element DoFs involved in the equation and their coefficients.
-
-    Parameters
-    ----------
-    element : int
-        Index of the element the degrees of freedom belong to.
-
-    *pairs : (int, float)
-        Pairs of indices of degrees of freedom with their coefficient.
-        At least one must be specified.
-    """
-
-    def __new__(cls, element: int, *pairs: tuple[int, float]) -> Self: ...
-    def pairs(self) -> Iterator[tuple[int, float]]:
-        """Get iterator over pairs.
-
-        Returns
-        -------
-        Iterator of (int, float)
-            Iterator over all pairs of DoF index and coefficient pairs
-            for this equation.
-        """
-        ...
-    def __len__(self) -> int:
-        """Get number of pairs in the equation."""
-        ...
-
-    @property
-    def element(self) -> int:
-        """Index of the element."""
-        ...
-
-    @property
-    def dofs(self) -> npt.NDArray[np.uint32]:
-        """Indices of degrees of freedom in the pairs."""
-        ...
-
-    @property
-    def coeffs(self) -> npt.NDArray[np.double]:
-        """Coefficients of degrees of freedom."""
-        ...

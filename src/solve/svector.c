@@ -423,6 +423,85 @@ static PyObject *svec_concatenate(PyTypeObject *type, PyObject *const *args, con
     return (PyObject *)this;
 }
 
+static PyObject *svec_from_pairs(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    if (kwds != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "SparseVector.from_pairs takes no keyword arguments.");
+        return NULL;
+    }
+
+    const Py_ssize_t nargs = PyTuple_GET_SIZE(args);
+    if (nargs < 1)
+    {
+        PyErr_SetString(PyExc_TypeError, "At least one argument must be provided.");
+        return NULL;
+    }
+
+    // Parse first arg (element) and the rest as *pairs
+    const Py_ssize_t dim_size = PyLong_AsSsize_t(PyTuple_GET_ITEM(args, 0));
+    if (PyErr_Occurred())
+        return NULL;
+
+    if (dim_size < 0)
+    {
+        PyErr_SetString(PyExc_ValueError, "Vector dimension count must be positive.");
+        return NULL;
+    }
+
+    svec_object_t *const self = (svec_object_t *)type->tp_alloc(type, nargs - 1);
+    if (!self)
+        return NULL;
+
+    self->n = (uint64_t)dim_size;
+    self->count = nargs - 1;
+
+    // Fill arrays
+    for (unsigned i = 1; i < nargs; ++i)
+    {
+        PyObject *const pair = PyTuple_GET_ITEM(args, i);
+
+        if (!PyTuple_Check(pair) || PyTuple_GET_SIZE(pair) != 2)
+        {
+            PyErr_Format(PyExc_TypeError, "Each pair must be a tuple (int, float), got %R", pair);
+            Py_DECREF(self);
+            return NULL;
+        }
+        PyObject *dof_obj = PyTuple_GET_ITEM(pair, 0);
+        PyObject *coeff_obj = PyTuple_GET_ITEM(pair, 1);
+        const long dof = PyLong_AsLong(dof_obj);
+        const double coeff = PyFloat_AsDouble(coeff_obj);
+        if (PyErr_Occurred())
+        {
+            Py_DECREF(self);
+            return NULL;
+        }
+        if (dof < 0)
+        {
+            PyErr_SetString(PyExc_ValueError, "DoF index must be non-negative.");
+            Py_DECREF(self);
+            return NULL;
+        }
+        if (!isfinite(coeff))
+        {
+            PyErr_SetString(PyExc_ValueError, "Coefficient must be finite.");
+            Py_DECREF(self);
+            return NULL;
+        }
+        if (i > 1 && dof <= self->entries[i - 2].index)
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "DoF indices must be sorted in ascending order. Got %" PRId64 " after %" PRId64, dof,
+                         self->entries[i - 2].index);
+            Py_DECREF(self);
+            return NULL;
+        }
+        self->entries[i - 1] = (entry_t){.index = (uint64_t)dof, .value = coeff};
+    }
+
+    return (PyObject *)self;
+}
+
 static PyMethodDef svec_methods[] = {
     {.ml_name = "__array__",
      .ml_meth = (void *)svec_array,
@@ -445,6 +524,24 @@ static PyMethodDef svec_methods[] = {
                "\n"
                "values : array_like\n"
                "    Values of the entries.\n"
+               "\n"
+               "Returns\n"
+               "-------\n"
+               "SparseVector\n"
+               "    New vector with indices and values as given.\n"},
+    {.ml_name = "from_pairs",
+     .ml_meth = (void *)svec_from_pairs,
+     .ml_flags = METH_CLASS | METH_KEYWORDS | METH_VARARGS,
+     .ml_doc = "from_pairs(n: int, *pairs: tuple[int, float], /) -> SparseVector:\n"
+               "Create sparse vector from an index-coefficient pairs.\n"
+               "\n"
+               "Parameters\n"
+               "----------\n"
+               "n : int\n"
+               "    Dimension of the vector.\n"
+               "\n"
+               "*pairs : tuple[int, float]\n"
+               "    Pairs of values and indices for the vector.\n"
                "\n"
                "Returns\n"
                "-------\n"

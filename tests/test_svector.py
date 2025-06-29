@@ -94,3 +94,40 @@ def test_concatenate() -> None:
         np.array(SparseVector.concatenate(s1, s2, s3, s4))
         == np.concatenate([np.array(m) for m in (s1, s2, s3, s4)])
     )
+
+
+def test_from_pairs() -> None:
+    """Check from pairs constructor works."""
+    size = 42
+    pairs = [(0, 1.5), (2, -3.0), (5, 7.7)]
+    obj = SparseVector.from_pairs(size, *pairs)
+
+    dofs = obj.indices
+    assert isinstance(dofs, np.ndarray)
+    assert np.all(dofs == [p[0] for p in pairs])
+    assert dofs.dtype == np.uint64
+
+    coeffs = obj.values
+    assert isinstance(coeffs, np.ndarray)
+    assert np.all(coeffs == [p[1] for p in pairs])
+    assert coeffs.dtype == np.float64
+
+    # Check that dofs and coeffs can be used in numpy functions
+    assert np.sum(dofs) == sum(p[0] for p in pairs)
+    assert np.isclose(np.dot(dofs, coeffs), sum(p[0] * p[1] for p in pairs))
+
+    caught = None
+
+    try:
+        SparseVector.from_pairs()  # type: ignore # Intentionally wrong
+    except Exception as e:
+        caught = e
+
+    assert type(caught) is TypeError
+
+    try:
+        SparseVector.from_pairs(13)  # Missing args
+    except Exception as e:
+        caught = e
+
+    assert type(caught) is TypeError

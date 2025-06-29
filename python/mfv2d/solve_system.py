@@ -11,8 +11,6 @@ from collections.abc import (
     Sequence,
 )
 from dataclasses import dataclass, field
-from functools import cache
-from itertools import accumulate
 from typing import TypeVar, cast
 
 import numpy as np
@@ -27,12 +25,12 @@ from mfv2d._mfv2d import (
     Surface,
     compute_element_matrix,
     compute_element_vector,
-    compute_gll,
-    lagrange1d,
 )
 from mfv2d.boundary import BoundaryCondition2DSteady
 from mfv2d.element import (
+    Constraint,
     ElementCollection,
+    ElementConstraint,
     ElementSide,
     FixedElementArray,
     FlexibleElementArray,
@@ -43,6 +41,8 @@ from mfv2d.element import (
     call_per_element_flex,
     call_per_leaf,
     call_per_leaf_flex,
+    continuity_child_matrices,
+    continuity_matrices,
     element_dual_dofs,
     poly_x,
     poly_y,
@@ -351,103 +351,7 @@ def compute_element_rhs(
     return np.concatenate(vecs, dtype=np.float64)
 
 
-@dataclass(frozen=True)
-class ElementConstraint:
-    """Type intended to enforce a constraint on an element.
-
-    Parameters
-    ----------
-    i_e : int
-        Index of the element for which this constraint is applied.
-
-    dofs : (n,) array
-        Array with indices of the degrees of freedom of the element involved.
-
-    coeffs : (n,) array
-        Array with coefficients of degrees of freedom of the element involved.
-    """
-
-    i_e: int
-    dofs: npt.NDArray[np.uint32]
-    coeffs: npt.NDArray[np.float64]
-
-
-@dataclass(frozen=True)
-class Constraint:
-    """Type used to specify constraints on degrees of freedom.
-
-    This type combines the individual :class:`ElementConstraint` together
-    with a right-hand side of the constraint.
-
-    Parameters
-    ----------
-    rhs : float
-        The right-hand side of the constraint.
-
-    *element_constraints : ElementConstraint
-        Constraints to combine together.
-    """
-
-    rhs: float
-    element_constraints: tuple[ElementConstraint, ...]
-
-    def __init__(self, rhs: float, *element_constraints: ElementConstraint) -> None:
-        object.__setattr__(self, "rhs", float(rhs))
-        object.__setattr__(self, "element_constraints", element_constraints)
-
-
 # TODO: remove the slow version.
-@cache
-def continuity_matrices(
-    n1: int, n2: int
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Compute continuity equation coefficients for 0 and 1 forms between elements.
-
-    Parameters
-    ----------
-    n1 : int
-        Higher order.
-    n2 : int
-        Lower order.
-
-    Returns
-    -------
-    (n1 + 1, n2 + 1) array
-        Array of coefficients for 0-form continuity.
-
-    (n1, n2) array
-        Array of coefficients for 1-form continuity.
-    """
-    assert n1 > n2
-    nodes_n1, _ = compute_gll(n1)
-    nodes_n2, _ = compute_gll(n2)
-
-    # Axis 0: xi_j
-    # Axis 1: psi_i
-    nodal_basis = lagrange1d(nodes_n2, nodes_n1)
-
-    # Axis 0: [xi_{j + 1}, xi_j]
-    # Axis 1: psi_i
-    coeffs_1_form = np.zeros((n1, n2), np.float64)
-    for j in range(n1):
-        coeffs_1_form[j, 0] = nodal_basis[j, 0] - nodal_basis[j + 1, 0]
-        for i in range(1, n2):
-            coeffs_1_form[j, i] = coeffs_1_form[j, i - 1] + (
-                nodal_basis[j, i] - nodal_basis[j + 1, i]
-            )
-
-    diffs = nodal_basis[:-1, :] - nodal_basis[+1:, :]
-    coeffs_1_fast = np.stack(
-        [x for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))],
-        axis=-1,
-        dtype=np.float64,
-    )
-
-    assert np.allclose(coeffs_1_fast, coeffs_1_form)
-
-    return np.astype(nodal_basis, np.float64, copy=False), coeffs_1_form
-
-
 def _continuity_element_1_forms(
     unknown_ordering: UnknownOrderings,
     elements: ElementCollection,
@@ -672,58 +576,6 @@ def _continuity_element_0_forms_corner(
         )
 
     return tuple(equations)
-
-
-@cache
-def continuity_child_matrices(
-    nchild: int, nparent: int
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Compute continuity equation coefficients for 0 and 1 forms between elements.
-
-    Parameters
-    ----------
-    nc : int
-        Child's order.
-    nparent : int
-        Parent's order.
-
-    Returns
-    -------
-    (nc + 1, np + 1) array
-        Array of coefficients for 0-form continuity.
-
-    (nc, np) array
-        Array of coefficients for 1-form continuity.
-    """
-    # assert nchild >= nparent
-    nodes_child, _ = compute_gll(nchild)
-    nodes_parent, _ = compute_gll(nparent)
-    nodes_child = (nodes_child / 2) - 0.5  # Scale to [-1, 0]
-
-    # Axis 0: xi_j
-    # Axis 1: psi_i
-    nodal_basis = lagrange1d(nodes_parent, nodes_child)
-
-    # Axis 0: [xi_{j + 1}, xi_j]
-    # Axis 1: psi_i
-    coeffs_1_form = np.zeros((nchild, nparent), np.float64)
-    for j in range(nchild):
-        coeffs_1_form[j, 0] = nodal_basis[j, 0] - nodal_basis[j + 1, 0]
-        for i in range(1, nparent):
-            coeffs_1_form[j, i] = coeffs_1_form[j, i - 1] + (
-                nodal_basis[j, i] - nodal_basis[j + 1, i]
-            )
-
-    diffs = nodal_basis[:-1, :] - nodal_basis[+1:, :]
-    coeffs_1_fast = np.stack(
-        [x for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))],
-        axis=-1,
-        dtype=np.float64,
-    )
-
-    assert np.allclose(coeffs_1_fast, coeffs_1_form)
-
-    return np.astype(nodal_basis, np.float64, copy=False), coeffs_1_form
 
 
 def _continuity_parent_child_edges(

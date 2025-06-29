@@ -11,7 +11,9 @@ from scipy.sparse import linalg as sla
 
 from mfv2d._mfv2d import ElementMassMatrixCache
 from mfv2d.element import (
+    Constraint,
     ElementCollection,
+    ElementConstraint,
     FixedElementArray,
     FlexibleElementArray,
     call_per_element_fix,
@@ -25,8 +27,6 @@ from mfv2d.eval import CompiledSystem
 from mfv2d.kform import KEquation, KFormSystem, UnknownOrderings
 from mfv2d.mimetic2d import FemCache, Mesh2D
 from mfv2d.solve_system import (
-    Constraint,
-    ElementConstraint,
     RefinementSettings,
     SolutionStatistics,
     SolverSettings,

@@ -22,7 +22,6 @@ from scipy.sparse import linalg as sla
 from mfv2d._mfv2d import (
     Basis2D,
     ElementMassMatrixCache,
-    Surface,
     compute_element_matrix,
     compute_element_vector,
 )
@@ -66,6 +65,7 @@ from mfv2d.mimetic2d import (
     ElementLeaf2D,
     FemCache,
     Mesh2D,
+    find_surface_boundary_id_line,
     vtk_lagrange_ordering,
 )
 from mfv2d.progress import ProgressTracker
@@ -1292,19 +1292,6 @@ def assemble_forcing(
     return np.concatenate(vectors, dtype=np.float64)
 
 
-def _find_boundary_id(s: Surface, i: int) -> ElementSide:
-    """Find what boundary the line with a given index is in the surface."""
-    if s[0].index == i:
-        return ElementSide.SIDE_BOTTOM
-    if s[1].index == i:
-        return ElementSide.SIDE_RIGHT
-    if s[2].index == i:
-        return ElementSide.SIDE_TOP
-    if s[3].index == i:
-        return ElementSide.SIDE_LEFT
-    raise ValueError(f"Line with index {i} is not in the surface {s}.")
-
-
 def _top_level_continuity_1(
     mesh: Mesh2D,
     top_indices: npt.NDArray[np.uint32],
@@ -1335,8 +1322,8 @@ def _top_level_continuity_1(
                 dof_offsets,
                 i_other,
                 i_self,
-                _find_boundary_id(s_other, il),
-                _find_boundary_id(s_self, il),
+                find_surface_boundary_id_line(s_other, il),
+                find_surface_boundary_id_line(s_self, il),
             )
         )
     return continuity_equations
@@ -1374,8 +1361,8 @@ def _top_level_continuity_0(
                     dof_offsets,
                     i_other,
                     i_self,
-                    _find_boundary_id(s_other, il),
-                    _find_boundary_id(s_self, il),
+                    find_surface_boundary_id_line(s_other, il),
+                    find_surface_boundary_id_line(s_self, il),
                 )
             )
 
@@ -1418,8 +1405,8 @@ def _top_level_continuity_0(
                     dof_offsets,
                     i_other,
                     i_self,
-                    _find_boundary_id(s_other, id_line.index),
-                    _find_boundary_id(s_self, id_line.index),
+                    find_surface_boundary_id_line(s_other, id_line.index),
+                    find_surface_boundary_id_line(s_self, id_line.index),
                 )
             )
 
@@ -1773,7 +1760,7 @@ def mesh_boundary_conditions(
         # primal_line = mesh.primal.get_line(i_boundary + 1)
         i_element = top_indices[id_surf.index]
         primal_surface = mesh.primal.get_surface(id_surf)
-        i_side = _find_boundary_id(primal_surface, i_boundary)
+        i_side = find_surface_boundary_id_line(primal_surface, i_boundary)
         primal_line = mesh.primal.get_line(primal_surface[i_side.value - 1])
         for idx, (weak_term, strong_terms) in enumerate(
             zip(projections, strong_bcs, strict=True)

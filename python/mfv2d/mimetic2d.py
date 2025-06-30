@@ -19,7 +19,9 @@ from mfv2d._mfv2d import (
     Basis2D,
     IntegrationRule1D,
     Manifold2D,
+    Surface,
 )
+from mfv2d.element import ElementSide
 
 
 # TODO: remake incidence into working for two different orders
@@ -892,3 +894,16 @@ class FemCache:
         """Clear all caches."""
         self._int_cache = dict()
         self._b1_cache = dict()
+
+
+def find_surface_boundary_id_line(s: Surface, i: int) -> ElementSide:
+    """Find what boundary the line with a given index is in the surface."""
+    if s[0].index == i:
+        return ElementSide.SIDE_BOTTOM
+    if s[1].index == i:
+        return ElementSide.SIDE_RIGHT
+    if s[2].index == i:
+        return ElementSide.SIDE_TOP
+    if s[3].index == i:
+        return ElementSide.SIDE_LEFT
+    raise ValueError(f"Line with index {i} is not in the surface {s}.")

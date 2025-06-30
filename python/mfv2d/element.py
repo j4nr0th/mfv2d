@@ -282,6 +282,16 @@ class ElementSide(IntEnum):
     SIDE_TOP = 3
     SIDE_LEFT = 4
 
+    @property
+    def next(self) -> ElementSide:
+        """Next side."""
+        return ElementSide((self.value & 3) + 1)
+
+    @property
+    def prev(self) -> ElementSide:
+        """Previous side."""
+        return ElementSide(((self.value - 2) & 3) + 1)
+
 
 class ElementCollection:
     """Element collection which contains relations and information about elements.
@@ -313,6 +323,9 @@ class ElementCollection:
     """Array which contains the indices of the children of each element.
        Number of children is stored in `child_count_array`.
     """
+
+    root_indices: npt.NDArray[np.uint32]
+    """Array with indices of all top-level elements. Should be improved."""
 
     def __init__(self, elements: Sequence[Element2D]) -> None:
         com = ArrayCom(len(elements))
@@ -365,6 +378,13 @@ class ElementCollection:
             if type(element) is not ElementNode2D:
                 continue
             child_array[ie] = [elements.index(e) for e in element.children()]
+
+        # Find all root indices
+        self.root_indices = np.astype(
+            np.flatnonzero(np.array(self.parent_array) == 0),
+            np.uint32,
+            copy=False,
+        )
 
     def get_element_children(self, i: int, /) -> tuple[int, ...]:
         """Get children of an element."""

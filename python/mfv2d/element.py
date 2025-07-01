@@ -463,6 +463,7 @@ class ElementCollection:
                     )
 
         else:
+            raise NotImplementedError("This should never be used again.")
             # This is a node
             if order == UnknownFormOrder.FORM_ORDER_1:
                 offset = sum(

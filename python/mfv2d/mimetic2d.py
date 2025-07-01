@@ -794,11 +794,15 @@ class FemCache:
     order_diff: int
     _int_cache: dict[int, IntegrationRule1D]
     _b1_cache: dict[tuple[int, int], Basis1D]
+    _min_cache: dict[int, npt.NDArray[np.float64]]
+    _mie_cache: dict[int, npt.NDArray[np.float64]]
 
     def __init__(self, order_difference: int) -> None:
         self._int_cache = dict()
         self._b1_cache = dict()
         self.order_diff = order_difference
+        self._min_cache = dict()
+        self._mie_cache = dict()
 
     def get_integration_rule(self, order: int) -> IntegrationRule1D:
         """Return integration rule.
@@ -894,6 +898,42 @@ class FemCache:
         """Clear all caches."""
         self._int_cache = dict()
         self._b1_cache = dict()
+
+    def get_mass_inverse_1d_node(self, order: int) -> npt.NDArray[np.float64]:
+        """Get the 1D nodal mass matrix inverse."""
+        if order in self._min_cache:
+            return self._min_cache[order]
+
+        basis = self.get_basis1d(order)
+        rule = basis.rule
+        weights = rule.weights
+
+        mat = np.sum(
+            basis.node[:, :, None] * basis.node[:, None, :] * weights[:, None, None],
+            axis=0,
+        )
+        inv = np.linalg.inv(mat)
+        self._min_cache[order] = inv
+
+        return inv
+
+    def get_mass_inverse_1d_edge(self, order: int) -> npt.NDArray[np.float64]:
+        """Get the 1D edge mass matrix inverse."""
+        if order in self._mie_cache:
+            return self._mie_cache[order]
+
+        basis = self.get_basis1d(order)
+        rule = basis.rule
+        weights = rule.weights
+
+        mat = np.sum(
+            basis.edge[:, :, None] * basis.edge[:, None, :] * weights[:, None, None],
+            axis=0,
+        )
+        inv = np.linalg.inv(mat)
+        self._mie_cache[order] = inv
+
+        return inv
 
 
 def find_surface_boundary_id_line(s: Surface, i: int) -> ElementSide:

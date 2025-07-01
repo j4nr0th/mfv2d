@@ -10,6 +10,7 @@ import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
 from mfv2d._mfv2d import ElementMassMatrixCache
+from mfv2d.boundary import mesh_boundary_conditions
 from mfv2d.element import (
     Constraint,
     ElementCollection,
@@ -44,7 +45,6 @@ from mfv2d.solve_system import (
     divide_old,
     extract_carry,
     find_time_carry_indices,
-    mesh_boundary_conditions,
     mesh_continuity_constraints,
     non_linear_solve_run,
     reconstruct_mesh_from_solution,

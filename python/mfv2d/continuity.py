@@ -19,7 +19,6 @@ from mfv2d.element import (
     Constraint,
     ElementCollection,
     ElementConstraint,
-    ElementSide,
     FixedElementArray,
     UnknownFormOrder,
     UnknownOrderings,
@@ -28,7 +27,7 @@ from mfv2d.element import (
     get_side_dofs,
     get_side_order,
 )
-from mfv2d.mimetic2d import Mesh2D, find_surface_boundary_id_line
+from mfv2d.mimetic2d import ElementSide, Mesh2D, find_surface_boundary_id_line
 
 
 def _find_surface_boundary_id_node(
@@ -90,6 +89,46 @@ def connect_corner_based(
     return constraints
 
 
+def connect_edge_center(
+    elements: ElementCollection, e1: int, e2: int, side: ElementSide
+) -> list[Constraint]:
+    """Connect center of edges for two elements with 0-forms.
+
+    Parameters
+    ----------
+    elements : ElementCollection
+        Element collection to which the elements belong to.
+
+    e1 : int
+        Index of the first element.
+
+    e2 : int
+        Index of the second element.
+
+    side : ElementSide
+        Side of the elements that is to be connected.
+
+    Returns
+    -------
+    list of Constraints
+        Constraints which enforce continuity between the two elements for
+        0-forms in the middle of the side.
+    """
+    constraints = connect_corner_based(elements, (e1, side.next), (e2, side))
+    c1 = elements.child_array[e1]
+    c2 = elements.child_array[e2]
+
+    if len(c1):
+        c11, c12 = _element_node_children_on_side(side, c1)
+        constraints += connect_edge_center(elements, c11, c12, side)
+
+    if len(c2):
+        c21, c22 = _element_node_children_on_side(side, c2)
+        constraints += connect_edge_center(elements, c21, c22, side)
+
+    return constraints
+
+
 def connect_edge_based(
     elements: ElementCollection,
     e1: int,
@@ -132,7 +171,8 @@ def connect_edge_based(
         or form_order == UnknownFormOrder.FORM_ORDER_1
     )
     c1 = elements.child_array[e1]
-    c2 = elements.child_array[e1]
+    c2 = elements.child_array[e2]
+    constraints: list[Constraint] = list()
     if len(c1) and len(c2):
         c11, c12 = _element_node_children_on_side(s1, c1)
         c21, c22 = _element_node_children_on_side(s2, c2)
@@ -145,10 +185,20 @@ def connect_edge_based(
                 (c11, s1.next),
                 (c12, s1),
                 (c22, s2),
-                (c21, s2.prev),
+                (c21, s2.next),
             )
 
         return constraints_1 + constraints_2 + constraints_3
+
+    elif form_order == UnknownFormOrder.FORM_ORDER_0:
+        # Connect the corner of two children if two are needed
+        if len(c1):
+            c11, c12 = _element_node_children_on_side(s1, c1)
+            constraints += connect_edge_center(elements, c11, c12, s1)
+
+        elif len(c2):
+            c21, c22 = _element_node_children_on_side(s2, c2)
+            constraints += connect_edge_center(elements, c21, c22, s2)
 
     order_1 = get_side_order(elements, e1, s1)
     order_2 = get_side_order(elements, e2, s2)
@@ -169,13 +219,14 @@ def connect_edge_based(
     elif form_order == UnknownFormOrder.FORM_ORDER_1:
         sgn1 = 1 - (s1.value & 2)  # +1 for B, L and -1 for R, T
         sgn2 = 1 - (s2.value & 2)  # +1 for B, L and -1 for R, T
-        sign = -(sgn1 * sgn2)  # -1 when same orientation, otherwise +1
+        sign = sgn1 * sgn2  # +1 when same orientation, otherwise -1
 
     else:
         assert False
 
-    constraints: list[Constraint] = list()
-    for d1, d2 in zip(dofs_1, dofs_2, strict=True):
+    # Flip the order of DoFs for the second one, since the boundary is
+    # the other way around.
+    for d1, d2 in zip(dofs_1, reversed(dofs_2), strict=True):
         constraints.append(
             Constraint(
                 0.0,

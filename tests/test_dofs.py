@@ -7,11 +7,11 @@ from mfv2d._mfv2d import compute_gll
 from mfv2d.element import (
     ElementCollection,
     ElementLeaf2D,
-    ElementSide,
     UnknownFormOrder,
     get_side_dofs,
     get_side_order,
 )
+from mfv2d.mimetic2d import ElementSide
 
 
 def test_evaluation_twice() -> None:

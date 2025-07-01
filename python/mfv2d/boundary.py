@@ -21,8 +21,8 @@ import numpy.typing as npt
 from mfv2d.element import (
     ElementCollection,
     ElementConstraint,
-    ElementSide,
     FixedElementArray,
+    _element_node_children_on_side,
 )
 from mfv2d.kform import (
     Function2D,
@@ -32,7 +32,7 @@ from mfv2d.kform import (
     UnknownFormOrder,
     UnknownOrderings,
 )
-from mfv2d.mimetic2d import FemCache, Mesh2D, find_surface_boundary_id_line
+from mfv2d.mimetic2d import ElementSide, FemCache, Mesh2D, find_surface_boundary_id_line
 
 
 @dataclass(frozen=True, init=False)
@@ -221,69 +221,31 @@ def _element_strong_boundary_condition(
     children = elements.child_array[ie]
     if children.size != 0:
         # Node, has children
-        current: tuple[ElementConstraint, ...] = tuple()
-        # For children skipping:
-        # Skip first if: (on start of the side AND skip_first is True) OR (end of side)
-        # Skip last if: on end of the side AND skip_last is True
-        # So only time first not skipped if: skip_first is True AND beginning of side
-        if side == ElementSide.SIDE_LEFT or side == ElementSide.SIDE_BOTTOM:
-            current += _element_strong_boundary_condition(
-                elements,
-                int(children[0]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                strong_bc,
-                basis_cache,
-                (skip_first and side == ElementSide.SIDE_BOTTOM)
-                or side == ElementSide.SIDE_LEFT,
-                skip_last and side == ElementSide.SIDE_LEFT,
-            )
-        if side == ElementSide.SIDE_BOTTOM or side == ElementSide.SIDE_RIGHT:
-            current += _element_strong_boundary_condition(
-                elements,
-                int(children[1]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                strong_bc,
-                basis_cache,
-                (skip_first and side == ElementSide.SIDE_RIGHT)
-                or side == ElementSide.SIDE_BOTTOM,
-                skip_last and side == ElementSide.SIDE_BOTTOM,
-            )
-        if side == ElementSide.SIDE_RIGHT or side == ElementSide.SIDE_TOP:
-            current += _element_strong_boundary_condition(
-                elements,
-                int(children[2]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                strong_bc,
-                basis_cache,
-                (skip_first and side == ElementSide.SIDE_TOP)
-                or side == ElementSide.SIDE_RIGHT,
-                skip_last and side == ElementSide.SIDE_RIGHT,
-            )
-        if side == ElementSide.SIDE_TOP or side == ElementSide.SIDE_LEFT:
-            current += _element_strong_boundary_condition(
-                elements,
-                int(children[3]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                strong_bc,
-                basis_cache,
-                (skip_first and side == ElementSide.SIDE_LEFT)
-                or side == ElementSide.SIDE_TOP,
-                skip_last and side == ElementSide.SIDE_TOP,
-            )
+        c1, c2 = _element_node_children_on_side(side, children)
 
-        return current
+        return _element_strong_boundary_condition(
+            elements,
+            c1,
+            side,
+            unknown_orders,
+            unknown_index,
+            dof_offsets,
+            strong_bc,
+            basis_cache,
+            skip_first,
+            False,
+        ) + _element_strong_boundary_condition(
+            elements,
+            c2,
+            side,
+            unknown_orders,
+            unknown_index,
+            dof_offsets,
+            strong_bc,
+            basis_cache,
+            False,
+            skip_last,
+        )
 
     side_order = elements.get_element_order_on_side(ie, side)
 
@@ -334,34 +296,44 @@ def _element_strong_boundary_condition(
     else:
         assert False
 
-    xv = np.astype((p1[0] + p0[0]) / 2 + dx * basis_1d.rule.nodes, np.float64, copy=False)
-    yv = np.astype((p1[1] + p0[1]) / 2 + dy * basis_1d.rule.nodes, np.float64, copy=False)
-    func_values = np.asarray(strong_bc.func(xv, yv), np.float64, copy=None)
+    # TODO: If good, replace old way with this
+    # xv = np.astype((p1[0] + p0[0]) / 2 + dx * basis_1d.rule.nodes, np.float64,
+    # copy=False)
+    # yv = np.astype((p1[1] + p0[1]) / 2 + dy * basis_1d.rule.nodes, np.float64,
+    # copy=False)
+    # func_values = np.asarray(strong_bc.func(xv, yv), np.float64, copy=None)
 
-    if form_order == UnknownFormOrder.FORM_ORDER_0:
-        weights = basis_1d.rule.weights
-        basis = basis_1d.node
-        inverse = basis_cache.get_mass_inverse_1d_node(basis_1d.order)
-        new_vals = inverse @ np.sum(
-            func_values[:, None] * weights[None, :] * basis, axis=1
-        )
+    # if form_order == UnknownFormOrder.FORM_ORDER_0:
+    #     weights = basis_1d.rule.weights
+    #     basis = basis_1d.node
+    #     inverse = basis_cache.get_mass_inverse_1d_node(basis_1d.order)
+    #     new_vals = inverse @ np.sum(
+    #         func_values[None, :] * weights[None, :] * basis, axis=1
+    #     )
 
-    elif form_order == UnknownFormOrder.FORM_ORDER_1:
-        weights = basis_1d.rule.weights[:, None]
-        basis = basis_1d.edge
-        inverse = basis_cache.get_mass_inverse_1d_edge(basis_1d.order)
-        normal = ndir * np.array((dy, -dx))
-        new_vals = inverse @ np.sum(
-            (func_values[:, None, 0] * normal[0] + func_values[:, None, 1] * normal[1])
-            * weights[None, :]
-            * basis,
-            axis=1,
-        )
-    else:
-        assert False
+    #     # TODO: when replacing old, do not forget to also do this with DoFs
+    #     # if skip_first:
+    #     #     new_vals = new_vals[1:]
+
+    #     # if skip_last:
+    #     #     new_vals = new_vals[:-1]
+
+    # elif form_order == UnknownFormOrder.FORM_ORDER_1:
+    #     weights = basis_1d.rule.weights
+    #     basis = basis_1d.edge
+    #     inverse = basis_cache.get_mass_inverse_1d_edge(basis_1d.order)
+    #     normal = ndir * np.array((dy, -dx))
+    #     new_vals = inverse @ np.sum(
+    #         (func_values[:, 0] * normal[0] + func_values[:, 1] * normal[1])[None, :]
+    #         * weights[None, :]
+    #         * basis,
+    #         axis=1,
+    #     )
+    # else:
+    #     assert False
 
     assert vals.size == dofs.size
-    assert np.allclose(vals, new_vals)  # If good, replace old way with this
+    # assert np.allclose(vals, new_vals)
     return (ElementConstraint(ie, dofs, vals),)
 
 
@@ -373,7 +345,7 @@ def mesh_boundary_conditions(
     dof_offsets: FixedElementArray[np.uint32],
     top_indices: npt.NDArray[np.uint32],
     strong_bcs: Sequence[Sequence[BoundaryCondition2DSteady]],
-    cache_1d: FemCache,
+    basis_cache: FemCache,
 ) -> tuple[tuple[ElementConstraint, ...], tuple[ElementConstraint, ...]]:
     """Compute boundary condition contributions and constraints.
 
@@ -459,6 +431,7 @@ def mesh_boundary_conditions(
                 # Strong BC
                 p0 = primal_line.begin.index
                 p1 = primal_line.end.index
+
                 s_bcs.extend(
                     _element_strong_boundary_condition(
                         elements,
@@ -468,12 +441,11 @@ def mesh_boundary_conditions(
                         idx,
                         dof_offsets,
                         strong_term,
-                        cache_1d,
+                        basis_cache,
                         p0 in set_nodes,
                         p1 in set_nodes,
                     )
                 )
-
                 set_nodes |= {p0, p1}
 
             elif len(weak_term):
@@ -488,7 +460,7 @@ def mesh_boundary_conditions(
                         idx,
                         dof_offsets,
                         weak_term,
-                        cache_1d,
+                        basis_cache,
                     )
                 )
 

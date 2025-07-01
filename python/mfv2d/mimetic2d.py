@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import IntEnum
 
 import numpy as np
 import numpy.typing as npt
@@ -21,7 +22,6 @@ from mfv2d._mfv2d import (
     Manifold2D,
     Surface,
 )
-from mfv2d.element import ElementSide
 
 
 # TODO: remake incidence into working for two different orders
@@ -748,10 +748,10 @@ class Mesh2D:
         return ElementLeaf2D(
             None,
             int(self.orders[idx]),
-            tuple(self.positions[indices[0], :]),
-            tuple(self.positions[indices[1], :]),
-            tuple(self.positions[indices[2], :]),
-            tuple(self.positions[indices[3], :]),
+            (float(self.positions[indices[0], 0]), float(self.positions[indices[0], 1])),
+            (float(self.positions[indices[1], 0]), float(self.positions[indices[1], 1])),
+            (float(self.positions[indices[2], 0]), float(self.positions[indices[2], 1])),
+            (float(self.positions[indices[3], 0]), float(self.positions[indices[3], 1])),
         )
 
     def as_polydata(self) -> pv.PolyData:
@@ -909,8 +909,8 @@ class FemCache:
         weights = rule.weights
 
         mat = np.sum(
-            basis.node[:, :, None] * basis.node[:, None, :] * weights[:, None, None],
-            axis=0,
+            basis.node[:, None, :] * basis.node[None, :, :] * weights[None, None, :],
+            axis=2,
         )
         inv = np.linalg.inv(mat)
         self._min_cache[order] = inv
@@ -927,13 +927,32 @@ class FemCache:
         weights = rule.weights
 
         mat = np.sum(
-            basis.edge[:, :, None] * basis.edge[:, None, :] * weights[:, None, None],
-            axis=0,
+            basis.edge[:, None, :] * basis.edge[None, :, :] * weights[None, None, :],
+            axis=2,
         )
         inv = np.linalg.inv(mat)
         self._mie_cache[order] = inv
 
         return inv
+
+
+class ElementSide(IntEnum):
+    """Enum specifying the side of an element."""
+
+    SIDE_BOTTOM = 1
+    SIDE_RIGHT = 2
+    SIDE_TOP = 3
+    SIDE_LEFT = 4
+
+    @property
+    def next(self) -> ElementSide:
+        """Next side."""
+        return ElementSide((self.value & 3) + 1)
+
+    @property
+    def prev(self) -> ElementSide:
+        """Previous side."""
+        return ElementSide(((self.value - 2) & 3) + 1)
 
 
 def find_surface_boundary_id_line(s: Surface, i: int) -> ElementSide:

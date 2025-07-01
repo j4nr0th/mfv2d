@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
-from enum import IntEnum
 from functools import cache
 from itertools import accumulate
 from typing import Any, Concatenate, Generic, ParamSpec, SupportsIndex, TypeAlias, TypeVar
@@ -37,7 +36,7 @@ from mfv2d._mfv2d import (
     lagrange1d,
 )
 from mfv2d.kform import UnknownFormOrder, UnknownOrderings
-from mfv2d.mimetic2d import Element2D, ElementLeaf2D, ElementNode2D
+from mfv2d.mimetic2d import Element2D, ElementLeaf2D, ElementNode2D, ElementSide
 
 
 @dataclass(frozen=True)
@@ -256,41 +255,6 @@ class FlexibleElementArray(
         for vin, vout in zip(out, self):
             vout[:] = vin[:]
         return out
-
-
-# TODO: REMOVE
-def _order_elements(
-    ie: int,
-    i_current: int,
-    ordering: FixedElementArray[np.uint32],
-    child_array: FlexibleElementArray[np.uint32, np.uint32],
-) -> int:
-    """Order elements such that children come before their parent."""
-    for child in child_array[ie]:
-        i_current = _order_elements(int(child), i_current, ordering, child_array)
-    ordering[ie] = i_current
-    i_current += 1
-
-    return i_current
-
-
-class ElementSide(IntEnum):
-    """Enum specifying the side of an element."""
-
-    SIDE_BOTTOM = 1
-    SIDE_RIGHT = 2
-    SIDE_TOP = 3
-    SIDE_LEFT = 4
-
-    @property
-    def next(self) -> ElementSide:
-        """Next side."""
-        return ElementSide((self.value & 3) + 1)
-
-    @property
-    def prev(self) -> ElementSide:
-        """Previous side."""
-        return ElementSide(((self.value - 2) & 3) + 1)
 
 
 class ElementCollection:
@@ -829,79 +793,21 @@ def _compute_element_dofs(
                 raise ValueError(f"Unknown form order values {form}.")
 
     else:
-        for i_f, form in enumerate(ordering.form_orders):
-            if (
-                form == UnknownFormOrder.FORM_ORDER_0
-                or form == UnknownFormOrder.FORM_ORDER_1
-            ):
-                sizes[i_f] = sum(
-                    elements.get_element_order_on_side(ie, side) for side in ElementSide
-                )
-            elif form == UnknownFormOrder.FORM_ORDER_2:
-                sizes[i_f] = 0
-            else:
-                raise ValueError(f"Unknown form order values {form}.")
+        pass
+        # for i_f, form in enumerate(ordering.form_orders):
+        #     if (
+        #         form == UnknownFormOrder.FORM_ORDER_0
+        #         or form == UnknownFormOrder.FORM_ORDER_1
+        #     ):
+        #         sizes[i_f] = sum(
+        #             elements.get_element_order_on_side(ie, side) for side in ElementSide
+        #         )
+        #     elif form == UnknownFormOrder.FORM_ORDER_2:
+        #         sizes[i_f] = 0
+        #     else:
+        #         raise ValueError(f"Unknown form order values {form}.")
 
     return sizes
-
-
-def _compute_element_lagrange_multipliers(
-    ie: int, elements: ElementCollection, ordering: UnknownOrderings
-) -> int:
-    """Compute the number of lagrange multipliers required per element."""
-    if elements.child_count_array[ie] == 0:
-        return 0
-
-    child_bl, child_br, child_tr, child_tl = (int(i) for i in elements.child_array[ie])
-
-    # There's always the same number of parent-child as the order of the child
-    # on that boundary
-    n_btm = elements.get_element_order_on_side(
-        child_bl, ElementSide.SIDE_BOTTOM
-    ) + elements.get_element_order_on_side(child_br, ElementSide.SIDE_BOTTOM)
-    n_rth = elements.get_element_order_on_side(
-        child_br, ElementSide.SIDE_RIGHT
-    ) + elements.get_element_order_on_side(child_tr, ElementSide.SIDE_RIGHT)
-    n_top = elements.get_element_order_on_side(
-        child_tr, ElementSide.SIDE_TOP
-    ) + elements.get_element_order_on_side(child_tl, ElementSide.SIDE_TOP)
-    n_lft = elements.get_element_order_on_side(
-        child_tl, ElementSide.SIDE_LEFT
-    ) + elements.get_element_order_on_side(child_bl, ElementSide.SIDE_LEFT)
-
-    n_bl_br = max(
-        elements.get_element_order_on_side(child_bl, ElementSide.SIDE_RIGHT),
-        elements.get_element_order_on_side(child_br, ElementSide.SIDE_LEFT),
-    )
-    n_br_tr = max(
-        elements.get_element_order_on_side(child_br, ElementSide.SIDE_TOP),
-        elements.get_element_order_on_side(child_tr, ElementSide.SIDE_BOTTOM),
-    )
-    n_tr_tl = max(
-        elements.get_element_order_on_side(child_tr, ElementSide.SIDE_LEFT),
-        elements.get_element_order_on_side(child_tl, ElementSide.SIDE_RIGHT),
-    )
-    n_tl_bl = max(
-        elements.get_element_order_on_side(child_tl, ElementSide.SIDE_BOTTOM),
-        elements.get_element_order_on_side(child_bl, ElementSide.SIDE_TOP),
-    )
-
-    n_first_order = (n_bl_br + n_br_tr + n_tr_tl + n_tl_bl) + (
-        n_btm + n_rth + n_top + n_lft
-    )
-
-    n_lagrange = 0
-    for order in ordering.form_orders:
-        if order == UnknownFormOrder.FORM_ORDER_2:
-            continue
-
-        n_lagrange += n_first_order
-
-        if order == UnknownFormOrder.FORM_ORDER_0:
-            # Add the center node connectivity relations (but not cyclical)
-            n_lagrange += 3
-
-    return n_lagrange
 
 
 def compute_dof_sizes(
@@ -926,45 +832,6 @@ def compute_dof_sizes(
     return call_per_element_fix(
         elements.com, np.uint32, ordering.count, _compute_element_dofs, ordering, elements
     )
-
-
-def compute_lagrange_sizes(
-    elements: ElementCollection, ordering: UnknownOrderings
-) -> FixedElementArray[np.uint32]:
-    """Compute number of Lagrange multipliers present within each element."""
-    return call_per_element_fix(
-        elements.com,
-        np.uint32,
-        1,
-        _compute_element_lagrange_multipliers,
-        elements,
-        ordering,
-    )
-
-
-def compute_total_element_sizes(
-    elements: ElementCollection,
-    dof_sizes: FixedElementArray[np.uint32],
-    lagrange_counts: FixedElementArray[np.uint32],
-) -> FixedElementArray[np.uint32]:
-    """Compute total number of unknowns per element.
-
-    For leaf elements this only means own DoFs, but for any parent elements it
-    means the sum of all children.
-    """
-    sizes = FixedElementArray(elements.com, 1, np.uint32)
-
-    for ie in (int(ie) for ie in reversed(elements.orders_array)):
-        children = elements.child_array[ie]
-        self_size = dof_sizes[ie]
-        lag_size = lagrange_counts[ie]
-        child_size = 0
-        for c in (int(c) for c in children):
-            child_size += int(sizes[c][0])
-
-        sizes[ie] = self_size + lag_size + child_size
-
-    return sizes
 
 
 def jacobian(
@@ -1520,7 +1387,8 @@ def _get_side_dof_nodes(
                 dofs2[0].i_e, dofs2[0].dofs[1:], dofs2[0].coeffs[1:]
             )
         elif order == UnknownFormOrder.FORM_ORDER_1:
-            pass
+            # Still have to remove coeffs (since that stands for child nodes!)
+            dofs2[0] = ElementConstraint(dofs2[0].i_e, dofs2[0].dofs, dofs2[0].coeffs[1:])
         else:
             assert False
 
@@ -1687,12 +1555,12 @@ def get_side_dofs(
 
     dofs = _get_side_dof_nodes(element_collection, element, side, form_order)
 
-    output_nodes = compute_gll(output_order)[0]
+    self_nodes = compute_gll(self_order)[0]
     input_nodes = np.concatenate([dof.coeffs for dof in dofs])
 
     # Values of output basis (axis 1) at input points (axis 0)
     # nodal_basis_vals and edge_basis_vals are maps from parent dofs to child dofs
-    nodal_basis_vals = lagrange1d(output_nodes, input_nodes)
+    nodal_basis_vals = lagrange1d(self_nodes, input_nodes)
     if form_order == UnknownFormOrder.FORM_ORDER_0:
         m = np.linalg.inv(nodal_basis_vals)
 
@@ -1710,6 +1578,32 @@ def get_side_dofs(
 
     else:
         raise ValueError(f"Invalid for order {form_order=}.")
+
+    if self_order != output_order:
+        # Values of output basis (axis 1) at input points (axis 0)
+        # nodal_basis_vals and edge_basis_vals are maps from parent dofs to child dofs
+        output_nodes = compute_gll(output_order)[0]
+        map_nodal_basis_vals = lagrange1d(self_nodes, output_nodes)
+        if form_order == UnknownFormOrder.FORM_ORDER_0:
+            m = map_nodal_basis_vals @ m
+
+        elif form_order == UnknownFormOrder.FORM_ORDER_1:
+            diffs = map_nodal_basis_vals[:-1, :] - map_nodal_basis_vals[+1:, :]
+            map_edge_basis_vals = np.stack(
+                [
+                    x
+                    for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))
+                ],
+                axis=-1,
+                dtype=np.float64,
+            )
+            m = map_edge_basis_vals @ m
+
+        elif form_order == UnknownFormOrder.FORM_ORDER_2:
+            raise ValueError("2-forms have no boundary DoFs.")
+
+        else:
+            raise ValueError(f"Invalid for order {form_order=}.")
 
     constraints: list[Constraint] = list()
 

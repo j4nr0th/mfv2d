@@ -1174,7 +1174,7 @@ def element_primal_dofs(
 
 def reconstruct(
     corners: npt.NDArray[np.float64],
-    k: int,  #  TODO: swap to UnknownOrder
+    k: UnknownFormOrder,
     dofs: npt.ArrayLike,
     xi: npt.ArrayLike,
     eta: npt.ArrayLike,
@@ -1187,7 +1187,7 @@ def reconstruct(
     corners : array_like
         Array of corners of the element.
 
-    k : int
+    k : UnknownFormOrder
         Order of the differential form to use for basis.
 
     dofs : array_like
@@ -1207,13 +1207,13 @@ def reconstruct(
     array
         Array with the point values of the k-form at the specified coordinates.
     """
-    assert 0 <= k < 3
+    k = UnknownFormOrder(k)
     out: float | npt.NDArray[np.floating] = 0.0
     c = np.asarray(dofs, dtype=np.float64, copy=None)
     if c.ndim != 1:
         raise ValueError("Coefficient array must be one dimensional.")
 
-    if k == 0:
+    if k == UnknownFormOrder.FORM_ORDER_0:
         assert c.size == (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
         vals_xi = lagrange1d(basis.basis_xi.roots, xi)
         vals_eta = lagrange1d(basis.basis_eta.roots, eta)
@@ -1223,7 +1223,7 @@ def reconstruct(
                 u = vals_xi[..., j]
                 out += c[i * (basis.basis_xi.order + 1) + j] * (u * v)
 
-    elif k == 1:
+    elif k == UnknownFormOrder.FORM_ORDER_1:
         assert c.size == (
             basis.basis_eta.order + 1
         ) * basis.basis_xi.order + basis.basis_eta.order * (basis.basis_xi.order + 1)
@@ -1266,7 +1266,7 @@ def reconstruct(
         )
         out /= det[..., None]
 
-    elif k == 2:
+    elif k == UnknownFormOrder.FORM_ORDER_2:
         assert c.size == basis.basis_xi.order * basis.basis_eta.order
         in_dvalues_xi = dlagrange1d(basis.basis_xi.roots, xi)
         in_dvalues_eta = dlagrange1d(basis.basis_eta.roots, eta)

@@ -23,6 +23,36 @@ Function2D = TypeAliasType(
 )
 """Type of a function taking two inputs and returning an array-like."""
 
+_DIMENSION_COUNT = 2
+
+
+class UnknownFormOrder(IntEnum):
+    """Orders of unknown differential forms.
+
+    This enum is intended to replace just passing integers for the
+    order of forms, since this is easier to catch by type-checkers.
+    """
+
+    FORM_ORDER_0 = 1
+    FORM_ORDER_1 = 2
+    FORM_ORDER_2 = 3
+
+    def full_unknown_count(self, order_1: int, order_2: int) -> int:
+        """Return the total number of DoFs based on orders for a (full) leaf element."""
+        if self == UnknownFormOrder.FORM_ORDER_0:
+            return (order_1 + 1) * (order_2 + 1)
+        if self == UnknownFormOrder.FORM_ORDER_1:
+            return order_1 * (order_2 + 1) + (order_1 + 1) * order_2
+        if self == UnknownFormOrder.FORM_ORDER_2:
+            return order_1 * order_2
+
+        raise ValueError
+
+    @property
+    def dual(self) -> UnknownFormOrder:
+        """Return what the dual of the form is."""
+        return UnknownFormOrder(2 - (self.value - 2))
+
 
 @dataclass(frozen=True)
 class Term:
@@ -41,7 +71,6 @@ class Term:
         How to identify the term.
     """
 
-    dimension: int
     label: str
 
     def __str__(self) -> str:
@@ -71,20 +100,16 @@ class KForm(Term):
         Label which is used to print form as a string.
     """
 
-    order: int
+    order: UnknownFormOrder
     label: str
 
     def __post_init__(self) -> None:
-        """Check that the order of the form is not too high."""
-        if self.dimension < self.order:
-            raise ValueError(
-                f"Can not create a {self.order}-form on a manifold of dimension"
-                f" {self.dimension}"
-            )
+        """Check that order is correctly set."""
+        object.__setattr__(self, "order", UnknownFormOrder(self.order))
 
     def __str__(self) -> str:
         """Return print-friendly representation of the object."""
-        return f"{self.label}({self.order})"
+        return f"{self.label}({self.order.value - 1})"
 
     @overload
     def __mul__(self, other: KForm, /) -> KInnerProduct: ...
@@ -96,9 +121,8 @@ class KForm(Term):
             return KInnerProduct(other, self)
         if callable(other):
             return KInteriorProduct(
-                self.dimension,
                 f"i_{{{other.__name__}}}({self.label})",
-                self.order - 1,
+                UnknownFormOrder(self.order.value - 1),
                 self,
                 other,
             )
@@ -132,7 +156,7 @@ class KForm(Term):
         raise NotImplementedError
 
     @property
-    def primal_order(self) -> int:
+    def primal_order(self) -> UnknownFormOrder:
         """Order in primal basis."""
         raise NotImplementedError
 
@@ -162,9 +186,8 @@ class KFormUnknown(KForm):
     def __xor__(self, other: KFormUnknown | KHodge):
         """Return a non-linear interior product term."""
         return KInteriorProductNonlinear(
-            self.dimension,
             f"i_({self.label})({other.label})",
-            other.order - 1,
+            UnknownFormOrder(other.order - 1),
             other,
             self,
         )
@@ -172,7 +195,7 @@ class KFormUnknown(KForm):
     @property
     def weight(self) -> KWeight:
         """Create a weight based on this form."""
-        return KWeight(self.dimension, self.label, self.order, self)
+        return KWeight(self.label, self.order, self)
 
     @property
     def is_weight(self) -> bool:
@@ -180,11 +203,11 @@ class KFormUnknown(KForm):
         return False
 
     @property
-    def primal_order(self) -> int:
+    def primal_order(self) -> UnknownFormOrder:
         """Order of the mass matrix which needs to be used."""
         if self.is_primal:
             return self.order
-        return self.dimension - self.order
+        return self.order.dual
 
     @property
     def is_primal(self) -> bool:
@@ -253,7 +276,7 @@ class KHodge(KForm):
     base_form: KForm
 
     def __init__(self, form: KForm) -> None:
-        super().__init__(form.dimension, "~" + form.label, form.dimension - form.order)
+        super().__init__("~" + form.label, form.order.dual)
         object.__setattr__(self, "base_form", form)
 
     @property
@@ -262,11 +285,11 @@ class KHodge(KForm):
         return not self.base_form.is_primal
 
     @property
-    def primal_order(self) -> int:
+    def primal_order(self) -> UnknownFormOrder:
         """Order of the mass matrix which needs to be used."""
         if self.is_primal:
             return self.order
-        return self.dimension - self.order
+        return self.order.dual
 
     @property
     def is_weight(self) -> bool:
@@ -325,11 +348,9 @@ class KWeight(KForm):
         if isinstance(other, KForm):
             return KInnerProduct(other, self)
         if callable(other):
-            return KElementProjection(
-                self.dimension, f"<{self.label}, {other.__name__}>", self, other
-            )
+            return KElementProjection(f"<{self.label}, {other.__name__}>", self, other)
         if other == 0:
-            return KElementProjection(self.dimension, "0", self, None)
+            return KElementProjection("0", self, None)
         return NotImplemented
 
     @overload  # type: ignore[override]
@@ -347,19 +368,15 @@ class KWeight(KForm):
     def __xor__(self, other: Callable) -> KBoundaryProjection:
         """Create boundary projection for the right hand side."""
         if callable(other):
-            return KBoundaryProjection(
-                self.dimension, f"<{self.label}, {other.__name__}>", self, other
-            )
+            return KBoundaryProjection(f"<{self.label}, {other.__name__}>", self, other)
         return NotImplemented
 
     def __matmul__(self, other: Callable | Literal[0], /) -> KElementProjection:
         """Create projection for the right hand side."""
         if isinstance(other, int) and other == 0:
-            return KElementProjection(self.dimension, "0", self, None)
+            return KElementProjection("0", self, None)
         if callable(other):
-            return KElementProjection(
-                self.dimension, f"<{self.label}, {other.__name__}>", self, other
-            )
+            return KElementProjection(f"<{self.label}, {other.__name__}>", self, other)
         return NotImplemented
 
     @property
@@ -373,11 +390,11 @@ class KWeight(KForm):
         return True
 
     @property
-    def primal_order(self) -> int:
+    def primal_order(self) -> UnknownFormOrder:
         """Order of the mass matrix which needs to be used."""
         if self.is_primal:
             return self.order
-        return self.dimension - self.order
+        return self.order.dual
 
     @property
     def is_primal(self) -> bool:
@@ -427,7 +444,7 @@ class KFormDerivative(KForm):
 
     def __init__(self, form: KForm) -> None:
         object.__setattr__(self, "form", form)
-        super().__init__(form.dimension, "d" + form.label, form.order + 1)
+        super().__init__("d" + form.label, UnknownFormOrder(form.order.value + 1))
 
     @property
     def is_primal(self) -> bool:
@@ -440,12 +457,12 @@ class KFormDerivative(KForm):
         return self.form.is_weight
 
     @property
-    def primal_order(self) -> int:
+    def primal_order(self) -> UnknownFormOrder:
         """Order in primal basis."""
         if self.form.is_primal:
             return self.order
         else:
-            return self.form.primal_order - 1
+            return UnknownFormOrder(self.form.primal_order.value - 1)
 
     @property
     def core_form(self) -> KWeight | KFormUnknown:
@@ -468,7 +485,7 @@ class KInteriorProduct(KForm):
     def __post_init__(self) -> None:
         """Enforce the conditions for allowing interior product."""
         # The form can not be a zero-form
-        if self.form.order == 0:
+        if self.form.order == UnknownFormOrder.FORM_ORDER_0:
             raise ValueError("Interior product can not be applied to a 0-form.")
 
     @property
@@ -482,11 +499,11 @@ class KInteriorProduct(KForm):
         return self.form.is_weight
 
     @property
-    def primal_order(self) -> int:
+    def primal_order(self) -> UnknownFormOrder:
         """Return the order of the primal."""
         if self.form.is_primal:
-            return self.form.primal_order - 1
-        return self.form.primal_order + 1
+            return UnknownFormOrder(self.form.primal_order.value - 1)
+        return UnknownFormOrder(self.form.primal_order.value + 1)
 
     @property
     def core_form(self) -> KWeight | KFormUnknown:
@@ -539,9 +556,9 @@ class KInteriorProductNonlinear(KForm):
                 f" {type(self.form_field)})."
             )
 
-        if self.form.order == 0:
+        if self.form.order == UnknownFormOrder.FORM_ORDER_0:
             raise ValueError("Interior product can not be applied to a 0-form.")
-        if self.form_field.order != 1:
+        if self.form_field.order != UnknownFormOrder.FORM_ORDER_1:
             raise ValueError(
                 "Interior product requires the other form to be a"
                 f" 1-form, it was instead a {self.form_field.order}-form."
@@ -558,11 +575,11 @@ class KInteriorProductNonlinear(KForm):
         return self.form.is_weight
 
     @property
-    def primal_order(self) -> int:
+    def primal_order(self) -> UnknownFormOrder:
         """Return the order of the primal."""
         if self.form.is_primal:
-            return self.form.primal_order - 1
-        return self.form.primal_order + 1
+            return UnknownFormOrder(self.form.primal_order.value - 1)
+        return UnknownFormOrder(self.form.primal_order.value + 1)
 
     @property
     def core_form(self) -> KWeight | KFormUnknown:
@@ -650,9 +667,7 @@ class TermEvaluatable(Term):
             if other is None or float(other) == 0:
                 return KEquation(
                     KSum((1.0, self)),
-                    KSum(
-                        (1.0, KElementProjection(self.dimension, "0", self.weight, None))
-                    ),
+                    KSum((1.0, KElementProjection("0", self.weight, None))),
                 )
         except Exception:
             pass
@@ -758,16 +773,12 @@ class KInnerProduct(TermEvaluatable):
             raise ValueError(
                 f"The K forms are not of the same (primal) order ({w_order} vs {u_order})"
             )
-        if weight.dimension is not unknown.dimension:
-            raise ValueError(
-                "Inner product can only be taken between differential forms defined on "
-                "the space with same number of dimensions."
-            )
+
         object.__setattr__(self, "unknown_form", unknown)
         object.__setattr__(self, "weight_form", weight)
         w = weight.core_form
         assert type(w) is KWeight
-        super().__init__(weight.dimension, f"<{weight.label}, {unknown.label}>", w)
+        super().__init__(f"<{weight.label}, {unknown.label}>", w)
 
     @property
     def unknowns(self) -> tuple[KFormUnknown, ...]:
@@ -799,20 +810,9 @@ class KSum(TermEvaluatable):
         if len(pairs) < 1:
             raise TypeError("Can not create a sum object with no members.")
 
-        base_dim: int | None = None
-        weight: KWeight | None = None
+        weight: KWeight = pairs[0][1].weight
         new_pairs: list[tuple[float, KExplicit | KInnerProduct]] = list()
         for coeff, term in pairs:
-            if base_dim is None:
-                base_dim = term.dimension
-                assert weight is None
-                weight = term.weight
-
-            elif base_dim != term.dimension:
-                raise ValueError(
-                    "Can not sum inner products from different dimensional spaces."
-                )
-
             if weight != term.weight:
                 raise ValueError("Can not sum terms with varying weight forms")
 
@@ -827,10 +827,10 @@ class KSum(TermEvaluatable):
 
                 new_pairs.append((coeff, term))
         del pairs
-        assert base_dim is not None and weight is not None
+
         object.__setattr__(self, "pairs", tuple(new_pairs))
         label = "(" + "+".join(ip.label for _, ip in self.pairs) + ")"
-        super().__init__(base_dim, label, weight)
+        super().__init__(label, weight)
 
     @property
     def unknowns(self) -> tuple[KFormUnknown, ...]:
@@ -1421,12 +1421,12 @@ class KFormSystem:
             s += "\n"
         return s[:-1]  # strip the trailing new line.
 
-    def get_form_indices_by_order(self, order: int) -> tuple[int, ...]:
+    def get_form_indices_by_order(self, order: UnknownFormOrder) -> tuple[int, ...]:
         """Return indices of forms with the specified order.
 
         Parameters
         ----------
-        order : int
+        order : UnknownFormOrder
             Order of the differential forms for which the indices should be returned.
 
         Returns
@@ -1435,36 +1435,13 @@ class KFormSystem:
             Tuple of indices of all unknown differential forms in the system of equations
             which have the specified order.
         """
-        order = int(order)
+        order = UnknownFormOrder(order)
         if order < 0 or order > 2:
             raise ValueError(
                 "Specified order can not be less than 0 or more than 2, but it was"
                 f" {order}."
             )
         return tuple(i for i, f in enumerate(self.unknown_forms) if f.order == order)
-
-
-class UnknownFormOrder(IntEnum):
-    """Orders of unknown differential forms.
-
-    This enum is intended to replace just passing integers for the
-    order of forms, since this is easier to catch by type-checkers.
-    """
-
-    FORM_ORDER_0 = 1
-    FORM_ORDER_1 = 2
-    FORM_ORDER_2 = 3
-
-    def full_unknown_count(self, order_1: int, order_2: int) -> int:
-        """Return the total number of DoFs based on orders for a (full) leaf element."""
-        if self == UnknownFormOrder.FORM_ORDER_0:
-            return (order_1 + 1) * (order_2 + 1)
-        if self == UnknownFormOrder.FORM_ORDER_1:
-            return order_1 * (order_2 + 1) + (order_1 + 1) * order_2
-        if self == UnknownFormOrder.FORM_ORDER_2:
-            return order_1 * order_2
-
-        raise ValueError
 
 
 @dataclass(frozen=True)
@@ -1481,7 +1458,5 @@ class UnknownOrderings:
         """Count of forms."""
         return len(self.form_orders)
 
-    def __init__(self, *orders: int) -> None:
-        object.__setattr__(
-            self, "form_orders", tuple(UnknownFormOrder(i + 1) for i in orders)
-        )
+    def __init__(self, *orders: UnknownFormOrder) -> None:
+        object.__setattr__(self, "form_orders", orders)

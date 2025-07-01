@@ -38,7 +38,14 @@ def test_reconstruction_nodal() -> None:
         UnknownFormOrder.FORM_ORDER_0, element_cache, test_function
     )
     test_v = np.linspace(-1, +1, 21)
-    recon = reconstruct(corners, 0, dual, test_v[None, :], test_v[:, None], basis_2d)
+    recon = reconstruct(
+        corners,
+        UnknownFormOrder.FORM_ORDER_0,
+        dual,
+        test_v[None, :],
+        test_v[:, None],
+        basis_2d,
+    )
 
     real = test_function(
         poly_x(corners[:, 0], test_v[None, :], test_v[:, None]),
@@ -66,7 +73,14 @@ def test_reconstruction_surf() -> None:
         UnknownFormOrder.FORM_ORDER_2, element_cache, test_function
     )
     test_v = np.linspace(-1, +1, 21)
-    recon = reconstruct(corners, 2, dual, test_v[None, :], test_v[:, None], basis_2d)
+    recon = reconstruct(
+        corners,
+        UnknownFormOrder.FORM_ORDER_2,
+        dual,
+        test_v[None, :],
+        test_v[:, None],
+        basis_2d,
+    )
 
     real = test_function(
         poly_x(corners[:, 0], test_v[None, :], test_v[:, None]),

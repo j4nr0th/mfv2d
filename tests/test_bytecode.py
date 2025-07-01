@@ -2,14 +2,14 @@
 
 from mfv2d._mfv2d import check_bytecode
 from mfv2d.eval import translate_equation, translate_to_c_instructions
-from mfv2d.kform import KFormUnknown
+from mfv2d.kform import KFormUnknown, UnknownFormOrder
 
 
 def test_bytecode():
     """Check that bytecode conversion works."""
-    a = KFormUnknown(2, "a", 0)
+    a = KFormUnknown("a", UnknownFormOrder.FORM_ORDER_0)
     u = a.weight
-    b = KFormUnknown(2, "b", 1)
+    b = KFormUnknown("b", UnknownFormOrder.FORM_ORDER_1)
 
     operations = translate_equation(
         u.derivative * a.derivative - 2 * (u.derivative * ~b), (), False, True

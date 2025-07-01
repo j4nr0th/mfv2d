@@ -38,6 +38,7 @@ from mfv2d import (
     SolverSettings,
     SystemSettings,
     TimeSettings,
+    UnknownFormOrder,
     solve_system_2d,
 )
 from scipy.integrate import trapezoid
@@ -101,7 +102,7 @@ def steady_u(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
 # right side of the equation, this is now an iterative solve.
 
 
-u = KFormUnknown(2, "u", 0)
+u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
 v = u.weight
 
 system = KFormSystem(

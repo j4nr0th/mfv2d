@@ -157,10 +157,10 @@ def compute_element_vector_fields_nonlin(
                     out_eta,
                     element_basis,
                 )
-                if vec_fld.order != 1:
+                if vec_fld.order != UnknownFormOrder.FORM_ORDER_1:
                     vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
             else:
-                # if vec_fld.order == 1:
+                # if vec_fld.order == UnknownFormOrder.FORM_ORDER_1:
                 vf = np.zeros(
                     (
                         out_xi.size,
@@ -221,20 +221,20 @@ def rhs_2d_element_projection(
     if fn is None:
         basis = element_cache.basis_2d
         n_dof: int
-        if right.weight.order == 0:
+        if right.weight.order == UnknownFormOrder.FORM_ORDER_0:
             n_dof = (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
-        elif right.weight.order == 1:
+        elif right.weight.order == UnknownFormOrder.FORM_ORDER_1:
             n_dof = (
                 basis.basis_xi.order + 1
             ) * basis.basis_eta.order + basis.basis_xi.order * (basis.basis_eta.order + 1)
-        elif right.weight.order == 2:
+        elif right.weight.order == UnknownFormOrder.FORM_ORDER_2:
             n_dof = basis.basis_xi.order * basis.basis_eta.order
         else:
             raise ValueError(f"Invalid weight order {right.weight.order}.")
 
         return np.zeros(n_dof)
 
-    return element_dual_dofs(UnknownFormOrder(right.weight.order + 1), element_cache, fn)
+    return element_dual_dofs(right.weight.order, element_cache, fn)
 
 
 def _extract_rhs_2d(
@@ -268,13 +268,13 @@ def _extract_rhs_2d(
     n_dof: int
     # Create empty vector into which to accumulate
     basis = element_cache.basis_2d
-    if weight.order == 0:
+    if weight.order == UnknownFormOrder.FORM_ORDER_0:
         n_dof = (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
-    elif weight.order == 1:
+    elif weight.order == UnknownFormOrder.FORM_ORDER_1:
         n_dof = (
             basis.basis_xi.order + 1
         ) * basis.basis_eta.order + basis.basis_xi.order * (basis.basis_eta.order + 1)
-    elif weight.order == 2:
+    elif weight.order == UnknownFormOrder.FORM_ORDER_2:
         n_dof = basis.basis_xi.order * basis.basis_eta.order
     else:
         raise ValueError(f"Invalid weight order {weight.order}.")
@@ -388,7 +388,7 @@ def reconstruct_mesh_from_solution(
     orders_2: list[int] = list()
     node_cnt = 0
     for ie, cnt in enumerate(element_collection.child_count_array):
-        if int(cnt) != 0:
+        if int(cnt[0]) != 0:
             continue
 
         # Extract element DoFs
@@ -434,7 +434,7 @@ def reconstruct_mesh_from_solution(
                 element_basis.basis_eta.roots[:, None],
                 caches.get_basis2d(order_1, order_2),
             )
-            shape = (-1, 2) if form.order == 1 else (-1,)
+            shape = (-1, 2) if form.order == UnknownFormOrder.FORM_ORDER_1 else (-1,)
             build[form].append(np.reshape(recon_v, shape))
 
     grid = pv.UnstructuredGrid(

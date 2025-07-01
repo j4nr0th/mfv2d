@@ -40,9 +40,9 @@ def test_explicit_evaluation():
         v = np.asarray(y)
         return np.astype((0 * (u + v)), np.float64, copy=False)
 
-    vor = KFormUnknown(2, "vor", 0)
-    vel = KFormUnknown(2, "vel", 1)
-    pre = KFormUnknown(2, "pre", 2)
+    vor = KFormUnknown("vor", UnknownFormOrder.FORM_ORDER_0)
+    vel = KFormUnknown("vel", UnknownFormOrder.FORM_ORDER_1)
+    pre = KFormUnknown("pre", UnknownFormOrder.FORM_ORDER_2)
 
     w_vor = vor.weight
     w_vel = vel.weight
@@ -88,7 +88,7 @@ def test_explicit_evaluation():
         assert not callable(vec_fld)
         fn = func_dict[vec_fld]
         vf = fn(x, y)
-        if vec_fld.order != 1:
+        if vec_fld.order != UnknownFormOrder.FORM_ORDER_1:
             vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
         vf = np.reshape(vf, (-1, 2))
         vec_field_lists[i].append(vf)
@@ -100,7 +100,7 @@ def test_explicit_evaluation():
 
     elem_cache = ElementMassMatrixCache(basis_2d, corners)
     sys_mat = compute_element_matrix(
-        [UnknownFormOrder(form.order + 1) for form in system.unknown_forms],
+        [UnknownFormOrder(form.order) for form in system.unknown_forms],
         codes,
         vec_fields,
         elem_cache,
@@ -149,3 +149,7 @@ def test_explicit_evaluation():
         UnknownFormOrder.FORM_ORDER_1, elem_cache, exact_momentum
     )
     assert np.abs(momentum_rhs - proj_momentum_rhs).max() < 1e-6
+
+
+if __name__ == "__main__":
+    test_explicit_evaluation()

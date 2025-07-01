@@ -57,9 +57,7 @@ from mfv2d.kform import (
 from mfv2d.mimetic2d import Element2D, ElementLeaf2D, FemCache, vtk_lagrange_ordering
 from mfv2d.progress import ProgressTracker
 
-OrderDivisionFunction = Callable[
-    [int, int, int], tuple[int | None, tuple[int, int, int, int]]
-]
+OrderDivisionFunction = Callable[[int, int, int], tuple[int, int, int, int]]
 
 
 # TODO: REPLACE
@@ -74,16 +72,16 @@ def check_and_refine(
     out: list[Element2D]
     if level < max_level and pred is not None and pred(e, level):
         # TODO: Make this nicer without this stupid Method mumbo jumbo
-        parent_order, child_orders = order_div(e.order, level, max_level)
-        new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders, parent_order)
+        child_orders = order_div(e.order, level, max_level)
+        new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders)
         cbl = check_and_refine(pred, order_div, ebl, level + 1, max_level)
         cbr = check_and_refine(pred, order_div, ebr, level + 1, max_level)
         ctl = check_and_refine(pred, order_div, etl, level + 1, max_level)
         ctr = check_and_refine(pred, order_div, etr, level + 1, max_level)
-        object.__setattr__(new_e, "child_bl", cbl[0])
-        object.__setattr__(new_e, "child_br", cbr[0])
-        object.__setattr__(new_e, "child_tl", ctl[0])
-        object.__setattr__(new_e, "child_tr", ctr[0])
+        new_e.child_bl = cbl[0]
+        new_e.child_br = cbr[0]
+        new_e.child_tl = ctl[0]
+        new_e.child_tr = ctr[0]
         out = [new_e] + cbl + cbr + ctr + ctl
 
     else:
@@ -988,13 +986,10 @@ class SystemSettings:
     ] = field(default_factory=dict)
 
 
-def divide_old(
-    order: int, level: int, max_level: int
-) -> tuple[int | None, tuple[int, int, int, int]]:
-    """Keep child order equal to parent and set parent to double the child."""
+def divide_old(order: int, level: int, max_level: int) -> tuple[int, int, int, int]:
+    """Keep child order equal to parent."""
     del level, max_level
-    v = order
-    return 2 * order, (v, v, v, v)
+    return (order, order, order, order)
 
 
 @dataclass(frozen=True)

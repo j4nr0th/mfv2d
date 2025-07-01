@@ -17,10 +17,10 @@ from mfv2d.mimetic2d import ElementSide
 def test_evaluation_twice() -> None:
     """Check that interpolation from child to parent works for double division."""
     et1 = ElementLeaf2D(None, 1, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e0, ((et2, et3), (e11, e12)) = et1.divide(1, 1, 1, 1, None)
-    e1, ((e2, e3), (e4, e5)) = et2.divide(2, 4, 1, 1, None)
+    e0, ((et2, et3), (e11, e12)) = et1.divide(1, 1, 1, 1)
+    e1, ((e2, e3), (e4, e5)) = et2.divide(2, 4, 1, 1)
     object.__setattr__(e0, "child_bl", e1)
-    e6, ((e7, e8), (e9, e10)) = et3.divide(2, 3, 1, 1, None)
+    e6, ((e7, e8), (e9, e10)) = et3.divide(2, 3, 1, 1)
     object.__setattr__(e0, "child_br", e6)
 
     collection = ElementCollection(
@@ -68,7 +68,7 @@ def test_evaluation_twice() -> None:
 def test_evaluation_once() -> None:
     """Check that interpolation from child to parent works for single division."""
     et1 = ElementLeaf2D(None, 1, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e0, ((e1, e2), (e3, e4)) = et1.divide(4, 7, 1, 1, None)
+    e0, ((e1, e2), (e3, e4)) = et1.divide(4, 7, 1, 1)
 
     collection = ElementCollection([e0, e1, e2, e3, e4])
     constraints = get_side_dofs(
@@ -114,10 +114,10 @@ def test_evaluation_once() -> None:
 def test_evaluation_twice_1() -> None:
     """Check that interpolation from child to parent works for double division."""
     et1 = ElementLeaf2D(None, 1, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e0, ((et2, et3), (e11, e12)) = et1.divide(1, 1, 1, 1, None)
-    e1, ((e2, e3), (e4, e5)) = et2.divide(2, 4, 1, 1, None)
+    e0, ((et2, et3), (e11, e12)) = et1.divide(1, 1, 1, 1)
+    e1, ((e2, e3), (e4, e5)) = et2.divide(2, 4, 1, 1)
     object.__setattr__(e0, "child_bl", e1)
-    e6, ((e7, e8), (e9, e10)) = et3.divide(1, 1, 1, 1, None)
+    e6, ((e7, e8), (e9, e10)) = et3.divide(1, 1, 1, 1)
     object.__setattr__(e0, "child_br", e6)
 
     collection = ElementCollection(
@@ -164,10 +164,10 @@ def test_evaluation_twice_1() -> None:
 def test_evaluation() -> None:
     """Check that interpolation from child to parent works."""
     et1 = ElementLeaf2D(None, 1, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e0, ((e1, et2), (e11, e12)) = et1.divide(1, 1, 1, 1, None)
-    e2, ((et3, e8), (e9, e10)) = et2.divide(1, 1, 1, 1, None)
+    e0, ((e1, et2), (e11, e12)) = et1.divide(1, 1, 1, 1)
+    e2, ((et3, e8), (e9, e10)) = et2.divide(1, 1, 1, 1)
     object.__setattr__(e0, "child_br", e2)
-    e3, ((e4, e5), (e6, e7)) = et3.divide(1, 1, 1, 1, None)
+    e3, ((e4, e5), (e6, e7)) = et3.divide(1, 1, 1, 1)
     object.__setattr__(e2, "child_bl", e3)
 
     collection = ElementCollection(

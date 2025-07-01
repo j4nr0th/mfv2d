@@ -308,27 +308,21 @@ class ElementCollection:
         # children.
         for ie, element in enumerate(elements):
             if type(element) is ElementNode2D:
-                if element.maximum_order is None:
-                    order = (0, 0)
-                else:
-                    order = (element.maximum_order, element.maximum_order)
-
                 child_count = 4
 
             elif type(element) is ElementLeaf2D:
-                order = (element.order, element.order)
+                orders_array[ie] = (element.order, element.order)
                 child_count = 0
+                corners_array[ie] = (
+                    element.bottom_left,
+                    element.bottom_right,
+                    element.top_right,
+                    element.top_left,
+                )
 
             else:
                 raise TypeError(f"Unknown element type {type(element)}")
 
-            orders_array[ie] = order
-            corners_array[ie] = (
-                element.bottom_left,
-                element.bottom_right,
-                element.top_right,
-                element.top_left,
-            )
             parent_array[ie] = (
                 0 if element.parent is None else elements.index(element.parent) + 1
             )

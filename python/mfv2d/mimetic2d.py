@@ -434,35 +434,15 @@ def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.uint32]:
 
 
 # TODO: REPLACE
-@dataclass(frozen=True, eq=False)
+@dataclass(eq=False)
 class Element2D:
     """General 2D element."""
 
     parent: ElementNode2D | None
 
-    @property
-    def bottom_left(self) -> tuple[float, float]:
-        """Coordinates of the bottom left corner."""
-        raise NotImplementedError
-
-    @property
-    def bottom_right(self) -> tuple[float, float]:
-        """Coordinates of the bottom right corner."""
-        raise NotImplementedError
-
-    @property
-    def top_right(self) -> tuple[float, float]:
-        """Coordinates of the top right corner."""
-        raise NotImplementedError
-
-    @property
-    def top_left(self) -> tuple[float, float]:
-        """Coordinates of the top left corner."""
-        raise NotImplementedError
-
 
 # TODO: REPLACE
-@dataclass(frozen=True, eq=False)
+@dataclass(eq=False)
 class ElementNode2D(Element2D):
     """Two dimensional element that contains children."""
 
@@ -471,35 +451,13 @@ class ElementNode2D(Element2D):
     child_tl: Element2D
     child_tr: Element2D
 
-    maximum_order: int | None = None
-
-    @property
-    def bottom_left(self) -> tuple[float, float]:
-        """Coordinates of the bottom left corner."""
-        return self.child_bl.bottom_left
-
-    @property
-    def bottom_right(self) -> tuple[float, float]:
-        """Coordinates of the bottom right corner."""
-        return self.child_br.bottom_right
-
-    @property
-    def top_right(self) -> tuple[float, float]:
-        """Coordinates of the top right corner."""
-        return self.child_tr.top_right
-
-    @property
-    def top_left(self) -> tuple[float, float]:
-        """Coordinates of the top left corner."""
-        return self.child_tl.top_left
-
     def children(self) -> tuple[Element2D, Element2D, Element2D, Element2D]:
         """Return children of the element ordered."""
         return (self.child_bl, self.child_br, self.child_tr, self.child_tl)
 
 
 # TODO: REPLACE
-@dataclass(frozen=True, eq=False)
+@dataclass(eq=False)
 class ElementLeaf2D(Element2D):
     """Two dimensional square element.
 
@@ -526,30 +484,10 @@ class ElementLeaf2D(Element2D):
 
     order: int
 
-    _bottom_left: tuple[float, float]
-    _bottom_right: tuple[float, float]
-    _top_right: tuple[float, float]
-    _top_left: tuple[float, float]
-
-    @property
-    def bottom_left(self) -> tuple[float, float]:
-        """Coordinates of the bottom left corner."""
-        return self._bottom_left
-
-    @property
-    def bottom_right(self) -> tuple[float, float]:
-        """Coordinates of the bottom right corner."""
-        return self._bottom_right
-
-    @property
-    def top_right(self) -> tuple[float, float]:
-        """Coordinates of the top right corner."""
-        return self._top_right
-
-    @property
-    def top_left(self) -> tuple[float, float]:
-        """Coordinates of the top left corner."""
-        return self._top_left
+    bottom_left: tuple[float, float]
+    bottom_right: tuple[float, float]
+    top_right: tuple[float, float]
+    top_left: tuple[float, float]
 
     def divide(
         self,
@@ -557,7 +495,6 @@ class ElementLeaf2D(Element2D):
         order_br: int,
         order_tl: int,
         order_tr: int,
-        order_p: int | None = None,
     ) -> tuple[
         ElementNode2D,
         tuple[tuple[ElementLeaf2D, ElementLeaf2D], tuple[ElementLeaf2D, ElementLeaf2D]],
@@ -574,8 +511,6 @@ class ElementLeaf2D(Element2D):
             Order of the top left element.
         order_tr : int
             Order of the top right element.
-        order_p : int, optional
-            Order of the parent element. If given, the parent will have a fixed order.
 
         Returns
         -------
@@ -630,12 +565,13 @@ class ElementLeaf2D(Element2D):
             self.top_left,
         )
 
-        parent = ElementNode2D(self.parent, btm_l, btm_r, top_l, top_r, order_p)
+        parent = ElementNode2D(self.parent, btm_l, btm_r, top_l, top_r)
 
-        object.__setattr__(btm_l, "parent", parent)
-        object.__setattr__(btm_r, "parent", parent)
-        object.__setattr__(top_l, "parent", parent)
-        object.__setattr__(top_r, "parent", parent)
+        btm_l.parent = parent
+        btm_r.parent = parent
+        top_l.parent = parent
+        top_r.parent = parent
+
         return parent, ((btm_l, btm_r), (top_l, top_r))
 
 

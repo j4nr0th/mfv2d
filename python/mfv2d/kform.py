@@ -11,7 +11,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
-from itertools import accumulate
 from typing import Any, Literal, TypeAliasType, overload
 
 import numpy as np
@@ -221,6 +220,106 @@ class KFormUnknown(KForm):
         return True
 
 
+@dataclass(frozen=True, eq=False)
+class KWeight(KForm):
+    """Differential K form represented with the dual basis.
+
+    Provides operators for forming element and boundary projections
+    throught the ``@`` and ``^`` operators respectively.
+
+    Parameters
+    ----------
+    order : int
+        Order of the differential form.
+    label : str
+        Label which is used to print form as a string.
+    base_form : KForm
+        Form, which the weight is based on.
+    """
+
+    base_form: KFormUnknown
+
+    def __str__(self) -> str:
+        """Return print-friendly representation of the object."""
+        return f"{self.label}({self.order}*)"
+
+    @overload  # type: ignore[override]
+    def __mul__(self, other: KForm, /) -> KInnerProduct: ...
+
+    @overload
+    def __mul__(self, other: Callable | Literal[0], /) -> KElementProjection: ...
+
+    def __mul__(
+        self, other: KForm | Callable | Literal[0], /
+    ) -> KInnerProduct | KElementProjection:
+        """Inner product with a weight."""
+        if isinstance(other, KForm):
+            return KInnerProduct(other, self)
+        if callable(other):
+            return KElementProjection(f"<{self.label}, {other.__name__}>", self, other)
+        if other == 0:
+            return KElementProjection("0", self, None)
+        return NotImplemented
+
+    @overload  # type: ignore[override]
+    def __rmul__(self, other: KForm, /) -> KInnerProduct: ...
+
+    @overload
+    def __rmul__(self, other: Callable | Literal[0], /) -> KElementProjection: ...
+
+    def __rmul__(
+        self, other: KForm | Callable | Literal[0], /
+    ) -> KInnerProduct | KElementProjection:
+        """Inner product with a weight."""
+        return self.__mul__(other)
+
+    def __xor__(self, other: Callable) -> KBoundaryProjection:
+        """Create boundary projection for the right hand side."""
+        if callable(other):
+            return KBoundaryProjection(f"<{self.label}, {other.__name__}>", self, other)
+        return NotImplemented
+
+    def __matmul__(self, other: Callable | Literal[0], /) -> KElementProjection:
+        """Create projection for the right hand side."""
+        if isinstance(other, int) and other == 0:
+            return KElementProjection("0", self, None)
+        if callable(other):
+            return KElementProjection(f"<{self.label}, {other.__name__}>", self, other)
+        return NotImplemented
+
+    @property
+    def weight(self) -> KWeight:
+        """Return itself."""
+        return self
+
+    @property
+    def is_weight(self) -> bool:
+        """Check if the form is a weight."""
+        return True
+
+    @property
+    def primal_order(self) -> UnknownFormOrder:
+        """Order of the mass matrix which needs to be used."""
+        if self.is_primal:
+            return self.order
+        return self.order.dual
+
+    @property
+    def is_primal(self) -> bool:
+        """Check if form is primal or dual."""
+        return self.base_form.is_primal
+
+    @property
+    def core_form(self) -> KWeight:
+        """Most basic form, be it unknown or weight."""
+        return self
+
+    @property
+    def is_linear(self) -> bool:
+        """Check if the form is linear."""
+        return True
+
+
 @dataclass(frozen=True, init=False)
 class KHodge(KForm):
     r"""Hodge represents a transformation from primal to dual basis.
@@ -301,111 +400,6 @@ class KHodge(KForm):
     def is_linear(self) -> bool:
         """Check if the form is linear."""
         return self.base_form.is_linear
-
-
-@dataclass(frozen=True, eq=False)
-class KWeight(KForm):
-    """Differential K form represented with the dual basis.
-
-    Provides operators for forming element and boundary projections
-    throught the ``@`` and ``^`` operators respectively.
-
-    Parameters
-    ----------
-    order : int
-        Order of the differential form.
-    label : str
-        Label which is used to print form as a string.
-    base_form : KForm
-        Form, which the weight is based on.
-    """
-
-    base_form: KFormUnknown
-
-    def __str__(self) -> str:
-        """Return print-friendly representation of the object."""
-        return f"{self.label}({self.order}*)"
-
-    @property
-    def derivative(self) -> KFormDerivative:
-        """Derivative of the form."""
-        return KFormDerivative(self)
-
-    @overload  # type: ignore[override]
-    def __mul__(self, other: KForm, /) -> KInnerProduct: ...
-
-    @overload
-    def __mul__(self, other: Callable | Literal[0], /) -> KElementProjection: ...
-
-    def __mul__(
-        self, other: KForm | Callable | Literal[0], /
-    ) -> KInnerProduct | KElementProjection:
-        """Inner product with a weight."""
-        if isinstance(other, KForm):
-            return KInnerProduct(other, self)
-        if callable(other):
-            return KElementProjection(f"<{self.label}, {other.__name__}>", self, other)
-        if other == 0:
-            return KElementProjection("0", self, None)
-        return NotImplemented
-
-    @overload  # type: ignore[override]
-    def __rmul__(self, other: KForm, /) -> KInnerProduct: ...
-
-    @overload
-    def __rmul__(self, other: Callable | Literal[0], /) -> KElementProjection: ...
-
-    def __rmul__(
-        self, other: KForm | Callable | Literal[0], /
-    ) -> KInnerProduct | KElementProjection:
-        """Inner product with a weight."""
-        return self.__mul__(other)
-
-    def __xor__(self, other: Callable) -> KBoundaryProjection:
-        """Create boundary projection for the right hand side."""
-        if callable(other):
-            return KBoundaryProjection(f"<{self.label}, {other.__name__}>", self, other)
-        return NotImplemented
-
-    def __matmul__(self, other: Callable | Literal[0], /) -> KElementProjection:
-        """Create projection for the right hand side."""
-        if isinstance(other, int) and other == 0:
-            return KElementProjection("0", self, None)
-        if callable(other):
-            return KElementProjection(f"<{self.label}, {other.__name__}>", self, other)
-        return NotImplemented
-
-    @property
-    def weight(self) -> KWeight:
-        """Return itself."""
-        return self
-
-    @property
-    def is_weight(self) -> bool:
-        """Check if the form is a weight."""
-        return True
-
-    @property
-    def primal_order(self) -> UnknownFormOrder:
-        """Order of the mass matrix which needs to be used."""
-        if self.is_primal:
-            return self.order
-        return self.order.dual
-
-    @property
-    def is_primal(self) -> bool:
-        """Check if form is primal or dual."""
-        return self.base_form.is_primal
-
-    @property
-    def core_form(self) -> KWeight:
-        """Most basic form, be it unknown or weight."""
-        return self
-
-    @property
-    def is_linear(self) -> bool:
-        """Check if the form is linear."""
-        return True
 
 
 @dataclass(init=False, frozen=True, eq=False)
@@ -1115,28 +1109,6 @@ def _form_as_string(form: Term) -> dict[Term, str | None]:
     raise TypeError("Unknown type")
 
 
-@overload
-def _form_size_2d(p: npt.NDArray[np.integer], k: int) -> npt.NDArray[np.integer]: ...
-
-
-@overload
-def _form_size_2d(p: int, k: int) -> int: ...
-
-
-# TODO: remove
-def _form_size_2d(
-    p: npt.NDArray[np.integer] | int, k: int
-) -> npt.NDArray[np.integer] | int:
-    """Compute the number of degrees of freedom a form gets on an element with order."""
-    if k == 0:
-        return (p + 1) * (p + 1)
-    if k == 1:
-        return 2 * p * (p + 1)
-    if k == 2:
-        return p * p
-    assert False
-
-
 class KFormSystem:
     """System of equations of differential forms, which are optionally sorted.
 
@@ -1187,140 +1159,6 @@ class KFormSystem:
 
         self.equations = tuple(equation_list[self.weight_forms.index(w)] for w in weights)
         self.vector_fields = tuple(vec_field for vec_field in vfs)
-
-    @overload
-    def shape_1d(
-        self, order: npt.NDArray[np.integer]
-    ) -> tuple[npt.NDArray[np.integer], npt.NDArray[np.integer]]: ...
-
-    @overload
-    def shape_1d(self, order: int) -> tuple[int, int]: ...
-
-    def shape_1d(
-        self, order: npt.NDArray[np.integer] | int
-    ) -> tuple[npt.NDArray[np.integer] | int, npt.NDArray[np.integer] | int]:
-        """Return the shape of the system for the 1D case.
-
-        Parameters
-        ----------
-        order : int
-            Order of 1D polynomial basis.
-
-        Returns
-        -------
-        int
-            Number of rows of the system.
-        int
-            Number of columns of the system.
-        """
-        height = sum(order + 1 - d.order for d in self.weight_forms)
-        width = sum(order + 1 - d.order for d in self.unknown_forms)
-        return (height, width)
-
-    @overload
-    def offsets_1d(self, order: int) -> tuple[tuple[int, ...], tuple[int, ...]]: ...
-
-    @overload
-    def offsets_1d(
-        self, order: npt.NDArray[np.integer]
-    ) -> tuple[
-        tuple[npt.NDArray[np.integer], ...], tuple[npt.NDArray[np.integer], ...]
-    ]: ...
-
-    def offsets_1d(
-        self, order: int | npt.NDArray[np.integer]
-    ) -> tuple[
-        tuple[int | npt.NDArray[np.integer], ...],
-        tuple[int | npt.NDArray[np.integer], ...],
-    ]:
-        """Compute offsets of different forms and equations.
-
-        Parameters
-        ----------
-        order : int
-            Order of 1D polynomial basis.
-
-        Returns
-        -------
-        tuple[int, ...]
-            Offsets of different equations in rows.
-        tuple[int, ...]
-            Offsets of different form degrees of freedom in columns.
-        """
-        offset_forms = (np.zeros_like(order),) + tuple(
-            accumulate(order + 1 - d.order for d in self.unknown_forms)
-        )
-        offset_equations = (np.zeros_like(order),) + tuple(
-            accumulate(order + 1 - d.order for d in self.weight_forms)
-        )
-        return offset_equations, offset_forms
-
-    @overload
-    def shape_2d(
-        self, order: npt.NDArray[np.integer]
-    ) -> tuple[npt.NDArray[np.integer], npt.NDArray[np.integer]]: ...
-
-    @overload
-    def shape_2d(self, order: int) -> tuple[int, int]: ...
-
-    def shape_2d(
-        self, order: npt.NDArray[np.integer] | int
-    ) -> tuple[npt.NDArray[np.integer] | int, npt.NDArray[np.integer] | int]:
-        """Return the shape of the system for the 2D case.
-
-        Parameters
-        ----------
-        order : int
-            Order of 2D polynomial basis.
-
-        Returns
-        -------
-        int
-            Number of rows of the system.
-        int
-            Number of columns of the system.
-        """
-        height = sum(_form_size_2d(order, d.order) for d in self.weight_forms)
-        width = sum(_form_size_2d(order, d.order) for d in self.unknown_forms)
-        return (height, width)
-
-    @overload
-    def offsets_2d(self, order: int) -> tuple[tuple[int, ...], tuple[int, ...]]: ...
-
-    @overload
-    def offsets_2d(
-        self, order: npt.NDArray[np.integer]
-    ) -> tuple[
-        tuple[npt.NDArray[np.integer], ...], tuple[npt.NDArray[np.integer], ...]
-    ]: ...
-
-    def offsets_2d(
-        self, order: int | npt.NDArray[np.integer]
-    ) -> tuple[
-        tuple[int | npt.NDArray[np.integer], ...],
-        tuple[int | npt.NDArray[np.integer], ...],
-    ]:
-        """Compute offsets of different forms and equations.
-
-        Parameters
-        ----------
-        order : int
-            Order of 2D polynomial basis.
-
-        Returns
-        -------
-        tuple[int, ...]
-            Offsets of different equations in rows.
-        tuple[int, ...]
-            Offsets of different form degrees of freedom in columns.
-        """
-        offset_forms = (np.zeros_like(order),) + tuple(
-            accumulate(_form_size_2d(order, d.order) for d in self.unknown_forms)
-        )
-        offset_equations = (np.zeros_like(order),) + tuple(
-            accumulate(_form_size_2d(order, d.order) for d in self.weight_forms)
-        )
-        return offset_equations, offset_forms
 
     def __str__(self) -> str:
         """Create a printable representation of the object."""
@@ -1416,28 +1254,6 @@ class KFormSystem:
                 )
             s += "\n"
         return s[:-1]  # strip the trailing new line.
-
-    def get_form_indices_by_order(self, order: UnknownFormOrder) -> tuple[int, ...]:
-        """Return indices of forms with the specified order.
-
-        Parameters
-        ----------
-        order : UnknownFormOrder
-            Order of the differential forms for which the indices should be returned.
-
-        Returns
-        -------
-        tuple of int
-            Tuple of indices of all unknown differential forms in the system of equations
-            which have the specified order.
-        """
-        order = UnknownFormOrder(order)
-        if order < 0 or order > 2:
-            raise ValueError(
-                "Specified order can not be less than 0 or more than 2, but it was"
-                f" {order}."
-            )
-        return tuple(i for i, f in enumerate(self.unknown_forms) if f.order == order)
 
 
 @dataclass(frozen=True)

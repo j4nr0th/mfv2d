@@ -64,6 +64,43 @@ obtaining elements and plotting with :mod:`pyvista`.
 .. autoclass:: Mesh2D
 
 
+Elements
+--------
+
+Surfaces of the mesh can be converted into computational elements. These
+can either be leaf elements, with the type :class:`ElementLeaf2D`, or
+nodes, which contain other nodes or leaves, with the type
+:class:`ElementNode2D`. Both are subtypes of :class:`Element2D`, which
+only contains the information about the parent.
+
+.. autoclass:: ElementLeaf2D
+
+.. autoclass:: ElementNode2D
+
+.. autoclass:: Element2D
+
+
+Element Sides
+~~~~~~~~~~~~~
+
+Many functions have to perform operations on boundaries of the elements. To
+make this easier to type check, the type :class:`ElementSide` is introduced.
+This is an :class:`enum.IntEnum` subtype with only four values and is used
+everywhere when a side of an element is an input of any function.
+
+.. autoclass:: ElementSide
+    :no-inherited-members:
+    :member-order: bysource
+
+
+To help identify what side a :class:`Line` with a specific index
+of a :class:`Surface` is from, the function
+:func:`find_surface_boundary_id_line` is given.
+
+.. autofunction:: find_surface_boundary_id_line
+
+
+
 Caching Basis
 -------------
 

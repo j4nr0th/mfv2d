@@ -36,6 +36,12 @@ instead make use of :class:`UnknownFormOrder` type, which is an enum.
 .. autoclass:: UnknownFormOrder
     :no-inherited-members:
 
+For a system, these :class:`UnknownFormOrder` can be stored in
+:class:`UnknownOrderings`. This is just a glorified :class:`tuple`.
+
+.. autoclass:: UnknownOrderings
+    :no-inherited-members:
+
 
 To denote variables that should be solved for, :class:`KFormUnknown`
 are used. They also can be used for non-linear interior products

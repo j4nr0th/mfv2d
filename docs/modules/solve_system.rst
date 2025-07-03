@@ -26,150 +26,35 @@ separately.
 .. autofunction:: rhs_2d_element_projection
 
 
-Lagrange Multipliers and Constraints
-------------------------------------
-
-Since continuity and strong boundary conditions are enforced throught
-Lagrange multipliers, there are types to represent these relations
-efficiently. The base building block is the
-:class:`ElementConstraint` type, which describes the degrees of
-freedom and coefficients involved in a specific constraint. These
-may then be combined into :class:`Constraint` type which associates
-one or more :class:`ElementConstraint` with their right hand side value.
-
-Note that :class:`ElementConstraint` are also used to convey weak boundary
-condition information, however, in that case the coefficients in the
-:class:`ElementConstraint` object represent contributions to the right
-hand side.
-
-.. autoclass:: ElementConstraint
-
-.. autoclass:: Constraint
-
-
-Continuity
-----------
-
-Continuity between elements is enforced throught creating :class:`Constraint`
-values. Since continuity may be between elements which have different orders
-on the edge where they border one another, the coefficients in these
-constraints may not be ones and zeros. As such, there is a function
-:func:`continuity_matrices`, which returns a matrix with coefficients
-that can be used for these relations. It uses Python's
-:func:`functools.cache` annotation, so calling it repetedly should not be
-slow.
-
-.. autofunction:: continuity_matrices
-
-
-The internal functions used to generate these relations are
-:func:`_continuity_element_1_forms`, :func:`_continuity_element_0_forms_inner`,
-and :func:`_continuity_element_0_forms_corner`, which are used by other
-functions.
-
-.. autofunction:: _continuity_element_1_forms
-
-.. autofunction:: _continuity_element_0_forms_inner
-
-.. autofunction:: _continuity_element_0_forms_corner
-
-
-Another function which is used to generate continuity coefficients is
-:func:`continuity_child_matrices`. This is used for continuity between
-elements.
-
-.. autofunction:: continuity_child_matrices
-
-
-These are then in turn used by :func:`_continuity_parent_child_nodes`
-and :func:`_continuity_parent_child_edges`, which generate equations for
-parent-child continuity of 0- and 1-forms respectively. Together they
-are wrapped in the :func:`_parent_child_equations` function.
-
-
-.. autofunction:: _continuity_parent_child_nodes
-
-.. autofunction:: _continuity_parent_child_edges
-
-.. autofunction:: _parent_child_equations
-
 
 Matrix Assembly
 ---------------
 
 Global system matrix is created by :func:`assemble_matrix`, which creates
-individual root element matrices. These are created by calling
-:func:`_compute_element_matrix`, which recursevly collect child element
-matrices and adds Lagrange multipliers resulting from continuity between
-children and parent.
+individual merges leaf element matrices. This used to be more involved,
+but now we are in better times.
 
 .. autofunction:: assemble_matrix
 
-.. autofunction:: _compute_element_matrix
 
 
 Vector Assembly
 ---------------
 
-Global system vector is similarly created by :func:`assemble_vector`. It creates
-individual root element vectors by by calling :func:`_compute_element_vector`,
-which recursevly collect child element matrices and padds to account for
-Lagrange multipliers resulting from continuity between children and parent.
+Global system vector is similarly created by :func:`assemble_vector`. It used
+to be slow, complicated, and painful, but it's all ogre now.
 
 .. autofunction:: assemble_vector
-
-.. autofunction:: _compute_element_vector
 
 
 Forcing Assembly
 ----------------
 
 Last of the assembly routines is the :func:`assemble_forcing` function. This
-computes root element forcing (value of the given expression given solution)
-by recursivly calling :func:`_compute_element_forcing`, then adding values
-resulting from Lagrange multiplier relations.
+assembles together the leaf element forcing (value of the given expression
+given solution).
 
 .. autofunction:: assemble_forcing
-
-.. autofunction:: _compute_element_forcing
-
-
-Global Continuity
------------------
-
-For generating the continuity :class:`Constraint` values for global
-continuity, the function
-:func:`mesh_continuity_constraints` is used. It uses quite a few
-helper functions, such as :func:`_top_level_continuity_0` for generating
-top level continuity of 0-forms and :func:`_top_level_continuity_1` for
-1-form continuity.
-
-
-.. autofunction:: mesh_continuity_constraints
-
-.. autofunction:: _top_level_continuity_0
-
-.. autofunction:: _top_level_continuity_1
-
-
-Boundary Conditions
--------------------
-
-For generating the boundary condtition :class:`Constraint` and
-:class:`ElementConstraint` values, the function
-:func:`mesh_boundary_conditions` is used, which returns the strong and
-weak boundary condition results.
-
-Internally it calls :func:`_element_weak_boundary_condition` and
-:func:`_element_strong_boundary_condition` for each boundary edge
-and element, depending on which (if any) is specified on that edge.
-
-
-.. autofunction:: mesh_boundary_conditions
-
-.. autofunction:: _element_weak_boundary_condition
-
-.. autofunction:: _element_strong_boundary_condition
 
 
 Global Reconstruction

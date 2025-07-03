@@ -55,6 +55,7 @@ from mfv2d import (
     Mesh2D,
     SolverSettings,
     SystemSettings,
+    UnknownFormOrder,
     solve_system_2d,
 )
 
@@ -113,9 +114,9 @@ def source_exact(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
 # diffusion coefficient :math:`\nu` being added.
 #
 
-u = KFormUnknown(2, "u", 2)
+u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_2)
 v = u.weight
-q = KFormUnknown(2, "q", 1)
+q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
 p = q.weight
 
 system = KFormSystem(

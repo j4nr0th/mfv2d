@@ -167,10 +167,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -378,6 +380,7 @@ system <a class="reference internal" href="#equation-steady-ns-variational">(3)<
     <span class="n">Mesh2D</span><span class="p">,</span>
     <span class="n">SolverSettings</span><span class="p">,</span>
     <span class="n">SystemSettings</span><span class="p">,</span>
+    <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -426,13 +429,13 @@ the advection term is very strongly dominant.</p>
 <p>The system setup is as can be expected based on the
 <a class="reference internal" href="plot_stokes_flow.html#sphx-glr-auto-examples-steady-plot-stokes-flow-py"><span class="std std-ref">Stokes Flow</span></a>. The main difference is the
 addition of the advection term on the right side of the momentum equations.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">pre</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;pre&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">pre</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">)</span>
 <span class="n">w_pre</span> <span class="o">=</span> <span class="n">pre</span><span class="o">.</span><span class="n">weight</span>
-<span class="n">vel</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;vel&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">vel</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;vel&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">)</span>
 <span class="n">w_vel</span> <span class="o">=</span> <span class="n">vel</span><span class="o">.</span><span class="n">weight</span>
-<span class="n">vor</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;vor&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">vor</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;vor&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">)</span>
 <span class="n">w_vor</span> <span class="o">=</span> <span class="n">vor</span><span class="o">.</span><span class="n">weight</span>
-<span class="n">div</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;div&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">div</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;div&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">)</span>
 <span class="n">w_div</span> <span class="o">=</span> <span class="n">div</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
@@ -447,10 +450,10 @@ addition of the advection term on the right side of the momentum equations.</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(0*)]^T  ([             -1 * M(0) |  (E(1, 0))^T @ M(0) |                  0 |    0]  [vor(0)]   [&lt;vor, exact_velocty&gt;])   [vor(0*)]^T  ([                              0 |                        0 | 0 | 0]  [vor(0)]
-[vel(1*)]    ([0.001 * M(1) @ E(1, 0) |                   0 | (E(2, 1))^T @ M(1) |    0]  [vel(1)]   [&lt;vel, exact_forcing&gt;])   [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(0) | -1 * M(1) @ N(1, 2; vor) | 0 | 0]  [vel(1)]
-[pre(2*)]    ([                     0 |      M(2) @ E(2, 1) |                  0 |    0]  [pre(2)] = [                   0]) + [pre(2*)]    ([                              0 |                        0 | 0 | 0]  [pre(2)]
-[div(2*)]    ([                     0 | -1 * M(2) @ E(2, 1) |                  0 | M(2)]  [div(2)]   [                   0])   [div(2*)]    ([                              0 |                        0 | 0 | 0]  [div(2)]
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(1*)]^T  ([             -1 * M(1) |  (E(2, 1))^T @ M(1) |                  0 |    0]  [vor(0)]   [&lt;vor, exact_velocty&gt;])   [vor(1*)]^T  ([                              0 |                        0 | 0 | 0]  [vor(0)]
+[vel(2*)]    ([0.001 * M(2) @ E(2, 1) |                   0 | (E(3, 2))^T @ M(2) |    0]  [vel(1)]   [&lt;vel, exact_forcing&gt;])   [vel(2*)]    ([-1 * M(2) @ M(2, 3; vel) @ M(1) | -1 * M(2) @ N(2, 3; vor) | 0 | 0]  [vel(1)]
+[pre(3*)]    ([                     0 |      M(3) @ E(3, 2) |                  0 |    0]  [pre(2)] = [                   0]) + [pre(3*)]    ([                              0 |                        0 | 0 | 0]  [pre(2)]
+[div(3*)]    ([                     0 | -1 * M(3) @ E(3, 2) |                  0 | M(3)]  [div(2)]   [                   0])   [div(3*)]    ([                              0 |                        0 | 0 | 0]  [div(2)]
 </pre></div>
 </div>
 </section>
@@ -506,7 +509,7 @@ a bit unstable to compute when under-resolved.</p>
 <span class="nb">print</span><span class="p">(</span><a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>SolutionStatistics(element_orders={6: 98}, n_total_dofs=11270, n_leaf_dofs=10045, n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([6.96336197e-02, 9.02580252e-02, 1.79589468e-11]))
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>SolutionStatistics(element_orders={6: 98}, n_total_dofs=11270, n_leaf_dofs=10045, n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([6.96336197e-02, 9.02580252e-02, 1.81090247e-11]))
 </pre></div>
 </div>
 </section>
@@ -538,9 +541,9 @@ extracted from there.</p>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">err_vor</span></a><span class="si">=:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Integrated pressure is 2.259e-12
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Integrated pressure is 2.261e-12
 err_vel=8.228e-10
-err_vor=1.570e-10
+err_vor=1.497e-10
 </pre></div>
 </div>
 </section>
@@ -559,7 +562,7 @@ divergence flow. This guarantees that the pressure solution is sensible.</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_navier_stokes_001.png" srcset="../../_images/sphx_glr_plot_navier_stokes_001.png" alt="plot navier stokes" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Highest value of divergence in the domain is 7.347e-17
+<img src="../../_images/sphx_glr_plot_navier_stokes_001.png" srcset="../../_images/sphx_glr_plot_navier_stokes_001.png" alt="plot navier stokes" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Highest value of divergence in the domain is 7.142e-16
 </pre></div>
 </div>
 </section>
@@ -587,7 +590,7 @@ divergence flow. This guarantees that the pressure solution is sensible.</p>
 <a href="https://docs.pyvista.org/api/plotting/_autosummary/pyvista.Plotter.view_xy.html#pyvista.Plotter.view_xy" title="pyvista.Plotter.view_xy" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_navier_stokes_002.png" srcset="../../_images/sphx_glr_plot_navier_stokes_002.png" alt="plot navier stokes" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 5.287 seconds)</p>
+<img src="../../_images/sphx_glr_plot_navier_stokes_002.png" srcset="../../_images/sphx_glr_plot_navier_stokes_002.png" alt="plot navier stokes" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 3.010 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-steady-plot-navier-stokes-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/c7ab5a0f4920db990fea0417ce93f634/plot_navier_stokes.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_navier_stokes.ipynb</span></code></a></p>

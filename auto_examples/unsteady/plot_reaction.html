@@ -167,10 +167,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -381,6 +383,7 @@ time steps over the same time period.</p>
     <span class="n">SolverSettings</span><span class="p">,</span>
     <span class="n">SystemSettings</span><span class="p">,</span>
     <span class="n">TimeSettings</span><span class="p">,</span>
+    <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.trapezoid.html#scipy.integrate.trapezoid" title="scipy.integrate.trapezoid" class="sphx-glr-backref-module-scipy-integrate sphx-glr-backref-type-py-function"><span class="n">trapezoid</span></a>
@@ -434,9 +437,9 @@ of the rate coefficient, the value of <span class="math notranslate nohighlight"
 <h2>System Setup<a class="headerlink" href="#system-setup" title="Link to this heading">#</a></h2>
 <p>The system being solved is formulated bellow. An additional equation was introducted
 to obtain the curl of the solution, so that the <span class="math notranslate nohighlight">\(H^1\)</span> norm could be computed.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">)</span>
 <span class="n">v</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">weight</span>
-<span class="n">q</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">q</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">)</span>
 <span class="n">p</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
@@ -623,7 +626,7 @@ convexly deformed square.</p>
 <a href="https://docs.pyvista.org/api/plotting/_autosummary/pyvista.Plotter.close.html#pyvista.Plotter.close" title="pyvista.Plotter.close" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">plotter</span><span class="o">.</span><span class="n">close</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_reaction_004.gif" srcset="../../_images/sphx_glr_plot_reaction_004.gif" alt="plot reaction" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 27.826 seconds)</p>
+<img src="../../_images/sphx_glr_plot_reaction_004.gif" srcset="../../_images/sphx_glr_plot_reaction_004.gif" alt="plot reaction" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (1 minutes 17.140 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-unsteady-plot-reaction-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/f9c8d5bc81652b7598c0da8c67a5b207/plot_reaction.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_reaction.ipynb</span></code></a></p>

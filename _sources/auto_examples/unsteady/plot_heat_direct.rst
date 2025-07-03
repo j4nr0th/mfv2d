@@ -44,7 +44,7 @@ equation :eq:`unsteady-heat-direct-variational`.
     \int_{\partial\Omega} v^{(0)} \wedge \star \mathrm{d} u^{(0)}
     - \left(v^{(0)}, f\right)_\Omega
 
-.. GENERATED FROM PYTHON SOURCE LINES 28-45
+.. GENERATED FROM PYTHON SOURCE LINES 28-46
 
 .. code-block:: Python
 
@@ -61,6 +61,7 @@ equation :eq:`unsteady-heat-direct-variational`.
         SolverSettings,
         SystemSettings,
         TimeSettings,
+        UnknownFormOrder,
         solve_system_2d,
     )
     from scipy.integrate import trapezoid
@@ -72,7 +73,7 @@ equation :eq:`unsteady-heat-direct-variational`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-82
+.. GENERATED FROM PYTHON SOURCE LINES 47-83
 
 Setup
 -----
@@ -111,7 +112,7 @@ fixed-point iteration.
 
     f = \beta (u_s - u) + \frac{\alpha \pi^2}{2} u
 
-.. GENERATED FROM PYTHON SOURCE LINES 83-94
+.. GENERATED FROM PYTHON SOURCE LINES 84-95
 
 .. code-block:: Python
 
@@ -133,7 +134,7 @@ fixed-point iteration.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 95-101
+.. GENERATED FROM PYTHON SOURCE LINES 96-102
 
 System Setup
 ------------
@@ -142,13 +143,13 @@ System setup is what was discussed above. What should be noted is the
 fact that since now there are involving the solution itself on the
 right side of the equation, this is now an iterative solve.
 
-.. GENERATED FROM PYTHON SOURCE LINES 102-113
+.. GENERATED FROM PYTHON SOURCE LINES 103-114
 
 .. code-block:: Python
 
 
 
-    u = KFormUnknown(2, "u", 0)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
     v = u.weight
 
     system = KFormSystem(
@@ -165,12 +166,12 @@ right side of the equation, this is now an iterative solve.
 
  .. code-block:: none
 
-    [u(0*)]^T  ([0.02 * (E(1, 0))^T @ M(0) @ E(1, 0)]  [u(0)] = [<u, steady_u>]) + [u(0*)]^T  ([-0.901304 * M(0)]  [u(0)] 
+    [u(1*)]^T  ([0.02 * (E(2, 1))^T @ M(1) @ E(2, 1)]  [u(0)] = [<u, steady_u>]) + [u(1*)]^T  ([-0.901304 * M(1)]  [u(0)] 
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 114-121
+.. GENERATED FROM PYTHON SOURCE LINES 115-122
 
 Making the Mesh
 ---------------
@@ -180,7 +181,7 @@ before. As for the time steps, values of 2, 4, 8, 16, 32, 64, and 128 are used.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 122-150
+.. GENERATED FROM PYTHON SOURCE LINES 123-151
 
 .. code-block:: Python
 
@@ -219,14 +220,14 @@ before. As for the time steps, values of 2, 4, 8, 16, 32, 64, and 128 are used.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 151-155
+.. GENERATED FROM PYTHON SOURCE LINES 152-156
 
 Running the Calculations
 ------------------------
 
 Now we run the calculations and get the error.
 
-.. GENERATED FROM PYTHON SOURCE LINES 156-197
+.. GENERATED FROM PYTHON SOURCE LINES 157-198
 
 .. code-block:: Python
 
@@ -290,7 +291,7 @@ Now we run the calculations and get the error.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 198-205
+.. GENERATED FROM PYTHON SOURCE LINES 199-206
 
 Plotting the Error
 ------------------
@@ -300,7 +301,7 @@ another order of accuracy out of fucking thin air. If I had
 to guess it is related to the fact that the time integration
 is symplectic.
 
-.. GENERATED FROM PYTHON SOURCE LINES 206-229
+.. GENERATED FROM PYTHON SOURCE LINES 207-230
 
 .. code-block:: Python
 
@@ -342,7 +343,7 @@ is symplectic.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 33.864 seconds)
+   **Total running time of the script:** (0 minutes 10.719 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_heat_direct.py:

@@ -20,6 +20,7 @@ from mfv2d import (
     SolverSettings,
     SystemSettings,
     TimeSettings,
+    UnknownFormOrder,
     solve_system_2d,
 )
 from scipy.integrate import trapezoid
@@ -78,7 +79,7 @@ def final_u(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
 #
 
 
-u = KFormUnknown(2, "u", 1)
+u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_1)
 v = u.weight
 
 system = KFormSystem(

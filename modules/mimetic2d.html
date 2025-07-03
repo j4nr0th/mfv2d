@@ -53,7 +53,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'modules/mimetic2d';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="solve_system" href="solve_system.html" />
+    <link rel="next" title="progress" href="progress.html" />
     <link rel="prev" title="kform" href="kform.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -167,10 +167,12 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../modules.html">Modules</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kform.html">kform</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -343,14 +345,52 @@ document.write(`
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesh-geometry">Mesh Geometry</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D"><code class="docutils literal notranslate"><span class="pre">Mesh2D</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.as_polydata"><code class="docutils literal notranslate"><span class="pre">Mesh2D.as_polydata()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.boundary_indices"><code class="docutils literal notranslate"><span class="pre">Mesh2D.boundary_indices</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.dual"><code class="docutils literal notranslate"><span class="pre">Mesh2D.dual</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.get_element"><code class="docutils literal notranslate"><span class="pre">Mesh2D.get_element()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.n_elements"><code class="docutils literal notranslate"><span class="pre">Mesh2D.n_elements</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.orders"><code class="docutils literal notranslate"><span class="pre">Mesh2D.orders</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.positions"><code class="docutils literal notranslate"><span class="pre">Mesh2D.positions</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.primal"><code class="docutils literal notranslate"><span class="pre">Mesh2D.primal</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.surface_to_element"><code class="docutils literal notranslate"><span class="pre">Mesh2D.surface_to_element()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#elements">Elements</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.bottom_left"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.bottom_left</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.bottom_right"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.bottom_right</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.divide"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.divide()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.order"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.order</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.parent"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.parent</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.top_left"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.top_left</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.top_right"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.top_right</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D"><code class="docutils literal notranslate"><span class="pre">ElementNode2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.child_bl"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.child_bl</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.child_br"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.child_br</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.child_tl"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.child_tl</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.child_tr"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.child_tr</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.children"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.children()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.parent"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.parent</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Element2D"><code class="docutils literal notranslate"><span class="pre">Element2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Element2D.parent"><code class="docutils literal notranslate"><span class="pre">Element2D.parent</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#element-sides">Element Sides</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide"><code class="docutils literal notranslate"><span class="pre">ElementSide</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.SIDE_BOTTOM"><code class="docutils literal notranslate"><span class="pre">ElementSide.SIDE_BOTTOM</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.SIDE_RIGHT"><code class="docutils literal notranslate"><span class="pre">ElementSide.SIDE_RIGHT</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.SIDE_TOP"><code class="docutils literal notranslate"><span class="pre">ElementSide.SIDE_TOP</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.SIDE_LEFT"><code class="docutils literal notranslate"><span class="pre">ElementSide.SIDE_LEFT</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.next"><code class="docutils literal notranslate"><span class="pre">ElementSide.next</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.prev"><code class="docutils literal notranslate"><span class="pre">ElementSide.prev</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.find_surface_boundary_id_line"><code class="docutils literal notranslate"><span class="pre">find_surface_boundary_id_line()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -361,6 +401,8 @@ document.write(`
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_basis1d"><code class="docutils literal notranslate"><span class="pre">FemCache.get_basis1d()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_basis2d"><code class="docutils literal notranslate"><span class="pre">FemCache.get_basis2d()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_integration_rule"><code class="docutils literal notranslate"><span class="pre">FemCache.get_integration_rule()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_edge"><code class="docutils literal notranslate"><span class="pre">FemCache.get_mass_inverse_1d_edge()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_node"><code class="docutils literal notranslate"><span class="pre">FemCache.get_mass_inverse_1d_node()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.order_diff"><code class="docutils literal notranslate"><span class="pre">FemCache.order_diff</span></code></a></li>
 </ul>
 </li>
@@ -535,20 +577,6 @@ negative sign indicating reverse direction.</p></li>
 </ul>
 </dd>
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="mfv2d.mimetic2d.Mesh2D.as_polydata">
-<span class="sig-name descname"><span class="pre">as_polydata</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.pyvista.org/api/core/_autosummary/pyvista.PolyData.html#pyvista.PolyData" title="(in PyVista v0.45.2)"><span class="pre">PolyData</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#Mesh2D.as_polydata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.Mesh2D.as_polydata" title="Link to this definition">#</a></dt>
-<dd><p>Convert the mesh into PyVista’s polydata.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>PolyData representation of the mesh.</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>PolyData</p>
-</dd>
-</dl>
-</dd></dl>
-
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mfv2d.mimetic2d.Mesh2D.boundary_indices">
 <span class="sig-name descname"><span class="pre">boundary_indices</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">int32</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.mimetic2d.Mesh2D.boundary_indices" title="Link to this definition">#</a></dt>
@@ -560,12 +588,6 @@ can be useful when prescribing boundary conditions.</p>
 <dt class="sig sig-object py" id="mfv2d.mimetic2d.Mesh2D.dual">
 <span class="sig-name descname"><span class="pre">dual</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Manifold2D" title="mfv2d._mfv2d.Manifold2D"><span class="pre">Manifold2D</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.Mesh2D.dual" title="Link to this definition">#</a></dt>
 <dd><p>Dual topology of the mesh.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="mfv2d.mimetic2d.Mesh2D.get_element">
-<span class="sig-name descname"><span class="pre">get_element</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ElementLeaf2D</span></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#Mesh2D.get_element"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.Mesh2D.get_element" title="Link to this definition">#</a></dt>
-<dd><p>Obtain the 2D element corresponding to the index.</p>
 </dd></dl>
 
 <dl class="py property">
@@ -592,8 +614,212 @@ can be useful when prescribing boundary conditions.</p>
 <dd><p>Primal topology of the mesh.</p>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.Mesh2D.surface_to_element">
+<span class="sig-name descname"><span class="pre">surface_to_element</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d.mimetic2d.ElementLeaf2D" title="mfv2d.mimetic2d.ElementLeaf2D"><span class="pre">ElementLeaf2D</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#Mesh2D.surface_to_element"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.Mesh2D.surface_to_element" title="Link to this definition">#</a></dt>
+<dd><p>Create a 2D element from a surface with the given index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Index of the surface.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Leaf element with the geometry of the specified surface.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#mfv2d.mimetic2d.ElementLeaf2D" title="mfv2d.mimetic2d.ElementLeaf2D">ElementLeaf2D</a></p>
+</dd>
+</dl>
 </dd></dl>
 
+</dd></dl>
+
+</section>
+<section id="elements">
+<h2>Elements<a class="headerlink" href="#elements" title="Link to this heading">#</a></h2>
+<p>Surfaces of the mesh can be converted into computational elements. These
+can either be leaf elements, with the type <a class="reference internal" href="#mfv2d.mimetic2d.ElementLeaf2D" title="mfv2d.mimetic2d.ElementLeaf2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">ElementLeaf2D</span></code></a>, or
+nodes, which contain other nodes or leaves, with the type
+<a class="reference internal" href="#mfv2d.mimetic2d.ElementNode2D" title="mfv2d.mimetic2d.ElementNode2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">ElementNode2D</span></code></a>. Both are subtypes of <a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">Element2D</span></code></a>, which
+only contains the information about the parent.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementLeaf2D">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.mimetic2d.</span></span><span class="sig-name descname"><span class="pre">ElementLeaf2D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.mimetic2d.ElementNode2D" title="mfv2d.mimetic2d.ElementNode2D"><span class="pre">ElementNode2D</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">bottom_left</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bottom_right</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_right</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_left</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#ElementLeaf2D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.ElementLeaf2D" title="Link to this definition">#</a></dt>
+<dd><p>Two dimensional square element.</p>
+<p>This type facilitates operations related to calculations which need
+to be carried out on the reference element itself, such as calculation
+of the mass and incidence matrices, as well as the reconstruction of
+the solution.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>order_h</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the basis functions used for the nodal basis in the first dimension.</p></li>
+<li><p><strong>order_v</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the basis functions used for the nodal basis in the second dimension.</p></li>
+<li><p><strong>bottom_left</strong> (<em>(</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>)</em>) – Coordinates of the bottom left corner.</p></li>
+<li><p><strong>bottom_right</strong> (<em>(</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>)</em>) – Coordinates of the bottom right corner.</p></li>
+<li><p><strong>top_right</strong> (<em>(</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>)</em>) – Coordinates of the top right corner.</p></li>
+<li><p><strong>top_left</strong> (<em>(</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>)</em>) – Coordinates of the top left corner.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementLeaf2D.bottom_left">
+<span class="sig-name descname"><span class="pre">bottom_left</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementLeaf2D.bottom_left" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementLeaf2D.bottom_right">
+<span class="sig-name descname"><span class="pre">bottom_right</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementLeaf2D.bottom_right" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementLeaf2D.divide">
+<span class="sig-name descname"><span class="pre">divide</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order_bl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">order_br</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">order_tl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">order_tr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mfv2d.mimetic2d.ElementNode2D" title="mfv2d.mimetic2d.ElementNode2D"><span class="pre">ElementNode2D</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mfv2d.mimetic2d.ElementLeaf2D" title="mfv2d.mimetic2d.ElementLeaf2D"><span class="pre">ElementLeaf2D</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.ElementLeaf2D" title="mfv2d.mimetic2d.ElementLeaf2D"><span class="pre">ElementLeaf2D</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mfv2d.mimetic2d.ElementLeaf2D" title="mfv2d.mimetic2d.ElementLeaf2D"><span class="pre">ElementLeaf2D</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.ElementLeaf2D" title="mfv2d.mimetic2d.ElementLeaf2D"><span class="pre">ElementLeaf2D</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#ElementLeaf2D.divide"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.ElementLeaf2D.divide" title="Link to this definition">#</a></dt>
+<dd><p>Divide the element into four child elements of the specified order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>order_bl</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the bottom left element.</p></li>
+<li><p><strong>order_br</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the bottom right element.</p></li>
+<li><p><strong>order_tl</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the top left element.</p></li>
+<li><p><strong>order_tr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the top right element.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>ElementNode2D</em> – Parent element which contains the nodes.</p></li>
+<li><p><em>(2, 2) tuple of ElementLeaf2D</em> – Child elements of the same order as the element itself. Indexing the
+tuple will give bottom/top for the first axis and left/right for the
+second.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementLeaf2D.order">
+<span class="sig-name descname"><span class="pre">order</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementLeaf2D.order" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementLeaf2D.parent">
+<span class="sig-name descname"><span class="pre">parent</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.ElementNode2D" title="mfv2d.mimetic2d.ElementNode2D"><span class="pre">ElementNode2D</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementLeaf2D.parent" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementLeaf2D.top_left">
+<span class="sig-name descname"><span class="pre">top_left</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementLeaf2D.top_left" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementLeaf2D.top_right">
+<span class="sig-name descname"><span class="pre">top_right</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementLeaf2D.top_right" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementNode2D">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.mimetic2d.</span></span><span class="sig-name descname"><span class="pre">ElementNode2D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.mimetic2d.ElementNode2D" title="mfv2d.mimetic2d.ElementNode2D"><span class="pre">ElementNode2D</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">child_bl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">child_br</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">child_tl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">child_tr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#ElementNode2D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.ElementNode2D" title="Link to this definition">#</a></dt>
+<dd><p>Two dimensional element that contains children.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementNode2D.child_bl">
+<span class="sig-name descname"><span class="pre">child_bl</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementNode2D.child_bl" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementNode2D.child_br">
+<span class="sig-name descname"><span class="pre">child_br</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementNode2D.child_br" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementNode2D.child_tl">
+<span class="sig-name descname"><span class="pre">child_tl</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementNode2D.child_tl" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementNode2D.child_tr">
+<span class="sig-name descname"><span class="pre">child_tr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementNode2D.child_tr" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementNode2D.children">
+<span class="sig-name descname"><span class="pre">children</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#ElementNode2D.children"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.ElementNode2D.children" title="Link to this definition">#</a></dt>
+<dd><p>Return children of the element ordered.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementNode2D.parent">
+<span class="sig-name descname"><span class="pre">parent</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.ElementNode2D" title="mfv2d.mimetic2d.ElementNode2D"><span class="pre">ElementNode2D</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementNode2D.parent" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.Element2D">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.mimetic2d.</span></span><span class="sig-name descname"><span class="pre">Element2D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.mimetic2d.ElementNode2D" title="mfv2d.mimetic2d.ElementNode2D"><span class="pre">ElementNode2D</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#Element2D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.Element2D" title="Link to this definition">#</a></dt>
+<dd><p>General 2D element.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.Element2D.parent">
+<span class="sig-name descname"><span class="pre">parent</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.ElementNode2D" title="mfv2d.mimetic2d.ElementNode2D"><span class="pre">ElementNode2D</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.Element2D.parent" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<section id="element-sides">
+<h3>Element Sides<a class="headerlink" href="#element-sides" title="Link to this heading">#</a></h3>
+<p>Many functions have to perform operations on boundaries of the elements. To
+make this easier to type check, the type <a class="reference internal" href="#mfv2d.mimetic2d.ElementSide" title="mfv2d.mimetic2d.ElementSide"><code class="xref py py-class docutils literal notranslate"><span class="pre">ElementSide</span></code></a> is introduced.
+This is an <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.IntEnum" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">enum.IntEnum</span></code></a> subtype with only four values and is used
+everywhere when a side of an element is an input of any function.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementSide">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.mimetic2d.</span></span><span class="sig-name descname"><span class="pre">ElementSide</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#ElementSide"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.ElementSide" title="Link to this definition">#</a></dt>
+<dd><p>Enum specifying the side of an element.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementSide.SIDE_BOTTOM">
+<span class="sig-name descname"><span class="pre">SIDE_BOTTOM</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementSide.SIDE_BOTTOM" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementSide.SIDE_RIGHT">
+<span class="sig-name descname"><span class="pre">SIDE_RIGHT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementSide.SIDE_RIGHT" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementSide.SIDE_TOP">
+<span class="sig-name descname"><span class="pre">SIDE_TOP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3</span></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementSide.SIDE_TOP" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementSide.SIDE_LEFT">
+<span class="sig-name descname"><span class="pre">SIDE_LEFT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementSide.SIDE_LEFT" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementSide.next">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">next</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.ElementSide" title="mfv2d.mimetic2d.ElementSide"><span class="pre">ElementSide</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementSide.next" title="Link to this definition">#</a></dt>
+<dd><p>Next side.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.ElementSide.prev">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">prev</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.mimetic2d.ElementSide" title="mfv2d.mimetic2d.ElementSide"><span class="pre">ElementSide</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.ElementSide.prev" title="Link to this definition">#</a></dt>
+<dd><p>Previous side.</p>
+</dd></dl>
+
+</dd></dl>
+
+<p>To help identify what side a <code class="xref py py-class docutils literal notranslate"><span class="pre">Line</span></code> with a specific index
+of a <code class="xref py py-class docutils literal notranslate"><span class="pre">Surface</span></code> is from, the function
+<a class="reference internal" href="#mfv2d.mimetic2d.find_surface_boundary_id_line" title="mfv2d.mimetic2d.find_surface_boundary_id_line"><code class="xref py py-func docutils literal notranslate"><span class="pre">find_surface_boundary_id_line()</span></code></a> is given.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.find_surface_boundary_id_line">
+<span class="sig-prename descclassname"><span class="pre">mfv2d.mimetic2d.</span></span><span class="sig-name descname"><span class="pre">find_surface_boundary_id_line</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Surface" title="mfv2d._mfv2d.Surface"><span class="pre">Surface</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d.mimetic2d.ElementSide" title="mfv2d.mimetic2d.ElementSide"><span class="pre">ElementSide</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#find_surface_boundary_id_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.find_surface_boundary_id_line" title="Link to this definition">#</a></dt>
+<dd><p>Find what boundary the line with a given index is in the surface.</p>
+</dd></dl>
+
+</section>
 </section>
 <section id="caching-basis">
 <h2>Caching Basis<a class="headerlink" href="#caching-basis" title="Link to this heading">#</a></h2>
@@ -689,6 +915,18 @@ it was previously not there.</p>
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_edge">
+<span class="sig-name descname"><span class="pre">get_mass_inverse_1d_edge</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#FemCache.get_mass_inverse_1d_edge"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_edge" title="Link to this definition">#</a></dt>
+<dd><p>Get the 1D edge mass matrix inverse.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_node">
+<span class="sig-name descname"><span class="pre">get_mass_inverse_1d_node</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/mimetic2d.html#FemCache.get_mass_inverse_1d_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_node" title="Link to this definition">#</a></dt>
+<dd><p>Get the 1D nodal mass matrix inverse.</p>
+</dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mfv2d.mimetic2d.FemCache.order_diff">
 <span class="sig-name descname"><span class="pre">order_diff</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.mimetic2d.FemCache.order_diff" title="Link to this definition">#</a></dt>
@@ -720,11 +958,11 @@ it was previously not there.</p>
       </div>
     </a>
     <a class="right-next"
-       href="solve_system.html"
+       href="progress.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">solve_system</p>
+        <p class="prev-next-title">progress</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -765,14 +1003,52 @@ it was previously not there.</p>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesh-geometry">Mesh Geometry</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D"><code class="docutils literal notranslate"><span class="pre">Mesh2D</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.as_polydata"><code class="docutils literal notranslate"><span class="pre">Mesh2D.as_polydata()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.boundary_indices"><code class="docutils literal notranslate"><span class="pre">Mesh2D.boundary_indices</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.dual"><code class="docutils literal notranslate"><span class="pre">Mesh2D.dual</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.get_element"><code class="docutils literal notranslate"><span class="pre">Mesh2D.get_element()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.n_elements"><code class="docutils literal notranslate"><span class="pre">Mesh2D.n_elements</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.orders"><code class="docutils literal notranslate"><span class="pre">Mesh2D.orders</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.positions"><code class="docutils literal notranslate"><span class="pre">Mesh2D.positions</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.primal"><code class="docutils literal notranslate"><span class="pre">Mesh2D.primal</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Mesh2D.surface_to_element"><code class="docutils literal notranslate"><span class="pre">Mesh2D.surface_to_element()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#elements">Elements</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.bottom_left"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.bottom_left</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.bottom_right"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.bottom_right</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.divide"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.divide()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.order"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.order</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.parent"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.parent</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.top_left"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.top_left</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementLeaf2D.top_right"><code class="docutils literal notranslate"><span class="pre">ElementLeaf2D.top_right</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D"><code class="docutils literal notranslate"><span class="pre">ElementNode2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.child_bl"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.child_bl</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.child_br"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.child_br</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.child_tl"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.child_tl</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.child_tr"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.child_tr</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.children"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.children()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementNode2D.parent"><code class="docutils literal notranslate"><span class="pre">ElementNode2D.parent</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Element2D"><code class="docutils literal notranslate"><span class="pre">Element2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.Element2D.parent"><code class="docutils literal notranslate"><span class="pre">Element2D.parent</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#element-sides">Element Sides</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide"><code class="docutils literal notranslate"><span class="pre">ElementSide</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.SIDE_BOTTOM"><code class="docutils literal notranslate"><span class="pre">ElementSide.SIDE_BOTTOM</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.SIDE_RIGHT"><code class="docutils literal notranslate"><span class="pre">ElementSide.SIDE_RIGHT</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.SIDE_TOP"><code class="docutils literal notranslate"><span class="pre">ElementSide.SIDE_TOP</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.SIDE_LEFT"><code class="docutils literal notranslate"><span class="pre">ElementSide.SIDE_LEFT</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.next"><code class="docutils literal notranslate"><span class="pre">ElementSide.next</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.ElementSide.prev"><code class="docutils literal notranslate"><span class="pre">ElementSide.prev</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.find_surface_boundary_id_line"><code class="docutils literal notranslate"><span class="pre">find_surface_boundary_id_line()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -783,6 +1059,8 @@ it was previously not there.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_basis1d"><code class="docutils literal notranslate"><span class="pre">FemCache.get_basis1d()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_basis2d"><code class="docutils literal notranslate"><span class="pre">FemCache.get_basis2d()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_integration_rule"><code class="docutils literal notranslate"><span class="pre">FemCache.get_integration_rule()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_edge"><code class="docutils literal notranslate"><span class="pre">FemCache.get_mass_inverse_1d_edge()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_node"><code class="docutils literal notranslate"><span class="pre">FemCache.get_mass_inverse_1d_node()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.mimetic2d.FemCache.order_diff"><code class="docutils literal notranslate"><span class="pre">FemCache.order_diff</span></code></a></li>
 </ul>
 </li>

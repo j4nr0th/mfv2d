@@ -50,7 +50,7 @@ will then be integrated using trapezoidal integration to find total error over
 the entire time march. This error will then be compared for different number of
 time steps over the same time period.
 
-.. GENERATED FROM PYTHON SOURCE LINES 35-52
+.. GENERATED FROM PYTHON SOURCE LINES 35-53
 
 .. code-block:: Python
 
@@ -67,6 +67,7 @@ time steps over the same time period.
         SolverSettings,
         SystemSettings,
         TimeSettings,
+        UnknownFormOrder,
         solve_system_2d,
     )
     from scipy.integrate import trapezoid
@@ -78,7 +79,7 @@ time steps over the same time period.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 53-64
+.. GENERATED FROM PYTHON SOURCE LINES 54-65
 
 Setup
 -----
@@ -92,7 +93,7 @@ The problem would be simulated on the time interval :math:`t \in [0, 10]`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 65-102
+.. GENERATED FROM PYTHON SOURCE LINES 66-103
 
 .. code-block:: Python
 
@@ -140,7 +141,7 @@ The problem would be simulated on the time interval :math:`t \in [0, 10]`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 103-109
+.. GENERATED FROM PYTHON SOURCE LINES 104-110
 
 System Setup
 ------------
@@ -149,14 +150,14 @@ The system being solved is formulated bellow. An additional equation was introdu
 to obtain the curl of the solution, so that the :math:`H^1` norm could be computed.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 110-122
+.. GENERATED FROM PYTHON SOURCE LINES 111-123
 
 .. code-block:: Python
 
 
-    u = KFormUnknown(2, "u", 0)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
     v = u.weight
-    q = KFormUnknown(2, "q", 1)
+    q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
     p = q.weight
 
     system = KFormSystem(
@@ -172,7 +173,7 @@ to obtain the curl of the solution, so that the :math:`H^1` norm could be comput
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 123-130
+.. GENERATED FROM PYTHON SOURCE LINES 124-131
 
 Make the Mesh
 -------------
@@ -182,7 +183,7 @@ convexly deformed square.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 131-170
+.. GENERATED FROM PYTHON SOURCE LINES 132-171
 
 .. code-block:: Python
 
@@ -237,7 +238,7 @@ convexly deformed square.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 171-176
+.. GENERATED FROM PYTHON SOURCE LINES 172-177
 
 Run Unsteady Simulations
 ------------------------
@@ -245,7 +246,7 @@ Run Unsteady Simulations
 With the mesh and system defined, the simulations can be run. The run is done for
 10, 20, 50, 100, and 200 time steps.
 
-.. GENERATED FROM PYTHON SOURCE LINES 177-230
+.. GENERATED FROM PYTHON SOURCE LINES 178-231
 
 .. code-block:: Python
 
@@ -309,7 +310,7 @@ With the mesh and system defined, the simulations can be run. The run is done fo
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 231-238
+.. GENERATED FROM PYTHON SOURCE LINES 232-239
 
 Plot the Time Error
 -------------------
@@ -319,7 +320,7 @@ The total integrated time error in the two norms is now examined.
 :math:`H^1` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 239-263
+.. GENERATED FROM PYTHON SOURCE LINES 240-264
 
 .. code-block:: Python
 
@@ -359,12 +360,12 @@ The total integrated time error in the two norms is now examined.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 264-266
+.. GENERATED FROM PYTHON SOURCE LINES 265-267
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 267-292
+.. GENERATED FROM PYTHON SOURCE LINES 268-293
 
 .. code-block:: Python
 
@@ -405,14 +406,14 @@ The total integrated time error in the two norms is now examined.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 293-297
+.. GENERATED FROM PYTHON SOURCE LINES 294-298
 
 Plot Solution's Evolution
 -------------------------
 
 With :mod:`pyvista` the unsteady solution can even be plotted.
 
-.. GENERATED FROM PYTHON SOURCE LINES 298-310
+.. GENERATED FROM PYTHON SOURCE LINES 299-311
 
 .. code-block:: Python
 
@@ -443,7 +444,7 @@ With :mod:`pyvista` the unsteady solution can even be plotted.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (1 minutes 27.826 seconds)
+   **Total running time of the script:** (1 minutes 17.140 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_reaction.py:

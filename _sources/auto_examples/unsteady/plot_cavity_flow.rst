@@ -26,7 +26,7 @@ given how well the solution to this problem is known. In this exampled it
 is solved for the case of :math:`Re = 10`, since that allows for quick convergence
 on a fairly coarse grid.
 
-.. GENERATED FROM PYTHON SOURCE LINES 10-25
+.. GENERATED FROM PYTHON SOURCE LINES 10-26
 
 .. code-block:: Python
 
@@ -42,6 +42,7 @@ on a fairly coarse grid.
         SolverSettings,
         SystemSettings,
         TimeSettings,
+        UnknownFormOrder,
         solve_system_2d,
     )
 
@@ -52,7 +53,7 @@ on a fairly coarse grid.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 26-33
+.. GENERATED FROM PYTHON SOURCE LINES 27-34
 
 Setup
 -----
@@ -62,7 +63,7 @@ is the boundary velocity, which should be 2 on the top side of the
 mesh and zero elsewhere. The reason for it being 2 is because the
 domain length is also 2.
 
-.. GENERATED FROM PYTHON SOURCE LINES 34-45
+.. GENERATED FROM PYTHON SOURCE LINES 35-46
 
 .. code-block:: Python
 
@@ -84,7 +85,7 @@ domain length is also 2.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-53
+.. GENERATED FROM PYTHON SOURCE LINES 47-54
 
 System Setup
 ------------
@@ -94,16 +95,16 @@ with the only difference being the weak pressure boundary conditions
 not being included, due to the fact that the strong boundary conditions
 on the normal velocity mean that they would not be used either way.
 
-.. GENERATED FROM PYTHON SOURCE LINES 53-114
+.. GENERATED FROM PYTHON SOURCE LINES 54-115
 
 .. code-block:: Python
 
 
-    pre = KFormUnknown(2, "pre", 2)
+    pre = KFormUnknown("pre", UnknownFormOrder.FORM_ORDER_2)
     w_pre = pre.weight
-    vel = KFormUnknown(2, "vel", 1)
+    vel = KFormUnknown("vel", UnknownFormOrder.FORM_ORDER_1)
     w_vel = vel.weight
-    vor = KFormUnknown(2, "vor", 0)
+    vor = KFormUnknown("vor", UnknownFormOrder.FORM_ORDER_0)
     w_vor = vor.weight
 
     system = KFormSystem(
@@ -167,20 +168,20 @@ on the normal velocity mean that they would not be used either way.
 
  .. code-block:: none
 
-    [vor(0*)]^T  ([           -1 * M(0) | (E(1, 0))^T @ M(0) |                  0]  [vor(0)]   [<vor, boundary_velocty>])   [vor(0*)]^T  ([                              0 |                        0 | 0]  [vor(0)] 
-    [vel(1*)]    ([0.1 * M(1) @ E(1, 0) |                  0 | (E(2, 1))^T @ M(1)]  [vel(1)] = [                       ]) + [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(0) | -1 * M(1) @ N(1, 2; vor) | 0]  [vel(1)] 
-    [pre(2*)]    ([                   0 |     M(2) @ E(2, 1) |                  0]  [pre(2)]   [                      0])   [pre(2*)]    ([                              0 |                        0 | 0]  [pre(2)] 
+    [vor(1*)]^T  ([           -1 * M(1) | (E(2, 1))^T @ M(1) |                  0]  [vor(0)]   [<vor, boundary_velocty>])   [vor(1*)]^T  ([                              0 |                        0 | 0]  [vor(0)] 
+    [vel(2*)]    ([0.1 * M(2) @ E(2, 1) |                  0 | (E(3, 2))^T @ M(2)]  [vel(1)] = [                       ]) + [vel(2*)]    ([-1 * M(2) @ M(2, 3; vel) @ M(1) | -1 * M(2) @ N(2, 3; vor) | 0]  [vel(1)] 
+    [pre(3*)]    ([                   0 |     M(3) @ E(3, 2) |                  0]  [pre(2)]   [                      0])   [pre(3*)]    ([                              0 |                        0 | 0]  [pre(2)] 
     SolutionStatistics(element_orders={3: 50}, n_total_dofs=1550, n_leaf_dofs=1225, n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20,
-           20, 20, 20], dtype=uint32), residual_history=array([4.73037165e-11, 3.78858472e-11, 4.94558422e-11, 4.77370712e-11,
-           6.63145927e-11, 4.92627883e-11, 6.85677626e-11, 4.04777045e-11,
-           7.24521970e-11, 9.98632288e-11, 7.65691122e-11, 9.79617637e-11,
-           7.69061551e-11, 9.11821799e-11, 7.17328905e-11, 8.28754287e-11,
-           7.86609389e-11, 9.14861242e-11, 8.53561388e-11, 9.54870072e-11]))
+           20, 20, 20], dtype=uint32), residual_history=array([4.73040218e-11, 3.78859860e-11, 4.94556202e-11, 4.77373419e-11,
+           6.63145788e-11, 4.92627328e-11, 6.85677765e-11, 4.04782319e-11,
+           7.24523080e-11, 9.98627847e-11, 7.65691122e-11, 9.79617637e-11,
+           7.69061897e-11, 9.11821313e-11, 7.17330223e-11, 8.28753177e-11,
+           7.86609111e-11, 9.14862630e-11, 8.53559723e-11, 9.54867019e-11]))
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 115-120
+.. GENERATED FROM PYTHON SOURCE LINES 116-121
 
 Plot Streamlines
 ----------------
@@ -188,7 +189,7 @@ Plot Streamlines
 Pyvista allows for very simple 2D streamline plots.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 121-142
+.. GENERATED FROM PYTHON SOURCE LINES 122-143
 
 .. code-block:: Python
 
@@ -228,7 +229,7 @@ Pyvista allows for very simple 2D streamline plots.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 9.601 seconds)
+   **Total running time of the script:** (0 minutes 5.072 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_cavity_flow.py:

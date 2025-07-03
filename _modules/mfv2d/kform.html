@@ -165,10 +165,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -288,7 +290,6 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">accumulate</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">TypeAliasType</span><span class="p">,</span> <span class="n">overload</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -299,6 +300,42 @@ document.write(`
     <span class="n">Callable</span><span class="p">[[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">],</span>
 <span class="p">)</span>
 <span class="sd">&quot;&quot;&quot;Type of a function taking two inputs and returning an array-like.&quot;&quot;&quot;</span>
+
+<span class="n">_DIMENSION_COUNT</span> <span class="o">=</span> <span class="mi">2</span>
+
+
+<div class="viewcode-block" id="UnknownFormOrder">
+<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.UnknownFormOrder">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UnknownFormOrder</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Orders of unknown differential forms.</span>
+
+<span class="sd">    This enum is intended to replace just passing integers for the</span>
+<span class="sd">    order of forms, since this is easier to catch by type-checkers.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">FORM_ORDER_0</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">FORM_ORDER_1</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">FORM_ORDER_2</span> <span class="o">=</span> <span class="mi">3</span>
+
+<div class="viewcode-block" id="UnknownFormOrder.full_unknown_count">
+<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.UnknownFormOrder.full_unknown_count">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">full_unknown_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order_1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">order_2</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the total number of DoFs based on orders for a (full) leaf element.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">order_1</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">order_2</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">order_1</span> <span class="o">*</span> <span class="n">order_2</span>
+
+        <span class="k">raise</span> <span class="ne">ValueError</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dual</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UnknownFormOrder</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return what the dual of the form is.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="mi">2</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">2</span><span class="p">))</span></div>
+
 
 
 <div class="viewcode-block" id="Term">
@@ -312,15 +349,10 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    dimension : int</span>
-<span class="sd">        Number of dimensions of the manifold.</span>
-<span class="sd">        TODO: REMOVE SINCE IT IS ALWAYS 2</span>
-
 <span class="sd">    label : str</span>
 <span class="sd">        How to identify the term.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">dimension</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">label</span><span class="p">:</span> <span class="nb">str</span>
 
 <div class="viewcode-block" id="Term.__str__">
@@ -356,25 +388,21 @@ document.write(`
 <span class="sd">        Label which is used to print form as a string.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">order</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span>
     <span class="n">label</span><span class="p">:</span> <span class="nb">str</span>
 
 <div class="viewcode-block" id="KForm.__post_init__">
 <a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KForm.__post_init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that the order of the form is not too high.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Can not create a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2">-form on a manifold of dimension&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that order is correctly set.&quot;&quot;&quot;</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;order&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="KForm.__str__">
 <a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KForm.__str__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return print-friendly representation of the object.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2">)&quot;</span></div>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">)&quot;</span></div>
 
 
     <span class="nd">@overload</span>
@@ -389,9 +417,8 @@ document.write(`
             <span class="k">return</span> <span class="n">KInnerProduct</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">KInteriorProduct</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span>
                 <span class="sa">f</span><span class="s2">&quot;i_</span><span class="se">{{</span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="se">}}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">order</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
                 <span class="bp">self</span><span class="p">,</span>
                 <span class="n">other</span><span class="p">,</span>
             <span class="p">)</span>
@@ -432,7 +459,7 @@ document.write(`
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UnknownFormOrder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Order in primal basis.&quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
@@ -467,9 +494,8 @@ document.write(`
     <span class="k">def</span><span class="w"> </span><span class="fm">__xor__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">KFormUnknown</span> <span class="o">|</span> <span class="n">KHodge</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a non-linear interior product term.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">KInteriorProductNonlinear</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;i_(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">)(</span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
-            <span class="n">other</span><span class="o">.</span><span class="n">order</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">order</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
             <span class="n">other</span><span class="p">,</span>
             <span class="bp">self</span><span class="p">,</span>
         <span class="p">)</span></div>
@@ -478,7 +504,7 @@ document.write(`
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KWeight</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a weight based on this form.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">KWeight</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">KWeight</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -486,11 +512,11 @@ document.write(`
         <span class="k">return</span> <span class="kc">False</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UnknownFormOrder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Order of the mass matrix which needs to be used.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">dual</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_primal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -499,6 +525,124 @@ document.write(`
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">core_form</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KFormUnknown</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Most basic form, be it unknown or weight.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the form is linear.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+
+<div class="viewcode-block" id="KWeight">
+<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eq</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">KWeight</span><span class="p">(</span><span class="n">KForm</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Differential K form represented with the dual basis.</span>
+
+<span class="sd">    Provides operators for forming element and boundary projections</span>
+<span class="sd">    throught the ``@`` and ``^`` operators respectively.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    order : int</span>
+<span class="sd">        Order of the differential form.</span>
+<span class="sd">    label : str</span>
+<span class="sd">        Label which is used to print form as a string.</span>
+<span class="sd">    base_form : KForm</span>
+<span class="sd">        Form, which the weight is based on.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">base_form</span><span class="p">:</span> <span class="n">KFormUnknown</span>
+
+<div class="viewcode-block" id="KWeight.__str__">
+<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__str__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return print-friendly representation of the object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2">*)&quot;</span></div>
+
+
+    <span class="nd">@overload</span>  <span class="c1"># type: ignore[override]</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">KForm</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KInnerProduct</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KElementProjection</span><span class="p">:</span> <span class="o">...</span>
+
+<div class="viewcode-block" id="KWeight.__mul__">
+<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__mul__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">KForm</span> <span class="o">|</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KInnerProduct</span> <span class="o">|</span> <span class="n">KElementProjection</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inner product with a weight.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">KForm</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">KInnerProduct</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">KElementProjection</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KElementProjection</span><span class="p">(</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span></div>
+
+
+    <span class="nd">@overload</span>  <span class="c1"># type: ignore[override]</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">KForm</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KInnerProduct</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KElementProjection</span><span class="p">:</span> <span class="o">...</span>
+
+<div class="viewcode-block" id="KWeight.__rmul__">
+<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__rmul__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">KForm</span> <span class="o">|</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KInnerProduct</span> <span class="o">|</span> <span class="n">KElementProjection</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inner product with a weight.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="KWeight.__xor__">
+<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__xor__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__xor__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KBoundaryProjection</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create boundary projection for the right hand side.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">KBoundaryProjection</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span></div>
+
+
+<div class="viewcode-block" id="KWeight.__matmul__">
+<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__matmul__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KElementProjection</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create projection for the right hand side.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">other</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">KElementProjection</span><span class="p">(</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">KElementProjection</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KWeight</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return itself.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the form is a weight.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UnknownFormOrder</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Order of the mass matrix which needs to be used.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">dual</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_primal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if form is primal or dual.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_form</span><span class="o">.</span><span class="n">is_primal</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">core_form</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KWeight</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Most basic form, be it unknown or weight.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span>
 
@@ -562,7 +706,7 @@ document.write(`
     <span class="n">base_form</span><span class="p">:</span> <span class="n">KForm</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">form</span><span class="p">:</span> <span class="n">KForm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="s2">&quot;~&quot;</span> <span class="o">+</span> <span class="n">form</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">dimension</span> <span class="o">-</span> <span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;~&quot;</span> <span class="o">+</span> <span class="n">form</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">dual</span><span class="p">)</span>
         <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;base_form&quot;</span><span class="p">,</span> <span class="n">form</span><span class="p">)</span>
 
     <span class="nd">@property</span>
@@ -571,11 +715,11 @@ document.write(`
         <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_form</span><span class="o">.</span><span class="n">is_primal</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UnknownFormOrder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Order of the mass matrix which needs to be used.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">dual</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -591,135 +735,6 @@ document.write(`
     <span class="k">def</span><span class="w"> </span><span class="nf">is_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the form is linear.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_form</span><span class="o">.</span><span class="n">is_linear</span></div>
-
-
-
-<div class="viewcode-block" id="KWeight">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight">[docs]</a>
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eq</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">KWeight</span><span class="p">(</span><span class="n">KForm</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Differential K form represented with the dual basis.</span>
-
-<span class="sd">    Provides operators for forming element and boundary projections</span>
-<span class="sd">    throught the ``@`` and ``^`` operators respectively.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    order : int</span>
-<span class="sd">        Order of the differential form.</span>
-<span class="sd">    label : str</span>
-<span class="sd">        Label which is used to print form as a string.</span>
-<span class="sd">    base_form : KForm</span>
-<span class="sd">        Form, which the weight is based on.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">base_form</span><span class="p">:</span> <span class="n">KFormUnknown</span>
-
-<div class="viewcode-block" id="KWeight.__str__">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__str__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return print-friendly representation of the object.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2">*)&quot;</span></div>
-
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KFormDerivative</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Derivative of the form.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">KFormDerivative</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-
-    <span class="nd">@overload</span>  <span class="c1"># type: ignore[override]</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">KForm</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KInnerProduct</span><span class="p">:</span> <span class="o">...</span>
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KElementProjection</span><span class="p">:</span> <span class="o">...</span>
-
-<div class="viewcode-block" id="KWeight.__mul__">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__mul__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">KForm</span> <span class="o">|</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KInnerProduct</span> <span class="o">|</span> <span class="n">KElementProjection</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inner product with a weight.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">KForm</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">KInnerProduct</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">KElementProjection</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">other</span>
-            <span class="p">)</span>
-        <span class="k">if</span> <span class="n">other</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">KElementProjection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">NotImplemented</span></div>
-
-
-    <span class="nd">@overload</span>  <span class="c1"># type: ignore[override]</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">KForm</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KInnerProduct</span><span class="p">:</span> <span class="o">...</span>
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KElementProjection</span><span class="p">:</span> <span class="o">...</span>
-
-<div class="viewcode-block" id="KWeight.__rmul__">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__rmul__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">KForm</span> <span class="o">|</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KInnerProduct</span> <span class="o">|</span> <span class="n">KElementProjection</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inner product with a weight.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="KWeight.__xor__">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__xor__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__xor__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KBoundaryProjection</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create boundary projection for the right hand side.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">KBoundaryProjection</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">other</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">NotImplemented</span></div>
-
-
-<div class="viewcode-block" id="KWeight.__matmul__">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KWeight.__matmul__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KElementProjection</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create projection for the right hand side.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">other</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">KElementProjection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">KElementProjection</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">other</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">other</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">NotImplemented</span></div>
-
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KWeight</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return itself.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">is_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the form is a weight.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="kc">True</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Order of the mass matrix which needs to be used.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">is_primal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if form is primal or dual.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_form</span><span class="o">.</span><span class="n">is_primal</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">core_form</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KWeight</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Most basic form, be it unknown or weight.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">is_linear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the form is linear.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="kc">True</span></div>
 
 
 
@@ -757,7 +772,7 @@ document.write(`
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">form</span><span class="p">:</span> <span class="n">KForm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;form&quot;</span><span class="p">,</span> <span class="n">form</span><span class="p">)</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="s2">&quot;d&quot;</span> <span class="o">+</span> <span class="n">form</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;d&quot;</span> <span class="o">+</span> <span class="n">form</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_primal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -770,12 +785,12 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_weight</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UnknownFormOrder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Order in primal basis.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span> <span class="o">-</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">core_form</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KWeight</span> <span class="o">|</span> <span class="n">KFormUnknown</span><span class="p">:</span>
@@ -803,7 +818,7 @@ document.write(`
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Enforce the conditions for allowing interior product.&quot;&quot;&quot;</span>
         <span class="c1"># The form can not be a zero-form</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Interior product can not be applied to a 0-form.&quot;</span><span class="p">)</span></div>
 
 
@@ -818,11 +833,11 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_weight</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UnknownFormOrder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the order of the primal.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span> <span class="o">-</span> <span class="mi">1</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">core_form</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KWeight</span> <span class="o">|</span> <span class="n">KFormUnknown</span><span class="p">:</span>
@@ -880,9 +895,9 @@ document.write(`
                 <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">form_field</span><span class="p">)</span><span class="si">}</span><span class="s2">).&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Interior product can not be applied to a 0-form.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">form_field</span><span class="o">.</span><span class="n">order</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">form_field</span><span class="o">.</span><span class="n">order</span> <span class="o">!=</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Interior product requires the other form to be a&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot; 1-form, it was instead a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">form_field</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2">-form.&quot;</span>
@@ -900,11 +915,11 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_weight</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primal_order</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UnknownFormOrder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the order of the primal.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span> <span class="o">-</span> <span class="mi">1</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">core_form</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KWeight</span> <span class="o">|</span> <span class="n">KFormUnknown</span><span class="p">:</span>
@@ -1024,9 +1039,7 @@ document.write(`
             <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">float</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">KEquation</span><span class="p">(</span>
                     <span class="n">KSum</span><span class="p">((</span><span class="mf">1.0</span><span class="p">,</span> <span class="bp">self</span><span class="p">)),</span>
-                    <span class="n">KSum</span><span class="p">(</span>
-                        <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">KElementProjection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
-                    <span class="p">),</span>
+                    <span class="n">KSum</span><span class="p">((</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">KElementProjection</span><span class="p">(</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="kc">None</span><span class="p">))),</span>
                 <span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">pass</span>
@@ -1136,16 +1149,12 @@ document.write(`
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The K forms are not of the same (primal) order (</span><span class="si">{</span><span class="n">w_order</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">u_order</span><span class="si">}</span><span class="s2">)&quot;</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">weight</span><span class="o">.</span><span class="n">dimension</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">unknown</span><span class="o">.</span><span class="n">dimension</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Inner product can only be taken between differential forms defined on &quot;</span>
-                <span class="s2">&quot;the space with same number of dimensions.&quot;</span>
-            <span class="p">)</span>
+
         <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;unknown_form&quot;</span><span class="p">,</span> <span class="n">unknown</span><span class="p">)</span>
         <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;weight_form&quot;</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span>
         <span class="n">w</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">core_form</span>
         <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KWeight</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">dimension</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">unknown</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">unknown</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">unknowns</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">KFormUnknown</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
@@ -1180,20 +1189,9 @@ document.write(`
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Can not create a sum object with no members.&quot;</span><span class="p">)</span>
 
-        <span class="n">base_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">weight</span><span class="p">:</span> <span class="n">KWeight</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">weight</span><span class="p">:</span> <span class="n">KWeight</span> <span class="o">=</span> <span class="n">pairs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span>
         <span class="n">new_pairs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">KExplicit</span> <span class="o">|</span> <span class="n">KInnerProduct</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">base_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">base_dim</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">dimension</span>
-                <span class="k">assert</span> <span class="n">weight</span> <span class="ow">is</span> <span class="kc">None</span>
-                <span class="n">weight</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">weight</span>
-
-            <span class="k">elif</span> <span class="n">base_dim</span> <span class="o">!=</span> <span class="n">term</span><span class="o">.</span><span class="n">dimension</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Can not sum inner products from different dimensional spaces.&quot;</span>
-                <span class="p">)</span>
-
             <span class="k">if</span> <span class="n">weight</span> <span class="o">!=</span> <span class="n">term</span><span class="o">.</span><span class="n">weight</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Can not sum terms with varying weight forms&quot;</span><span class="p">)</span>
 
@@ -1208,10 +1206,10 @@ document.write(`
 
                 <span class="n">new_pairs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">coeff</span><span class="p">,</span> <span class="n">term</span><span class="p">))</span>
         <span class="k">del</span> <span class="n">pairs</span>
-        <span class="k">assert</span> <span class="n">base_dim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
         <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;pairs&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_pairs</span><span class="p">))</span>
         <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;(&quot;</span> <span class="o">+</span> <span class="s2">&quot;+&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ip</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">ip</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pairs</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;)&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">base_dim</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">unknowns</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">KFormUnknown</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
@@ -1519,28 +1517,6 @@ document.write(`
     <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown type&quot;</span><span class="p">)</span>
 
 
-<span class="nd">@overload</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_form_size_2d</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]:</span> <span class="o">...</span>
-
-
-<span class="nd">@overload</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_form_size_2d</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>
-
-
-<span class="c1"># TODO: remove</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_form_size_2d</span><span class="p">(</span>
-    <span class="n">p</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span> <span class="o">|</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the number of degrees of freedom a form gets on an element with order.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">p</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">p</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">p</span> <span class="o">*</span> <span class="p">(</span><span class="n">p</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">p</span> <span class="o">*</span> <span class="n">p</span>
-    <span class="k">assert</span> <span class="kc">False</span>
-
-
 <div class="viewcode-block" id="KFormSystem">
 <a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KFormSystem">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">KFormSystem</span><span class="p">:</span>
@@ -1593,152 +1569,6 @@ document.write(`
 
         <span class="bp">self</span><span class="o">.</span><span class="n">equations</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">equation_list</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">weight_forms</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">w</span><span class="p">)]</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">weights</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">vector_fields</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">vec_field</span> <span class="k">for</span> <span class="n">vec_field</span> <span class="ow">in</span> <span class="n">vfs</span><span class="p">)</span>
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">shape_1d</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]]:</span> <span class="o">...</span>
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">shape_1d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span> <span class="o">...</span>
-
-<div class="viewcode-block" id="KFormSystem.shape_1d">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KFormSystem.shape_1d">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">shape_1d</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span> <span class="o">|</span> <span class="nb">int</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span> <span class="o">|</span> <span class="nb">int</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the shape of the system for the 1D case.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        order : int</span>
-<span class="sd">            Order of 1D polynomial basis.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        int</span>
-<span class="sd">            Number of rows of the system.</span>
-<span class="sd">        int</span>
-<span class="sd">            Number of columns of the system.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">height</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">d</span><span class="o">.</span><span class="n">order</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_forms</span><span class="p">)</span>
-        <span class="n">width</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">d</span><span class="o">.</span><span class="n">order</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">)</span></div>
-
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">offsets_1d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span> <span class="o">...</span>
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">offsets_1d</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
-        <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span>
-    <span class="p">]:</span> <span class="o">...</span>
-
-<div class="viewcode-block" id="KFormSystem.offsets_1d">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KFormSystem.offsets_1d">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">offsets_1d</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
-        <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
-        <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
-    <span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute offsets of different forms and equations.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        order : int</span>
-<span class="sd">            Order of 1D polynomial basis.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        tuple[int, ...]</span>
-<span class="sd">            Offsets of different equations in rows.</span>
-<span class="sd">        tuple[int, ...]</span>
-<span class="sd">            Offsets of different form degrees of freedom in columns.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">offset_forms</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">order</span><span class="p">),)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">accumulate</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">d</span><span class="o">.</span><span class="n">order</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">offset_equations</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">order</span><span class="p">),)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">accumulate</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">d</span><span class="o">.</span><span class="n">order</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_forms</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">offset_equations</span><span class="p">,</span> <span class="n">offset_forms</span></div>
-
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">shape_2d</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]]:</span> <span class="o">...</span>
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">shape_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span> <span class="o">...</span>
-
-<div class="viewcode-block" id="KFormSystem.shape_2d">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KFormSystem.shape_2d">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">shape_2d</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span> <span class="o">|</span> <span class="nb">int</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span> <span class="o">|</span> <span class="nb">int</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the shape of the system for the 2D case.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        order : int</span>
-<span class="sd">            Order of 2D polynomial basis.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        int</span>
-<span class="sd">            Number of rows of the system.</span>
-<span class="sd">        int</span>
-<span class="sd">            Number of columns of the system.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">height</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">_form_size_2d</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">order</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_forms</span><span class="p">)</span>
-        <span class="n">width</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">_form_size_2d</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">order</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">)</span></div>
-
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">offsets_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span> <span class="o">...</span>
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">offsets_2d</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
-        <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span>
-    <span class="p">]:</span> <span class="o">...</span>
-
-<div class="viewcode-block" id="KFormSystem.offsets_2d">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KFormSystem.offsets_2d">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">offsets_2d</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
-        <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
-        <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">],</span> <span class="o">...</span><span class="p">],</span>
-    <span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute offsets of different forms and equations.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        order : int</span>
-<span class="sd">            Order of 2D polynomial basis.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        tuple[int, ...]</span>
-<span class="sd">            Offsets of different equations in rows.</span>
-<span class="sd">        tuple[int, ...]</span>
-<span class="sd">            Offsets of different form degrees of freedom in columns.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">offset_forms</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">order</span><span class="p">),)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">accumulate</span><span class="p">(</span><span class="n">_form_size_2d</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">order</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">offset_equations</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">order</span><span class="p">),)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">accumulate</span><span class="p">(</span><span class="n">_form_size_2d</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">order</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_forms</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">offset_equations</span><span class="p">,</span> <span class="n">offset_forms</span></div>
-
 
 <div class="viewcode-block" id="KFormSystem.__str__">
 <a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KFormSystem.__str__">[docs]</a>
@@ -1836,64 +1666,12 @@ document.write(`
                 <span class="p">)</span>
             <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="k">return</span> <span class="n">s</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># strip the trailing new line.</span></div>
-
-
-<div class="viewcode-block" id="KFormSystem.get_form_indices_by_order">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.KFormSystem.get_form_indices_by_order">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_form_indices_by_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return indices of forms with the specified order.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        order : int</span>
-<span class="sd">            Order of the differential forms for which the indices should be returned.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        tuple of int</span>
-<span class="sd">            Tuple of indices of all unknown differential forms in the system of equations</span>
-<span class="sd">            which have the specified order.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">order</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">order</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">order</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Specified order can not be less than 0 or more than 2, but it was&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">order</span><span class="si">}</span><span class="s2">.&quot;</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">order</span><span class="p">)</span></div>
 </div>
 
 
 
-<div class="viewcode-block" id="UnknownFormOrder">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.UnknownFormOrder">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">UnknownFormOrder</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Orders of unknown differential forms.</span>
-
-<span class="sd">    This enum is intended to replace just passing integers for the</span>
-<span class="sd">    order of forms, since this is easier to catch by type-checkers.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">FORM_ORDER_0</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="n">FORM_ORDER_1</span> <span class="o">=</span> <span class="mi">2</span>
-    <span class="n">FORM_ORDER_2</span> <span class="o">=</span> <span class="mi">3</span>
-
-<div class="viewcode-block" id="UnknownFormOrder.full_unknown_count">
-<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.UnknownFormOrder.full_unknown_count">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">full_unknown_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order_1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">order_2</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the total number of DoFs based on orders for a (full) leaf element.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">order_1</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">order_2</span>
-        <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">order_1</span> <span class="o">*</span> <span class="n">order_2</span>
-
-        <span class="k">raise</span> <span class="ne">ValueError</span></div>
-</div>
-
-
-
+<div class="viewcode-block" id="UnknownOrderings">
+<a class="viewcode-back" href="../../modules/kform.html#mfv2d.kform.UnknownOrderings">[docs]</a>
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">UnknownOrderings</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Type for storing ordering of unknowns within an element.</span>
@@ -1908,10 +1686,9 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Count of forms.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">form_orders</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">orders</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;form_orders&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">UnknownFormOrder</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">orders</span><span class="p">)</span>
-        <span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">orders</span><span class="p">:</span> <span class="n">UnknownFormOrder</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;form_orders&quot;</span><span class="p">,</span> <span class="n">orders</span><span class="p">)</span></div>
+
 </pre></div>
 
                 </article>

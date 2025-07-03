@@ -54,7 +54,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="eval" href="eval.html" />
-    <link rel="prev" title="boundary" href="boundary.html" />
+    <link rel="prev" title="continuity" href="continuity.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -167,10 +167,12 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../modules.html">Modules</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuity.html">continuity</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -365,6 +367,17 @@ document.write(`
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.FlexibleElementArray.values"><code class="docutils literal notranslate"><span class="pre">FlexibleElementArray.values</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__delitem__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__delitem__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__getitem__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__getitem__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__iter__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__iter__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__len__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__len__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__setitem__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__setitem__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.com"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.com</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.dtype"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.dtype</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.values"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.values</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#organizing-elements">Organizing Elements</a><ul class="nav section-nav flex-column">
@@ -373,12 +386,9 @@ document.write(`
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.child_count_array"><code class="docutils literal notranslate"><span class="pre">ElementCollection.child_count_array</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.com"><code class="docutils literal notranslate"><span class="pre">ElementCollection.com</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.corners_array"><code class="docutils literal notranslate"><span class="pre">ElementCollection.corners_array</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.get_boundary_dofs"><code class="docutils literal notranslate"><span class="pre">ElementCollection.get_boundary_dofs()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.get_element_children"><code class="docutils literal notranslate"><span class="pre">ElementCollection.get_element_children()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.get_element_order_on_side"><code class="docutils literal notranslate"><span class="pre">ElementCollection.get_element_order_on_side()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.ordering"><code class="docutils literal notranslate"><span class="pre">ElementCollection.ordering</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.orders_array"><code class="docutils literal notranslate"><span class="pre">ElementCollection.orders_array</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.parent_array"><code class="docutils literal notranslate"><span class="pre">ElementCollection.parent_array</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.root_indices"><code class="docutils literal notranslate"><span class="pre">ElementCollection.root_indices</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -386,16 +396,28 @@ document.write(`
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#executing-per-element">Executing per Element</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_element_fix"><code class="docutils literal notranslate"><span class="pre">call_per_element_fix()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_element_flex"><code class="docutils literal notranslate"><span class="pre">call_per_element_flex()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_leaf_obj"><code class="docutils literal notranslate"><span class="pre">call_per_leaf_obj()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_root_flex"><code class="docutils literal notranslate"><span class="pre">call_per_root_flex()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_leaf_flex"><code class="docutils literal notranslate"><span class="pre">call_per_leaf_flex()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#element-utilities">Element Utilities</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element._compute_element_dofs"><code class="docutils literal notranslate"><span class="pre">_compute_element_dofs()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element._compute_element_lagrange_multipliers"><code class="docutils literal notranslate"><span class="pre">_compute_element_lagrange_multipliers()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.compute_dof_sizes"><code class="docutils literal notranslate"><span class="pre">compute_dof_sizes()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.compute_lagrange_sizes"><code class="docutils literal notranslate"><span class="pre">compute_lagrange_sizes()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.compute_total_element_sizes"><code class="docutils literal notranslate"><span class="pre">compute_total_element_sizes()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lagrange-multipliers-and-constraints">Lagrange Multipliers and Constraints</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementConstraint"><code class="docutils literal notranslate"><span class="pre">ElementConstraint</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementConstraint.coeffs"><code class="docutils literal notranslate"><span class="pre">ElementConstraint.coeffs</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementConstraint.dofs"><code class="docutils literal notranslate"><span class="pre">ElementConstraint.dofs</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementConstraint.i_e"><code class="docutils literal notranslate"><span class="pre">ElementConstraint.i_e</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.Constraint"><code class="docutils literal notranslate"><span class="pre">Constraint</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.Constraint.element_constraints"><code class="docutils literal notranslate"><span class="pre">Constraint.element_constraints</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.Constraint.rhs"><code class="docutils literal notranslate"><span class="pre">Constraint.rhs</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#element-geometry">Element Geometry</a><ul class="nav section-nav flex-column">
@@ -587,7 +609,7 @@ element, such as the corners of the element.</p>
 
 </dd></dl>
 
-<p>The other subtype is <a class="reference internal" href="#mfv2d.element.FlexibleElementArray" title="mfv2d.element.FlexibleElementArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">FlexibleElementArray</span></code></a>. This type
+<p>The second subtype is <a class="reference internal" href="#mfv2d.element.FlexibleElementArray" title="mfv2d.element.FlexibleElementArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">FlexibleElementArray</span></code></a>. This type
 stores data as arrays with the same number of dimensions, but
 different shapes for each element. As such these arrays also
 contain a <a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">FixedElementArray</span></code></a>, which acts as storage
@@ -679,6 +701,61 @@ degrees of freedom.</p>
 
 </dd></dl>
 
+<p>The last subtype is <a class="reference internal" href="#mfv2d.element.ObjectElementArray" title="mfv2d.element.ObjectElementArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">ObjectElementArray</span></code></a>, which is
+designed to hold one object of a specific type for each
+element. If the element entry is not set before accessing it,
+an exception is raised.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.element.ObjectElementArray">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">ObjectElementArray</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">com</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.ArrayCom" title="mfv2d.element.ArrayCom"><span class="pre">ArrayCom</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.13)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">_ElementObjectType</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.13)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><span class="pre">_ElementObjectType</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/element.html#ObjectElementArray"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ObjectElementArray" title="Link to this definition">#</a></dt>
+<dd><p>Element array that stores Python objects.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.element.ObjectElementArray.__delitem__">
+<span class="sig-name descname"><span class="pre">__delitem__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.SupportsIndex" title="(in Python v3.13)"><span class="pre">SupportsIndex</span></a></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#ObjectElementArray.__delitem__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ObjectElementArray.__delitem__" title="Link to this definition">#</a></dt>
+<dd><p>Set the value for the current element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.element.ObjectElementArray.__getitem__">
+<span class="sig-name descname"><span class="pre">__getitem__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.SupportsIndex" title="(in Python v3.13)"><span class="pre">SupportsIndex</span></a></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">_ElementObjectType</span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#ObjectElementArray.__getitem__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ObjectElementArray.__getitem__" title="Link to this definition">#</a></dt>
+<dd><p>Return element’s values.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.element.ObjectElementArray.__iter__">
+<span class="sig-name descname"><span class="pre">__iter__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.13)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><span class="pre">_ElementObjectType</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#ObjectElementArray.__iter__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ObjectElementArray.__iter__" title="Link to this definition">#</a></dt>
+<dd><p>Iterate over all elements.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.element.ObjectElementArray.__len__">
+<span class="sig-name descname"><span class="pre">__len__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#ObjectElementArray.__len__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ObjectElementArray.__len__" title="Link to this definition">#</a></dt>
+<dd><p>Return the number of elements.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.element.ObjectElementArray.__setitem__">
+<span class="sig-name descname"><span class="pre">__setitem__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.SupportsIndex" title="(in Python v3.13)"><span class="pre">SupportsIndex</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">val</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">_ElementObjectType</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#ObjectElementArray.__setitem__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ObjectElementArray.__setitem__" title="Link to this definition">#</a></dt>
+<dd><p>Set the value for the current element.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.element.ObjectElementArray.com">
+<span class="sig-name descname"><span class="pre">com</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.element.ArrayCom" title="mfv2d.element.ArrayCom"><span class="pre">ArrayCom</span></a></em><a class="headerlink" href="#mfv2d.element.ObjectElementArray.com" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.element.ObjectElementArray.dtype">
+<span class="sig-name descname"><span class="pre">dtype</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.13)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">_ElementObjectType</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.element.ObjectElementArray.dtype" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.element.ObjectElementArray.values">
+<span class="sig-name descname"><span class="pre">values</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">_ElementObjectType</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.element.ObjectElementArray.values" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="organizing-elements">
 <h2>Organizing Elements<a class="headerlink" href="#organizing-elements" title="Link to this heading">#</a></h2>
@@ -692,11 +769,11 @@ of freedom on the boundary of an element, or an order of a specific
 element.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="mfv2d.element.ElementCollection">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">ElementCollection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><span class="pre">Element2D</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/element.html#ElementCollection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ElementCollection" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">ElementCollection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><span class="pre">Element2D</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/element.html#ElementCollection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ElementCollection" title="Link to this definition">#</a></dt>
 <dd><p>Element collection which contains relations and information about elements.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>elements</strong> (<em>Sequence</em><em> of </em><em>Element2D</em>) – Sequence of elements which are to be used to construct the collection.</p>
+<dd class="field-odd"><p><strong>elements</strong> (<em>Sequence</em><em> of </em><a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.Element2D" title="mfv2d.mimetic2d.Element2D"><em>Element2D</em></a>) – Sequence of elements which are to be used to construct the collection.</p>
 </dd>
 </dl>
 <dl class="py attribute">
@@ -725,30 +802,6 @@ It is also the <cite>shapes</cite> array for the <cite>child_array</cite> array.
 <dd><p>Array with the corners of the elements (shape (4, 2)).</p>
 </dd></dl>
 
-<dl class="py method">
-<dt class="sig sig-object py" id="mfv2d.element.ElementCollection.get_boundary_dofs">
-<span class="sig-name descname"><span class="pre">get_boundary_dofs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ie</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">side</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ElementSide</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.uint32</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#ElementCollection.get_boundary_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ElementCollection.get_boundary_dofs" title="Link to this definition">#</a></dt>
-<dd><p>Return degrees of freedom on the side of the element.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="mfv2d.element.ElementCollection.get_element_children">
-<span class="sig-name descname"><span class="pre">get_element_children</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#ElementCollection.get_element_children"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ElementCollection.get_element_children" title="Link to this definition">#</a></dt>
-<dd><p>Get children of an element.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="mfv2d.element.ElementCollection.get_element_order_on_side">
-<span class="sig-name descname"><span class="pre">get_element_order_on_side</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">side</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ElementSide</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#ElementCollection.get_element_order_on_side"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ElementCollection.get_element_order_on_side" title="Link to this definition">#</a></dt>
-<dd><p>Return the order of an element on the side.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="mfv2d.element.ElementCollection.ordering">
-<span class="sig-name descname"><span class="pre">ordering</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.element.ElementCollection.ordering" title="Link to this definition">#</a></dt>
-<dd><p>Array with the order of how the elements appear in the mesh.</p>
-</dd></dl>
-
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mfv2d.element.ElementCollection.orders_array">
 <span class="sig-name descname"><span class="pre">orders_array</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.element.ElementCollection.orders_array" title="Link to this definition">#</a></dt>
@@ -763,6 +816,12 @@ It is also the <cite>shapes</cite> array for the <cite>child_array</cite> array.
 a root element with no parent.</p>
 </dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.element.ElementCollection.root_indices">
+<span class="sig-name descname"><span class="pre">root_indices</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.element.ElementCollection.root_indices" title="Link to this definition">#</a></dt>
+<dd><p>Array with indices of all top-level elements. Should be improved.</p>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -770,9 +829,10 @@ a root element with no parent.</p>
 <h2>Executing per Element<a class="headerlink" href="#executing-per-element" title="Link to this heading">#</a></h2>
 <p>One of key requirements for the solver is to be able to execute
 functions for each element. This is done by calling either the
-<a class="reference internal" href="#mfv2d.element.call_per_element_fix" title="mfv2d.element.call_per_element_fix"><code class="xref py py-func docutils literal notranslate"><span class="pre">call_per_element_fix()</span></code></a> or <a class="reference internal" href="#mfv2d.element.call_per_element_flex" title="mfv2d.element.call_per_element_flex"><code class="xref py py-func docutils literal notranslate"><span class="pre">call_per_element_flex()</span></code></a>
+<a class="reference internal" href="#mfv2d.element.call_per_element_fix" title="mfv2d.element.call_per_element_fix"><code class="xref py py-func docutils literal notranslate"><span class="pre">call_per_element_fix()</span></code></a>, <a class="reference internal" href="#mfv2d.element.call_per_element_flex" title="mfv2d.element.call_per_element_flex"><code class="xref py py-func docutils literal notranslate"><span class="pre">call_per_element_flex()</span></code></a>,
+or <a class="reference internal" href="#mfv2d.element.call_per_leaf_obj" title="mfv2d.element.call_per_leaf_obj"><code class="xref py py-func docutils literal notranslate"><span class="pre">call_per_leaf_obj()</span></code></a>
 functions, which work for functions whose results are either
-fixed or flexible sizes respectively.</p>
+fixed size, flexible size, or objects respectively.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="mfv2d.element.call_per_element_fix">
 <span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">call_per_element_fix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">com:</span> <span class="pre">~mfv2d.element.ArrayCom,</span> <span class="pre">dtype:</span> <span class="pre">type[~mfv2d.element._ElementDataType],</span> <span class="pre">shape:</span> <span class="pre">int</span> <span class="pre">|</span> <span class="pre">~collections.abc.Sequence[int],</span> <span class="pre">fn:</span> <span class="pre">~collections.abc.Callable[[~typing.Concatenate[int,</span> <span class="pre">~_FuncArgs]],</span> <span class="pre">TypeAliasForwardRef('array_like')],</span> <span class="pre">*args:</span> <span class="pre">~typing.~_FuncArgs,</span> <span class="pre">**kwargs:</span> <span class="pre">~typing.~_FuncArgs</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">_ElementDataType</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#call_per_element_fix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.call_per_element_fix" title="Link to this definition">#</a></dt>
@@ -817,6 +877,30 @@ fixed or flexible sizes respectively.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="#mfv2d.element.FlexibleElementArray" title="mfv2d.element.FlexibleElementArray">FlexibleElementArray</a>[dtype, np.uint32]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d.element.call_per_leaf_obj">
+<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">call_per_leaf_obj</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">col:</span> <span class="pre">~mfv2d.element.ElementCollection,</span> <span class="pre">dtype:</span> <span class="pre">type[~mfv2d.element._ElementObjectType],</span> <span class="pre">fn:</span> <span class="pre">~collections.abc.Callable[[~typing.Concatenate[int,</span> <span class="pre">~_FuncArgs]],</span> <span class="pre">~mfv2d.element._ElementObjectType],</span> <span class="pre">*args:</span> <span class="pre">~typing.~_FuncArgs,</span> <span class="pre">**kwargs:</span> <span class="pre">~typing.~_FuncArgs</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d.element.ObjectElementArray" title="mfv2d.element.ObjectElementArray"><span class="pre">ObjectElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">_ElementObjectType</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#call_per_leaf_obj"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.call_per_leaf_obj" title="Link to this definition">#</a></dt>
+<dd><p>Call a function for each leaf element and return the result as a flexible array.</p>
+<p>Note that this is only done for leaf elements (elements with no children).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>col</strong> (<a class="reference internal" href="#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><em>ElementCollection</em></a>) – Element collection to use.</p></li>
+<li><p><strong>dtype</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.13)"><em>type</em></a>) – Type of the result.</p></li>
+<li><p><strong>fn</strong> (<em>Callable</em>) – Function to call for each leaf element.</p></li>
+<li><p><strong>*args</strong> – Arguments passed to the function.</p></li>
+<li><p><strong>**kwargs</strong> – Keyword arguments passed to the function.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Flexible array containing the results.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#mfv2d.element.ObjectElementArray" title="mfv2d.element.ObjectElementArray">ObjectElementArray</a>[dtype]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -880,19 +964,17 @@ root or leaf elements.</p>
 <h2>Element Utilities<a class="headerlink" href="#element-utilities" title="Link to this heading">#</a></h2>
 <p>There are some utility functions provided for computing number of
 elemet degrees of freedom or lagrange multipliers. These include
-their single-element variats <a class="reference internal" href="#mfv2d.element._compute_element_dofs" title="mfv2d.element._compute_element_dofs"><code class="xref py py-func docutils literal notranslate"><span class="pre">_compute_element_dofs()</span></code></a> and
-<a class="reference internal" href="#mfv2d.element._compute_element_lagrange_multipliers" title="mfv2d.element._compute_element_lagrange_multipliers"><code class="xref py py-func docutils literal notranslate"><span class="pre">_compute_element_lagrange_multipliers()</span></code></a>, as well as the
-exported <a class="reference internal" href="#mfv2d.element.compute_dof_sizes" title="mfv2d.element.compute_dof_sizes"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_dof_sizes()</span></code></a>, <a class="reference internal" href="#mfv2d.element.compute_lagrange_sizes" title="mfv2d.element.compute_lagrange_sizes"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_lagrange_sizes()</span></code></a>,
-and <a class="reference internal" href="#mfv2d.element.compute_total_element_sizes" title="mfv2d.element.compute_total_element_sizes"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_total_element_sizes()</span></code></a>.</p>
+their single-element variats <a class="reference internal" href="#mfv2d.element._compute_element_dofs" title="mfv2d.element._compute_element_dofs"><code class="xref py py-func docutils literal notranslate"><span class="pre">_compute_element_dofs()</span></code></a> as well as the
+exported <a class="reference internal" href="#mfv2d.element.compute_dof_sizes" title="mfv2d.element.compute_dof_sizes"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_dof_sizes()</span></code></a>.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="mfv2d.element._compute_element_dofs">
-<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">_compute_element_dofs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ie</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ordering</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">UnknownOrderings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.uint32</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#_compute_element_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element._compute_element_dofs" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">_compute_element_dofs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ie</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ordering</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><span class="pre">UnknownOrderings</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.uint32</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#_compute_element_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element._compute_element_dofs" title="Link to this definition">#</a></dt>
 <dd><p>Compute number of DoFs for each element.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ie</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Index of the element.</p></li>
-<li><p><strong>ordering</strong> (<em>UnknownOrderings</em>) – Orders of differential forms in the system.</p></li>
+<li><p><strong>ordering</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><em>UnknownOrderings</em></a>) – Orders of differential forms in the system.</p></li>
 <li><p><strong>elements</strong> (<a class="reference internal" href="#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><em>ElementCollection</em></a>) – Element collection to use.</p></li>
 </ul>
 </dd>
@@ -907,14 +989,8 @@ for the element.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="mfv2d.element._compute_element_lagrange_multipliers">
-<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">_compute_element_lagrange_multipliers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ie</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ordering</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">UnknownOrderings</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#_compute_element_lagrange_multipliers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element._compute_element_lagrange_multipliers" title="Link to this definition">#</a></dt>
-<dd><p>Compute the number of lagrange multipliers required per element.</p>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="mfv2d.element.compute_dof_sizes">
-<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">compute_dof_sizes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ordering</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">UnknownOrderings</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#compute_dof_sizes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.compute_dof_sizes" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">compute_dof_sizes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ordering</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><span class="pre">UnknownOrderings</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#compute_dof_sizes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.compute_dof_sizes" title="Link to this definition">#</a></dt>
 <dd><p>Compute the number of DoFs for each element.</p>
 <section id="parmeters">
 <h3>Parmeters<a class="headerlink" href="#parmeters" title="Link to this heading">#</a></h3>
@@ -936,18 +1012,74 @@ for each element.</p>
 </section>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="mfv2d.element.compute_lagrange_sizes">
-<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">compute_lagrange_sizes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ordering</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">UnknownOrderings</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#compute_lagrange_sizes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.compute_lagrange_sizes" title="Link to this definition">#</a></dt>
-<dd><p>Compute number of Lagrange multipliers present within each element.</p>
+</section>
+<section id="lagrange-multipliers-and-constraints">
+<h2>Lagrange Multipliers and Constraints<a class="headerlink" href="#lagrange-multipliers-and-constraints" title="Link to this heading">#</a></h2>
+<p>Since continuity and strong boundary conditions are enforced throught
+Lagrange multipliers, there are types to represent these relations
+efficiently. The base building block is the
+<a class="reference internal" href="#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">ElementConstraint</span></code></a> type, which describes the degrees of
+freedom and coefficients involved in a specific constraint. These
+may then be combined into <a class="reference internal" href="#mfv2d.element.Constraint" title="mfv2d.element.Constraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">Constraint</span></code></a> type which associates
+one or more <a class="reference internal" href="#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">ElementConstraint</span></code></a> with their right hand side value.</p>
+<p>Note that <a class="reference internal" href="#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">ElementConstraint</span></code></a> are also used to convey weak boundary
+condition information, however, in that case the coefficients in the
+<a class="reference internal" href="#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">ElementConstraint</span></code></a> object represent contributions to the right
+hand side.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.element.ElementConstraint">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">ElementConstraint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i_e</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dofs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.uint32</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coeffs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/element.html#ElementConstraint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.ElementConstraint" title="Link to this definition">#</a></dt>
+<dd><p>Type intended to enforce a constraint on an element.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>i_e</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Index of the element for which this constraint is applied.</p></li>
+<li><p><strong>dofs</strong> (<em>(</em><em>n</em><em>,</em><em>) </em><em>array</em>) – Array with indices of the degrees of freedom of the element involved.</p></li>
+<li><p><strong>coeffs</strong> (<em>(</em><em>n</em><em>,</em><em>) </em><em>array</em>) – Array with coefficients of degrees of freedom of the element involved.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.element.ElementConstraint.coeffs">
+<span class="sig-name descname"><span class="pre">coeffs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.element.ElementConstraint.coeffs" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.element.ElementConstraint.dofs">
+<span class="sig-name descname"><span class="pre">dofs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.element.ElementConstraint.dofs" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.element.ElementConstraint.i_e">
+<span class="sig-name descname"><span class="pre">i_e</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.element.ElementConstraint.i_e" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="mfv2d.element.compute_total_element_sizes">
-<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">compute_total_element_sizes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dof_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lagrange_counts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#compute_total_element_sizes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.compute_total_element_sizes" title="Link to this definition">#</a></dt>
-<dd><p>Compute total number of unknowns per element.</p>
-<p>For leaf elements this only means own DoFs, but for any parent elements it
-means the sum of all children.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.element.Constraint">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">Constraint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rhs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">element_constraints</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><span class="pre">ElementConstraint</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/element.html#Constraint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.Constraint" title="Link to this definition">#</a></dt>
+<dd><p>Type used to specify constraints on degrees of freedom.</p>
+<p>This type combines the individual <a class="reference internal" href="#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><code class="xref py py-class docutils literal notranslate"><span class="pre">ElementConstraint</span></code></a> together
+with a right-hand side of the constraint.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rhs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – The right-hand side of the constraint.</p></li>
+<li><p><strong>*element_constraints</strong> (<a class="reference internal" href="#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><em>ElementConstraint</em></a>) – Constraints to combine together.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.element.Constraint.element_constraints">
+<span class="sig-name descname"><span class="pre">element_constraints</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><span class="pre">ElementConstraint</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.element.Constraint.element_constraints" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.element.Constraint.rhs">
+<span class="sig-name descname"><span class="pre">rhs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><a class="headerlink" href="#mfv2d.element.Constraint.rhs" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 </section>
@@ -1070,7 +1202,7 @@ be followed by a multiplication of an inverse of the mass matrix
 for the specific <span class="math notranslate nohighlight">\(k\)</span>-form.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="mfv2d.element.element_primal_dofs">
-<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">element_primal_dofs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">corners</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">npt.ArrayLike</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#element_primal_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.element_primal_dofs" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">element_primal_dofs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">element_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ElementMassMatrixCache</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">npt.ArrayLike</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#element_primal_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.element_primal_dofs" title="Link to this definition">#</a></dt>
 <dd><p>Compute the primal degrees of freedom of projection of a function on the element.</p>
 <p>Primal degrees of freedom allow for reconstruction of the function’s <span class="math notranslate nohighlight">\(L^2\)</span>
 projection. This means that given these degrees of freedom, the following relation
@@ -1099,7 +1231,7 @@ holds:</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="mfv2d.element.element_dual_dofs">
-<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">element_dual_dofs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">corners</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">npt.ArrayLike</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#element_dual_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.element_dual_dofs" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">element_dual_dofs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">element_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ElementMassMatrixCache</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">npt.ArrayLike</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#element_dual_dofs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.element_dual_dofs" title="Link to this definition">#</a></dt>
 <dd><p>Compute the dual degrees of freedom (projection) of the function on the element.</p>
 <p>Dual projection of a function is computed by taking an integral over the
 reference domain of the function with each of the two dimensional basis.
@@ -1153,13 +1285,13 @@ given its element degrees of freedom. This is handled by the
 <a class="reference internal" href="#mfv2d.element.reconstruct" title="mfv2d.element.reconstruct"><code class="xref py py-func docutils literal notranslate"><span class="pre">reconstruct()</span></code></a> function.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="mfv2d.element.reconstruct">
-<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">reconstruct</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">corners</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dofs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.ArrayLike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.ArrayLike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.ArrayLike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#reconstruct"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.reconstruct" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">mfv2d.element.</span></span><span class="sig-name descname"><span class="pre">reconstruct</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">corners</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dofs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.ArrayLike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.ArrayLike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.ArrayLike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Basis2D" title="mfv2d._mfv2d.Basis2D"><span class="pre">Basis2D</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/element.html#reconstruct"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.element.reconstruct" title="Link to this definition">#</a></dt>
 <dd><p>Reconstruct a k-form on the element from its primal degrees of freedom.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>corners</strong> (<em>array_like</em>) – Array of corners of the element.</p></li>
-<li><p><strong>k</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the differential form to use for basis.</p></li>
+<li><p><strong>k</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><em>UnknownFormOrder</em></a>) – Order of the differential form to use for basis.</p></li>
 <li><p><strong>dofs</strong> (<em>array_like</em>) – Degrees of freedom of the k-form.</p></li>
 <li><p><strong>xi</strong> (<em>array_like</em>) – Coordinates of the xi-coordinate in the reference domain.</p></li>
 <li><p><strong>eta</strong> (<em>array_like</em>) – Coordinates of the eta-coordinate in the reference domain.</p></li>
@@ -1190,12 +1322,12 @@ given its element degrees of freedom. This is handled by the
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="boundary.html"
+       href="continuity.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">boundary</p>
+        <p class="prev-next-title">continuity</p>
       </div>
     </a>
     <a class="right-next"
@@ -1266,6 +1398,17 @@ given its element degrees of freedom. This is handled by the
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.FlexibleElementArray.values"><code class="docutils literal notranslate"><span class="pre">FlexibleElementArray.values</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__delitem__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__delitem__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__getitem__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__getitem__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__iter__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__iter__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__len__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__len__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.__setitem__"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.__setitem__()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.com"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.com</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.dtype"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.dtype</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ObjectElementArray.values"><code class="docutils literal notranslate"><span class="pre">ObjectElementArray.values</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#organizing-elements">Organizing Elements</a><ul class="nav section-nav flex-column">
@@ -1274,12 +1417,9 @@ given its element degrees of freedom. This is handled by the
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.child_count_array"><code class="docutils literal notranslate"><span class="pre">ElementCollection.child_count_array</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.com"><code class="docutils literal notranslate"><span class="pre">ElementCollection.com</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.corners_array"><code class="docutils literal notranslate"><span class="pre">ElementCollection.corners_array</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.get_boundary_dofs"><code class="docutils literal notranslate"><span class="pre">ElementCollection.get_boundary_dofs()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.get_element_children"><code class="docutils literal notranslate"><span class="pre">ElementCollection.get_element_children()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.get_element_order_on_side"><code class="docutils literal notranslate"><span class="pre">ElementCollection.get_element_order_on_side()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.ordering"><code class="docutils literal notranslate"><span class="pre">ElementCollection.ordering</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.orders_array"><code class="docutils literal notranslate"><span class="pre">ElementCollection.orders_array</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.parent_array"><code class="docutils literal notranslate"><span class="pre">ElementCollection.parent_array</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementCollection.root_indices"><code class="docutils literal notranslate"><span class="pre">ElementCollection.root_indices</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -1287,16 +1427,28 @@ given its element degrees of freedom. This is handled by the
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#executing-per-element">Executing per Element</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_element_fix"><code class="docutils literal notranslate"><span class="pre">call_per_element_fix()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_element_flex"><code class="docutils literal notranslate"><span class="pre">call_per_element_flex()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_leaf_obj"><code class="docutils literal notranslate"><span class="pre">call_per_leaf_obj()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_root_flex"><code class="docutils literal notranslate"><span class="pre">call_per_root_flex()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.call_per_leaf_flex"><code class="docutils literal notranslate"><span class="pre">call_per_leaf_flex()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#element-utilities">Element Utilities</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element._compute_element_dofs"><code class="docutils literal notranslate"><span class="pre">_compute_element_dofs()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element._compute_element_lagrange_multipliers"><code class="docutils literal notranslate"><span class="pre">_compute_element_lagrange_multipliers()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.compute_dof_sizes"><code class="docutils literal notranslate"><span class="pre">compute_dof_sizes()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.compute_lagrange_sizes"><code class="docutils literal notranslate"><span class="pre">compute_lagrange_sizes()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.compute_total_element_sizes"><code class="docutils literal notranslate"><span class="pre">compute_total_element_sizes()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lagrange-multipliers-and-constraints">Lagrange Multipliers and Constraints</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementConstraint"><code class="docutils literal notranslate"><span class="pre">ElementConstraint</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementConstraint.coeffs"><code class="docutils literal notranslate"><span class="pre">ElementConstraint.coeffs</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementConstraint.dofs"><code class="docutils literal notranslate"><span class="pre">ElementConstraint.dofs</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.ElementConstraint.i_e"><code class="docutils literal notranslate"><span class="pre">ElementConstraint.i_e</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.Constraint"><code class="docutils literal notranslate"><span class="pre">Constraint</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.Constraint.element_constraints"><code class="docutils literal notranslate"><span class="pre">Constraint.element_constraints</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.element.Constraint.rhs"><code class="docutils literal notranslate"><span class="pre">Constraint.rhs</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#element-geometry">Element Geometry</a><ul class="nav section-nav flex-column">

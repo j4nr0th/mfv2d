@@ -167,10 +167,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -361,6 +363,7 @@ decoupled components, which are solved for independently.</p>
     <span class="n">SolverSettings</span><span class="p">,</span>
     <span class="n">SystemSettings</span><span class="p">,</span>
     <span class="n">TimeSettings</span><span class="p">,</span>
+    <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.trapezoid.html#scipy.integrate.trapezoid" title="scipy.integrate.trapezoid" class="sphx-glr-backref-module-scipy-integrate sphx-glr-backref-type-py-function"><span class="n">trapezoid</span></a>
@@ -403,7 +406,7 @@ were chosen.</p>
 <h2>System Setup<a class="headerlink" href="#system-setup" title="Link to this heading">#</a></h2>
 <p>The system setup the same as for other reaction equations. The only difference is that
 for this case no second equation for the gradients were introduced.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">)</span>
 <span class="n">v</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
@@ -536,7 +539,7 @@ For dt=0.025 total error was 1.388e-02.
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_vector_reaction_002.png" srcset="../../_images/sphx_glr_plot_vector_reaction_002.png" alt="plot vector reaction" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 10.565 seconds)</p>
+<img src="../../_images/sphx_glr_plot_vector_reaction_002.png" srcset="../../_images/sphx_glr_plot_vector_reaction_002.png" alt="plot vector reaction" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 5.075 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-unsteady-plot-vector-reaction-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/b5692b199afdee8730823d6796bf8e05/plot_vector_reaction.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_vector_reaction.ipynb</span></code></a></p>

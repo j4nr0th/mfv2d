@@ -165,10 +165,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -289,13 +291,29 @@ document.write(`
 <span class="sd">add support for prescribing arbitrary relations on the boundary.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="n">Function2D</span><span class="p">,</span> <span class="n">KFormUnknown</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.element</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ElementCollection</span><span class="p">,</span>
+    <span class="n">ElementConstraint</span><span class="p">,</span>
+    <span class="n">FixedElementArray</span><span class="p">,</span>
+    <span class="n">element_boundary_dofs</span><span class="p">,</span>
+    <span class="n">element_node_children_on_side</span><span class="p">,</span>
+    <span class="n">get_side_order</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Function2D</span><span class="p">,</span>
+    <span class="n">KBoundaryProjection</span><span class="p">,</span>
+    <span class="n">KFormUnknown</span><span class="p">,</span>
+    <span class="n">KSum</span><span class="p">,</span>
+    <span class="n">UnknownFormOrder</span><span class="p">,</span>
+    <span class="n">UnknownOrderings</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.mimetic2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElementSide</span><span class="p">,</span> <span class="n">FemCache</span><span class="p">,</span> <span class="n">Mesh2D</span><span class="p">,</span> <span class="n">find_surface_boundary_id_line</span>
 
 
 <div class="viewcode-block" id="BoundaryCondition2D">
@@ -332,8 +350,8 @@ document.write(`
 <span class="sd">        Form for which the value is to be prescribed.</span>
 
 <span class="sd">    indices : array_like</span>
-<span class="sd">        One dimensional array of edges on which this is prescribed.</span>
-<span class="sd">        TODO: check if 0-based on 1-based</span>
+<span class="sd">        One dimensional array of edges on which this is prescribed. Note that</span>
+<span class="sd">        0-based indexing is used, since orientation does not matter.</span>
 
 <span class="sd">    func : (array, array) -&gt; array_like</span>
 <span class="sd">        Function that can be evaluated to obtain values of differential forms</span>
@@ -370,6 +388,426 @@ document.write(`
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
         <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;func&quot;</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="_element_weak_boundary_condition">
+<a class="viewcode-back" href="../../modules/boundary.html#mfv2d.boundary._element_weak_boundary_condition">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_element_weak_boundary_condition</span><span class="p">(</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
+    <span class="n">element_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span>
+    <span class="n">unknown_orders</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
+    <span class="n">unknown_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">FixedElementArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">weak_terms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">KBoundaryProjection</span><span class="p">]],</span>
+    <span class="n">basis_cache</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute boundary conditions contributions the side of the element.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    elements : ElementCollection</span>
+<span class="sd">        Element collection that the element is in.</span>
+
+<span class="sd">    element_idx : int</span>
+<span class="sd">        Index of the element to compute the contributions on.</span>
+
+<span class="sd">    side : ElementSide</span>
+<span class="sd">        Side on which the boundary conditions should be computed.</span>
+
+<span class="sd">    unknown_orders : UnknownOrderings</span>
+<span class="sd">        Ordering of the unknown degrees of freedom.</span>
+
+<span class="sd">    dof_offsets : FixedElementArray of uint32</span>
+<span class="sd">        Offsets of the degrees of freedom in the element.</span>
+
+<span class="sd">    weak_terms : Sequence of (float, KBoundaryProjection)</span>
+<span class="sd">        Pairs of boundary projection terms and their scaling coefficients.</span>
+
+<span class="sd">    basis_cache : FemCache</span>
+<span class="sd">        Cache from which to get basis from.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of ElementConstraint</span>
+<span class="sd">        Tuple with :class:`ElementConstraint` objects that contain the</span>
+<span class="sd">        indices of equations where to apply in the ``dofs`` member and</span>
+<span class="sd">        contributions of boundary terms in the ``coeffs`` member.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">child_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">children</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Node, has children</span>
+        <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">children</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_element_weak_boundary_condition</span><span class="p">(</span>
+            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">c1</span><span class="p">,</span>
+            <span class="n">side</span><span class="p">,</span>
+            <span class="n">unknown_orders</span><span class="p">,</span>
+            <span class="n">unknown_index</span><span class="p">,</span>
+            <span class="n">dof_offsets</span><span class="p">,</span>
+            <span class="n">weak_terms</span><span class="p">,</span>
+            <span class="n">basis_cache</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">+</span> <span class="n">_element_weak_boundary_condition</span><span class="p">(</span>
+            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">c2</span><span class="p">,</span>
+            <span class="n">side</span><span class="p">,</span>
+            <span class="n">unknown_orders</span><span class="p">,</span>
+            <span class="n">unknown_index</span><span class="p">,</span>
+            <span class="n">dof_offsets</span><span class="p">,</span>
+            <span class="n">weak_terms</span><span class="p">,</span>
+            <span class="n">basis_cache</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">side_order</span> <span class="o">=</span> <span class="n">get_side_order</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">element_idx</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
+
+    <span class="n">basis_1d</span> <span class="o">=</span> <span class="n">basis_cache</span><span class="o">.</span><span class="n">get_basis1d</span><span class="p">(</span><span class="n">side_order</span><span class="p">)</span>
+    <span class="n">ndir</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">((</span><span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">&amp;</span> <span class="mi">2</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">i0</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">i1</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">&amp;</span> <span class="mi">3</span>
+    <span class="n">corners</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">corners_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">]</span>
+    <span class="n">p0</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="n">i0</span><span class="p">]</span>
+    <span class="n">p1</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">xv</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span>
+    <span class="n">dy</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">yv</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span>
+    <span class="n">form_order</span> <span class="o">=</span> <span class="n">unknown_orders</span><span class="o">.</span><span class="n">form_orders</span><span class="p">[</span><span class="n">unknown_index</span><span class="p">]</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">element_boundary_dofs</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="o">*</span><span class="n">elements</span><span class="o">.</span><span class="n">orders_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">])</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">dofs</span> <span class="o">+</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">element_idx</span><span class="p">][</span><span class="n">unknown_index</span><span class="p">]</span>
+    <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">bp</span> <span class="ow">in</span> <span class="n">weak_terms</span><span class="p">:</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="n">bp</span><span class="o">.</span><span class="n">func</span>
+        <span class="c1"># We check that bp.func is not None before calling this.</span>
+        <span class="k">assert</span> <span class="n">func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">f_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
+            <span class="c1"># Tangental integral of function with the 0 basis</span>
+            <span class="n">basis</span> <span class="o">=</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">node</span>
+            <span class="n">f_vals</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">f_vals</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">f_vals</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span> <span class="o">*</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">weights</span>
+
+        <span class="k">elif</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
+            <span class="c1"># Integral with the normal basis</span>
+            <span class="n">basis</span> <span class="o">=</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">edge</span>
+            <span class="n">f_vals</span> <span class="o">*=</span> <span class="o">-</span><span class="n">basis_1d</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">weights</span> <span class="o">*</span> <span class="n">ndir</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown/Invalid weak form order </span><span class="si">{</span><span class="n">form_order</span><span class="si">=}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="n">vals</span><span class="p">[:]</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f_vals</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">*</span> <span class="n">basis</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">k</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">ElementConstraint</span><span class="p">(</span><span class="n">element_idx</span><span class="p">,</span> <span class="n">dofs</span><span class="p">,</span> <span class="n">vals</span><span class="p">),)</span></div>
+
+
+
+<div class="viewcode-block" id="_element_strong_boundary_condition">
+<a class="viewcode-back" href="../../modules/boundary.html#mfv2d.boundary._element_strong_boundary_condition">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_element_strong_boundary_condition</span><span class="p">(</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
+    <span class="n">element_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span>
+    <span class="n">unknown_orders</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
+    <span class="n">unknown_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">FixedElementArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">strong_bc</span><span class="p">:</span> <span class="n">BoundaryCondition2DSteady</span><span class="p">,</span>
+    <span class="n">basis_cache</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
+    <span class="n">skip_first</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">skip_last</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute strong boundary condition constraints on the side of the element.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    elements : ElementCollection</span>
+<span class="sd">        Element collection that the element is in.</span>
+
+<span class="sd">    element_idx : int</span>
+<span class="sd">        Index of the element to compute the degrees of freedom on.</span>
+
+<span class="sd">    side : ElementSide</span>
+<span class="sd">        Side on which the boundary conditions should be computed.</span>
+
+<span class="sd">    unknown_orders : UnknownOrderings</span>
+<span class="sd">        Ordering of the unknown degrees of freedom.</span>
+
+<span class="sd">    dof_offsets : FixedElementArray of uint32</span>
+<span class="sd">        Offsets of the degrees of freedom in the element.</span>
+
+<span class="sd">    strong_bc : BoundaryCondition2DStrong</span>
+<span class="sd">        Boundary condition to compute.</span>
+
+<span class="sd">    basis_cache : FemCache</span>
+<span class="sd">        Cache from which to get basis from.</span>
+
+<span class="sd">    skip_first : bool</span>
+<span class="sd">        Should the first node on the edge not be constrained for a 0-form.</span>
+
+<span class="sd">    skip_last : bool</span>
+<span class="sd">        Should the last node on the edge not be constrained for a 0-form.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of ElementConstraint</span>
+<span class="sd">        Tuple with :class:`ElementConstraint` objects that contain the</span>
+<span class="sd">        degrees of freedom to constrain ``dofs`` member and</span>
+<span class="sd">        their respective values in the ``coeffs`` member.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">child_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">children</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Node, has children</span>
+        <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">children</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">_element_strong_boundary_condition</span><span class="p">(</span>
+            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">c1</span><span class="p">,</span>
+            <span class="n">side</span><span class="p">,</span>
+            <span class="n">unknown_orders</span><span class="p">,</span>
+            <span class="n">unknown_index</span><span class="p">,</span>
+            <span class="n">dof_offsets</span><span class="p">,</span>
+            <span class="n">strong_bc</span><span class="p">,</span>
+            <span class="n">basis_cache</span><span class="p">,</span>
+            <span class="n">skip_first</span><span class="p">,</span>
+            <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">+</span> <span class="n">_element_strong_boundary_condition</span><span class="p">(</span>
+            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">c2</span><span class="p">,</span>
+            <span class="n">side</span><span class="p">,</span>
+            <span class="n">unknown_orders</span><span class="p">,</span>
+            <span class="n">unknown_index</span><span class="p">,</span>
+            <span class="n">dof_offsets</span><span class="p">,</span>
+            <span class="n">strong_bc</span><span class="p">,</span>
+            <span class="n">basis_cache</span><span class="p">,</span>
+            <span class="kc">False</span><span class="p">,</span>
+            <span class="n">skip_last</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">side_order</span> <span class="o">=</span> <span class="n">get_side_order</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">element_idx</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
+
+    <span class="n">basis_1d</span> <span class="o">=</span> <span class="n">basis_cache</span><span class="o">.</span><span class="n">get_basis1d</span><span class="p">(</span><span class="n">side_order</span><span class="p">)</span>
+    <span class="n">ndir</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">((</span><span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">&amp;</span> <span class="mi">2</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">i0</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">i1</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">&amp;</span> <span class="mi">3</span>
+    <span class="n">corners</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">corners_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">]</span>
+    <span class="n">p0</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="n">i0</span><span class="p">]</span>
+    <span class="n">p1</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span>
+    <span class="c1"># ndir, p0, p1 = _endpoints_from_line(e, i_side)</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">dy</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">xv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">((</span><span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">yv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">((</span><span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">form_order</span> <span class="o">=</span> <span class="n">unknown_orders</span><span class="o">.</span><span class="n">form_orders</span><span class="p">[</span><span class="n">unknown_index</span><span class="p">]</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">element_boundary_dofs</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="o">*</span><span class="n">elements</span><span class="o">.</span><span class="n">orders_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">])</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">dofs</span> <span class="o">+</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">element_idx</span><span class="p">][</span><span class="n">unknown_index</span><span class="p">]</span>
+    <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
+        <span class="n">vals</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">strong_bc</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">skip_first</span><span class="p">:</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="n">dofs</span> <span class="o">=</span> <span class="n">dofs</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+
+        <span class="k">if</span> <span class="n">skip_last</span><span class="p">:</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">dofs</span> <span class="o">=</span> <span class="n">dofs</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">dofs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">()</span>
+
+    <span class="k">elif</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
+        <span class="c1"># TODO: this might be more efficiently done as some sort of projection</span>
+        <span class="n">lnds</span> <span class="o">=</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span>
+        <span class="n">wnds</span> <span class="o">=</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">weights</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">side_order</span><span class="p">):</span>
+            <span class="n">xc</span> <span class="o">=</span> <span class="p">(</span><span class="n">xv</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">xv</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">xv</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">xv</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">lnds</span>
+            <span class="n">yc</span> <span class="o">=</span> <span class="p">(</span><span class="n">yv</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">yv</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">yv</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">yv</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">lnds</span>
+            <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">xv</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">xv</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">dy</span> <span class="o">=</span> <span class="p">(</span><span class="n">yv</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">yv</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">normal</span> <span class="o">=</span> <span class="n">ndir</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">dy</span><span class="p">,</span> <span class="o">-</span><span class="n">dx</span><span class="p">))</span>
+            <span class="n">fvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">strong_bc</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">fvals</span> <span class="o">=</span> <span class="n">fvals</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">normal</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">fvals</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">normal</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fvals</span> <span class="o">*</span> <span class="n">wnds</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="kc">False</span>
+
+    <span class="c1"># TODO: If good, replace old way with this</span>
+    <span class="c1"># xv = np.astype((p1[0] + p0[0]) / 2 + dx * basis_1d.rule.nodes, np.float64,</span>
+    <span class="c1"># copy=False)</span>
+    <span class="c1"># yv = np.astype((p1[1] + p0[1]) / 2 + dy * basis_1d.rule.nodes, np.float64,</span>
+    <span class="c1"># copy=False)</span>
+    <span class="c1"># func_values = np.asarray(strong_bc.func(xv, yv), np.float64, copy=None)</span>
+
+    <span class="c1"># if form_order == UnknownFormOrder.FORM_ORDER_0:</span>
+    <span class="c1">#     weights = basis_1d.rule.weights</span>
+    <span class="c1">#     basis = basis_1d.node</span>
+    <span class="c1">#     inverse = basis_cache.get_mass_inverse_1d_node(basis_1d.order)</span>
+    <span class="c1">#     new_vals = inverse @ np.sum(</span>
+    <span class="c1">#         func_values[None, :] * weights[None, :] * basis, axis=1</span>
+    <span class="c1">#     )</span>
+
+    <span class="c1">#     # TODO: when replacing old, do not forget to also do this with DoFs</span>
+    <span class="c1">#     # if skip_first:</span>
+    <span class="c1">#     #     new_vals = new_vals[1:]</span>
+
+    <span class="c1">#     # if skip_last:</span>
+    <span class="c1">#     #     new_vals = new_vals[:-1]</span>
+
+    <span class="c1"># elif form_order == UnknownFormOrder.FORM_ORDER_1:</span>
+    <span class="c1">#     weights = basis_1d.rule.weights</span>
+    <span class="c1">#     basis = basis_1d.edge</span>
+    <span class="c1">#     inverse = basis_cache.get_mass_inverse_1d_edge(basis_1d.order)</span>
+    <span class="c1">#     normal = ndir * np.array((dy, -dx))</span>
+    <span class="c1">#     new_vals = inverse @ np.sum(</span>
+    <span class="c1">#         (func_values[:, 0] * normal[0] + func_values[:, 1] * normal[1])[None, :]</span>
+    <span class="c1">#         * weights[None, :]</span>
+    <span class="c1">#         * basis,</span>
+    <span class="c1">#         axis=1,</span>
+    <span class="c1">#     )</span>
+    <span class="c1"># else:</span>
+    <span class="c1">#     assert False</span>
+
+    <span class="k">assert</span> <span class="n">vals</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">dofs</span><span class="o">.</span><span class="n">size</span>
+    <span class="c1"># assert np.allclose(vals, new_vals)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">ElementConstraint</span><span class="p">(</span><span class="n">element_idx</span><span class="p">,</span> <span class="n">dofs</span><span class="p">,</span> <span class="n">vals</span><span class="p">),)</span></div>
+
+
+
+<div class="viewcode-block" id="mesh_boundary_conditions">
+<a class="viewcode-back" href="../../modules/boundary.html#mfv2d.boundary.mesh_boundary_conditions">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mesh_boundary_conditions</span><span class="p">(</span>
+    <span class="n">evaluatable_terms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">KSum</span><span class="p">],</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh2D</span><span class="p">,</span>
+    <span class="n">unknown_order</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
+    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">FixedElementArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">top_indices</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">strong_bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">BoundaryCondition2DSteady</span><span class="p">]],</span>
+    <span class="n">basis_cache</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute boundary condition contributions and constraints.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    evaluatable_terms : Sequence of KSum</span>
+<span class="sd">        Right sides of equations that contain boundary projections to be evaluated. Must</span>
+<span class="sd">        be ordered according to weights.</span>
+
+<span class="sd">    mesh : Mesh2D</span>
+<span class="sd">        Mesh of the top level elements.</span>
+
+<span class="sd">    unknown_order : UnknownOrderings</span>
+<span class="sd">        Orders of unknown forms.</span>
+
+<span class="sd">    elements : ElementCollection</span>
+<span class="sd">        Collection of elements to use.</span>
+
+<span class="sd">    dof_offsets : FixedElementArray[np.uint32]</span>
+<span class="sd">        Offsets of DoFs within each element.</span>
+
+<span class="sd">    top_indices : npt.NDArray[np.uint32]</span>
+<span class="sd">        Array with corrected indices for top level elements.</span>
+
+<span class="sd">    strong_bcs : Sequence of Sequence of BoundaryCondition2DSteady</span>
+<span class="sd">        Boundary conditions grouped per weight functions and correctly ordered to match</span>
+<span class="sd">        the order of weight functions in the system.</span>
+
+<span class="sd">    caches : FemCache</span>
+<span class="sd">        Cache to use for basis functions.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    strong : tuple of ElementConstraint</span>
+<span class="sd">        Strong boundary conditions in a specific notation. Each of these means</span>
+<span class="sd">        that for element given by ``ElementConstraint.i_e``, all dofs with</span>
+<span class="sd">        indices ``ElementConstraint.dofs`` should be constrained to value</span>
+<span class="sd">        ``ElementConstraint.coeffs``.</span>
+
+<span class="sd">    weak : tuple of ElementConstraint</span>
+<span class="sd">        Weak boundary conditions in a specific notation. Each of these means</span>
+<span class="sd">        that for element given by ``ElementConstraint.i_e``, all equations with</span>
+<span class="sd">        indices ``ElementConstraint.dofs`` should have the value</span>
+<span class="sd">        ``ElementConstraint.coeffs`` added to them.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">i_boundary</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">w_bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">s_bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">projections</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">[</span>
+            <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">weak_term</span><span class="o">.</span><span class="n">pairs</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KBoundaryProjection</span> <span class="ow">and</span> <span class="n">v</span><span class="o">.</span><span class="n">func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">weak_term</span> <span class="ow">in</span> <span class="n">evaluatable_terms</span>
+    <span class="p">]</span>
+    <span class="k">del</span> <span class="n">evaluatable_terms</span>
+    <span class="n">set_nodes</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">i_boundary</span> <span class="ow">in</span> <span class="n">mesh</span><span class="o">.</span><span class="n">boundary_indices</span><span class="p">:</span>
+        <span class="n">dual_line</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">dual</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">i_boundary</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dual_line</span><span class="o">.</span><span class="n">begin</span><span class="p">:</span>
+            <span class="n">id_surf</span> <span class="o">=</span> <span class="n">dual_line</span><span class="o">.</span><span class="n">begin</span>
+        <span class="k">elif</span> <span class="n">dual_line</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+            <span class="n">id_surf</span> <span class="o">=</span> <span class="n">dual_line</span><span class="o">.</span><span class="n">end</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Dual line should be on the boundary.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># primal_line = mesh.primal.get_line(i_boundary + 1)</span>
+        <span class="n">i_element</span> <span class="o">=</span> <span class="n">top_indices</span><span class="p">[</span><span class="n">id_surf</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">primal_surface</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">get_surface</span><span class="p">(</span><span class="n">id_surf</span><span class="p">)</span>
+        <span class="n">i_side</span> <span class="o">=</span> <span class="n">find_surface_boundary_id_line</span><span class="p">(</span><span class="n">primal_surface</span><span class="p">,</span> <span class="n">i_boundary</span><span class="p">)</span>
+        <span class="n">primal_line</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">primal_surface</span><span class="p">[</span><span class="n">i_side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">weak_term</span><span class="p">,</span> <span class="n">strong_terms</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="nb">zip</span><span class="p">(</span><span class="n">projections</span><span class="p">,</span> <span class="n">strong_bcs</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">strong_term</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">strong</span> <span class="ow">in</span> <span class="n">strong_terms</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">i_boundary</span> <span class="ow">in</span> <span class="n">strong</span><span class="o">.</span><span class="n">indices</span><span class="p">:</span>
+                    <span class="n">strong_term</span> <span class="o">=</span> <span class="n">strong</span>
+                    <span class="k">break</span>
+            <span class="k">if</span> <span class="n">strong_term</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Strong BC</span>
+                <span class="n">p0</span> <span class="o">=</span> <span class="n">primal_line</span><span class="o">.</span><span class="n">begin</span><span class="o">.</span><span class="n">index</span>
+                <span class="n">p1</span> <span class="o">=</span> <span class="n">primal_line</span><span class="o">.</span><span class="n">end</span><span class="o">.</span><span class="n">index</span>
+
+                <span class="n">s_bcs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="n">_element_strong_boundary_condition</span><span class="p">(</span>
+                        <span class="n">elements</span><span class="p">,</span>
+                        <span class="n">i_element</span><span class="p">,</span>
+                        <span class="n">i_side</span><span class="p">,</span>
+                        <span class="n">unknown_order</span><span class="p">,</span>
+                        <span class="n">idx</span><span class="p">,</span>
+                        <span class="n">dof_offsets</span><span class="p">,</span>
+                        <span class="n">strong_term</span><span class="p">,</span>
+                        <span class="n">basis_cache</span><span class="p">,</span>
+                        <span class="n">p0</span> <span class="ow">in</span> <span class="n">set_nodes</span><span class="p">,</span>
+                        <span class="n">p1</span> <span class="ow">in</span> <span class="n">set_nodes</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">set_nodes</span> <span class="o">|=</span> <span class="p">{</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">}</span>
+
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">weak_term</span><span class="p">):</span>
+                <span class="c1"># Weak BC</span>
+
+                <span class="n">w_bcs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="n">_element_weak_boundary_condition</span><span class="p">(</span>
+                        <span class="n">elements</span><span class="p">,</span>
+                        <span class="n">i_element</span><span class="p">,</span>
+                        <span class="n">i_side</span><span class="p">,</span>
+                        <span class="n">unknown_order</span><span class="p">,</span>
+                        <span class="n">idx</span><span class="p">,</span>
+                        <span class="n">dof_offsets</span><span class="p">,</span>
+                        <span class="n">weak_term</span><span class="p">,</span>
+                        <span class="n">basis_cache</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Strong not given, but also no weak ones.</span>
+                <span class="k">pass</span>
+
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">s_bcs</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">w_bcs</span><span class="p">)</span></div>
 
 </pre></div>
 

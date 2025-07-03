@@ -52,7 +52,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'modules/boundary';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="element" href="element.html" />
+    <link rel="next" title="continuity" href="continuity.html" />
     <link rel="prev" title="_mfv2d" href="_mfv2d.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -166,10 +166,12 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../modules.html">Modules</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -321,21 +323,30 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.form</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.func"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.func</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.indices</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#boundary-condition-types">Boundary Condition Types</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.form</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.func"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.func</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.indices</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.form</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.func"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.func</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.indices</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.form</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.func"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.func</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.indices</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D.form</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D.indices</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D.form</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D.indices</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#boundary-condition-construction">Boundary Condition Construction</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary._element_weak_boundary_condition"><code class="docutils literal notranslate"><span class="pre">_element_weak_boundary_condition()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary._element_strong_boundary_condition"><code class="docutils literal notranslate"><span class="pre">_element_strong_boundary_condition()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.mesh_boundary_conditions"><code class="docutils literal notranslate"><span class="pre">mesh_boundary_conditions()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -354,6 +365,8 @@ document.write(`
 <p>This submodule contains types that describe strong boundary condtitions. For
 now, only steady boundary conditions are used, though there are already
 types for the unsteady ones.</p>
+<section id="boundary-condition-types">
+<h2>Boundary Condition Types<a class="headerlink" href="#boundary-condition-types" title="Link to this heading">#</a></h2>
 <p>The main class that would be in use at the moment would be
 <a class="reference internal" href="#mfv2d.boundary.BoundaryCondition2DSteady" title="mfv2d.boundary.BoundaryCondition2DSteady"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady</span></code></a>. It is derived from
 <a class="reference internal" href="#mfv2d.boundary.BoundaryCondition2D" title="mfv2d.boundary.BoundaryCondition2D"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryCondition2D</span></code></a>, which is also the parent for
@@ -370,8 +383,8 @@ a Lagrange multiplier to the system.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>form</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.KFormUnknown" title="mfv2d.kform.KFormUnknown"><em>KFormUnknown</em></a>) – Form for which the value is to be prescribed.</p></li>
-<li><p><strong>indices</strong> (<em>array_like</em>) – One dimensional array of edges on which this is prescribed.
-TODO: check if 0-based on 1-based</p></li>
+<li><p><strong>indices</strong> (<em>array_like</em>) – One dimensional array of edges on which this is prescribed. Note that
+0-based indexing is used, since orientation does not matter.</p></li>
 <li><p><strong>func</strong> (<em>(</em><em>array</em><em>, </em><em>array</em><em>) </em><em>-&gt; array_like</em>) – Function that can be evaluated to obtain values of differential forms
 at those points. For 1-froms it should return an array_like with an
 extra last dimension, which contains the two vector components.</p></li>
@@ -433,6 +446,103 @@ extra last dimension, which contains the two vector components.</p></li>
 </dd></dl>
 
 </section>
+<section id="boundary-condition-construction">
+<h2>Boundary Condition Construction<a class="headerlink" href="#boundary-condition-construction" title="Link to this heading">#</a></h2>
+<p>There are also functions used to construct boundary condition constraints
+and evalue contributions of weak boundary conditions.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d.boundary._element_weak_boundary_condition">
+<span class="sig-prename descclassname"><span class="pre">mfv2d.boundary.</span></span><span class="sig-name descname"><span class="pre">_element_weak_boundary_condition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="element.html#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">element_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">side</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.ElementSide" title="mfv2d.mimetic2d.ElementSide"><span class="pre">ElementSide</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">unknown_orders</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><span class="pre">UnknownOrderings</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">unknown_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dof_offsets</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="element.html#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weak_terms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="kform.html#mfv2d.kform.KBoundaryProjection" title="mfv2d.kform.KBoundaryProjection"><span class="pre">KBoundaryProjection</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.FemCache" title="mfv2d.mimetic2d.FemCache"><span class="pre">FemCache</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="element.html#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><span class="pre">ElementConstraint</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/boundary.html#_element_weak_boundary_condition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.boundary._element_weak_boundary_condition" title="Link to this definition">#</a></dt>
+<dd><p>Compute boundary conditions contributions the side of the element.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>elements</strong> (<a class="reference internal" href="element.html#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><em>ElementCollection</em></a>) – Element collection that the element is in.</p></li>
+<li><p><strong>element_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Index of the element to compute the contributions on.</p></li>
+<li><p><strong>side</strong> (<a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.ElementSide" title="mfv2d.mimetic2d.ElementSide"><em>ElementSide</em></a>) – Side on which the boundary conditions should be computed.</p></li>
+<li><p><strong>unknown_orders</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><em>UnknownOrderings</em></a>) – Ordering of the unknown degrees of freedom.</p></li>
+<li><p><strong>dof_offsets</strong> (<a class="reference internal" href="element.html#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><em>FixedElementArray</em></a><em> of </em><em>uint32</em>) – Offsets of the degrees of freedom in the element.</p></li>
+<li><p><strong>weak_terms</strong> (<em>Sequence</em><em> of </em><em>(</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><a class="reference internal" href="kform.html#mfv2d.kform.KBoundaryProjection" title="mfv2d.kform.KBoundaryProjection"><em>KBoundaryProjection</em></a><em>)</em>) – Pairs of boundary projection terms and their scaling coefficients.</p></li>
+<li><p><strong>basis_cache</strong> (<a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.FemCache" title="mfv2d.mimetic2d.FemCache"><em>FemCache</em></a>) – Cache from which to get basis from.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tuple with <code class="xref py py-class docutils literal notranslate"><span class="pre">ElementConstraint</span></code> objects that contain the
+indices of equations where to apply in the <code class="docutils literal notranslate"><span class="pre">dofs</span></code> member and
+contributions of boundary terms in the <code class="docutils literal notranslate"><span class="pre">coeffs</span></code> member.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a> of <a class="reference internal" href="element.html#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint">ElementConstraint</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d.boundary._element_strong_boundary_condition">
+<span class="sig-prename descclassname"><span class="pre">mfv2d.boundary.</span></span><span class="sig-name descname"><span class="pre">_element_strong_boundary_condition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="element.html#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">element_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">side</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.ElementSide" title="mfv2d.mimetic2d.ElementSide"><span class="pre">ElementSide</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">unknown_orders</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><span class="pre">UnknownOrderings</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">unknown_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dof_offsets</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="element.html#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strong_bc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.boundary.BoundaryCondition2DSteady" title="mfv2d.boundary.BoundaryCondition2DSteady"><span class="pre">BoundaryCondition2DSteady</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.FemCache" title="mfv2d.mimetic2d.FemCache"><span class="pre">FemCache</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_first</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_last</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="element.html#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><span class="pre">ElementConstraint</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/boundary.html#_element_strong_boundary_condition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.boundary._element_strong_boundary_condition" title="Link to this definition">#</a></dt>
+<dd><p>Compute strong boundary condition constraints on the side of the element.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>elements</strong> (<a class="reference internal" href="element.html#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><em>ElementCollection</em></a>) – Element collection that the element is in.</p></li>
+<li><p><strong>element_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Index of the element to compute the degrees of freedom on.</p></li>
+<li><p><strong>side</strong> (<a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.ElementSide" title="mfv2d.mimetic2d.ElementSide"><em>ElementSide</em></a>) – Side on which the boundary conditions should be computed.</p></li>
+<li><p><strong>unknown_orders</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><em>UnknownOrderings</em></a>) – Ordering of the unknown degrees of freedom.</p></li>
+<li><p><strong>dof_offsets</strong> (<a class="reference internal" href="element.html#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><em>FixedElementArray</em></a><em> of </em><em>uint32</em>) – Offsets of the degrees of freedom in the element.</p></li>
+<li><p><strong>strong_bc</strong> (<em>BoundaryCondition2DStrong</em>) – Boundary condition to compute.</p></li>
+<li><p><strong>basis_cache</strong> (<a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.FemCache" title="mfv2d.mimetic2d.FemCache"><em>FemCache</em></a>) – Cache from which to get basis from.</p></li>
+<li><p><strong>skip_first</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Should the first node on the edge not be constrained for a 0-form.</p></li>
+<li><p><strong>skip_last</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Should the last node on the edge not be constrained for a 0-form.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tuple with <code class="xref py py-class docutils literal notranslate"><span class="pre">ElementConstraint</span></code> objects that contain the
+degrees of freedom to constrain <code class="docutils literal notranslate"><span class="pre">dofs</span></code> member and
+their respective values in the <code class="docutils literal notranslate"><span class="pre">coeffs</span></code> member.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a> of <a class="reference internal" href="element.html#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint">ElementConstraint</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d.boundary.mesh_boundary_conditions">
+<span class="sig-prename descclassname"><span class="pre">mfv2d.boundary.</span></span><span class="sig-name descname"><span class="pre">mesh_boundary_conditions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">evaluatable_terms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="kform.html#mfv2d.kform.KSum" title="mfv2d.kform.KSum"><span class="pre">KSum</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.Mesh2D" title="mfv2d.mimetic2d.Mesh2D"><span class="pre">Mesh2D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">unknown_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><span class="pre">UnknownOrderings</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="element.html#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><span class="pre">ElementCollection</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dof_offsets</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="element.html#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><span class="pre">FixedElementArray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">uint32</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strong_bcs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mfv2d.boundary.BoundaryCondition2DSteady" title="mfv2d.boundary.BoundaryCondition2DSteady"><span class="pre">BoundaryCondition2DSteady</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">basis_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.FemCache" title="mfv2d.mimetic2d.FemCache"><span class="pre">FemCache</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="element.html#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><span class="pre">ElementConstraint</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="element.html#mfv2d.element.ElementConstraint" title="mfv2d.element.ElementConstraint"><span class="pre">ElementConstraint</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/boundary.html#mesh_boundary_conditions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.boundary.mesh_boundary_conditions" title="Link to this definition">#</a></dt>
+<dd><p>Compute boundary condition contributions and constraints.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>evaluatable_terms</strong> (<em>Sequence</em><em> of </em><a class="reference internal" href="kform.html#mfv2d.kform.KSum" title="mfv2d.kform.KSum"><em>KSum</em></a>) – Right sides of equations that contain boundary projections to be evaluated. Must
+be ordered according to weights.</p></li>
+<li><p><strong>mesh</strong> (<a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.Mesh2D" title="mfv2d.mimetic2d.Mesh2D"><em>Mesh2D</em></a>) – Mesh of the top level elements.</p></li>
+<li><p><strong>unknown_order</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><em>UnknownOrderings</em></a>) – Orders of unknown forms.</p></li>
+<li><p><strong>elements</strong> (<a class="reference internal" href="element.html#mfv2d.element.ElementCollection" title="mfv2d.element.ElementCollection"><em>ElementCollection</em></a>) – Collection of elements to use.</p></li>
+<li><p><strong>dof_offsets</strong> (<a class="reference internal" href="element.html#mfv2d.element.FixedElementArray" title="mfv2d.element.FixedElementArray"><em>FixedElementArray</em></a><em>[</em><em>np.uint32</em><em>]</em>) – Offsets of DoFs within each element.</p></li>
+<li><p><strong>top_indices</strong> (<em>npt.NDArray</em><em>[</em><em>np.uint32</em><em>]</em>) – Array with corrected indices for top level elements.</p></li>
+<li><p><strong>strong_bcs</strong> (<em>Sequence</em><em> of </em><em>Sequence</em><em> of </em><a class="reference internal" href="#mfv2d.boundary.BoundaryCondition2DSteady" title="mfv2d.boundary.BoundaryCondition2DSteady"><em>BoundaryCondition2DSteady</em></a>) – Boundary conditions grouped per weight functions and correctly ordered to match
+the order of weight functions in the system.</p></li>
+<li><p><strong>caches</strong> (<a class="reference internal" href="mimetic2d.html#mfv2d.mimetic2d.FemCache" title="mfv2d.mimetic2d.FemCache"><em>FemCache</em></a>) – Cache to use for basis functions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>strong</strong> (<em>tuple of ElementConstraint</em>) – Strong boundary conditions in a specific notation. Each of these means
+that for element given by <code class="docutils literal notranslate"><span class="pre">ElementConstraint.i_e</span></code>, all dofs with
+indices <code class="docutils literal notranslate"><span class="pre">ElementConstraint.dofs</span></code> should be constrained to value
+<code class="docutils literal notranslate"><span class="pre">ElementConstraint.coeffs</span></code>.</p></li>
+<li><p><strong>weak</strong> (<em>tuple of ElementConstraint</em>) – Weak boundary conditions in a specific notation. Each of these means
+that for element given by <code class="docutils literal notranslate"><span class="pre">ElementConstraint.i_e</span></code>, all equations with
+indices <code class="docutils literal notranslate"><span class="pre">ElementConstraint.dofs</span></code> should have the value
+<code class="docutils literal notranslate"><span class="pre">ElementConstraint.coeffs</span></code> added to them.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
 
 
                 </article>
@@ -455,11 +565,11 @@ extra last dimension, which contains the two vector components.</p></li>
       </div>
     </a>
     <a class="right-next"
-       href="element.html"
+       href="continuity.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">element</p>
+        <p class="prev-next-title">continuity</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -479,21 +589,30 @@ extra last dimension, which contains the two vector components.</p></li>
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.form</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.func"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.func</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.indices</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#boundary-condition-types">Boundary Condition Types</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.form</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.func"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.func</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DSteady.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady.indices</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.form</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.func"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.func</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.indices</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.form</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.func"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.func</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2DUnsteady.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady.indices</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D.form</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D.indices</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D.form"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D.form</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.BoundaryCondition2D.indices"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D.indices</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#boundary-condition-construction">Boundary Condition Construction</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary._element_weak_boundary_condition"><code class="docutils literal notranslate"><span class="pre">_element_weak_boundary_condition()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary._element_strong_boundary_condition"><code class="docutils literal notranslate"><span class="pre">_element_strong_boundary_condition()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.boundary.mesh_boundary_conditions"><code class="docutils literal notranslate"><span class="pre">mesh_boundary_conditions()</span></code></a></li>
 </ul>
 </li>
 </ul>

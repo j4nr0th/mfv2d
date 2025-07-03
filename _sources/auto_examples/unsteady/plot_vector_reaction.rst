@@ -27,7 +27,7 @@ Vector reaction equation examples is solving the same equations as
 :math:`u` being a 1-form. This does just makes the solution have two
 decoupled components, which are solved for independently.
 
-.. GENERATED FROM PYTHON SOURCE LINES 11-27
+.. GENERATED FROM PYTHON SOURCE LINES 11-28
 
 .. code-block:: Python
 
@@ -43,6 +43,7 @@ decoupled components, which are solved for independently.
         SolverSettings,
         SystemSettings,
         TimeSettings,
+        UnknownFormOrder,
         solve_system_2d,
     )
     from scipy.integrate import trapezoid
@@ -54,7 +55,7 @@ decoupled components, which are solved for independently.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 28-49
+.. GENERATED FROM PYTHON SOURCE LINES 29-50
 
 Setup
 -----
@@ -78,7 +79,7 @@ the value of :math:`\alpha = 0.5` and the time slice :math:`t \in [0, 5]`
 were chosen.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 50-71
+.. GENERATED FROM PYTHON SOURCE LINES 51-72
 
 .. code-block:: Python
 
@@ -110,7 +111,7 @@ were chosen.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 72-78
+.. GENERATED FROM PYTHON SOURCE LINES 73-79
 
 System Setup
 ------------
@@ -119,13 +120,13 @@ The system setup the same as for other reaction equations. The only difference i
 for this case no second equation for the gradients were introduced.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 79-90
+.. GENERATED FROM PYTHON SOURCE LINES 80-91
 
 .. code-block:: Python
 
 
 
-    u = KFormUnknown(2, "u", 1)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_1)
     v = u.weight
 
     system = KFormSystem(
@@ -141,7 +142,7 @@ for this case no second equation for the gradients were introduced.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 91-98
+.. GENERATED FROM PYTHON SOURCE LINES 92-99
 
 Make the Mesh
 -------------
@@ -151,7 +152,7 @@ concavely deformed square.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 99-136
+.. GENERATED FROM PYTHON SOURCE LINES 100-137
 
 .. code-block:: Python
 
@@ -204,7 +205,7 @@ concavely deformed square.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 137-142
+.. GENERATED FROM PYTHON SOURCE LINES 138-143
 
 Run Unsteady Simulations
 ------------------------
@@ -212,7 +213,7 @@ Run Unsteady Simulations
 With the mesh and system defined, the simulations can be run. The run is done for
 10, 20, 50, 100, and 200 time steps.
 
-.. GENERATED FROM PYTHON SOURCE LINES 143-185
+.. GENERATED FROM PYTHON SOURCE LINES 144-186
 
 .. code-block:: Python
 
@@ -275,7 +276,7 @@ With the mesh and system defined, the simulations can be run. The run is done fo
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 186-191
+.. GENERATED FROM PYTHON SOURCE LINES 187-192
 
 Plot the Time Error
 -------------------
@@ -283,7 +284,7 @@ Plot the Time Error
 The total integrated time error in the two norms is now examined.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 192-215
+.. GENERATED FROM PYTHON SOURCE LINES 193-216
 
 .. code-block:: Python
 
@@ -325,7 +326,7 @@ The total integrated time error in the two norms is now examined.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 10.565 seconds)
+   **Total running time of the script:** (0 minutes 5.075 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_vector_reaction.py:

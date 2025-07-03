@@ -70,7 +70,7 @@ Laplace operator, which the Poisson equation is defined with.
     \varepsilon_{H^1}(u) = \int_\Omega \left|\left|
     \nabla \times u_\mathrm{exact} - \nabla \times u \right|\right| {\mathrm{d}\Omega}
 
-.. GENERATED FROM PYTHON SOURCE LINES 56-72
+.. GENERATED FROM PYTHON SOURCE LINES 56-73
 
 .. code-block:: Python
 
@@ -87,6 +87,7 @@ Laplace operator, which the Poisson equation is defined with.
         Mesh2D,
         SolverSettings,
         SystemSettings,
+        UnknownFormOrder,
         solve_system_2d,
     )
 
@@ -97,7 +98,7 @@ Laplace operator, which the Poisson equation is defined with.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 73-103
+.. GENERATED FROM PYTHON SOURCE LINES 74-104
 
 Setup
 -----
@@ -130,7 +131,7 @@ The source term on the right side of the equation is thus given by equation
     \cos\left(\frac{\pi y}{2}\right)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 104-127
+.. GENERATED FROM PYTHON SOURCE LINES 105-128
 
 .. code-block:: Python
 
@@ -164,7 +165,7 @@ The source term on the right side of the equation is thus given by equation
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 128-144
+.. GENERATED FROM PYTHON SOURCE LINES 129-145
 
 System Setup
 ------------
@@ -183,14 +184,14 @@ is needed to compute the error given by the :math:`H^1`.
     \int_\Omega p^{(1)} \wedge \star \mathrm{d} u^{(0)} - \int_\Omega p^{(1)} \wedge
     \star q^{(1)} = 0
 
-.. GENERATED FROM PYTHON SOURCE LINES 145-158
+.. GENERATED FROM PYTHON SOURCE LINES 146-159
 
 .. code-block:: Python
 
 
-    u = KFormUnknown(2, "u", 0)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
     v = u.weight
-    q = KFormUnknown(2, "q", 1)
+    q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
     p = q.weight
 
     system = KFormSystem(
@@ -208,13 +209,13 @@ is needed to compute the error given by the :math:`H^1`.
 
  .. code-block:: none
 
-    [u(0*)]^T  ([(E(1, 0))^T @ M(0) @ E(1, 0) |         0]  [u(0)]   [-1 * <u, source_exact> + <u, q_exact>])
-    [q(1*)]    ([              M(1) @ E(1, 0) | -1 * M(1)]  [q(1)] = [                                    0])
+    [u(1*)]^T  ([(E(2, 1))^T @ M(1) @ E(2, 1) |         0]  [u(0)]   [-1 * <u, source_exact> + <u, q_exact>])
+    [q(2*)]    ([              M(2) @ E(2, 1) | -1 * M(2)]  [q(1)] = [                                    0])
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 159-166
+.. GENERATED FROM PYTHON SOURCE LINES 160-167
 
 Making The Mesh
 ---------------
@@ -224,7 +225,7 @@ The boundaries of the mesh are defined by B-splines with 4 knots, meaning they
 are cubic splines. The mesh is presented in the plot bellow.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 167-199
+.. GENERATED FROM PYTHON SOURCE LINES 168-200
 
 .. code-block:: Python
 
@@ -272,7 +273,7 @@ are cubic splines. The mesh is presented in the plot bellow.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 200-205
+.. GENERATED FROM PYTHON SOURCE LINES 201-206
 
 Check the Result
 ----------------
@@ -280,7 +281,7 @@ Check the Result
 Before checking the convergence, let us first just check on how the solution
 looks.
 
-.. GENERATED FROM PYTHON SOURCE LINES 206-247
+.. GENERATED FROM PYTHON SOURCE LINES 207-248
 
 .. code-block:: Python
 
@@ -337,14 +338,14 @@ looks.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 248-252
+.. GENERATED FROM PYTHON SOURCE LINES 249-253
 
 Solve for Different Orders
 --------------------------
 
 So we solve for different orders.
 
-.. GENERATED FROM PYTHON SOURCE LINES 253-287
+.. GENERATED FROM PYTHON SOURCE LINES 254-288
 
 .. code-block:: Python
 
@@ -400,7 +401,7 @@ So we solve for different orders.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 288-296
+.. GENERATED FROM PYTHON SOURCE LINES 289-297
 
 Plot Results
 ------------
@@ -411,7 +412,7 @@ Here we plot the results.
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 297-321
+.. GENERATED FROM PYTHON SOURCE LINES 298-322
 
 .. code-block:: Python
 
@@ -457,13 +458,13 @@ Here we plot the results.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 322-325
+.. GENERATED FROM PYTHON SOURCE LINES 323-326
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 326-348
+.. GENERATED FROM PYTHON SOURCE LINES 327-349
 
 .. code-block:: Python
 
@@ -510,7 +511,7 @@ Here we plot the results.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 2.392 seconds)
+   **Total running time of the script:** (0 minutes 1.372 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_direct_poisson.py:

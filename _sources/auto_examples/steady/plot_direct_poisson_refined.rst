@@ -29,7 +29,7 @@ This examples is otherwise identical to :ref:`sphx_glr_auto_examples_steady_plot
 where the direct Poisson is solved in a straight-forward manner. As such, only
 text and comments added to the code are pertaining to features not used in that one.
 
-.. GENERATED FROM PYTHON SOURCE LINES 14-101
+.. GENERATED FROM PYTHON SOURCE LINES 14-102
 
 .. code-block:: Python
 
@@ -47,6 +47,7 @@ text and comments added to the code are pertaining to features not used in that 
         RefinementSettings,
         SolverSettings,
         SystemSettings,
+        UnknownFormOrder,
         solve_system_2d,
     )
 
@@ -72,9 +73,9 @@ text and comments added to the code are pertaining to features not used in that 
         return -(np.pi**2) * np.cos(np.pi / 2 * x) * np.cos(np.pi / 2 * y)
 
 
-    q = KFormUnknown(2, "q", 1)
+    q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
     p = q.weight
-    u = KFormUnknown(2, "u", 0)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
     v = u.weight
 
     system = KFormSystem(
@@ -133,13 +134,13 @@ text and comments added to the code are pertaining to features not used in that 
 
  .. code-block:: none
 
-    [u(0*)]^T  ([(E(1, 0))^T @ M(0) @ E(1, 0) |         0]  [u(0)]   [-1 * <u, source_exact> + <u, q_exact>])
-    [q(1*)]    ([              M(1) @ E(1, 0) | -1 * M(1)]  [q(1)] = [                                    0])
+    [u(1*)]^T  ([(E(2, 1))^T @ M(1) @ E(2, 1) |         0]  [u(0)]   [-1 * <u, source_exact> + <u, q_exact>])
+    [q(2*)]    ([              M(2) @ E(2, 1) | -1 * M(2)]  [q(1)] = [                                    0])
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 102-112
+.. GENERATED FROM PYTHON SOURCE LINES 103-113
 
 Refinement Settings
 -------------------
@@ -152,7 +153,7 @@ to determine if it should be divided. In this case, it is done quite arbitrarely
 being done for every three out of four elements, but it can also use element
 information to determine whether or not it should occurr.
 
-.. GENERATED FROM PYTHON SOURCE LINES 113-230
+.. GENERATED FROM PYTHON SOURCE LINES 114-231
 
 .. code-block:: Python
 
@@ -296,13 +297,13 @@ information to determine whether or not it should occurr.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 231-234
+.. GENERATED FROM PYTHON SOURCE LINES 232-235
 
 Results in :math:`H^1` Norm
 ---------------------------
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 234-258
+.. GENERATED FROM PYTHON SOURCE LINES 235-259
 
 .. code-block:: Python
 
@@ -343,18 +344,18 @@ Results in :math:`H^1` Norm
 
  .. code-block:: none
 
-    Solution converges with p as: 2.69 * (0.141) ** p in H1
+    Solution converges with p as: 23.3 * (0.041) ** p in H1
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 259-262
+.. GENERATED FROM PYTHON SOURCE LINES 260-263
 
 Results in :math:`L^2` Norm
 ---------------------------
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 262-284
+.. GENERATED FROM PYTHON SOURCE LINES 263-285
 
 .. code-block:: Python
 
@@ -393,7 +394,7 @@ Results in :math:`L^2` Norm
 
  .. code-block:: none
 
-    Solution converges with p as: 0.166 * (0.122) ** p in L2
+    Solution converges with p as: 1.51 * (0.036) ** p in L2
 
 
 
@@ -401,7 +402,7 @@ Results in :math:`L^2` Norm
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 21.443 seconds)
+   **Total running time of the script:** (0 minutes 11.894 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_direct_poisson_refined.py:

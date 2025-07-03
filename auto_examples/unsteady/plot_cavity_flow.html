@@ -167,10 +167,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -358,6 +360,7 @@ on a fairly coarse grid.</p>
     <span class="n">SolverSettings</span><span class="p">,</span>
     <span class="n">SystemSettings</span><span class="p">,</span>
     <span class="n">TimeSettings</span><span class="p">,</span>
+    <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -385,11 +388,11 @@ domain length is also 2.</p>
 with the only difference being the weak pressure boundary conditions
 not being included, due to the fact that the strong boundary conditions
 on the normal velocity mean that they would not be used either way.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">pre</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;pre&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">pre</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;pre&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">)</span>
 <span class="n">w_pre</span> <span class="o">=</span> <span class="n">pre</span><span class="o">.</span><span class="n">weight</span>
-<span class="n">vel</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;vel&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">vel</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;vel&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">)</span>
 <span class="n">w_vel</span> <span class="o">=</span> <span class="n">vel</span><span class="o">.</span><span class="n">weight</span>
-<span class="n">vor</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;vor&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">vor</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;vor&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">)</span>
 <span class="n">w_vor</span> <span class="o">=</span> <span class="n">vor</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
@@ -445,15 +448,15 @@ on the normal velocity mean that they would not be used either way.</p>
 <span class="nb">print</span><span class="p">(</span><a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(0*)]^T  ([           -1 * M(0) | (E(1, 0))^T @ M(0) |                  0]  [vor(0)]   [&lt;vor, boundary_velocty&gt;])   [vor(0*)]^T  ([                              0 |                        0 | 0]  [vor(0)]
-[vel(1*)]    ([0.1 * M(1) @ E(1, 0) |                  0 | (E(2, 1))^T @ M(1)]  [vel(1)] = [                       ]) + [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(0) | -1 * M(1) @ N(1, 2; vor) | 0]  [vel(1)]
-[pre(2*)]    ([                   0 |     M(2) @ E(2, 1) |                  0]  [pre(2)]   [                      0])   [pre(2*)]    ([                              0 |                        0 | 0]  [pre(2)]
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(1*)]^T  ([           -1 * M(1) | (E(2, 1))^T @ M(1) |                  0]  [vor(0)]   [&lt;vor, boundary_velocty&gt;])   [vor(1*)]^T  ([                              0 |                        0 | 0]  [vor(0)]
+[vel(2*)]    ([0.1 * M(2) @ E(2, 1) |                  0 | (E(3, 2))^T @ M(2)]  [vel(1)] = [                       ]) + [vel(2*)]    ([-1 * M(2) @ M(2, 3; vel) @ M(1) | -1 * M(2) @ N(2, 3; vor) | 0]  [vel(1)]
+[pre(3*)]    ([                   0 |     M(3) @ E(3, 2) |                  0]  [pre(2)]   [                      0])   [pre(3*)]    ([                              0 |                        0 | 0]  [pre(2)]
 SolutionStatistics(element_orders={3: 50}, n_total_dofs=1550, n_leaf_dofs=1225, n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20,
-       20, 20, 20], dtype=uint32), residual_history=array([4.73037165e-11, 3.78858472e-11, 4.94558422e-11, 4.77370712e-11,
-       6.63145927e-11, 4.92627883e-11, 6.85677626e-11, 4.04777045e-11,
-       7.24521970e-11, 9.98632288e-11, 7.65691122e-11, 9.79617637e-11,
-       7.69061551e-11, 9.11821799e-11, 7.17328905e-11, 8.28754287e-11,
-       7.86609389e-11, 9.14861242e-11, 8.53561388e-11, 9.54870072e-11]))
+       20, 20, 20], dtype=uint32), residual_history=array([4.73040218e-11, 3.78859860e-11, 4.94556202e-11, 4.77373419e-11,
+       6.63145788e-11, 4.92627328e-11, 6.85677765e-11, 4.04782319e-11,
+       7.24523080e-11, 9.98627847e-11, 7.65691122e-11, 9.79617637e-11,
+       7.69061897e-11, 9.11821313e-11, 7.17330223e-11, 8.28753177e-11,
+       7.86609111e-11, 9.14862630e-11, 8.53559723e-11, 9.54867019e-11]))
 </pre></div>
 </div>
 </section>
@@ -482,7 +485,7 @@ SolutionStatistics(element_orders={3: 50}, n_total_dofs=1550, n_leaf_dofs=1225, 
 <a href="https://docs.pyvista.org/api/plotting/_autosummary/pyvista.Plotter.view_xy.html#pyvista.Plotter.view_xy" title="pyvista.Plotter.view_xy" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_cavity_flow_001.png" srcset="../../_images/sphx_glr_plot_cavity_flow_001.png" alt="plot cavity flow" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 9.601 seconds)</p>
+<img src="../../_images/sphx_glr_plot_cavity_flow_001.png" srcset="../../_images/sphx_glr_plot_cavity_flow_001.png" alt="plot cavity flow" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 5.072 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-unsteady-plot-cavity-flow-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/0a495aa1f69b1d0cb94824dca19aacaa/plot_cavity_flow.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_cavity_flow.ipynb</span></code></a></p>

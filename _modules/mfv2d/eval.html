@@ -165,10 +165,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -284,7 +286,7 @@ document.write(`
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span><span class="p">,</span> <span class="n">IntFlag</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Function2D</span><span class="p">,</span>
@@ -298,6 +300,7 @@ document.write(`
     <span class="n">KSum</span><span class="p">,</span>
     <span class="n">KWeight</span><span class="p">,</span>
     <span class="n">Term</span><span class="p">,</span>
+    <span class="n">UnknownFormOrder</span><span class="p">,</span>
 <span class="p">)</span>
 
 
@@ -333,14 +336,14 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    order : int</span>
+<span class="sd">    order : UnknownFormOrder</span>
 <span class="sd">        Order of the k-form for the mass matrix.</span>
 
 <span class="sd">    inv : bool</span>
 <span class="sd">        Should the matrix be inverted.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">order</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span>
     <span class="n">inv</span><span class="p">:</span> <span class="nb">bool</span></div>
 
 
@@ -355,14 +358,14 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    begin : int</span>
+<span class="sd">    begin : UnknownFormOrder</span>
 <span class="sd">        Order of the k-form for the incidence matrix from which to apply it.</span>
 
 <span class="sd">    dual : bool</span>
 <span class="sd">        Should the incidence matrix be applied as the dual.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">begin</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">begin</span><span class="p">:</span> <span class="n">UnknownFormOrder</span>
     <span class="n">dual</span><span class="p">:</span> <span class="nb">int</span></div>
 
 
@@ -436,7 +439,7 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    starting_order : int</span>
+<span class="sd">    starting_order : UnknownFormOrder</span>
 <span class="sd">        Order of the k-form to which the interior product should be applied.</span>
 
 <span class="sd">    field_index : int</span>
@@ -450,7 +453,7 @@ document.write(`
 <span class="sd">        the Newton-Raphson solver.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">starting_order</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">starting_order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span>
     <span class="n">field_index</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">dual</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">adjoint</span><span class="p">:</span> <span class="nb">bool</span></div>
@@ -755,7 +758,7 @@ document.write(`
                     <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">weight_form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
                         <span class="n">mass</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
                     <span class="k">else</span><span class="p">:</span>
-                        <span class="n">mass</span> <span class="o">=</span> <span class="n">MassMat</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+                        <span class="n">mass</span> <span class="o">=</span> <span class="n">MassMat</span><span class="p">(</span><span class="n">order_p</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Order </span><span class="si">{</span><span class="n">form</span><span class="o">.</span><span class="n">unknown_form</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2"> can&#39;t be used on a 2D mesh.&quot;</span>
@@ -775,7 +778,10 @@ document.write(`
                 <span class="n">vr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Incidence</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">))</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">res</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="n">Incidence</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">),</span>
+                    <span class="n">Incidence</span><span class="p">(</span>
+                        <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">dual</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
+                        <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">,</span>
+                    <span class="p">),</span>
                     <span class="n">Scale</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
                 <span class="p">]</span> <span class="o">+</span> <span class="n">vr</span>
         <span class="k">return</span> <span class="n">res</span>
@@ -811,17 +817,27 @@ document.write(`
 
         <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KInteriorProduct</span><span class="p">:</span>
             <span class="n">idx</span> <span class="o">=</span> <span class="n">vec_fields</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">vector_field</span><span class="p">)</span>
+            <span class="n">base_form</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span>
 
-        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KInteriorProductNonlinear</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="ow">is</span> <span class="n">KInteriorProductNonlinear</span><span class="p">:</span>
             <span class="n">idx</span> <span class="o">=</span> <span class="n">vec_fields</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form_field</span><span class="p">)</span>
+            <span class="n">base_form</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="kc">False</span>
 
         <span class="n">prod_instruct</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">MatOp</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">InterProd</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="n">InterProd</span><span class="p">(</span>
+                <span class="n">base_form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
+                <span class="n">idx</span><span class="p">,</span>
+                <span class="ow">not</span> <span class="n">base_form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">,</span>
+                <span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="p">]</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">base_form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
             <span class="n">prod_instruct</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="p">[</span><span class="n">MassMat</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">)]</span>
+                <span class="p">[</span><span class="n">MassMat</span><span class="p">(</span><span class="n">UnknownFormOrder</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="kc">True</span><span class="p">)]</span>
                 <span class="o">+</span> <span class="n">prod_instruct</span>
                 <span class="o">+</span> <span class="p">[</span><span class="n">MassMat</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">primal_order</span><span class="p">,</span> <span class="kc">True</span><span class="p">)]</span>
             <span class="p">)</span>
@@ -853,18 +869,6 @@ document.write(`
 
     <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown type&quot;</span><span class="p">)</span></div>
 
-
-
-<span class="c1"># TODO: REMOVE</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">MassMatrixRequired</span><span class="p">(</span><span class="n">IntFlag</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Flags used to indicate which mass matrices need to be computed.&quot;&quot;&quot;</span>
-
-    <span class="n">MASS_NODE</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">0</span>
-    <span class="n">MASS_EDGE</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span>
-    <span class="n">MASS_SURF</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">2</span>
-    <span class="n">MASS_INDE</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">3</span>
-    <span class="n">MASS_IEDG</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">4</span>
-    <span class="n">MASS_ISRF</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">5</span>
 
 
 <div class="viewcode-block" id="print_eval_procedure">
@@ -961,11 +965,6 @@ document.write(`
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">extract_mass_matrices</span><span class="p">(</span><span class="o">*</span><span class="n">ops</span><span class="p">:</span> <span class="n">MatOp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">MassMat</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract mass matrices which will be needed.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">op</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">op</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">MassMat</span><span class="p">),</span> <span class="n">ops</span><span class="p">))</span>  <span class="c1"># type: ignore</span>
-
-
 <div class="viewcode-block" id="MatOpCode">
 <a class="viewcode-back" href="../../modules/eval.html#mfv2d.eval.MatOpCode">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MatOpCode</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
@@ -1013,11 +1012,11 @@ document.write(`
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">IDENTITY</span><span class="p">)</span>
         <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">MassMat</span><span class="p">:</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">MASS</span><span class="p">)</span>
-            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">order</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">inv</span><span class="p">))</span>
         <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Incidence</span><span class="p">:</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">INCIDENCE</span><span class="p">)</span>
-            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">begin</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">begin</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">dual</span><span class="p">))</span>
         <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">Push</span><span class="p">:</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">PUSH</span><span class="p">)</span>
@@ -1031,7 +1030,7 @@ document.write(`
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">MATMUL</span><span class="p">)</span>
         <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="ow">is</span> <span class="n">InterProd</span><span class="p">:</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">MatOpCode</span><span class="o">.</span><span class="n">INTERPROD</span><span class="p">)</span>
-            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">starting_order</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">starting_order</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">field_index</span><span class="p">)</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">dual</span><span class="p">)</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">adjoint</span><span class="p">)</span>

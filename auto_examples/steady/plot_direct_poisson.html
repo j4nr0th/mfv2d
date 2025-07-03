@@ -167,10 +167,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -390,6 +392,7 @@ Laplace operator, which the Poisson equation is defined with.</p>
     <span class="n">Mesh2D</span><span class="p">,</span>
     <span class="n">SolverSettings</span><span class="p">,</span>
     <span class="n">SystemSettings</span><span class="p">,</span>
+    <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -445,9 +448,9 @@ is needed to compute the error given by the <span class="math notranslate nohigh
 <div class="math notranslate nohighlight" id="equation-steady-direct-poisson-curl">
 <span class="eqno">(9)<a class="headerlink" href="#equation-steady-direct-poisson-curl" title="Link to this equation">#</a></span>\[\int_\Omega p^{(1)} \wedge \star \mathrm{d} u^{(0)} - \int_\Omega p^{(1)} \wedge
 \star q^{(1)} = 0\]</div>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">)</span>
 <span class="n">v</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">weight</span>
-<span class="n">q</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">q</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">)</span>
 <span class="n">p</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
@@ -458,8 +461,8 @@ is needed to compute the error given by the <span class="math notranslate nohigh
 <span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[u(0*)]^T  ([(E(1, 0))^T @ M(0) @ E(1, 0) |         0]  [u(0)]   [-1 * &lt;u, source_exact&gt; + &lt;u, q_exact&gt;])
-[q(1*)]    ([              M(1) @ E(1, 0) | -1 * M(1)]  [q(1)] = [                                    0])
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[u(1*)]^T  ([(E(2, 1))^T @ M(1) @ E(2, 1) |         0]  [u(0)]   [-1 * &lt;u, source_exact&gt; + &lt;u, q_exact&gt;])
+[q(2*)]    ([              M(2) @ E(2, 1) | -1 * M(2)]  [q(1)] = [                                    0])
 </pre></div>
 </div>
 </section>
@@ -656,7 +659,7 @@ Finished pval=6
 <img src="../../_images/sphx_glr_plot_direct_poisson_004.png" srcset="../../_images/sphx_glr_plot_direct_poisson_004.png" alt="plot direct poisson" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 2.61 * (0.0389) ** p in L2 norm.
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 2.392 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.372 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-steady-plot-direct-poisson-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/de740905898da92e74629e7d54fdcef1/plot_direct_poisson.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_direct_poisson.ipynb</span></code></a></p>

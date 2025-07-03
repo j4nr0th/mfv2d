@@ -61,7 +61,7 @@ system :eq:`steady-ns-variational`.
 
     \left(r^{(2)}, \mathrm{d} u^{(1)}\right)_\Omega = 0 \quad\forall r^{(2)} \in \Lambda^{(2)}(\mathcal{M})
 
-.. GENERATED FROM PYTHON SOURCE LINES 45-59
+.. GENERATED FROM PYTHON SOURCE LINES 45-60
 
 .. code-block:: Python
 
@@ -76,6 +76,7 @@ system :eq:`steady-ns-variational`.
         Mesh2D,
         SolverSettings,
         SystemSettings,
+        UnknownFormOrder,
         solve_system_2d,
     )
 
@@ -86,7 +87,7 @@ system :eq:`steady-ns-variational`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 60-86
+.. GENERATED FROM PYTHON SOURCE LINES 61-87
 
 Setup
 -----
@@ -115,7 +116,7 @@ Forcing given for that solution is given by equation :eq:`steady-ns-forcing`.
 The Reynolds number is also chosen to be :math:`\mathrm{Re} = 1000`, at which point
 the advection term is very strongly dominant.
 
-.. GENERATED FROM PYTHON SOURCE LINES 87-112
+.. GENERATED FROM PYTHON SOURCE LINES 88-113
 
 .. code-block:: Python
 
@@ -151,7 +152,7 @@ the advection term is very strongly dominant.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 113-122
+.. GENERATED FROM PYTHON SOURCE LINES 114-123
 
 System Setup
 ------------
@@ -163,18 +164,18 @@ addition of the advection term on the right side of the momentum equations.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 123-144
+.. GENERATED FROM PYTHON SOURCE LINES 124-145
 
 .. code-block:: Python
 
 
-    pre = KFormUnknown(2, "pre", 2)
+    pre = KFormUnknown("pre", UnknownFormOrder.FORM_ORDER_2)
     w_pre = pre.weight
-    vel = KFormUnknown(2, "vel", 1)
+    vel = KFormUnknown("vel", UnknownFormOrder.FORM_ORDER_1)
     w_vel = vel.weight
-    vor = KFormUnknown(2, "vor", 0)
+    vor = KFormUnknown("vor", UnknownFormOrder.FORM_ORDER_0)
     w_vor = vor.weight
-    div = KFormUnknown(2, "div", 2)
+    div = KFormUnknown("div", UnknownFormOrder.FORM_ORDER_2)
     w_div = div.weight
 
     system = KFormSystem(
@@ -196,15 +197,15 @@ addition of the advection term on the right side of the momentum equations.
 
  .. code-block:: none
 
-    [vor(0*)]^T  ([             -1 * M(0) |  (E(1, 0))^T @ M(0) |                  0 |    0]  [vor(0)]   [<vor, exact_velocty>])   [vor(0*)]^T  ([                              0 |                        0 | 0 | 0]  [vor(0)] 
-    [vel(1*)]    ([0.001 * M(1) @ E(1, 0) |                   0 | (E(2, 1))^T @ M(1) |    0]  [vel(1)]   [<vel, exact_forcing>])   [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(0) | -1 * M(1) @ N(1, 2; vor) | 0 | 0]  [vel(1)] 
-    [pre(2*)]    ([                     0 |      M(2) @ E(2, 1) |                  0 |    0]  [pre(2)] = [                   0]) + [pre(2*)]    ([                              0 |                        0 | 0 | 0]  [pre(2)] 
-    [div(2*)]    ([                     0 | -1 * M(2) @ E(2, 1) |                  0 | M(2)]  [div(2)]   [                   0])   [div(2*)]    ([                              0 |                        0 | 0 | 0]  [div(2)] 
+    [vor(1*)]^T  ([             -1 * M(1) |  (E(2, 1))^T @ M(1) |                  0 |    0]  [vor(0)]   [<vor, exact_velocty>])   [vor(1*)]^T  ([                              0 |                        0 | 0 | 0]  [vor(0)] 
+    [vel(2*)]    ([0.001 * M(2) @ E(2, 1) |                   0 | (E(3, 2))^T @ M(2) |    0]  [vel(1)]   [<vel, exact_forcing>])   [vel(2*)]    ([-1 * M(2) @ M(2, 3; vel) @ M(1) | -1 * M(2) @ N(2, 3; vor) | 0 | 0]  [vel(1)] 
+    [pre(3*)]    ([                     0 |      M(3) @ E(3, 2) |                  0 |    0]  [pre(2)] = [                   0]) + [pre(3*)]    ([                              0 |                        0 | 0 | 0]  [pre(2)] 
+    [div(3*)]    ([                     0 | -1 * M(3) @ E(3, 2) |                  0 | M(3)]  [div(2)]   [                   0])   [div(3*)]    ([                              0 |                        0 | 0 | 0]  [div(2)] 
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 145-152
+.. GENERATED FROM PYTHON SOURCE LINES 146-153
 
 Make the Mesh
 -------------
@@ -214,7 +215,7 @@ elements. Since the problem is non-linear with no initial guess, it can be
 a bit unstable to compute when under-resolved.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 153-179
+.. GENERATED FROM PYTHON SOURCE LINES 154-180
 
 .. code-block:: Python
 
@@ -251,7 +252,7 @@ a bit unstable to compute when under-resolved.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 180-185
+.. GENERATED FROM PYTHON SOURCE LINES 181-186
 
 Solve the System
 ----------------
@@ -259,7 +260,7 @@ Solve the System
 Here we solve the system.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 186-205
+.. GENERATED FROM PYTHON SOURCE LINES 187-206
 
 .. code-block:: Python
 
@@ -290,12 +291,12 @@ Here we solve the system.
 
  .. code-block:: none
 
-    SolutionStatistics(element_orders={6: 98}, n_total_dofs=11270, n_leaf_dofs=10045, n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([6.96336197e-02, 9.02580252e-02, 1.79589468e-11]))
+    SolutionStatistics(element_orders={6: 98}, n_total_dofs=11270, n_leaf_dofs=10045, n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([6.96336197e-02, 9.02580252e-02, 1.81090247e-11]))
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 206-212
+.. GENERATED FROM PYTHON SOURCE LINES 207-213
 
 Print Statistics
 ----------------
@@ -304,7 +305,7 @@ Quick statistics for this solution, such as velocity and vorticity erros are
 extracted from there.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 213-238
+.. GENERATED FROM PYTHON SOURCE LINES 214-239
 
 .. code-block:: Python
 
@@ -341,14 +342,14 @@ extracted from there.
 
  .. code-block:: none
 
-    Integrated pressure is 2.259e-12
+    Integrated pressure is 2.261e-12
     err_vel=8.228e-10
-    err_vor=1.570e-10
+    err_vor=1.497e-10
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 239-248
+.. GENERATED FROM PYTHON SOURCE LINES 240-249
 
 Check the Divergence
 --------------------
@@ -360,7 +361,7 @@ divergence flow. This guarantees that the pressure solution is sensible.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 249-261
+.. GENERATED FROM PYTHON SOURCE LINES 250-262
 
 .. code-block:: Python
 
@@ -389,12 +390,12 @@ divergence flow. This guarantees that the pressure solution is sensible.
 
  .. code-block:: none
 
-    Highest value of divergence in the domain is 7.347e-17
+    Highest value of divergence in the domain is 7.142e-16
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 262-267
+.. GENERATED FROM PYTHON SOURCE LINES 263-268
 
 Plot Streamlines
 ----------------
@@ -402,7 +403,7 @@ Plot Streamlines
 Pyvista allows for very simple 2D streamline plots.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 268-288
+.. GENERATED FROM PYTHON SOURCE LINES 269-289
 
 .. code-block:: Python
 
@@ -441,7 +442,7 @@ Pyvista allows for very simple 2D streamline plots.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 5.287 seconds)
+   **Total running time of the script:** (0 minutes 3.010 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_navier_stokes.py:

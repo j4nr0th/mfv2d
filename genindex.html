@@ -165,10 +165,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -307,6 +309,8 @@ document.write(`
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/kform.html#mfv2d.kform.TermEvaluatable.__add__">__add__() (mfv2d.kform.TermEvaluatable method)</a>
 </li>
+      <li><a href="modules/element.html#mfv2d.element.ObjectElementArray.__delitem__">__delitem__() (mfv2d.element.ObjectElementArray method)</a>
+</li>
       <li><a href="modules/kform.html#mfv2d.kform.TermEvaluatable.__div__">__div__() (mfv2d.kform.TermEvaluatable method)</a>
 </li>
       <li><a href="modules/kform.html#mfv2d.kform.TermEvaluatable.__eq__">__eq__() (mfv2d.kform.TermEvaluatable method)</a>
@@ -318,6 +322,8 @@ document.write(`
 </li>
         <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.__getitem__">(mfv2d.element.FlexibleElementArray method)</a>
 </li>
+        <li><a href="modules/element.html#mfv2d.element.ObjectElementArray.__getitem__">(mfv2d.element.ObjectElementArray method)</a>
+</li>
       </ul></li>
       <li><a href="modules/kform.html#mfv2d.kform.KForm.__invert__">__invert__() (mfv2d.kform.KForm method)</a>
 </li>
@@ -328,6 +334,8 @@ document.write(`
 </li>
         <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.__iter__">(mfv2d.element.FlexibleElementArray method)</a>
 </li>
+        <li><a href="modules/element.html#mfv2d.element.ObjectElementArray.__iter__">(mfv2d.element.ObjectElementArray method)</a>
+</li>
       </ul></li>
       <li><a href="modules/element.html#mfv2d.element.ElementArrayBase.__len__">__len__() (mfv2d.element.ElementArrayBase method)</a>
 
@@ -335,6 +343,8 @@ document.write(`
         <li><a href="modules/element.html#mfv2d.element.FixedElementArray.__len__">(mfv2d.element.FixedElementArray method)</a>
 </li>
         <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.__len__">(mfv2d.element.FlexibleElementArray method)</a>
+</li>
+        <li><a href="modules/element.html#mfv2d.element.ObjectElementArray.__len__">(mfv2d.element.ObjectElementArray method)</a>
 </li>
       </ul></li>
       <li><a href="modules/kform.html#mfv2d.kform.KWeight.__matmul__">__matmul__() (mfv2d.kform.KWeight method)</a>
@@ -363,6 +373,8 @@ document.write(`
         <li><a href="modules/kform.html#mfv2d.kform.TermEvaluatable.__post_init__">(mfv2d.kform.TermEvaluatable method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/kform.html#mfv2d.kform.TermEvaluatable.__radd__">__radd__() (mfv2d.kform.TermEvaluatable method)</a>
 </li>
       <li><a href="modules/kform.html#mfv2d.kform.KForm.__rmul__">__rmul__() (mfv2d.kform.KForm method)</a>
@@ -373,8 +385,6 @@ document.write(`
         <li><a href="modules/kform.html#mfv2d.kform.TermEvaluatable.__rmul__">(mfv2d.kform.TermEvaluatable method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/kform.html#mfv2d.kform.TermEvaluatable.__rsub__">__rsub__() (mfv2d.kform.TermEvaluatable method)</a>
 </li>
       <li><a href="modules/element.html#mfv2d.element.ElementArrayBase.__setitem__">__setitem__() (mfv2d.element.ElementArrayBase method)</a>
@@ -383,6 +393,8 @@ document.write(`
         <li><a href="modules/element.html#mfv2d.element.FixedElementArray.__setitem__">(mfv2d.element.FixedElementArray method)</a>
 </li>
         <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.__setitem__">(mfv2d.element.FlexibleElementArray method)</a>
+</li>
+        <li><a href="modules/element.html#mfv2d.element.ObjectElementArray.__setitem__">(mfv2d.element.ObjectElementArray method)</a>
 </li>
       </ul></li>
       <li><a href="modules/kform.html#mfv2d.kform.KForm.__str__">__str__() (mfv2d.kform.KForm method)</a>
@@ -405,37 +417,15 @@ document.write(`
       </ul></li>
       <li><a href="modules/element.html#mfv2d.element._compute_element_dofs">_compute_element_dofs() (in module mfv2d.element)</a>
 </li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._compute_element_forcing">_compute_element_forcing() (in module mfv2d.solve_system)</a>
+      <li><a href="modules/boundary.html#mfv2d.boundary._element_strong_boundary_condition">_element_strong_boundary_condition() (in module mfv2d.boundary)</a>
 </li>
-      <li><a href="modules/element.html#mfv2d.element._compute_element_lagrange_multipliers">_compute_element_lagrange_multipliers() (in module mfv2d.element)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._compute_element_matrix">_compute_element_matrix() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._compute_element_vector">_compute_element_vector() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._continuity_element_0_forms_corner">_continuity_element_0_forms_corner() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._continuity_element_0_forms_inner">_continuity_element_0_forms_inner() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._continuity_element_1_forms">_continuity_element_1_forms() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._continuity_parent_child_edges">_continuity_parent_child_edges() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._continuity_parent_child_nodes">_continuity_parent_child_nodes() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._element_strong_boundary_condition">_element_strong_boundary_condition() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._element_weak_boundary_condition">_element_weak_boundary_condition() (in module mfv2d.solve_system)</a>
+      <li><a href="modules/boundary.html#mfv2d.boundary._element_weak_boundary_condition">_element_weak_boundary_condition() (in module mfv2d.boundary)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system._extract_rhs_2d">_extract_rhs_2d() (in module mfv2d.solve_system)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system._extract_time_carry">_extract_time_carry() (in module mfv2d.solve_system)</a>
 </li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._parent_child_equations">_parent_child_equations() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._top_level_continuity_0">_top_level_continuity_0() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system._top_level_continuity_1">_top_level_continuity_1() (in module mfv2d.solve_system)</a>
+      <li><a href="modules/continuity.html#mfv2d.continuity._find_surface_boundary_id_node">_find_surface_boundary_id_node() (in module mfv2d.continuity)</a>
 </li>
       <li><a href="modules/eval.html#mfv2d.eval._translate_equation">_translate_equation() (in module mfv2d.eval)</a>
 </li>
@@ -469,8 +459,6 @@ document.write(`
 </li>
       <li><a href="modules/element.html#mfv2d.element.ArrayCom">ArrayCom (class in mfv2d.element)</a>
 </li>
-      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D.as_polydata">as_polydata() (mfv2d.mimetic2d.Mesh2D method)</a>
-</li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.assemble_forcing">assemble_forcing() (in module mfv2d.solve_system)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.assemble_matrix">assemble_matrix() (in module mfv2d.solve_system)</a>
@@ -497,14 +485,18 @@ document.write(`
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Basis2D.basis_xi">basis_xi (mfv2d._mfv2d.Basis2D attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Line.begin">begin (mfv2d._mfv2d.Line attribute)</a>
 
       <ul>
         <li><a href="modules/eval.html#mfv2d.eval.Incidence.begin">(mfv2d.eval.Incidence attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D.bottom_left">bottom_left (mfv2d.mimetic2d.ElementLeaf2D attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D.bottom_right">bottom_right (mfv2d.mimetic2d.ElementLeaf2D attribute)</a>
+</li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.SystemSettings.boundary_conditions">boundary_conditions (mfv2d.solve_system.SystemSettings attribute)</a>
 </li>
       <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D.boundary_indices">boundary_indices (mfv2d.mimetic2d.Mesh2D attribute)</a>
@@ -527,15 +519,27 @@ document.write(`
 </li>
       <li><a href="modules/element.html#mfv2d.element.call_per_leaf_flex">call_per_leaf_flex() (in module mfv2d.element)</a>
 </li>
+      <li><a href="modules/element.html#mfv2d.element.call_per_leaf_obj">call_per_leaf_obj() (in module mfv2d.element)</a>
+</li>
       <li><a href="modules/element.html#mfv2d.element.call_per_root_flex">call_per_root_flex() (in module mfv2d.element)</a>
 </li>
       <li><a href="modules/element.html#mfv2d.element.ElementCollection.child_array">child_array (mfv2d.element.ElementCollection attribute)</a>
 </li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementNode2D.child_bl">child_bl (mfv2d.mimetic2d.ElementNode2D attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementNode2D.child_br">child_br (mfv2d.mimetic2d.ElementNode2D attribute)</a>
+</li>
       <li><a href="modules/element.html#mfv2d.element.ElementCollection.child_count_array">child_count_array (mfv2d.element.ElementCollection attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementNode2D.child_tl">child_tl (mfv2d.mimetic2d.ElementNode2D attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementNode2D.child_tr">child_tr (mfv2d.mimetic2d.ElementNode2D attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementNode2D.children">children() (mfv2d.mimetic2d.ElementNode2D method)</a>
 </li>
       <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.FemCache.clean">clean() (mfv2d.mimetic2d.FemCache method)</a>
 </li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.ElementConstraint.coeffs">coeffs (mfv2d.solve_system.ElementConstraint attribute)</a>
+      <li><a href="modules/element.html#mfv2d.element.ElementConstraint.coeffs">coeffs (mfv2d.element.ElementConstraint attribute)</a>
 </li>
       <li><a href="modules/element.html#mfv2d.element.ElementArrayBase.com">com (mfv2d.element.ElementArrayBase attribute)</a>
 
@@ -545,6 +549,8 @@ document.write(`
         <li><a href="modules/element.html#mfv2d.element.FixedElementArray.com">(mfv2d.element.FixedElementArray attribute)</a>
 </li>
         <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.com">(mfv2d.element.FlexibleElementArray attribute)</a>
+</li>
+        <li><a href="modules/element.html#mfv2d.element.ObjectElementArray.com">(mfv2d.element.ObjectElementArray attribute)</a>
 </li>
       </ul></li>
       <li><a href="modules/eval.html#mfv2d.eval.CompiledSystem">CompiledSystem (class in mfv2d.eval)</a>
@@ -559,33 +565,35 @@ document.write(`
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.compute_element_projector">compute_element_projector() (in module mfv2d._mfv2d)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.compute_element_rhs">compute_element_rhs() (in module mfv2d.solve_system)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.compute_element_vector">compute_element_vector() (in module mfv2d._mfv2d)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.compute_element_vector_fields">compute_element_vector_fields() (in module mfv2d.solve_system)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.compute_element_vector_fields_nonlin">compute_element_vector_fields_nonlin() (in module mfv2d.solve_system)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.compute_gll">compute_gll() (in module mfv2d._mfv2d)</a>
 </li>
-      <li><a href="modules/element.html#mfv2d.element.compute_lagrange_sizes">compute_lagrange_sizes() (in module mfv2d.element)</a>
-</li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.compute_leaf_matrix">compute_leaf_matrix() (in module mfv2d.solve_system)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.compute_leaf_vector">compute_leaf_vector() (in module mfv2d.solve_system)</a>
 </li>
-      <li><a href="modules/element.html#mfv2d.element.compute_total_element_sizes">compute_total_element_sizes() (in module mfv2d.element)</a>
+      <li><a href="modules/continuity.html#mfv2d.continuity.connect_corner_based">connect_corner_based() (in module mfv2d.continuity)</a>
+</li>
+      <li><a href="modules/continuity.html#mfv2d.continuity.connect_edge_based">connect_edge_based() (in module mfv2d.continuity)</a>
+</li>
+      <li><a href="modules/continuity.html#mfv2d.continuity.connect_edge_center">connect_edge_center() (in module mfv2d.continuity)</a>
+</li>
+      <li><a href="modules/continuity.html#mfv2d.continuity.connect_element_inner">connect_element_inner() (in module mfv2d.continuity)</a>
+</li>
+      <li><a href="modules/continuity.html#mfv2d.continuity.connect_elements">connect_elements() (in module mfv2d.continuity)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.SystemSettings.constrained_forms">constrained_forms (mfv2d.solve_system.SystemSettings attribute)</a>
 </li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.Constraint">Constraint (class in mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.continuity_child_matrices">continuity_child_matrices() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.continuity_matrices">continuity_matrices() (in module mfv2d.solve_system)</a>
+      <li><a href="modules/element.html#mfv2d.element.Constraint">Constraint (class in mfv2d.element)</a>
 </li>
       <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.copy">copy() (mfv2d.element.FlexibleElementArray method)</a>
 </li>
@@ -608,7 +616,11 @@ document.write(`
       <li><a href="modules/element.html#mfv2d.element.ElementCollection.corners_array">corners_array (mfv2d.element.ElementCollection attribute)</a>
 </li>
       <li><a href="modules/eval.html#mfv2d.eval.Sum.count">count (mfv2d.eval.Sum attribute)</a>
+
+      <ul>
+        <li><a href="modules/kform.html#mfv2d.kform.UnknownOrderings.count">(mfv2d.kform.UnknownOrderings property)</a>
 </li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -616,35 +628,31 @@ document.write(`
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/kform.html#mfv2d.kform.KForm.derivative">derivative (mfv2d.kform.KForm property)</a>
-
-      <ul>
-        <li><a href="modules/kform.html#mfv2d.kform.KWeight.derivative">(mfv2d.kform.KWeight property)</a>
 </li>
-      </ul></li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Manifold2D.dimension">dimension (mfv2d._mfv2d.Manifold2D attribute)</a>
-
-      <ul>
-        <li><a href="modules/kform.html#mfv2d.kform.Term.dimension">(mfv2d.kform.Term attribute)</a>
 </li>
-      </ul></li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D.divide">divide() (mfv2d.mimetic2d.ElementLeaf2D method)</a>
+</li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.RefinementSettings.division_function">division_function() (mfv2d.solve_system.RefinementSettings method)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.RefinementSettings.division_predicate">division_predicate (mfv2d.solve_system.RefinementSettings attribute)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.dlagrange1d">dlagrange1d() (in module mfv2d._mfv2d)</a>
 </li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.ElementConstraint.dofs">dofs (mfv2d.solve_system.ElementConstraint attribute)</a>
+      <li><a href="modules/element.html#mfv2d.element.ElementConstraint.dofs">dofs (mfv2d.element.ElementConstraint attribute)</a>
+</li>
+      <li><a href="modules/solve_system.html#mfv2d.solve_system.TimeSettings.dt">dt (mfv2d.solve_system.TimeSettings attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.TimeSettings.dt">dt (mfv2d.solve_system.TimeSettings attribute)</a>
-</li>
       <li><a href="modules/element.html#mfv2d.element.ElementArrayBase.dtype">dtype (mfv2d.element.ElementArrayBase attribute)</a>
 
       <ul>
         <li><a href="modules/element.html#mfv2d.element.FixedElementArray.dtype">(mfv2d.element.FixedElementArray attribute)</a>
 </li>
         <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.dtype">(mfv2d.element.FlexibleElementArray attribute)</a>
+</li>
+        <li><a href="modules/element.html#mfv2d.element.ObjectElementArray.dtype">(mfv2d.element.ObjectElementArray attribute)</a>
 </li>
       </ul></li>
       <li><a href="modules/eval.html#mfv2d.eval.Incidence.dual">dual (mfv2d.eval.Incidence attribute)</a>
@@ -653,6 +661,8 @@ document.write(`
         <li><a href="modules/eval.html#mfv2d.eval.InterProd.dual">(mfv2d.eval.InterProd attribute)</a>
 </li>
         <li><a href="modules/kform.html#mfv2d.kform.KFormUnknown.dual">(mfv2d.kform.KFormUnknown attribute)</a>
+</li>
+        <li><a href="modules/kform.html#mfv2d.kform.UnknownFormOrder.dual">(mfv2d.kform.UnknownFormOrder property)</a>
 </li>
         <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D.dual">(mfv2d.mimetic2d.Mesh2D attribute)</a>
 </li>
@@ -665,9 +675,11 @@ document.write(`
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Basis1D.edge">edge (mfv2d._mfv2d.Basis1D attribute)</a>
 </li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Element2D">Element2D (class in mfv2d.mimetic2d)</a>
+</li>
       <li><a href="modules/element.html#mfv2d.element.ArrayCom.element_cnt">element_cnt (mfv2d.element.ArrayCom attribute)</a>
 </li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.Constraint.element_constraints">element_constraints (mfv2d.solve_system.Constraint attribute)</a>
+      <li><a href="modules/element.html#mfv2d.element.Constraint.element_constraints">element_constraints (mfv2d.element.Constraint attribute)</a>
 </li>
       <li><a href="modules/element.html#mfv2d.element.element_dual_dofs">element_dual_dofs() (in module mfv2d.element)</a>
 </li>
@@ -675,17 +687,33 @@ document.write(`
 </li>
       <li><a href="modules/element.html#mfv2d.element.element_primal_dofs">element_primal_dofs() (in module mfv2d.element)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/element.html#mfv2d.element.ElementArrayBase">ElementArrayBase (class in mfv2d.element)</a>
 </li>
       <li><a href="modules/element.html#mfv2d.element.ElementCollection">ElementCollection (class in mfv2d.element)</a>
 </li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.ElementConstraint">ElementConstraint (class in mfv2d.solve_system)</a>
+      <li><a href="modules/element.html#mfv2d.element.ElementConstraint">ElementConstraint (class in mfv2d.element)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D">ElementLeaf2D (class in mfv2d.mimetic2d)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementNode2D">ElementNode2D (class in mfv2d.mimetic2d)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementSide">ElementSide (class in mfv2d.mimetic2d)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Line.end">end (mfv2d._mfv2d.Line attribute)</a>
 </li>
       <li><a href="modules/kform.html#mfv2d.kform.KFormSystem.equations">equations (mfv2d.kform.KFormSystem attribute)</a>
+</li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.err_cur">err_cur (mfv2d.progress.ProgressTracker attribute)</a>
+</li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.err_indicator">err_indicator (mfv2d.progress.ProgressTracker property)</a>
+</li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.err_initial">err_initial (mfv2d.progress.ProgressTracker attribute)</a>
+</li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.err_tol">err_tol (mfv2d.progress.ProgressTracker attribute)</a>
+</li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.err_width">err_width (mfv2d.progress.ProgressTracker attribute)</a>
 </li>
       <li><a href="modules/kform.html#mfv2d.kform.KSum.explicit_terms">explicit_terms (mfv2d.kform.KSum property)</a>
 </li>
@@ -700,6 +728,8 @@ document.write(`
       <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.FemCache">FemCache (class in mfv2d.mimetic2d)</a>
 </li>
       <li><a href="modules/eval.html#mfv2d.eval.InterProd.field_index">field_index (mfv2d.eval.InterProd attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.find_surface_boundary_id_line">find_surface_boundary_id_line() (in module mfv2d.mimetic2d)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.find_time_carry_indices">find_time_carry_indices() (in module mfv2d.solve_system)</a>
 </li>
@@ -731,6 +761,8 @@ document.write(`
 </li>
       <li><a href="modules/kform.html#mfv2d.kform.UnknownFormOrder.FORM_ORDER_2">FORM_ORDER_2 (mfv2d.kform.UnknownFormOrder attribute)</a>
 </li>
+      <li><a href="modules/kform.html#mfv2d.kform.UnknownOrderings.form_orders">form_orders (mfv2d.kform.UnknownOrderings attribute)</a>
+</li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Manifold2D.from_irregular">from_irregular() (mfv2d._mfv2d.Manifold2D class method)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Manifold2D.from_regular">from_regular() (mfv2d._mfv2d.Manifold2D class method)</a>
@@ -757,21 +789,15 @@ document.write(`
 </li>
       <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.FemCache.get_basis2d">get_basis2d() (mfv2d.mimetic2d.FemCache method)</a>
 </li>
-      <li><a href="modules/element.html#mfv2d.element.ElementCollection.get_boundary_dofs">get_boundary_dofs() (mfv2d.element.ElementCollection method)</a>
-</li>
-      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D.get_element">get_element() (mfv2d.mimetic2d.Mesh2D method)</a>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.FemCache.get_integration_rule">get_integration_rule() (mfv2d.mimetic2d.FemCache method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="modules/element.html#mfv2d.element.ElementCollection.get_element_children">get_element_children() (mfv2d.element.ElementCollection method)</a>
-</li>
-      <li><a href="modules/element.html#mfv2d.element.ElementCollection.get_element_order_on_side">get_element_order_on_side() (mfv2d.element.ElementCollection method)</a>
-</li>
-      <li><a href="modules/kform.html#mfv2d.kform.KFormSystem.get_form_indices_by_order">get_form_indices_by_order() (mfv2d.kform.KFormSystem method)</a>
-</li>
-      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.FemCache.get_integration_rule">get_integration_rule() (mfv2d.mimetic2d.FemCache method)</a>
-</li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Manifold2D.get_line">get_line() (mfv2d._mfv2d.Manifold2D method)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_edge">get_mass_inverse_1d_edge() (mfv2d.mimetic2d.FemCache method)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.FemCache.get_mass_inverse_1d_node">get_mass_inverse_1d_node() (mfv2d.mimetic2d.FemCache method)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Manifold2D.get_surface">get_surface() (mfv2d._mfv2d.Manifold2D method)</a>
 </li>
@@ -781,7 +807,7 @@ document.write(`
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.ElementConstraint.i_e">i_e (mfv2d.solve_system.ElementConstraint attribute)</a>
+      <li><a href="modules/element.html#mfv2d.element.ElementConstraint.i_e">i_e (mfv2d.element.ElementConstraint attribute)</a>
 </li>
       <li><a href="modules/eval.html#mfv2d.eval.Identity">Identity (class in mfv2d.eval)</a>
 </li>
@@ -869,7 +895,15 @@ document.write(`
         <li><a href="modules/kform.html#mfv2d.kform.KWeight.is_weight">(mfv2d.kform.KWeight property)</a>
 </li>
       </ul></li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.iter_cur">iter_cur (mfv2d.progress.ProgressTracker attribute)</a>
+</li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.SolutionStatistics.iter_history">iter_history (mfv2d.solve_system.SolutionStatistics attribute)</a>
+</li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.iter_max">iter_max (mfv2d.progress.ProgressTracker attribute)</a>
+</li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.iter_progress">iter_progress (mfv2d.progress.ProgressTracker property)</a>
+</li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.iter_width">iter_width (mfv2d.progress.ProgressTracker attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -967,9 +1001,7 @@ document.write(`
 </li>
       <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D">Mesh2D (class in mfv2d.mimetic2d)</a>
 </li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.mesh_boundary_conditions">mesh_boundary_conditions() (in module mfv2d.solve_system)</a>
-</li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.mesh_continuity_constraints">mesh_continuity_constraints() (in module mfv2d.solve_system)</a>
+      <li><a href="modules/boundary.html#mfv2d.boundary.mesh_boundary_conditions">mesh_boundary_conditions() (in module mfv2d.boundary)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -997,6 +1029,8 @@ document.write(`
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.SolutionStatistics.n_total_dofs">n_total_dofs (mfv2d.solve_system.SolutionStatistics attribute)</a>
 </li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementSide.next">next (mfv2d.mimetic2d.ElementSide property)</a>
+</li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Basis1D.node">node (mfv2d._mfv2d.Basis1D attribute)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.IntegrationRule1D.nodes">nodes (mfv2d._mfv2d.IntegrationRule1D attribute)</a>
@@ -1013,9 +1047,7 @@ document.write(`
 <h2 id="O">O</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="modules/kform.html#mfv2d.kform.KFormSystem.offsets_1d">offsets_1d() (mfv2d.kform.KFormSystem method)</a>
-</li>
-      <li><a href="modules/kform.html#mfv2d.kform.KFormSystem.offsets_2d">offsets_2d() (mfv2d.kform.KFormSystem method)</a>
+      <li><a href="modules/element.html#mfv2d.element.ObjectElementArray">ObjectElementArray (class in mfv2d.element)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Basis1D.order">order (mfv2d._mfv2d.Basis1D attribute)</a>
 
@@ -1026,12 +1058,12 @@ document.write(`
 </li>
         <li><a href="modules/kform.html#mfv2d.kform.KForm.order">(mfv2d.kform.KForm attribute)</a>
 </li>
+        <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D.order">(mfv2d.mimetic2d.ElementLeaf2D attribute)</a>
+</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.FemCache.order_diff">order_diff (mfv2d.mimetic2d.FemCache attribute)</a>
-</li>
-      <li><a href="modules/element.html#mfv2d.element.ElementCollection.ordering">ordering (mfv2d.element.ElementCollection attribute)</a>
 </li>
       <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D.orders">orders (mfv2d.mimetic2d.Mesh2D attribute)</a>
 </li>
@@ -1045,6 +1077,14 @@ document.write(`
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/kform.html#mfv2d.kform.KSum.pairs">pairs (mfv2d.kform.KSum attribute)</a>
 </li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Element2D.parent">parent (mfv2d.mimetic2d.Element2D attribute)</a>
+
+      <ul>
+        <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D.parent">(mfv2d.mimetic2d.ElementLeaf2D attribute)</a>
+</li>
+        <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementNode2D.parent">(mfv2d.mimetic2d.ElementNode2D attribute)</a>
+</li>
+      </ul></li>
       <li><a href="modules/element.html#mfv2d.element.ElementCollection.parent_array">parent_array (mfv2d.element.ElementCollection attribute)</a>
 </li>
       <li><a href="modules/element.html#mfv2d.element.poly_x">poly_x() (in module mfv2d.element)</a>
@@ -1053,8 +1093,12 @@ document.write(`
 </li>
       <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D.positions">positions (mfv2d.mimetic2d.Mesh2D attribute)</a>
 </li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementSide.prev">prev (mfv2d.mimetic2d.ElementSide property)</a>
+</li>
       <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D.primal">primal (mfv2d.mimetic2d.Mesh2D attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/kform.html#mfv2d.kform.KForm.primal_order">primal_order (mfv2d.kform.KForm property)</a>
 
       <ul>
@@ -1071,9 +1115,9 @@ document.write(`
         <li><a href="modules/kform.html#mfv2d.kform.KWeight.primal_order">(mfv2d.kform.KWeight property)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/eval.html#mfv2d.eval.print_eval_procedure">print_eval_procedure() (in module mfv2d.eval)</a>
+</li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker">ProgressTracker (class in mfv2d.progress)</a>
 </li>
       <li><a href="modules/eval.html#mfv2d.eval.Push">Push (class in mfv2d.eval)</a>
 </li>
@@ -1099,19 +1143,21 @@ document.write(`
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.SolutionStatistics.residual_history">residual_history (mfv2d.solve_system.SolutionStatistics attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.resize_entry">resize_entry() (mfv2d.element.FlexibleElementArray method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.GeoID.reversed">reversed (mfv2d._mfv2d.GeoID attribute)</a>
 </li>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.Constraint.rhs">rhs (mfv2d.solve_system.Constraint attribute)</a>
+      <li><a href="modules/element.html#mfv2d.element.Constraint.rhs">rhs (mfv2d.element.Constraint attribute)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.rhs_2d_element_projection">rhs_2d_element_projection() (in module mfv2d.solve_system)</a>
 </li>
       <li><a href="modules/eval.html#mfv2d.eval.CompiledSystem.rhs_codes">rhs_codes (mfv2d.eval.CompiledSystem attribute)</a>
 </li>
       <li><a href="modules/kform.html#mfv2d.kform.KEquation.right">right (mfv2d.kform.KEquation attribute)</a>
+</li>
+      <li><a href="modules/element.html#mfv2d.element.ElementCollection.root_indices">root_indices (mfv2d.element.ElementCollection attribute)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Basis1D.roots">roots (mfv2d._mfv2d.Basis1D attribute)</a>
 </li>
@@ -1131,11 +1177,15 @@ document.write(`
 </li>
       <li><a href="modules/element.html#mfv2d.element.FixedElementArray.shape">shape (mfv2d.element.FixedElementArray attribute)</a>
 </li>
-      <li><a href="modules/kform.html#mfv2d.kform.KFormSystem.shape_1d">shape_1d() (mfv2d.kform.KFormSystem method)</a>
-</li>
-      <li><a href="modules/kform.html#mfv2d.kform.KFormSystem.shape_2d">shape_2d() (mfv2d.kform.KFormSystem method)</a>
-</li>
       <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.shapes">shapes (mfv2d.element.FlexibleElementArray attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementSide.SIDE_BOTTOM">SIDE_BOTTOM (mfv2d.mimetic2d.ElementSide attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementSide.SIDE_LEFT">SIDE_LEFT (mfv2d.mimetic2d.ElementSide attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementSide.SIDE_RIGHT">SIDE_RIGHT (mfv2d.mimetic2d.ElementSide attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementSide.SIDE_TOP">SIDE_TOP (mfv2d.mimetic2d.ElementSide attribute)</a>
 </li>
       <li><a href="modules/eval.html#mfv2d.eval.simplify_expression">simplify_expression() (in module mfv2d.eval)</a>
 </li>
@@ -1149,11 +1199,15 @@ document.write(`
 </li>
       <li><a href="modules/eval.html#mfv2d.eval.InterProd.starting_order">starting_order (mfv2d.eval.InterProd attribute)</a>
 </li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.state_str">state_str() (mfv2d.progress.ProgressTracker method)</a>
+</li>
       <li><a href="modules/eval.html#mfv2d.eval.Sum">Sum (class in mfv2d.eval)</a>
 </li>
       <li><a href="modules/eval.html#mfv2d.eval.MatOpCode.SUM">SUM (mfv2d.eval.MatOpCode attribute)</a>
 </li>
       <li><a href="modules/_mfv2d.html#mfv2d._mfv2d.Surface">Surface (class in mfv2d._mfv2d)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D.surface_to_element">surface_to_element() (mfv2d.mimetic2d.Mesh2D method)</a>
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.SystemSettings.system">system (mfv2d.solve_system.SystemSettings attribute)</a>
 </li>
@@ -1171,9 +1225,13 @@ document.write(`
 </li>
       <li><a href="modules/solve_system.html#mfv2d.solve_system.TimeSettings.time_march_relations">time_march_relations (mfv2d.solve_system.TimeSettings attribute)</a>
 </li>
+      <li><a href="modules/solve_system.html#mfv2d.solve_system.TimeSettings">TimeSettings (class in mfv2d.solve_system)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="modules/solve_system.html#mfv2d.solve_system.TimeSettings">TimeSettings (class in mfv2d.solve_system)</a>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D.top_left">top_left (mfv2d.mimetic2d.ElementLeaf2D attribute)</a>
+</li>
+      <li><a href="modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D.top_right">top_right (mfv2d.mimetic2d.ElementLeaf2D attribute)</a>
 </li>
       <li><a href="modules/eval.html#mfv2d.eval.translate_equation">translate_equation() (in module mfv2d.eval)</a>
 </li>
@@ -1199,9 +1257,11 @@ document.write(`
 </li>
       <li><a href="modules/kform.html#mfv2d.kform.KFormSystem.unknown_forms">unknown_forms (mfv2d.kform.KFormSystem attribute)</a>
 </li>
+      <li><a href="modules/kform.html#mfv2d.kform.UnknownFormOrder">UnknownFormOrder (class in mfv2d.kform)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="modules/kform.html#mfv2d.kform.UnknownFormOrder">UnknownFormOrder (class in mfv2d.kform)</a>
+      <li><a href="modules/kform.html#mfv2d.kform.UnknownOrderings">UnknownOrderings (class in mfv2d.kform)</a>
 </li>
       <li><a href="modules/kform.html#mfv2d.kform.KExplicit.unknowns">unknowns (mfv2d.kform.KExplicit property)</a>
 
@@ -1213,6 +1273,8 @@ document.write(`
         <li><a href="modules/kform.html#mfv2d.kform.TermEvaluatable.unknowns">(mfv2d.kform.TermEvaluatable property)</a>
 </li>
       </ul></li>
+      <li><a href="modules/progress.html#mfv2d.progress.ProgressTracker.update_iteration">update_iteration() (mfv2d.progress.ProgressTracker method)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -1225,6 +1287,8 @@ document.write(`
         <li><a href="modules/element.html#mfv2d.element.FixedElementArray.values">(mfv2d.element.FixedElementArray attribute)</a>
 </li>
         <li><a href="modules/element.html#mfv2d.element.FlexibleElementArray.values">(mfv2d.element.FlexibleElementArray attribute)</a>
+</li>
+        <li><a href="modules/element.html#mfv2d.element.ObjectElementArray.values">(mfv2d.element.ObjectElementArray attribute)</a>
 </li>
       </ul></li>
       <li><a href="modules/kform.html#mfv2d.kform.KInteriorProduct.vector_field">vector_field (mfv2d.kform.KInteriorProduct attribute)</a>

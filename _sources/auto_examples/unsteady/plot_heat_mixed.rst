@@ -25,7 +25,7 @@ This example is exactly the same as
 :ref:`sphx_glr_auto_examples_unsteady_plot_heat_direct.py`. As such, only
 differences from that one will be mentioned.
 
-.. GENERATED FROM PYTHON SOURCE LINES 9-25
+.. GENERATED FROM PYTHON SOURCE LINES 9-26
 
 .. code-block:: Python
 
@@ -41,6 +41,7 @@ differences from that one will be mentioned.
         SolverSettings,
         SystemSettings,
         TimeSettings,
+        UnknownFormOrder,
         solve_system_2d,
     )
     from scipy.integrate import trapezoid
@@ -52,7 +53,7 @@ differences from that one will be mentioned.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 26-35
+.. GENERATED FROM PYTHON SOURCE LINES 27-36
 
 Setup
 -----
@@ -64,7 +65,7 @@ it is also computed here.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 36-143
+.. GENERATED FROM PYTHON SOURCE LINES 37-144
 
 .. code-block:: Python
 
@@ -88,9 +89,9 @@ it is also computed here.
         )
 
 
-    u = KFormUnknown(2, "u", 2)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_2)
     v = u.weight
-    q = KFormUnknown(2, "q", 1)
+    q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
     p = q.weight
 
     system = KFormSystem(
@@ -183,8 +184,8 @@ it is also computed here.
 
  .. code-block:: none
 
-    [q(1*)]^T  ([            -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [<q, steady_u>])   [q(1*)]^T  ([0 |                0]  [q(1)] 
-    [u(2*)]    ([0.02 * M(2) @ E(2, 1) |                  0]  [u(2)] = [<u, steady_u>]) + [u(2*)]    ([0 | -0.901304 * M(2)]  [u(2)] 
+    [q(2*)]^T  ([            -1 * M(2) | (E(3, 2))^T @ M(2)]  [q(1)]   [<q, steady_u>])   [q(2*)]^T  ([0 |                0]  [q(1)] 
+    [u(3*)]    ([0.02 * M(3) @ E(3, 2) |                  0]  [u(2)] = [<u, steady_u>]) + [u(3*)]    ([0 | -0.901304 * M(3)]  [u(2)] 
     For dt=1 total error was 1.986e-01.
     For dt=0.667 total error was 9.133e-02.
     For dt=0.333 total error was 2.327e-02.
@@ -195,7 +196,7 @@ it is also computed here.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 144-154
+.. GENERATED FROM PYTHON SOURCE LINES 145-155
 
 Plotting the Error
 ------------------
@@ -208,7 +209,7 @@ is symplectic.
 :math:`H^1` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 155-179
+.. GENERATED FROM PYTHON SOURCE LINES 156-180
 
 .. code-block:: Python
 
@@ -248,12 +249,12 @@ is symplectic.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 180-182
+.. GENERATED FROM PYTHON SOURCE LINES 181-183
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 183-206
+.. GENERATED FROM PYTHON SOURCE LINES 184-207
 
 .. code-block:: Python
 
@@ -295,7 +296,7 @@ is symplectic.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 43.356 seconds)
+   **Total running time of the script:** (0 minutes 14.779 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_heat_mixed.py:

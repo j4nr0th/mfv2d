@@ -25,6 +25,7 @@ from mfv2d import (
     RefinementSettings,
     SolverSettings,
     SystemSettings,
+    UnknownFormOrder,
     solve_system_2d,
 )
 
@@ -50,9 +51,9 @@ def source_exact(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
     return -(np.pi**2) * np.cos(np.pi / 2 * x) * np.cos(np.pi / 2 * y)
 
 
-q = KFormUnknown(2, "q", 1)
+q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
 p = q.weight
-u = KFormUnknown(2, "u", 0)
+u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
 v = u.weight
 
 system = KFormSystem(

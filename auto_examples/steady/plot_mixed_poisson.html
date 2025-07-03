@@ -167,10 +167,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -399,6 +401,7 @@ Laplace operator, which the Poisson equation is defined with.</p>
     <span class="n">Mesh2D</span><span class="p">,</span>
     <span class="n">SolverSettings</span><span class="p">,</span>
     <span class="n">SystemSettings</span><span class="p">,</span>
+    <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -448,9 +451,9 @@ given by equation <a class="reference internal" href="#equation-steady-mixed-poi
 <p>Here the system is set up. The equations in the system bellow together represnt
 system <a class="reference internal" href="#equation-steady-mixed-poisson-var">(5)</a>. Note that the weak boundary conditions are
 introduced throught the boundary integral <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">^</span> <span class="pre">u_exact</span></code>.</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">)</span>
 <span class="n">v</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">weight</span>
-<span class="n">q</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">q</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">)</span>
 <span class="n">p</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
@@ -461,8 +464,8 @@ introduced throught the boundary integral <code class="docutils literal notransl
 <span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[q(1*)]^T  ([     -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [          &lt;q, u_exact&gt;])
-[u(2*)]    ([M(2) @ E(2, 1) |                  0]  [u(2)] = [-1 * &lt;u, source_exact&gt;])
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[q(2*)]^T  ([     -1 * M(2) | (E(3, 2))^T @ M(2)]  [q(1)]   [          &lt;q, u_exact&gt;])
+[u(3*)]    ([M(3) @ E(3, 2) |                  0]  [u(2)] = [-1 * &lt;u, source_exact&gt;])
 </pre></div>
 </div>
 </section>
@@ -644,7 +647,7 @@ Finished pval=6
 <img src="../../_images/sphx_glr_plot_mixed_poisson_004.png" srcset="../../_images/sphx_glr_plot_mixed_poisson_004.png" alt="plot mixed poisson" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 12.9 * (0.0533) ** p in L2 norm.
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.874 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.507 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-steady-plot-mixed-poisson-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/057b288d41b24842867a950b7d10dbfb/plot_mixed_poisson.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_mixed_poisson.ipynb</span></code></a></p>

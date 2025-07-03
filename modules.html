@@ -167,10 +167,12 @@
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Modules</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -341,9 +343,17 @@ module can be used, but rather how it works internally.</p>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/boundary.html">boundary</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="modules/boundary.html#mfv2d.boundary.BoundaryCondition2DSteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DSteady</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/boundary.html#mfv2d.boundary.BoundaryCondition2DUnsteady"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2DUnsteady</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/boundary.html#mfv2d.boundary.BoundaryCondition2D"><code class="docutils literal notranslate"><span class="pre">BoundaryCondition2D</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/boundary.html#boundary-condition-types">Boundary Condition Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/boundary.html#boundary-condition-construction">Boundary Condition Construction</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/continuity.html">continuity</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity.connect_corner_based"><code class="docutils literal notranslate"><span class="pre">connect_corner_based()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity.connect_edge_center"><code class="docutils literal notranslate"><span class="pre">connect_edge_center()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity.connect_edge_based"><code class="docutils literal notranslate"><span class="pre">connect_edge_based()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity.connect_element_inner"><code class="docutils literal notranslate"><span class="pre">connect_element_inner()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity.connect_elements"><code class="docutils literal notranslate"><span class="pre">connect_elements()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity._find_surface_boundary_id_node"><code class="docutils literal notranslate"><span class="pre">_find_surface_boundary_id_node()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/element.html">element</a><ul>
@@ -352,6 +362,7 @@ module can be used, but rather how it works internally.</p>
 <li class="toctree-l2"><a class="reference internal" href="modules/element.html#organizing-elements">Organizing Elements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/element.html#executing-per-element">Executing per Element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/element.html#element-utilities">Element Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/element.html#lagrange-multipliers-and-constraints">Lagrange Multipliers and Constraints</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/element.html#element-geometry">Element Geometry</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/element.html#element-projection">Element Projection</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/element.html#reconstruction">Reconstruction</a></li>
@@ -374,18 +385,19 @@ module can be used, but rather how it works internally.</p>
 <li class="toctree-l1"><a class="reference internal" href="modules/mimetic2d.html">mimetic2d</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#incidence-functions">Incidence Functions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#mesh-geometry">Mesh Geometry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#elements">Elements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#caching-basis">Caching Basis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/progress.html">progress</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/progress.html#mfv2d.progress.ProgressTracker"><code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/solve_system.html">solve_system</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#computing-the-explicit-terms">Computing the Explicit Terms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#lagrange-multipliers-and-constraints">Lagrange Multipliers and Constraints</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#continuity">Continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#matrix-assembly">Matrix Assembly</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#vector-assembly">Vector Assembly</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#forcing-assembly">Forcing Assembly</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#global-continuity">Global Continuity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#boundary-conditions">Boundary Conditions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#global-reconstruction">Global Reconstruction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#time-march-support">Time March Support</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#leaf-calculations">Leaf Calculations</a></li>

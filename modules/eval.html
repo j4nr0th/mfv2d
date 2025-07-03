@@ -166,10 +166,12 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../modules.html">Modules</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="element.html">element</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -442,13 +444,13 @@ bellow.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mfv2d.eval.MassMat">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.eval.</span></span><span class="sig-name descname"><span class="pre">MassMat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">inv</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/eval.html#MassMat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.eval.MassMat" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.eval.</span></span><span class="sig-name descname"><span class="pre">MassMat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">inv</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/eval.html#MassMat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.eval.MassMat" title="Link to this definition">#</a></dt>
 <dd><p>Mass matrix multiplication.</p>
 <p>Multiply by either mass matrix or its inverse.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the k-form for the mass matrix.</p></li>
+<li><p><strong>order</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><em>UnknownFormOrder</em></a>) – Order of the k-form for the mass matrix.</p></li>
 <li><p><strong>inv</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Should the matrix be inverted.</p></li>
 </ul>
 </dd>
@@ -460,27 +462,27 @@ bellow.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mfv2d.eval.MassMat.order">
-<span class="sig-name descname"><span class="pre">order</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.eval.MassMat.order" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">order</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></em><a class="headerlink" href="#mfv2d.eval.MassMat.order" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mfv2d.eval.Incidence">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.eval.</span></span><span class="sig-name descname"><span class="pre">Incidence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">begin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dual</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/eval.html#Incidence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.eval.Incidence" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.eval.</span></span><span class="sig-name descname"><span class="pre">Incidence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">begin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dual</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/eval.html#Incidence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.eval.Incidence" title="Link to this definition">#</a></dt>
 <dd><p>Incidence matrix.</p>
 <p>Specifies application of an incidence matrix.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>begin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the k-form for the incidence matrix from which to apply it.</p></li>
+<li><p><strong>begin</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><em>UnknownFormOrder</em></a>) – Order of the k-form for the incidence matrix from which to apply it.</p></li>
 <li><p><strong>dual</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Should the incidence matrix be applied as the dual.</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mfv2d.eval.Incidence.begin">
-<span class="sig-name descname"><span class="pre">begin</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.eval.Incidence.begin" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">begin</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></em><a class="headerlink" href="#mfv2d.eval.Incidence.begin" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -541,13 +543,13 @@ than zero.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mfv2d.eval.InterProd">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.eval.</span></span><span class="sig-name descname"><span class="pre">InterProd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">starting_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">field_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dual</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">adjoint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/eval.html#InterProd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.eval.InterProd" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.eval.</span></span><span class="sig-name descname"><span class="pre">InterProd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">starting_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">field_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dual</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">adjoint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/eval.html#InterProd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.eval.InterProd" title="Link to this definition">#</a></dt>
 <dd><p>Compute interior product.</p>
 <p>This is the most complicated operation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>starting_order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the k-form to which the interior product should be applied.</p></li>
+<li><p><strong>starting_order</strong> (<a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><em>UnknownFormOrder</em></a>) – Order of the k-form to which the interior product should be applied.</p></li>
 <li><p><strong>field_index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Index of the vector/scalar field from which the values of are taken.</p></li>
 <li><p><strong>dual</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Should the dual interior product be applied instead of the primal.</p></li>
 <li><p><strong>adjoint</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Should the adjoint interior product be applied, which is used by
@@ -572,7 +574,7 @@ the Newton-Raphson solver.</p></li>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mfv2d.eval.InterProd.starting_order">
-<span class="sig-name descname"><span class="pre">starting_order</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.eval.InterProd.starting_order" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">starting_order</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="kform.html#mfv2d.kform.UnknownFormOrder" title="mfv2d.kform.UnknownFormOrder"><span class="pre">UnknownFormOrder</span></a></em><a class="headerlink" href="#mfv2d.eval.InterProd.starting_order" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

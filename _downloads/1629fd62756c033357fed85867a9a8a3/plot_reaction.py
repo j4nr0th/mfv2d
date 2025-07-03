@@ -45,6 +45,7 @@ from mfv2d import (
     SolverSettings,
     SystemSettings,
     TimeSettings,
+    UnknownFormOrder,
     solve_system_2d,
 )
 from scipy.integrate import trapezoid
@@ -108,9 +109,9 @@ def final_q(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
 # to obtain the curl of the solution, so that the :math:`H^1` norm could be computed.
 #
 
-u = KFormUnknown(2, "u", 0)
+u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
 v = u.weight
-q = KFormUnknown(2, "q", 1)
+q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
 p = q.weight
 
 system = KFormSystem(

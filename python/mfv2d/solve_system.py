@@ -11,8 +11,6 @@ from collections.abc import (
     Sequence,
 )
 from dataclasses import dataclass, field
-from functools import cache
-from itertools import accumulate
 from typing import TypeVar, cast
 
 import numpy as np
@@ -24,20 +22,17 @@ from scipy.sparse import linalg as sla
 from mfv2d._mfv2d import (
     Basis2D,
     ElementMassMatrixCache,
-    Surface,
     compute_element_matrix,
     compute_element_vector,
-    compute_gll,
-    lagrange1d,
 )
-from mfv2d.boundary import BoundaryCondition2DSteady
+from mfv2d.boundary import (
+    BoundaryCondition2DSteady,
+)
 from mfv2d.element import (
     ElementCollection,
-    ElementSide,
     FixedElementArray,
     FlexibleElementArray,
     ObjectElementArray,
-    _compute_element_lagrange_multipliers,
     call_per_element,
     call_per_element_fix,
     call_per_element_flex,
@@ -51,31 +46,20 @@ from mfv2d.element import (
 from mfv2d.eval import CompiledSystem, _CompiledCodeMatrix
 from mfv2d.kform import (
     Function2D,
-    KBoundaryProjection,
     KElementProjection,
     KExplicit,
     KFormSystem,
     KFormUnknown,
-    KSum,
     KWeight,
     UnknownFormOrder,
     UnknownOrderings,
 )
-from mfv2d.mimetic2d import (
-    Element2D,
-    ElementLeaf2D,
-    FemCache,
-    Mesh2D,
-    vtk_lagrange_ordering,
-)
+from mfv2d.mimetic2d import Element2D, ElementLeaf2D, FemCache, vtk_lagrange_ordering
 from mfv2d.progress import ProgressTracker
 
-OrderDivisionFunction = Callable[
-    [int, int, int], tuple[int | None, tuple[int, int, int, int]]
-]
+OrderDivisionFunction = Callable[[int, int, int], tuple[int, int, int, int]]
 
 
-# TODO: REPLACE
 def check_and_refine(
     pred: Callable[[ElementLeaf2D, int], bool] | None,
     order_div: OrderDivisionFunction,
@@ -86,17 +70,16 @@ def check_and_refine(
     """Return element and potentially its children."""
     out: list[Element2D]
     if level < max_level and pred is not None and pred(e, level):
-        # TODO: Make this nicer without this stupid Method mumbo jumbo
-        parent_order, child_orders = order_div(e.order, level, max_level)
-        new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders, parent_order)
+        child_orders = order_div(e.order, level, max_level)
+        new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders)
         cbl = check_and_refine(pred, order_div, ebl, level + 1, max_level)
         cbr = check_and_refine(pred, order_div, ebr, level + 1, max_level)
         ctl = check_and_refine(pred, order_div, etl, level + 1, max_level)
         ctr = check_and_refine(pred, order_div, etr, level + 1, max_level)
-        object.__setattr__(new_e, "child_bl", cbl[0])
-        object.__setattr__(new_e, "child_br", cbr[0])
-        object.__setattr__(new_e, "child_tl", ctl[0])
-        object.__setattr__(new_e, "child_tr", ctr[0])
+        new_e.child_bl = cbl[0]
+        new_e.child_br = cbr[0]
+        new_e.child_tl = ctl[0]
+        new_e.child_tr = ctr[0]
         out = [new_e] + cbl + cbr + ctr + ctl
 
     else:
@@ -106,7 +89,7 @@ def check_and_refine(
 
 
 def compute_element_vector_fields_nonlin(
-    system: KFormSystem,
+    unknown_forms: Sequence[KFormUnknown],
     element_basis: Basis2D,
     output_basis: Basis2D,
     vector_fields: Sequence[Function2D | KFormUnknown],
@@ -118,9 +101,10 @@ def compute_element_vector_fields_nonlin(
 
     Parameters
     ----------
-    system : KFormSystem
-        System for which these vector fields should be computed.
-        TODO: REPLACE WITH JUST UNKNOWN FORMS
+    unknown_forms : Sequence of KFormUnknown
+        Unknown forms in the order they appear in the system. This is used to
+        determine what degrees of freedom are needed for the vector fields
+        based on differential forms.
 
     element_basis : Basis2D
         Basis functions that the element uses. This needs to match
@@ -159,7 +143,7 @@ def compute_element_vector_fields_nonlin(
     for i, vec_fld in enumerate(vector_fields):
         if isinstance(vec_fld, KFormUnknown):
             if solution is not None:
-                i_form = system.unknown_forms.index(vec_fld)
+                i_form = unknown_forms.index(vec_fld)
                 element_dofs = solution
                 form_offset = unknown_offsets[i_form]
                 form_offset_end = unknown_offsets[i_form + 1]
@@ -172,10 +156,10 @@ def compute_element_vector_fields_nonlin(
                     out_eta,
                     element_basis,
                 )
-                if vec_fld.order != 1:
+                if vec_fld.order != UnknownFormOrder.FORM_ORDER_1:
                     vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
             else:
-                # if vec_fld.order == 1:
+                # if vec_fld.order == UnknownFormOrder.FORM_ORDER_1:
                 vf = np.zeros(
                     (
                         out_xi.size,
@@ -236,20 +220,20 @@ def rhs_2d_element_projection(
     if fn is None:
         basis = element_cache.basis_2d
         n_dof: int
-        if right.weight.order == 0:
+        if right.weight.order == UnknownFormOrder.FORM_ORDER_0:
             n_dof = (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
-        elif right.weight.order == 1:
+        elif right.weight.order == UnknownFormOrder.FORM_ORDER_1:
             n_dof = (
                 basis.basis_xi.order + 1
             ) * basis.basis_eta.order + basis.basis_xi.order * (basis.basis_eta.order + 1)
-        elif right.weight.order == 2:
+        elif right.weight.order == UnknownFormOrder.FORM_ORDER_2:
             n_dof = basis.basis_xi.order * basis.basis_eta.order
         else:
             raise ValueError(f"Invalid weight order {right.weight.order}.")
 
         return np.zeros(n_dof)
 
-    return element_dual_dofs(UnknownFormOrder(right.weight.order + 1), element_cache, fn)
+    return element_dual_dofs(right.weight.order, element_cache, fn)
 
 
 def _extract_rhs_2d(
@@ -283,13 +267,13 @@ def _extract_rhs_2d(
     n_dof: int
     # Create empty vector into which to accumulate
     basis = element_cache.basis_2d
-    if weight.order == 0:
+    if weight.order == UnknownFormOrder.FORM_ORDER_0:
         n_dof = (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
-    elif weight.order == 1:
+    elif weight.order == UnknownFormOrder.FORM_ORDER_1:
         n_dof = (
             basis.basis_xi.order + 1
         ) * basis.basis_eta.order + basis.basis_xi.order * (basis.basis_eta.order + 1)
-    elif weight.order == 2:
+    elif weight.order == UnknownFormOrder.FORM_ORDER_2:
         n_dof = basis.basis_xi.order * basis.basis_eta.order
     else:
         raise ValueError(f"Invalid weight order {weight.order}.")
@@ -321,19 +305,12 @@ def compute_element_rhs(
     ----------
     ie : int
         Index of the element.
-        TODO: REPLACE WITH JUST ORDERS AND BASIS
 
     system : KFormSystem
         System for which to compute the rhs.
 
-    basis_cache : FemCache
+    element_caches : FemCache
         Cache from which to get the basis from.
-
-    orders : FixedElementArray[np.uint32]
-        Array with orders of the elements.
-
-    corners : FixedElementArray[np.float64]
-        Array with corners of the elements.
 
     Returns
     -------
@@ -351,1628 +328,36 @@ def compute_element_rhs(
     return np.concatenate(vecs, dtype=np.float64)
 
 
-@dataclass(frozen=True)
-class ElementConstraint:
-    """Type intended to enforce a constraint on an element.
-
-    Parameters
-    ----------
-    i_e : int
-        Index of the element for which this constraint is applied.
-
-    dofs : (n,) array
-        Array with indices of the degrees of freedom of the element involved.
-
-    coeffs : (n,) array
-        Array with coefficients of degrees of freedom of the element involved.
-    """
-
-    i_e: int
-    dofs: npt.NDArray[np.uint32]
-    coeffs: npt.NDArray[np.float64]
-
-
-@dataclass(frozen=True)
-class Constraint:
-    """Type used to specify constraints on degrees of freedom.
-
-    This type combines the individual :class:`ElementConstraint` together
-    with a right-hand side of the constraint.
-
-    Parameters
-    ----------
-    rhs : float
-        The right-hand side of the constraint.
-
-    *element_constraints : ElementConstraint
-        Constraints to combine together.
-    """
-
-    rhs: float
-    element_constraints: tuple[ElementConstraint, ...]
-
-    def __init__(self, rhs: float, *element_constraints: ElementConstraint) -> None:
-        object.__setattr__(self, "rhs", float(rhs))
-        object.__setattr__(self, "element_constraints", element_constraints)
-
-
-# TODO: remove the slow version.
-@cache
-def continuity_matrices(
-    n1: int, n2: int
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Compute continuity equation coefficients for 0 and 1 forms between elements.
-
-    Parameters
-    ----------
-    n1 : int
-        Higher order.
-    n2 : int
-        Lower order.
-
-    Returns
-    -------
-    (n1 + 1, n2 + 1) array
-        Array of coefficients for 0-form continuity.
-
-    (n1, n2) array
-        Array of coefficients for 1-form continuity.
-    """
-    assert n1 > n2
-    nodes_n1, _ = compute_gll(n1)
-    nodes_n2, _ = compute_gll(n2)
-
-    # Axis 0: xi_j
-    # Axis 1: psi_i
-    nodal_basis = lagrange1d(nodes_n2, nodes_n1)
-
-    # Axis 0: [xi_{j + 1}, xi_j]
-    # Axis 1: psi_i
-    coeffs_1_form = np.zeros((n1, n2), np.float64)
-    for j in range(n1):
-        coeffs_1_form[j, 0] = nodal_basis[j, 0] - nodal_basis[j + 1, 0]
-        for i in range(1, n2):
-            coeffs_1_form[j, i] = coeffs_1_form[j, i - 1] + (
-                nodal_basis[j, i] - nodal_basis[j + 1, i]
-            )
-
-    diffs = nodal_basis[:-1, :] - nodal_basis[+1:, :]
-    coeffs_1_fast = np.stack(
-        [x for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))],
-        axis=-1,
-        dtype=np.float64,
-    )
-
-    assert np.allclose(coeffs_1_fast, coeffs_1_form)
-
-    return np.astype(nodal_basis, np.float64, copy=False), coeffs_1_form
-
-
-def _continuity_element_1_forms(
-    unknown_ordering: UnknownOrderings,
-    elements: ElementCollection,
-    dof_offsets: FixedElementArray[np.uint32],
-    e_other: int,
-    e_self: int,
-    side_other: ElementSide,
-    side_self: ElementSide,
-) -> tuple[Constraint, ...]:
-    """Generate equations for 1-form continuity between elements.
-
-    Returns
-    -------
-    tuple of Constraint
-        List of constraint equations, which enforce continuity of 1 forms.
-    """
-    equations: list[Constraint] = list()
-
-    base_other_dofs = np.flip(
-        elements.get_boundary_dofs(e_other, UnknownFormOrder.FORM_ORDER_1, side_other)
-    )
-    base_self_dofs = elements.get_boundary_dofs(
-        e_self, UnknownFormOrder.FORM_ORDER_1, side_self
-    )
-    order_self = elements.get_element_order_on_side(e_self, side_self)
-    order_other = elements.get_element_order_on_side(e_other, side_other)
-
-    # This here is magic to see if the vector degrees of freedom are aligned or opposed.
-    # If they are opposed, then one pair of coefficients needs a negative sign.
-    trans_table = (-1, +1, +1, -1)
-    orientation_coefficient = (
-        trans_table[side_self.value - 1] * trans_table[side_other.value - 1]
-    )
-
-    for var_idx in (
-        iform
-        for iform, form in enumerate(unknown_ordering.form_orders)
-        if form == UnknownFormOrder.FORM_ORDER_1
-    ):
-        self_var_offset = int(dof_offsets[e_self][var_idx])
-        other_var_offset = int(dof_offsets[e_other][var_idx])
-
-        dofs_other = base_other_dofs + other_var_offset
-        dofs_self = base_self_dofs + self_var_offset
-
-        if order_self == order_other:
-            assert base_other_dofs.size == base_self_dofs.size
-            for v1, v2 in zip(dofs_self, dofs_other, strict=True):
-                equations.append(
-                    Constraint(
-                        0,
-                        ElementConstraint(e_self, np.asarray([v1]), np.array([+1.0])),
-                        ElementConstraint(
-                            e_other, np.asarray([v2]), np.array([orientation_coefficient])
-                        ),
-                    )
-                )
-
-        else:
-            if order_self > order_other:
-                order_high = order_self
-                order_low = order_other
-                dofs_high = dofs_self
-                dofs_low = dofs_other
-                e_high = e_self
-                e_low = e_other
-            else:
-                order_low = order_self
-                order_high = order_other
-                dofs_high = dofs_other
-                dofs_low = dofs_self
-                e_low = e_self
-                e_high = e_other
-
-            _, coeffs_1 = continuity_matrices(order_high, order_low)
-
-            for i_h, v_h in zip(range(order_high), dofs_high, strict=True):
-                coefficients = coeffs_1[i_h, ...]
-
-                equations.append(
-                    Constraint(
-                        0,
-                        ElementConstraint(
-                            e_high, np.array([v_h]), np.array([orientation_coefficient])
-                        ),
-                        ElementConstraint(e_low, dofs_low, coefficients),
-                    )
-                )
-                # ConstraintEquation(
-                #     np.concatenate(((v_h,), dofs_low)),
-                #     np.concatenate(((orientation_coefficient,), coefficients)),
-                #     0.0,
-
-    return tuple(equations)
-
-
-def _continuity_element_0_forms_inner(
-    unknown_ordering: UnknownOrderings,
-    elements: ElementCollection,
-    dof_offsets: FixedElementArray[np.uint32],
-    e_other: int,
-    e_self: int,
-    side_other: ElementSide,
-    side_self: ElementSide,
-) -> tuple[Constraint, ...]:
-    """Generate equations for 0-form continuity between elements.
-
-    Returns
-    -------
-    tuple of Constraint
-        List of constraint equations, which enforce continuity of 0 forms.
-    """
-    equations: list[Constraint] = list()
-
-    base_other_dofs = np.flip(
-        elements.get_boundary_dofs(e_other, UnknownFormOrder.FORM_ORDER_0, side_other)
-    )
-    base_self_dofs = elements.get_boundary_dofs(
-        e_self, UnknownFormOrder.FORM_ORDER_0, side_self
-    )
-    order_self = elements.get_element_order_on_side(e_self, side_self)
-    order_other = elements.get_element_order_on_side(e_other, side_other)
-
-    for var_idx in (
-        iform
-        for iform, form in enumerate(unknown_ordering.form_orders)
-        if form == UnknownFormOrder.FORM_ORDER_0
-    ):
-        self_var_offset = int(dof_offsets[e_self][var_idx])
-        other_var_offset = int(dof_offsets[e_other][var_idx])
-
-        dofs_other = base_other_dofs + other_var_offset
-        dofs_self = base_self_dofs + self_var_offset
-
-        if order_self == order_other:
-            assert base_other_dofs.size == base_self_dofs.size
-            for v1, v2 in zip(dofs_self[1:-1], dofs_other[1:-1], strict=True):
-                equations.append(
-                    Constraint(
-                        0,
-                        ElementConstraint(e_self, np.asarray([v1]), np.array([+1.0])),
-                        ElementConstraint(e_other, np.asarray([v2]), np.array([-1.0])),
-                    )
-                )
-
-        else:
-            if order_self > order_other:
-                order_high = order_self
-                order_low = order_other
-                dofs_high = dofs_self
-                dofs_low = dofs_other
-                e_high = e_self
-                e_low = e_other
-            else:
-                order_low = order_self
-                order_high = order_other
-                dofs_high = dofs_other
-                dofs_low = dofs_self
-                e_low = e_self
-                e_high = e_other
-            dofs_high = dofs_high[1:-1]
-
-            coeffs_0, _ = continuity_matrices(order_high, order_low)
-
-            for i_h, v_h in zip(range(order_high - 1), dofs_high, strict=True):
-                coefficients = coeffs_0[i_h + 1, ...]
-
-                equations.append(
-                    Constraint(
-                        0,
-                        ElementConstraint(e_high, np.array([v_h]), np.array([-1])),
-                        ElementConstraint(e_low, dofs_low, coefficients),
-                    )
-                )
-
-    return tuple(equations)
-
-
-def _continuity_element_0_forms_corner(
-    unknown_ordering: UnknownOrderings,
-    elements: ElementCollection,
-    dof_offsets: FixedElementArray[np.uint32],
-    e_other: int,
-    e_self: int,
-    side_other: ElementSide,
-    side_self: ElementSide,
-) -> tuple[Constraint, ...]:
-    """Generate equations for 0-form continuity between elements.
-
-    Returns
-    -------
-    tuple of Constraint
-        List of constraint equations, which enforce continuity of 0 forms.
-    """
-    # BUG: Wrong signs somehow
-    equations: list[Constraint] = list()
-
-    base_other_dofs = elements.get_boundary_dofs(
-        e_other, UnknownFormOrder.FORM_ORDER_0, side_other
-    )[-1]
-    base_self_dofs = elements.get_boundary_dofs(
-        e_self, UnknownFormOrder.FORM_ORDER_0, side_self
-    )[0]
-
-    for var_idx in (
-        iform
-        for iform, form in enumerate(unknown_ordering.form_orders)
-        if form == UnknownFormOrder.FORM_ORDER_0
-    ):
-        self_var_offset = int(dof_offsets[e_self][var_idx])
-        other_var_offset = int(dof_offsets[e_other][var_idx])
-
-        dofs_other = base_other_dofs + other_var_offset
-        dofs_self = base_self_dofs + self_var_offset
-
-        equations.append(
-            Constraint(
-                0,
-                ElementConstraint(e_self, np.asarray([dofs_self]), np.array([+1.0])),
-                ElementConstraint(e_other, np.asarray([dofs_other]), np.array([-1.0])),
-            )
-        )
-
-    return tuple(equations)
-
-
-@cache
-def continuity_child_matrices(
-    nchild: int, nparent: int
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Compute continuity equation coefficients for 0 and 1 forms between elements.
-
-    Parameters
-    ----------
-    nc : int
-        Child's order.
-    nparent : int
-        Parent's order.
-
-    Returns
-    -------
-    (nc + 1, np + 1) array
-        Array of coefficients for 0-form continuity.
-
-    (nc, np) array
-        Array of coefficients for 1-form continuity.
-    """
-    # assert nchild >= nparent
-    nodes_child, _ = compute_gll(nchild)
-    nodes_parent, _ = compute_gll(nparent)
-    nodes_child = (nodes_child / 2) - 0.5  # Scale to [-1, 0]
-
-    # Axis 0: xi_j
-    # Axis 1: psi_i
-    nodal_basis = lagrange1d(nodes_parent, nodes_child)
-
-    # Axis 0: [xi_{j + 1}, xi_j]
-    # Axis 1: psi_i
-    coeffs_1_form = np.zeros((nchild, nparent), np.float64)
-    for j in range(nchild):
-        coeffs_1_form[j, 0] = nodal_basis[j, 0] - nodal_basis[j + 1, 0]
-        for i in range(1, nparent):
-            coeffs_1_form[j, i] = coeffs_1_form[j, i - 1] + (
-                nodal_basis[j, i] - nodal_basis[j + 1, i]
-            )
-
-    diffs = nodal_basis[:-1, :] - nodal_basis[+1:, :]
-    coeffs_1_fast = np.stack(
-        [x for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))],
-        axis=-1,
-        dtype=np.float64,
-    )
-
-    assert np.allclose(coeffs_1_fast, coeffs_1_form)
-
-    return np.astype(nodal_basis, np.float64, copy=False), coeffs_1_form
-
-
-def _continuity_parent_child_edges(
-    unknown_orders: UnknownOrderings,
-    elements: ElementCollection,
-    dof_offsets: FixedElementArray[np.uint32],
-    e_parent: int,
-    e_child: int,
-    side: ElementSide,
-    flipped: bool,
-) -> tuple[Constraint, ...]:
-    """Connect parent and child element boundaries.
-
-    Parameters
-    ----------
-    unknown_orders : UnknownOrderings
-        Orders of all unknown differential forms.
-    e_parent : int
-        Parent element.
-    e_child : int
-        Child element.
-    side : ElementSide
-        Index of the boundary which is to be connected.
-    flipped : bool
-        Determines if the child is on the second half of the boundary instead of the
-        first. This in practice means that coefficients in equations must be flipped.
-
-    Returns
-    -------
-    tuple of Constraint
-        Equations which enforce continuity of the 1-forms on the boundary of a parent and
-        a child.
-    """
-    dofs_parent = elements.get_boundary_dofs(
-        e_parent, UnknownFormOrder.FORM_ORDER_1, side
-    )
-    dofs_child = elements.get_boundary_dofs(e_child, UnknownFormOrder.FORM_ORDER_1, side)
-    _, coeff_1 = continuity_child_matrices(
-        elements.get_element_order_on_side(e_child, side),
-        elements.get_element_order_on_side(e_parent, side),
-    )
-    if flipped:
-        coeff_1 = np.flip(coeff_1, axis=0)
-        coeff_1 = np.flip(coeff_1, axis=1)
-
-    equations: list[Constraint] = list()
-    for var_idx in (
-        i_form
-        for i_form, form in enumerate(unknown_orders.form_orders)
-        if form == UnknownFormOrder.FORM_ORDER_1
-    ):
-        var_parent_offset = int(dof_offsets[e_parent][var_idx])
-        var_child_offset = int(dof_offsets[e_child][var_idx])
-
-        dp = var_parent_offset + dofs_parent
-        dc = var_child_offset + dofs_child
-
-        for i_c, v_c in enumerate(dc):
-            coeffs = coeff_1[i_c, :]
-            equations.append(
-                Constraint(
-                    0,
-                    ElementConstraint(e_child, np.array([v_c]), np.array([-1])),
-                    ElementConstraint(e_parent, dp, coeffs),
-                )
-            )
-
-    return tuple(equations)
-
-
-def _continuity_parent_child_nodes(
-    unknown_orders: UnknownOrderings,
-    elements: ElementCollection,
-    dof_offsets: FixedElementArray[np.uint32],
-    e_parent: int,
-    e_child: int,
-    side: ElementSide,
-    flipped: bool,
-) -> tuple[Constraint, ...]:
-    """Connect parent and child element boundaries.
-
-    Parameters
-    ----------
-    unknown_orders : UnknownOrderings
-        Orders of all unknown differential forms.
-    e_parent : int
-        Parent element.
-    e_child : int
-        Child element.
-    side : ElementSide
-        Index of the boundary which is to be connected.
-    flipped : bool
-        Determines if the child is on the second half of the boundary instead of the
-        first. This in practice means that coefficients in equations must be flipped.
-
-    Returns
-    -------
-    tuple of Constraint
-        Equations which enforce continuity of the 0-forms on the boundary of a parent and
-        a child.
-    """
-    dofs_parent = elements.get_boundary_dofs(
-        e_parent, UnknownFormOrder.FORM_ORDER_0, side
-    )
-    dofs_child = elements.get_boundary_dofs(e_child, UnknownFormOrder.FORM_ORDER_0, side)
-    coeff_0, _ = continuity_child_matrices(
-        elements.get_element_order_on_side(e_child, side),
-        elements.get_element_order_on_side(e_parent, side),
-    )
-    if flipped:
-        coeff_0 = np.flip(coeff_0, axis=0)
-        coeff_0 = np.flip(coeff_0, axis=1)
-        # Only do the corner on non-flipped, so
-        # that we do not double constraints for it.
-        dofs_child = dofs_child[1:-1]
-        coeff_0 = coeff_0[1:-1, :]
-
-    equations: list[Constraint] = list()
-    for var_idx in (
-        i_form
-        for i_form, form in enumerate(unknown_orders.form_orders)
-        if form == UnknownFormOrder.FORM_ORDER_0
-    ):
-        var_parent_offset = int(dof_offsets[e_parent][var_idx])
-        var_child_offset = int(dof_offsets[e_child][var_idx])
-
-        dp = var_parent_offset + dofs_parent
-        dc = var_child_offset + dofs_child
-
-        for i_c, v_c in enumerate(dc):
-            coeffs = coeff_0[i_c, :]
-            equations.append(
-                Constraint(
-                    0,
-                    ElementConstraint(e_child, np.array([v_c]), np.array([-1])),
-                    ElementConstraint(e_parent, dp, coeffs),
-                )
-            )
-
-    return tuple(equations)
-
-
-def _parent_child_equations(
-    unknown_ordering: UnknownOrderings,
-    elements: ElementCollection,
-    dof_offsets: FixedElementArray[np.uint32],
-    ie: int,
-    child_bl: int,
-    child_br: int,
-    child_tr: int,
-    child_tl: int,
-) -> tuple[Constraint, ...]:
-    """Create constraint equations for the parent-child and child-child continuity.
-
-    Parameters
-    ----------
-    unknown_ordering : UnknownOrderings
-        Order of unknown differential forms.
-
-
-    Returns
-    -------
-    tuple of Constraint
-        Tuple of the constraint equations which ensure continuity between these elements.
-    """
-    child_child: list[Constraint] = list()
-    parent_child: list[Constraint] = list()
-    for form in unknown_ordering.form_orders:
-        # TODO: change this to be per form instead of all forms of a type at once
-        if form == UnknownFormOrder.FORM_ORDER_1:
-            # Glue 1-form edges
-            child_child += _continuity_element_1_forms(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_br,
-                child_bl,
-                ElementSide.SIDE_LEFT,
-                ElementSide.SIDE_RIGHT,
-            )
-            child_child += _continuity_element_1_forms(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_tr,
-                child_br,
-                ElementSide.SIDE_BOTTOM,
-                ElementSide.SIDE_TOP,
-            )
-            child_child += _continuity_element_1_forms(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_tl,
-                child_tr,
-                ElementSide.SIDE_RIGHT,
-                ElementSide.SIDE_LEFT,
-            )
-            child_child += _continuity_element_1_forms(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_bl,
-                child_tl,
-                ElementSide.SIDE_TOP,
-                ElementSide.SIDE_BOTTOM,
-            )
-
-            parent_child += _continuity_parent_child_edges(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_bl,
-                ElementSide.SIDE_BOTTOM,
-                False,
-            )
-            parent_child += _continuity_parent_child_edges(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_br,
-                ElementSide.SIDE_BOTTOM,
-                True,
-            )
-            parent_child += _continuity_parent_child_edges(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_br,
-                ElementSide.SIDE_RIGHT,
-                False,
-            )
-            parent_child += _continuity_parent_child_edges(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_tr,
-                ElementSide.SIDE_RIGHT,
-                True,
-            )
-            parent_child += _continuity_parent_child_edges(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_tr,
-                ElementSide.SIDE_TOP,
-                False,
-            )
-            parent_child += _continuity_parent_child_edges(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_tl,
-                ElementSide.SIDE_TOP,
-                True,
-            )
-            parent_child += _continuity_parent_child_edges(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_tl,
-                ElementSide.SIDE_LEFT,
-                False,
-            )
-            parent_child += _continuity_parent_child_edges(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_bl,
-                ElementSide.SIDE_LEFT,
-                True,
-            )
-
-        elif form == UnknownFormOrder.FORM_ORDER_0:
-            # Glue 0-form edges
-            child_child += _continuity_element_0_forms_inner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_br,
-                child_bl,
-                ElementSide.SIDE_LEFT,
-                ElementSide.SIDE_RIGHT,
-            )
-            child_child += _continuity_element_0_forms_inner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_tr,
-                child_br,
-                ElementSide.SIDE_BOTTOM,
-                ElementSide.SIDE_TOP,
-            )
-            child_child += _continuity_element_0_forms_inner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_tl,
-                child_tr,
-                ElementSide.SIDE_RIGHT,
-                ElementSide.SIDE_LEFT,
-            )
-            child_child += _continuity_element_0_forms_inner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_bl,
-                child_tl,
-                ElementSide.SIDE_TOP,
-                ElementSide.SIDE_BOTTOM,
-            )
-            # Glue the corner they all share
-            child_child += _continuity_element_0_forms_corner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_bl,
-                child_br,
-                ElementSide.SIDE_RIGHT,
-                ElementSide.SIDE_LEFT,
-            )
-            child_child += _continuity_element_0_forms_corner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_br,
-                child_tr,
-                ElementSide.SIDE_TOP,
-                ElementSide.SIDE_BOTTOM,
-            )
-            child_child += _continuity_element_0_forms_corner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_tr,
-                child_tl,
-                ElementSide.SIDE_LEFT,
-                ElementSide.SIDE_RIGHT,
-            )
-
-            # Glue the child corners too
-            child_child += _continuity_element_0_forms_corner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_br,
-                child_bl,
-                ElementSide.SIDE_LEFT,
-                ElementSide.SIDE_RIGHT,
-            )
-            child_child += _continuity_element_0_forms_corner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_tr,
-                child_br,
-                ElementSide.SIDE_BOTTOM,
-                ElementSide.SIDE_TOP,
-            )
-            child_child += _continuity_element_0_forms_corner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_tl,
-                child_tr,
-                ElementSide.SIDE_RIGHT,
-                ElementSide.SIDE_LEFT,
-            )
-            child_child += _continuity_element_0_forms_corner(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                child_bl,
-                child_tl,
-                ElementSide.SIDE_TOP,
-                ElementSide.SIDE_BOTTOM,
-            )
-
-            # Don't add the fourth equation!
-
-            parent_child += _continuity_parent_child_nodes(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_bl,
-                ElementSide.SIDE_BOTTOM,
-                False,
-            )
-            parent_child += _continuity_parent_child_nodes(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_br,
-                ElementSide.SIDE_BOTTOM,
-                True,
-            )
-            parent_child += _continuity_parent_child_nodes(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_br,
-                ElementSide.SIDE_RIGHT,
-                False,
-            )
-            parent_child += _continuity_parent_child_nodes(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_tr,
-                ElementSide.SIDE_RIGHT,
-                True,
-            )
-            parent_child += _continuity_parent_child_nodes(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_tr,
-                ElementSide.SIDE_TOP,
-                False,
-            )
-            parent_child += _continuity_parent_child_nodes(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_tl,
-                ElementSide.SIDE_TOP,
-                True,
-            )
-            parent_child += _continuity_parent_child_nodes(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_tl,
-                ElementSide.SIDE_LEFT,
-                False,
-            )
-            parent_child += _continuity_parent_child_nodes(
-                unknown_ordering,
-                elements,
-                dof_offsets,
-                ie,
-                child_bl,
-                ElementSide.SIDE_LEFT,
-                True,
-            )
-
-        elif form == UnknownFormOrder.FORM_ORDER_2:
-            continue
-
-        else:
-            raise ValueError(f"Unknown form order {form=}.")
-
-    return tuple(child_child + parent_child)
-
-
-def _compute_element_matrix(
-    unknown_ordering: UnknownOrderings,
-    collection: ElementCollection,
-    ie: int,
-    dof_offsets_array: FixedElementArray[np.uint32],
-    leaf_matrices: FlexibleElementArray[np.float64, np.uint32],
-    elements: ElementCollection,
-) -> sp.csr_array | npt.NDArray[np.float64]:
-    """Compute matrix for a top level element."""
-    children = collection.child_array[ie]
-    if children.size == 0:
-        return leaf_matrices[ie]
-
-    # Matrix due to self DoFs (zeros)
-    dof_offsets = dof_offsets_array[ie]
-    self_matrix = sp.csr_array((dof_offsets[-1], dof_offsets[-1]))
-
-    # Child element matrices
-    child_matrices = [
-        _compute_element_matrix(
-            unknown_ordering,
-            collection,
-            int(ic),
-            dof_offsets_array,
-            leaf_matrices,
-            collection,
-        )
-        for ic in children
-    ]
-    sizes = [mat.shape[0] for mat in child_matrices]
-    offsets = {int(ic): int(np.sum(sizes[:i])) for i, ic in enumerate(children)}
-
-    # Lagrange muliplier block
-    constraint_equations = _parent_child_equations(
-        unknown_ordering, collection, dof_offsets_array, ie, *children
-    )
-    rows_c: list[npt.NDArray[np.uint32]] = list()
-    rows_s: list[npt.NDArray[np.uint32]] = list()
-    cols_c: list[npt.NDArray[np.uint32]] = list()
-    cols_s: list[npt.NDArray[np.uint32]] = list()
-    vals_c: list[npt.NDArray[np.float64]] = list()
-    vals_s: list[npt.NDArray[np.float64]] = list()
-    for ic, con in enumerate(constraint_equations):
-        assert con.rhs == 0
-        for ec in con.element_constraints:
-            idx = ec.i_e
-            if idx == ie:
-                cols_s.append(ec.dofs)
-                rows_s.append(np.full_like(ec.dofs, ic, np.uint32))
-                vals_s.append(ec.coeffs)
-            else:
-                offset = offsets[idx]
-                cols_c.append(ec.dofs + offset)
-                rows_c.append(np.full_like(ec.dofs, ic, np.uint32))
-                vals_c.append(ec.coeffs)
-
-    lagmat_c = sp.csr_array(
-        (np.concatenate(vals_c), (np.concatenate(rows_c), np.concatenate(cols_c))),
-        shape=(len(constraint_equations), sum(sizes)),
-    )
-    lagmat_s = sp.csr_array(
-        (np.concatenate(vals_s), (np.concatenate(rows_s), np.concatenate(cols_s))),
-        shape=(len(constraint_equations), dof_offsets[-1]),
-    )
-
-    assert len(constraint_equations) == _compute_element_lagrange_multipliers(
-        ie, elements, unknown_ordering
-    )  # TODO: remove
-
-    return cast(
-        sp.csr_array,
-        sp.block_array(
-            (
-                (self_matrix, lagmat_s.T, None),
-                (lagmat_s, None, lagmat_c),
-                (None, lagmat_c.T, sp.block_diag([*child_matrices])),
-            ),
-            format="csr",
-        ),
-    )
-
-
 def assemble_matrix(
-    unknown_ordering: UnknownOrderings,
-    collection: ElementCollection,
-    dof_offsets_array: FixedElementArray[np.uint32],
     leaf_matrices: FlexibleElementArray[np.float64, np.uint32],
 ) -> sp.csr_array:
     """Assemble global matrix."""
-    matrices: list[sp.csr_array | npt.NDArray[np.float64]] = list()
-    for ie, i_parent in enumerate(collection.parent_array):
-        if int(i_parent[0]) != 0:
-            continue
-        mat = _compute_element_matrix(
-            unknown_ordering,
-            collection,
-            ie,
-            dof_offsets_array,
-            leaf_matrices,
-            collection,
-        )
-        matrices.append(mat)
+    matrices: list[npt.NDArray[np.float64]] = [
+        mat for mat in leaf_matrices if mat.size != 0
+    ]
     return cast(sp.csr_array, sp.block_diag(matrices, format="csr"))
 
 
-def _compute_element_vector(
-    unknown_ordering: UnknownOrderings,
-    collection: ElementCollection,
-    ie: int,
-    dof_offsets_array: FixedElementArray[np.uint32],
-    lagrange_dof_count_array: FixedElementArray[np.uint32],
-    leaf_vectors: FlexibleElementArray[np.float64, np.uint32],
-) -> npt.NDArray[np.float64]:
-    """Compute matrix for a top level element."""
-    children = collection.child_array[ie]
-    if children.size == 0:
-        return leaf_vectors[ie]
-
-    # Matrix due to self DoFs (zeros)
-    dof_offsets = dof_offsets_array[ie]
-    self_vec = np.zeros(dof_offsets[-1])
-
-    # Child element matrices
-    child_vectors = [
-        _compute_element_vector(
-            unknown_ordering,
-            collection,
-            int(ic),
-            dof_offsets_array,
-            lagrange_dof_count_array,
-            leaf_vectors,
-        )
-        for ic in children
-    ]
-    lagvals = np.zeros(lagrange_dof_count_array[ie])
-
-    return np.concatenate((self_vec, lagvals, *child_vectors), dtype=np.float64)
-
-
 def assemble_vector(
-    unknown_ordering: UnknownOrderings,
-    collection: ElementCollection,
-    dof_offsets_array: FixedElementArray[np.uint32],
-    lagrange_dof_count_array: FixedElementArray[np.uint32],
     leaf_vectors: FlexibleElementArray[np.float64, np.uint32],
 ) -> npt.NDArray[np.float64]:
     """Assemble global vector."""
-    vectors: list[npt.NDArray[np.float64]] = list()
-    for ie, i_parent in enumerate(collection.parent_array):
-        if int(i_parent[0]) != 0:
-            continue
-        vectors.append(
-            _compute_element_vector(
-                unknown_ordering,
-                collection,
-                ie,
-                dof_offsets_array,
-                lagrange_dof_count_array,
-                leaf_vectors,
-            )
-        )
+    vectors: list[npt.NDArray[np.float64]] = [
+        vec for vec in leaf_vectors if vec.size != 0
+    ]
 
     return np.concatenate(vectors, dtype=np.float64)
-
-
-def _compute_element_forcing(
-    unknown_ordering: UnknownOrderings,
-    collection: ElementCollection,
-    ie: int,
-    dof_offsets_array: FixedElementArray[np.uint32],
-    leaf_vectors: FlexibleElementArray[np.float64, np.uint32],
-    solution: FlexibleElementArray[np.float64, np.uint32],
-) -> npt.NDArray[np.float64]:
-    """Compute forcing for an element."""
-    children = collection.child_array[ie]
-    if children.size == 0:
-        return leaf_vectors[ie]
-
-    # Forcing due to self DoFs (zeros)
-    dof_offsets = dof_offsets_array[ie]
-
-    # Child element forcing
-    forcing_arrays = {
-        **{
-            ic: _compute_element_forcing(
-                unknown_ordering,
-                collection,
-                int(ic),
-                dof_offsets_array,
-                leaf_vectors,
-                solution,
-            )
-            for ic in children
-        },
-        ie: np.zeros(dof_offsets[-1], np.float64),
-    }
-
-    # Lagrange muliplier block
-    constraint_equations = _parent_child_equations(
-        unknown_ordering, collection, dof_offsets_array, ie, *children
-    )
-    vals: list[float] = list()
-    e_sol = solution[ie]
-    lagmul = e_sol[dof_offsets[-1] :]
-    for ic, con in enumerate(constraint_equations):
-        assert con.rhs == 0
-        v = 0.0
-        for ec in con.element_constraints:
-            sol = solution[ec.i_e]
-            v += np.dot(ec.coeffs, sol[ec.dofs])
-            forcing = forcing_arrays[ec.i_e]
-            forcing[ec.dofs] += ec.coeffs * lagmul[ic]
-        vals.append(v)
-
-    return np.concatenate(
-        [forcing_arrays[ie], vals, *(forcing_arrays[ic] for ic in children)],
-        dtype=np.float64,
-    )
 
 
 def assemble_forcing(
-    unknown_ordering: UnknownOrderings,
-    collection: ElementCollection,
-    dof_offsets_array: FixedElementArray[np.uint32],
     leaf_vectors: FlexibleElementArray[np.float64, np.uint32],
-    solution: FlexibleElementArray[np.float64, np.uint32],
 ) -> npt.NDArray[np.float64]:
     """Assemble global vector."""
-    vectors: list[npt.NDArray[np.float64]] = list()
-    for ie, i_parent in enumerate(collection.parent_array):
-        if int(i_parent[0]) != 0:
-            continue
-        vectors.append(
-            _compute_element_forcing(
-                unknown_ordering,
-                collection,
-                ie,
-                dof_offsets_array,
-                leaf_vectors,
-                solution,
-            )
-        )
+    vectors: list[npt.NDArray[np.float64]] = [
+        vec for vec in leaf_vectors if vec.size != 0
+    ]
 
     return np.concatenate(vectors, dtype=np.float64)
-
-
-def _find_boundary_id(s: Surface, i: int) -> ElementSide:
-    """Find what boundary the line with a given index is in the surface."""
-    if s[0].index == i:
-        return ElementSide.SIDE_BOTTOM
-    if s[1].index == i:
-        return ElementSide.SIDE_RIGHT
-    if s[2].index == i:
-        return ElementSide.SIDE_TOP
-    if s[3].index == i:
-        return ElementSide.SIDE_LEFT
-    raise ValueError(f"Line with index {i} is not in the surface {s}.")
-
-
-def _top_level_continuity_1(
-    mesh: Mesh2D,
-    top_indices: npt.NDArray[np.uint32],
-    elements: ElementCollection,
-    unknown_orders: UnknownOrderings,
-    dof_offsets: FixedElementArray[np.uint32],
-) -> list[Constraint]:
-    """Create equations enforcing 1-form continuity between top level elements."""
-    # Continuity of 1-forms
-    continuity_equations: list[Constraint] = list()
-    for il in range(mesh.dual.n_lines):
-        dual_line = mesh.dual.get_line(il + 1)
-        idx_neighbour = dual_line.begin
-        idx_self = dual_line.end
-        if not idx_self or not idx_neighbour:
-            continue
-
-        # For each variable which must be continuous, get locations in left and right
-        s_other = mesh.primal.get_surface(idx_neighbour)
-        s_self = mesh.primal.get_surface(idx_self)
-
-        i_other = int(top_indices[idx_neighbour.index])
-        i_self = int(top_indices[idx_self.index])
-        continuity_equations.extend(
-            _continuity_element_1_forms(
-                unknown_orders,
-                elements,
-                dof_offsets,
-                i_other,
-                i_self,
-                _find_boundary_id(s_other, il),
-                _find_boundary_id(s_self, il),
-            )
-        )
-    return continuity_equations
-
-
-def _top_level_continuity_0(
-    mesh: Mesh2D,
-    top_indices: npt.NDArray[np.uint32],
-    elements: ElementCollection,
-    unknown_orders: UnknownOrderings,
-    only_first_order: bool,
-    dof_offsets: FixedElementArray[np.uint32],
-) -> list[Constraint]:
-    """Create equations enforcing 0-form continuity between top level elements."""
-    # Continuity of 0-forms on the non-corner DoFs
-    continuity_equations: list[Constraint] = list()
-    if only_first_order:
-        for il in range(mesh.dual.n_lines):
-            dual_line = mesh.dual.get_line(il + 1)
-            idx_neighbour = dual_line.begin
-            idx_self = dual_line.end
-
-            if not idx_neighbour or not idx_self:
-                continue
-
-            s_other = mesh.primal.get_surface(idx_neighbour)
-            s_self = mesh.primal.get_surface(idx_self)
-
-            i_other = int(top_indices[idx_neighbour.index])
-            i_self = int(top_indices[idx_self.index])
-            continuity_equations.extend(
-                _continuity_element_0_forms_inner(
-                    unknown_orders,
-                    elements,
-                    dof_offsets,
-                    i_other,
-                    i_self,
-                    _find_boundary_id(s_other, il),
-                    _find_boundary_id(s_self, il),
-                )
-            )
-
-    # Continuity of 0-forms on the corner DoFs
-    for i_surf in range(mesh.dual.n_surfaces):
-        dual_surface = mesh.dual.get_surface(i_surf + 1)
-        closed = True
-        valid: list[int] = list()
-        for i_ln in range(len(dual_surface)):
-            id_line = dual_surface[i_ln]
-            dual_line = mesh.dual.get_line(id_line)
-            idx_neighbour = dual_line.begin
-            idx_self = dual_line.end
-            if not idx_neighbour or not idx_self:
-                closed = False
-            else:
-                valid.append(i_ln)
-
-        if closed:
-            valid.pop()
-
-        for i_ln in valid:
-            id_line = dual_surface[i_ln]
-            dual_line = mesh.dual.get_line(id_line)
-            idx_neighbour = dual_line.begin
-            idx_self = dual_line.end
-
-            if not idx_neighbour or not idx_self:
-                continue
-
-            s_other = mesh.primal.get_surface(idx_neighbour)
-            s_self = mesh.primal.get_surface(idx_self)
-
-            i_other = int(top_indices[idx_neighbour.index])
-            i_self = int(top_indices[idx_self.index])
-            continuity_equations.extend(
-                _continuity_element_0_forms_corner(
-                    unknown_orders,
-                    elements,
-                    dof_offsets,
-                    i_other,
-                    i_self,
-                    _find_boundary_id(s_other, id_line.index),
-                    _find_boundary_id(s_self, id_line.index),
-                )
-            )
-
-    return continuity_equations
-
-
-def mesh_continuity_constraints(
-    system: KFormSystem,
-    mesh: Mesh2D,
-    top_indices: npt.NDArray[np.uint32],
-    unknown_orders: UnknownOrderings,
-    elements: ElementCollection,
-    only_first_order: bool,
-    dof_offsets: FixedElementArray[np.uint32],
-) -> tuple[Constraint, ...]:
-    """Return the boundary conditions system."""
-    continuity_equations: list[Constraint] = list()
-
-    # Continuity of 1-forms on top level
-    if system.get_form_indices_by_order(1):
-        continuity_equations.extend(
-            _top_level_continuity_1(
-                mesh, top_indices, elements, unknown_orders, dof_offsets
-            )
-        )
-
-    if system.get_form_indices_by_order(0):
-        continuity_equations.extend(
-            _top_level_continuity_0(
-                mesh, top_indices, elements, unknown_orders, only_first_order, dof_offsets
-            )
-        )
-
-    return tuple(continuity_equations)
-
-
-def _element_weak_boundary_condition(
-    elements: ElementCollection,
-    ie: int,
-    side: ElementSide,
-    unknown_orders: UnknownOrderings,
-    unknown_index: int,
-    dof_offsets: FixedElementArray[np.uint32],
-    weak_terms: Sequence[tuple[float, KBoundaryProjection]],
-    cache_1d: FemCache,
-) -> tuple[ElementConstraint, ...]:
-    """Determine boundary conditions given an element and a side."""
-    children = elements.child_array[ie]
-
-    if children.size != 0:
-        # Node, has children
-        current: tuple[ElementConstraint, ...] = tuple()
-        if side == ElementSide.SIDE_LEFT or side == ElementSide.SIDE_BOTTOM:
-            current += _element_weak_boundary_condition(
-                elements,
-                int(children[0]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                weak_terms,
-                cache_1d,
-            )
-        if side == ElementSide.SIDE_BOTTOM or side == ElementSide.SIDE_RIGHT:
-            current += _element_weak_boundary_condition(
-                elements,
-                int(children[1]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                weak_terms,
-                cache_1d,
-            )
-        if side == ElementSide.SIDE_RIGHT or side == ElementSide.SIDE_TOP:
-            current += _element_weak_boundary_condition(
-                elements,
-                int(children[2]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                weak_terms,
-                cache_1d,
-            )
-        if side == ElementSide.SIDE_TOP or side == ElementSide.SIDE_LEFT:
-            current += _element_weak_boundary_condition(
-                elements,
-                int(children[3]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                weak_terms,
-                cache_1d,
-            )
-
-        return current
-
-    side_order = elements.get_element_order_on_side(ie, side)
-
-    basis_1d = cache_1d.get_basis1d(side_order)
-    ndir = 2 * ((side.value & 2) >> 1) - 1
-    i0 = side.value - 1
-    i1 = side.value & 3
-    corners = elements.corners_array[ie]
-    p0: tuple[float, float] = corners[i0]
-    p1: tuple[float, float] = corners[i1]
-    dx = (p1[0] - p0[0]) / 2
-    xv = (p1[0] + p0[0]) / 2 + dx * basis_1d.rule.nodes
-    dy = (p1[1] - p0[1]) / 2
-    yv = (p1[1] + p0[1]) / 2 + dy * basis_1d.rule.nodes
-    form_order = unknown_orders.form_orders[unknown_index]
-    dofs = elements.get_boundary_dofs(ie, form_order, side)
-    dofs = dofs + dof_offsets[ie][unknown_index]
-    vals = np.zeros_like(dofs, np.float64)
-
-    for k, bp in weak_terms:
-        func = bp.func
-        # We check that bp.func is not None before calling this.
-        assert func is not None
-        f_vals = np.asarray(func(xv, yv), np.float64, copy=False)
-        if form_order == UnknownFormOrder.FORM_ORDER_0:
-            # Tangental integral of function with the 0 basis
-            basis = basis_1d.node
-            f_vals = -(f_vals[..., 0] * dx + f_vals[..., 1] * dy) * basis_1d.rule.weights
-
-        elif form_order == UnknownFormOrder.FORM_ORDER_1:
-            # Integral with the normal basis
-            basis = basis_1d.edge
-            f_vals *= -basis_1d.rule.weights * ndir
-
-        else:
-            raise ValueError(f"Unknown/Invalid weak form order {form_order=}.")
-
-        vals[:] += np.sum(f_vals[None, ...] * basis, axis=1) * k
-
-    return (ElementConstraint(ie, dofs, vals),)
-
-
-def _element_strong_boundary_condition(
-    elements: ElementCollection,
-    ie: int,
-    side: ElementSide,
-    unknown_orders: UnknownOrderings,
-    unknown_index: int,
-    dof_offsets: FixedElementArray[np.uint32],
-    strong_bc: BoundaryCondition2DSteady,
-    cache_1d: FemCache,
-    skip_first: bool,
-    skip_last: bool,
-) -> tuple[ElementConstraint, ...]:
-    """Determine boundary conditions given an element and a side."""
-    # children = elements.child_array[ie]
-    # if children.size != 0:
-    #     # Node, has children
-    #     current: tuple[ElementConstraint, ...] = tuple()
-    #     # For children skipping:
-    #     # Skip first if: (on start of the side AND skip_first is True) OR (end of side)
-    #     # Skip last if: on end of the side AND skip_last is True
-    #     # So only time first not skipped if: skip_first is True AND beginning of side
-    #     if side == ElementSide.SIDE_LEFT or side == ElementSide.SIDE_BOTTOM:
-    #         current += _element_strong_boundary_condition(
-    #             elements,
-    #             int(children[0]),
-    #             side,
-    #             unknown_orders,
-    #             unknown_index,
-    #             dof_offsets,
-    #             strong_bc,
-    #             cache_1d,
-    #             (skip_first and side == ElementSide.SIDE_BOTTOM)
-    #             or side == ElementSide.SIDE_LEFT,
-    #             skip_last and side == ElementSide.SIDE_LEFT,
-    #         )
-    #     if side == ElementSide.SIDE_BOTTOM or side == ElementSide.SIDE_RIGHT:
-    #         current += _element_strong_boundary_condition(
-    #             elements,
-    #             int(children[1]),
-    #             side,
-    #             unknown_orders,
-    #             unknown_index,
-    #             dof_offsets,
-    #             strong_bc,
-    #             cache_1d,
-    #             (skip_first and side == ElementSide.SIDE_RIGHT)
-    #             or side == ElementSide.SIDE_BOTTOM,
-    #             skip_last and side == ElementSide.SIDE_BOTTOM,
-    #         )
-    #     if side == ElementSide.SIDE_RIGHT or side == ElementSide.SIDE_TOP:
-    #         current += _element_strong_boundary_condition(
-    #             elements,
-    #             int(children[2]),
-    #             side,
-    #             unknown_orders,
-    #             unknown_index,
-    #             dof_offsets,
-    #             strong_bc,
-    #             cache_1d,
-    #             (skip_first and side == ElementSide.SIDE_TOP)
-    #             or side == ElementSide.SIDE_RIGHT,
-    #             skip_last and side == ElementSide.SIDE_RIGHT,
-    #         )
-    #     if side == ElementSide.SIDE_TOP or side == ElementSide.SIDE_LEFT:
-    #         current += _element_strong_boundary_condition(
-    #             elements,
-    #             int(children[3]),
-    #             side,
-    #             unknown_orders,
-    #             unknown_index,
-    #             dof_offsets,
-    #             strong_bc,
-    #             cache_1d,
-    #             (skip_first and side == ElementSide.SIDE_LEFT)
-    #             or side == ElementSide.SIDE_TOP,
-    #             skip_last and side == ElementSide.SIDE_TOP,
-    #         )
-
-    #     return current
-
-    side_order = elements.get_element_order_on_side(ie, side)
-
-    basis_1d = cache_1d.get_basis1d(side_order)
-    ndir = 2 * ((side.value & 2) >> 1) - 1
-    i0 = side.value - 1
-    i1 = side.value & 3
-    corners = elements.corners_array[ie]
-    p0: tuple[float, float] = corners[i0]
-    p1: tuple[float, float] = corners[i1]
-    # ndir, p0, p1 = _endpoints_from_line(e, i_side)
-    dx = (p1[0] - p0[0]) / 2
-    xv = np.astype((p1[0] + p0[0]) / 2 + dx * basis_1d.roots, np.float64, copy=False)
-    dy = (p1[1] - p0[1]) / 2
-    yv = np.astype((p1[1] + p0[1]) / 2 + dy * basis_1d.roots, np.float64, copy=False)
-    form_order = unknown_orders.form_orders[unknown_index]
-    dofs = elements.get_boundary_dofs(ie, form_order, side)
-    dofs = dofs + dof_offsets[ie][unknown_index]
-    vals = np.zeros_like(dofs, np.float64)
-
-    if form_order == UnknownFormOrder.FORM_ORDER_0:
-        vals[:] = strong_bc.func(xv, yv)
-
-        if skip_first:
-            vals = vals[1:]
-            dofs = dofs[1:]
-
-        if skip_last:
-            vals = vals[:-1]
-            dofs = dofs[:-1]
-        if len(vals) == 0:
-            assert len(dofs) == 0
-            return tuple()
-
-    elif form_order == UnknownFormOrder.FORM_ORDER_1:
-        # TODO: this might be more efficiently done as some sort of projection
-        lnds = basis_1d.rule.nodes
-        wnds = basis_1d.rule.weights
-        for i in range(side_order):
-            xc = (xv[i + 1] + xv[i]) / 2 + (xv[i + 1] - xv[i]) / 2 * lnds
-            yc = (yv[i + 1] + yv[i]) / 2 + (yv[i + 1] - yv[i]) / 2 * lnds
-            dx = (xv[i + 1] - xv[i]) / 2
-            dy = (yv[i + 1] - yv[i]) / 2
-            normal = ndir * np.array((dy, -dx))
-            fvals = np.asarray(strong_bc.func(xc, yc), np.float64, copy=None)
-            fvals = fvals[..., 0] * normal[0] + fvals[..., 1] * normal[1]
-            vals[i] = np.sum(fvals * wnds)
-    else:
-        assert False
-
-    assert vals.size == dofs.size
-    return (ElementConstraint(ie, dofs, vals),)
-
-
-def mesh_boundary_conditions(
-    evaluatable_terms: Sequence[KSum],
-    mesh: Mesh2D,
-    unknown_order: UnknownOrderings,
-    elements: ElementCollection,
-    dof_offsets: FixedElementArray[np.uint32],
-    top_indices: npt.NDArray[np.uint32],
-    strong_bcs: Sequence[Sequence[BoundaryCondition2DSteady]],
-    cache_1d: FemCache,
-) -> tuple[tuple[ElementConstraint, ...], tuple[ElementConstraint, ...]]:
-    """Compute boundary condition contributions and constraints.
-
-    Parameters
-    ----------
-    evaluatable_terms : Sequence of KSum
-        Right sides of equations that contain boundary projections to be evaluated. Must
-        be ordered according to weights.
-
-    mesh : Mesh2D
-        Mesh of the top level elements.
-
-    unknown_order : UnknownOrderings
-        Orders of unknown forms.
-
-    elements : ElementCollection
-        Collection of elements to use.
-
-    dof_offsets : FixedElementArray[np.uint32]
-        Offsets of DoFs within each element.
-
-    top_indices : npt.NDArray[np.uint32]
-        Array with corrected indices for top level elements.
-
-    strong_bcs : Sequence of Sequence of BoundaryCondition2DSteady
-        Boundary conditions grouped per weight functions and correctly ordered to match
-        the order of weight functions in the system.
-
-    caches : MutableMapping of (int, BasisCache)
-        Caches which can be used and appended to.
-
-    Returns
-    -------
-    tuple of ElementConstraint
-        Strong boundary conditions in a specific notation. Each of these means
-        that for element given by ``ElementConstraint.i_e``, all dofs with
-        indices ``ElementConstraint.dofs`` should be constrained to value
-        ``ElementConstraint.coeffs``.
-
-    tuple of ElementConstraint
-        Weak boundary conditions in a specific notation. Each of these means
-        that for element given by ``ElementConstraint.i_e``, all equations with
-        indices ``ElementConstraint.dofs`` should have the value
-        ``ElementConstraint.coeffs`` added to them.
-    """
-    i_boundary: int
-    w_bcs: list[ElementConstraint] = list()
-    s_bcs: list[ElementConstraint] = list()
-    projections = [
-        [
-            (k, v)
-            for k, v in weak_term.pairs
-            if (type(v) is KBoundaryProjection and v.func is not None)
-        ]
-        for weak_term in evaluatable_terms
-    ]
-    del evaluatable_terms
-    set_nodes: set[int] = set()
-
-    for i_boundary in mesh.boundary_indices:
-        dual_line = mesh.dual.get_line(i_boundary + 1)
-        if dual_line.begin:
-            id_surf = dual_line.begin
-        elif dual_line.end:
-            id_surf = dual_line.end
-        else:
-            raise ValueError("Dual line should be on the boundary.")
-
-        # primal_line = mesh.primal.get_line(i_boundary + 1)
-        i_element = top_indices[id_surf.index]
-        primal_surface = mesh.primal.get_surface(id_surf)
-        i_side = _find_boundary_id(primal_surface, i_boundary)
-        primal_line = mesh.primal.get_line(primal_surface[i_side.value - 1])
-        for idx, (weak_term, strong_terms) in enumerate(
-            zip(projections, strong_bcs, strict=True)
-        ):
-            strong_term = None
-            for strong in strong_terms:
-                if i_boundary in strong.indices:
-                    strong_term = strong
-                    break
-            if strong_term is not None:
-                # Strong BC
-                p0 = primal_line.begin.index
-                p1 = primal_line.end.index
-                s_bcs.extend(
-                    _element_strong_boundary_condition(
-                        elements,
-                        i_element,
-                        i_side,
-                        unknown_order,
-                        idx,
-                        dof_offsets,
-                        strong_term,
-                        cache_1d,
-                        p0 in set_nodes,
-                        p1 in set_nodes,
-                    )
-                )
-
-                set_nodes |= {p0, p1}
-
-            elif len(weak_term):
-                # Weak BC
-
-                w_bcs.extend(
-                    _element_weak_boundary_condition(
-                        elements,
-                        i_element,
-                        i_side,
-                        unknown_order,
-                        idx,
-                        dof_offsets,
-                        weak_term,
-                        cache_1d,
-                    )
-                )
-
-            else:
-                # Strong not given, but also no weak ones.
-                pass
-
-    return tuple(s_bcs), tuple(w_bcs)
 
 
 def reconstruct_mesh_from_solution(
@@ -1995,7 +380,7 @@ def reconstruct_mesh_from_solution(
     orders_2: list[int] = list()
     node_cnt = 0
     for ie, cnt in enumerate(element_collection.child_count_array):
-        if int(cnt) != 0:
+        if int(cnt[0]) != 0:
             continue
 
         # Extract element DoFs
@@ -2041,7 +426,7 @@ def reconstruct_mesh_from_solution(
                 element_basis.basis_eta.roots[:, None],
                 caches.get_basis2d(order_1, order_2),
             )
-            shape = (-1, 2) if form.order == 1 else (-1,)
+            shape = (-1, 2) if form.order == UnknownFormOrder.FORM_ORDER_1 else (-1,)
             build[form].append(np.reshape(recon_v, shape))
 
     grid = pv.UnstructuredGrid(
@@ -2282,7 +667,7 @@ def compute_element_vector_fields(
     basis_out = basis_cache.get_basis2d(order_1, order_2)
 
     res = compute_element_vector_fields_nonlin(
-        system,
+        system.unknown_forms,
         basis_element,
         basis_out,
         vector_fields,
@@ -2320,7 +705,12 @@ def non_linear_solve_run(
     system_decomp: sla.SuperLU,
     lagrange_mat: sp.csr_array | None,
     return_all_residuals: bool = False,
-):
+) -> tuple[
+    FlexibleElementArray[np.float64, np.uint32],
+    npt.NDArray[np.float64],
+    int,
+    npt.NDArray[np.float64],
+]:
     """Run the iterative non-linear solver.
 
     Based on how the compiled system looks, this may only take a single iteration,
@@ -2331,8 +721,8 @@ def non_linear_solve_run(
     base_vec = np.array(explicit_vec, copy=True)  # Make a copy
     if time_carry_term is not None:
         assert time_carry_index_array is not None
-        for ie, (off, idx, vals) in enumerate(
-            zip(element_offsets, time_carry_index_array, time_carry_term)
+        for off, idx, vals in zip(
+            element_offsets, time_carry_index_array, time_carry_term
         ):
             base_vec[idx + int(off)] += vals
     else:
@@ -2381,13 +771,7 @@ def non_linear_solve_run(
             equation_values,
         )
 
-        main_value = assemble_forcing(
-            unknown_ordering,
-            element_collection,
-            dof_offsets,
-            equation_values,
-            solution,
-        )
+        main_value = assemble_forcing(equation_values)
 
         if compiled_system.rhs_codes is not None:
             main_vec = np.array(base_vec, copy=True)  # Make a copy
@@ -2455,12 +839,7 @@ def non_linear_solve_run(
                 linear_element_matrices,
             )
 
-            main_mat = assemble_matrix(
-                unknown_ordering,
-                element_collection,
-                dof_offsets,
-                element_matrices,
-            )
+            main_mat = assemble_matrix(element_matrices)
             if lagrange_mat is not None:
                 main_mat = sp.block_array(
                     [[main_mat, lagrange_mat.T], [lagrange_mat, None]], format="csc"
@@ -2506,7 +885,7 @@ def non_linear_solve_run(
         del main_vec
 
     if not return_all_residuals:
-        return solution, global_lagrange, iter_cnt, max_residual
+        return solution, global_lagrange, iter_cnt, np.array(max_residual, np.float64)
 
     return solution, global_lagrange, iter_cnt, residuals
 
@@ -2604,13 +983,10 @@ class SystemSettings:
     ] = field(default_factory=dict)
 
 
-def divide_old(
-    order: int, level: int, max_level: int
-) -> tuple[int | None, tuple[int, int, int, int]]:
-    """Keep child order equal to parent and set parent to double the child."""
+def divide_old(order: int, level: int, max_level: int) -> tuple[int, int, int, int]:
+    """Keep child order equal to parent."""
     del level, max_level
-    v = order
-    return 2 * order, (v, v, v, v)
+    return (order, order, order, order)
 
 
 @dataclass(frozen=True)

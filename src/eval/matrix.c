@@ -185,7 +185,6 @@ mfv2d_result_t matrix_multiply(error_stack_t *error_stack, const unsigned order,
     return res;
 }
 
-// TODO: THIS SHOULD ADD, NOT MULTIPLY!!!
 mfv2d_result_t matrix_add(const unsigned order, matrix_t *right, matrix_t *left, matrix_t *out,
                           const allocator_callbacks *allocator)
 {

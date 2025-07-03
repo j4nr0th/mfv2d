@@ -10,8 +10,12 @@ import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
 from mfv2d._mfv2d import ElementMassMatrixCache
+from mfv2d.boundary import mesh_boundary_conditions
+from mfv2d.continuity import connect_elements
 from mfv2d.element import (
+    Constraint,
     ElementCollection,
+    ElementConstraint,
     FixedElementArray,
     FlexibleElementArray,
     call_per_element_fix,
@@ -19,14 +23,11 @@ from mfv2d.element import (
     call_per_leaf_flex,
     call_per_leaf_obj,
     compute_dof_sizes,
-    compute_lagrange_sizes,
 )
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import KEquation, KFormSystem, UnknownOrderings
 from mfv2d.mimetic2d import FemCache, Mesh2D
 from mfv2d.solve_system import (
-    Constraint,
-    ElementConstraint,
     RefinementSettings,
     SolutionStatistics,
     SolverSettings,
@@ -44,8 +45,6 @@ from mfv2d.solve_system import (
     divide_old,
     extract_carry,
     find_time_carry_indices,
-    mesh_boundary_conditions,
-    mesh_continuity_constraints,
     non_linear_solve_run,
     reconstruct_mesh_from_solution,
 )
@@ -129,7 +128,7 @@ def solve_system_2d(
         check_and_refine(
             refinement_settings.division_predicate,
             refinement_settings.division_function,
-            mesh.get_element(ie),
+            mesh.surface_to_element(ie),
             0,
             refinement_settings.refinement_levels,
         )
@@ -140,8 +139,6 @@ def solve_system_2d(
 
     # Make element matrices and vectors
     cache_2d = FemCache(order_difference=2)
-
-    unique_order_pairs = element_collection.orders_array.unique(axis=1)
 
     vector_fields = system.vector_fields
 
@@ -239,7 +236,6 @@ def solve_system_2d(
 
     unknown_ordering = UnknownOrderings(*(form.order for form in system.unknown_forms))
     dof_sizes = compute_dof_sizes(element_collection, unknown_ordering)
-    lagrange_counts = compute_lagrange_sizes(element_collection, unknown_ordering)
     dof_offsets = call_per_element_fix(
         element_collection.com,
         np.uint32,
@@ -248,12 +244,7 @@ def solve_system_2d(
         dof_sizes,
     )
     total_dof_counts = call_per_element_fix(
-        element_collection.com,
-        np.uint32,
-        1,
-        lambda i, x, y: x[i][-1] + y[i],
-        dof_offsets,
-        lagrange_counts,
+        element_collection.com, np.uint32, 1, lambda i, x: x[i][-1], dof_offsets
     )
 
     solution = FlexibleElementArray(element_collection.com, np.float64, total_dof_counts)
@@ -349,19 +340,8 @@ def solve_system_2d(
         vec_fields_array,
     )
 
-    main_mat = assemble_matrix(
-        unknown_ordering,
-        element_collection,
-        dof_offsets,
-        linear_element_matrices,
-    )
-    main_vec = assemble_vector(
-        unknown_ordering,
-        element_collection,
-        dof_offsets,
-        lagrange_counts,
-        linear_vectors,
-    )
+    main_mat = assemble_matrix(linear_element_matrices)
+    main_vec = assemble_vector(linear_vectors)
 
     def _find_constrained_indices(
         ie: int,
@@ -421,18 +401,9 @@ def solve_system_2d(
         cache_2d,
     )
 
-    really_unique = np.unique(unique_order_pairs)
-
-    continuity_constraints = mesh_continuity_constraints(
-        system,
-        mesh,
-        top_indices,
-        unknown_ordering,
-        element_collection,
-        really_unique.size > 1 or really_unique[0] != 1,
-        dof_offsets,
+    continuity_constraints = connect_elements(
+        element_collection, unknown_ordering, mesh, dof_offsets
     )
-    del really_unique
 
     element_offset = np.astype(
         np.pad(np.array(total_dof_counts, np.uint32).flatten().cumsum(), (1, 0)),
@@ -448,11 +419,14 @@ def solve_system_2d(
     ic = 0
     for constraint in continuity_constraints:
         constraint_vals.append(constraint.rhs)
+        # print(f"Continuity constraint {ic=}:")
         for ec in constraint.element_constraints:
             offset = int(element_offset[ec.i_e])
             constraint_cols.append(ec.dofs + offset)
             constraint_rows.append(np.full_like(ec.dofs, ic))
             constraint_coef.append(ec.coeffs)
+        #     print(ec)
+        # print("")
         ic += 1
 
     # Form constraining
@@ -545,6 +519,9 @@ def solve_system_2d(
     atol = solver_settings.absolute_tolerance
     rtol = solver_settings.relative_tolerance
 
+    changes: npt.NDArray[np.float64]
+    iters: npt.NDArray[np.uint32]
+
     if time_settings is not None:
         nt = time_settings.nt
         dt = time_settings.dt
@@ -552,7 +529,6 @@ def solve_system_2d(
         iters = np.zeros(nt, np.uint32)
 
         for time_index in range(nt):
-            max_residual = np.inf
             # 2 / dt * old_solution_carry + time_carry_term
             current_carry = call_per_element_flex(
                 element_collection.com,
@@ -589,7 +565,7 @@ def solve_system_2d(
                 lagrange_mat,
             )
 
-            changes[time_index] = float(max_residual)
+            changes[time_index] = float(max_residual[()])
             iters[time_index] = iter_cnt
             projected_solution = call_per_leaf_flex(
                 element_collection,
@@ -670,8 +646,8 @@ def solve_system_2d(
             True,
         )
 
-        changes = np.asarray(changes, np.float64)[: iter_cnt + 1]  # type: ignore
-        iters = np.array((iter_cnt,), np.uint32)  # type: ignore
+        changes = np.asarray(changes, np.float64)[: iter_cnt + 1]
+        iters = np.array((iter_cnt,), np.uint32)
 
         solution = new_solution
         del new_solution
@@ -695,7 +671,7 @@ def solve_system_2d(
     stats = SolutionStatistics(
         element_orders={int(order): int(count) for order, count in zip(orders, counts)},
         n_total_dofs=explicit_vec.size,
-        n_lagrange=int(lagrange_vec.size + np.array(lagrange_counts).sum()),
+        n_lagrange=int(lagrange_vec.size),
         n_elems=element_collection.com.element_cnt,
         n_leaves=len(leaf_elements),
         n_leaf_dofs=sum(int(total_dof_counts[int(ie)][0]) for ie in leaf_elements),

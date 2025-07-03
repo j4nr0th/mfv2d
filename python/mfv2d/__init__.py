@@ -12,6 +12,7 @@ from mfv2d.kform import KEquation as KEquation
 from mfv2d.kform import KFormSystem as KFormSystem
 from mfv2d.kform import KFormUnknown as KFormUnknown
 from mfv2d.kform import KWeight as KWeight
+from mfv2d.kform import UnknownFormOrder as UnknownFormOrder
 
 # Mimetic2D
 from mfv2d.mimetic2d import ElementLeaf2D as ElementLeaf2D

@@ -56,6 +56,7 @@ from mfv2d import (
     Mesh2D,
     SolverSettings,
     SystemSettings,
+    UnknownFormOrder,
     solve_system_2d,
 )
 
@@ -128,13 +129,13 @@ def momentum_source(x, y):
 # section of how the divergence behaves.
 #
 
-prs = KFormUnknown(2, "prs", 2)
+prs = KFormUnknown("prs", UnknownFormOrder.FORM_ORDER_2)
 w_prs = prs.weight
-vel = KFormUnknown(2, "vel", 1)
+vel = KFormUnknown("vel", UnknownFormOrder.FORM_ORDER_1)
 w_vel = vel.weight
-vor = KFormUnknown(2, "vor", 0)
+vor = KFormUnknown("vor", UnknownFormOrder.FORM_ORDER_0)
 w_vor = vor.weight
-div = KFormUnknown(2, "div", 2)
+div = KFormUnknown("div", UnknownFormOrder.FORM_ORDER_2)
 w_div = div.weight
 
 system = KFormSystem(

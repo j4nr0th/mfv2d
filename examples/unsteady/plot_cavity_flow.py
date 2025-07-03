@@ -19,6 +19,7 @@ from mfv2d import (
     SolverSettings,
     SystemSettings,
     TimeSettings,
+    UnknownFormOrder,
     solve_system_2d,
 )
 
@@ -51,11 +52,11 @@ def boundary_velocty(x, y):
 # not being included, due to the fact that the strong boundary conditions
 # on the normal velocity mean that they would not be used either way.
 
-pre = KFormUnknown(2, "pre", 2)
+pre = KFormUnknown("pre", UnknownFormOrder.FORM_ORDER_2)
 w_pre = pre.weight
-vel = KFormUnknown(2, "vel", 1)
+vel = KFormUnknown("vel", UnknownFormOrder.FORM_ORDER_1)
 w_vel = vel.weight
-vor = KFormUnknown(2, "vor", 0)
+vor = KFormUnknown("vor", UnknownFormOrder.FORM_ORDER_0)
 w_vor = vor.weight
 
 system = KFormSystem(

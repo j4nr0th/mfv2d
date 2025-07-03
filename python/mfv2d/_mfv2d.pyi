@@ -628,6 +628,25 @@ class SparseVector:
         """
         ...
 
+    @classmethod
+    def from_pairs(cls, n: int, *pairs: tuple[int, float]) -> Self:
+        """Create sparse vector from an index-coefficient pairs.
+
+        Parameters
+        ----------
+        n : int
+            Dimension of the vector.
+
+        *pairs : tuple[int, float]
+            Pairs of values and indices for the vector.
+
+        Returns
+        -------
+        SparseVector
+            New vector with indices and values as given.
+        """
+        ...
+
     @property
     def n(self) -> int:
         """Dimension of the vector."""

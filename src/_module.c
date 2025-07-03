@@ -19,7 +19,6 @@
 #include "topology/surfaceobject.h"
 
 // Evaluation
-#include "eval/allocator.h"
 #include "eval/element_cache.h"
 #include "eval/element_system.h"
 #include "eval/incidence.h"

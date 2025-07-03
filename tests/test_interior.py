@@ -107,7 +107,7 @@ def compute_system_matrix_nonlin(
         assert not callable(vec_fld)
         fn = func_dict[vec_fld]
         vf = fn(x, y)
-        if vec_fld.order != 1:
+        if vec_fld.order != UnknownFormOrder.FORM_ORDER_1:
             vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
         vf = np.reshape(vf, (-1, 2))
         vec_field_lists[i].append(vf)
@@ -119,7 +119,7 @@ def compute_system_matrix_nonlin(
     assert compiled.nonlin_codes is not None
     elem_cache = ElementMassMatrixCache(basis_2d, corners)
     emat = compute_element_matrix(
-        [UnknownFormOrder(form.order + 1) for form in system.unknown_forms],
+        [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.nonlin_codes,
         vec_fields,
         elem_cache,
@@ -162,7 +162,7 @@ def compute_system_matrix_lin(
     del vec_field_lists
     elem_cache = ElementMassMatrixCache(basis_2d, corners)
     emat = compute_element_matrix(
-        [UnknownFormOrder(form.order + 1) for form in system.unknown_forms],
+        [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.lhs_full,
         vec_fields,
         elem_cache,
@@ -206,7 +206,7 @@ def compute_system_matrix_adj(
     assert compiled.nonlin_codes is not None
     elem_cache = ElementMassMatrixCache(basis_2d, corners)
     emat = compute_element_matrix(
-        [UnknownFormOrder(form.order + 1) for form in system.unknown_forms],
+        [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.nonlin_codes,
         vec_fields,
         elem_cache,
@@ -248,9 +248,9 @@ def test_advect_10(corner_vals: npt.ArrayLike) -> None:
             dtype=np.float64,
         )
 
-    omega = KFormUnknown(2, "omega", 1)
+    omega = KFormUnknown("omega", UnknownFormOrder.FORM_ORDER_1)
     v = omega.weight
-    g = KFormUnknown(2, "g", 0)
+    g = KFormUnknown("g", UnknownFormOrder.FORM_ORDER_0)
     w = g.weight
 
     system = KFormSystem(
@@ -306,9 +306,9 @@ def test_dual_advect_10(corner_vals: npt.ArrayLike) -> None:
             dtype=np.float64,
         )
 
-    omega = KFormUnknown(2, "omega", 1)
+    omega = KFormUnknown("omega", UnknownFormOrder.FORM_ORDER_1)
     v = omega.weight
-    g = KFormUnknown(2, "g", 2)
+    g = KFormUnknown("g", UnknownFormOrder.FORM_ORDER_2)
     w = g.weight
 
     system = KFormSystem(
@@ -368,11 +368,11 @@ def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> 
             dtype=np.float64,
         )
 
-    omega = KFormUnknown(2, "omega", 1)
+    omega = KFormUnknown("omega", UnknownFormOrder.FORM_ORDER_1)
     v = omega.weight
-    g = KFormUnknown(2, "g", 0)
+    g = KFormUnknown("g", UnknownFormOrder.FORM_ORDER_0)
     w = g.weight
-    u = KFormUnknown(2, "u", 1)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_1)
     h = u.weight
 
     system = KFormSystem(
@@ -433,11 +433,11 @@ def test_advect_dual_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike
             dtype=np.float64,
         )
 
-    omega = KFormUnknown(2, "omega", 1)
+    omega = KFormUnknown("omega", UnknownFormOrder.FORM_ORDER_1)
     v = omega.weight
-    g = KFormUnknown(2, "g", 2)
+    g = KFormUnknown("g", UnknownFormOrder.FORM_ORDER_2)
     w = g.weight
-    u = KFormUnknown(2, "u", 1)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_1)
     h = u.weight
 
     system = KFormSystem(
@@ -495,9 +495,9 @@ def test_advect_21(corner_vals: npt.ArrayLike) -> None:
         v1 = np.asarray(y)
         return v0 - v1**3
 
-    omega = KFormUnknown(2, "omega", 2)
+    omega = KFormUnknown("omega", UnknownFormOrder.FORM_ORDER_2)
     v = omega.weight
-    g = KFormUnknown(2, "g", 1)
+    g = KFormUnknown("g", UnknownFormOrder.FORM_ORDER_1)
     w = g.weight
 
     system = KFormSystem(
@@ -548,9 +548,9 @@ def test_dual_advect_21_undeformed(corner_vals: npt.ArrayLike) -> None:
         return v0 - v1**3
         # return 1 + 0 * (v0 - v1**3)
 
-    omega = KFormUnknown(2, "omega", 0)
+    omega = KFormUnknown("omega", UnknownFormOrder.FORM_ORDER_0)
     v = omega.weight
-    g = KFormUnknown(2, "g", 1)
+    g = KFormUnknown("g", UnknownFormOrder.FORM_ORDER_1)
     w = g.weight
     system = KFormSystem(
         (w * (u_exact * (~omega))) == w @ 0,
@@ -602,9 +602,9 @@ def test_advect_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> 
         v1 = np.asarray(y)
         return np.astype(v0 * v1**3, np.float64, copy=False)
 
-    omega = KFormUnknown(2, "omega", 2)
+    omega = KFormUnknown("omega", UnknownFormOrder.FORM_ORDER_2)
     v = omega.weight
-    u = KFormUnknown(2, "u", 1)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_1)
     h = u.weight
     corners = np.array(corner_vals, np.float64)
 
@@ -658,9 +658,9 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
         v1 = np.asarray(y)
         return np.astype(1 + 0 * v0 * v1**3, np.float64, copy=False)
 
-    omega = KFormUnknown(2, "omega", 0)
+    omega = KFormUnknown("omega", UnknownFormOrder.FORM_ORDER_0)
     v = omega.weight
-    u = KFormUnknown(2, "u", 1)
+    u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_1)
     h = u.weight
 
     system = KFormSystem(
@@ -695,3 +695,7 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
     v2 = fmat @ u_proj
 
     assert np.max(np.abs(v1 - v2)) < 1e-13
+
+
+if __name__ == "__main__":
+    test_advect_non_linear_21_irregular_deformed(_CORNER_TEST_VALUES[0])

@@ -30,13 +30,20 @@ shape for each element.
 
 .. autoclass:: FixedElementArray
 
-The other subtype is :class:`FlexibleElementArray`. This type
+The second subtype is :class:`FlexibleElementArray`. This type
 stores data as arrays with the same number of dimensions, but
 different shapes for each element. As such these arrays also
 contain a :class:`FixedElementArray`, which acts as storage
 for the shapes of individual element arrays.
 
 .. autoclass:: FlexibleElementArray
+
+The last subtype is :class:`ObjectElementArray`, which is
+designed to hold one object of a specific type for each
+element. If the element entry is not set before accessing it,
+an exception is raised.
+
+.. autoclass:: ObjectElementArray
 
 
 Organizing Elements
@@ -60,13 +67,16 @@ Executing per Element
 
 One of key requirements for the solver is to be able to execute
 functions for each element. This is done by calling either the
-:func:`call_per_element_fix` or :func:`call_per_element_flex`
+:func:`call_per_element_fix`, :func:`call_per_element_flex`,
+or :func:`call_per_leaf_obj`
 functions, which work for functions whose results are either
-fixed or flexible sizes respectively.
+fixed size, flexible size, or objects respectively.
 
 .. autofunction:: call_per_element_fix
 
 .. autofunction:: call_per_element_flex
+
+.. autofunction:: call_per_leaf_obj
 
 There are also two specialized variant of the :func:`call_per_element_flex`
 function, named :func:`call_per_root_flex` and :func:`call_per_leaf_flex`.
@@ -83,21 +93,33 @@ Element Utilities
 
 There are some utility functions provided for computing number of
 elemet degrees of freedom or lagrange multipliers. These include
-their single-element variats :func:`_compute_element_dofs` and
-:func:`_compute_element_lagrange_multipliers`, as well as the
-exported :func:`compute_dof_sizes`, :func:`compute_lagrange_sizes`,
-and :func:`compute_total_element_sizes`.
+their single-element variats :func:`_compute_element_dofs` as well as the
+exported :func:`compute_dof_sizes`.
 
 .. autofunction:: _compute_element_dofs
 
-.. autofunction:: _compute_element_lagrange_multipliers
-
 .. autofunction:: compute_dof_sizes
 
-.. autofunction:: compute_lagrange_sizes
 
-.. autofunction:: compute_total_element_sizes
+Lagrange Multipliers and Constraints
+------------------------------------
 
+Since continuity and strong boundary conditions are enforced throught
+Lagrange multipliers, there are types to represent these relations
+efficiently. The base building block is the
+:class:`ElementConstraint` type, which describes the degrees of
+freedom and coefficients involved in a specific constraint. These
+may then be combined into :class:`Constraint` type which associates
+one or more :class:`ElementConstraint` with their right hand side value.
+
+Note that :class:`ElementConstraint` are also used to convey weak boundary
+condition information, however, in that case the coefficients in the
+:class:`ElementConstraint` object represent contributions to the right
+hand side.
+
+.. autoclass:: ElementConstraint
+
+.. autoclass:: Constraint
 
 Element Geometry
 ----------------

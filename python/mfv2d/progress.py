@@ -97,16 +97,3 @@ class ProgressTracker:
         return format_string.format(
             _SPINNERS[self.iter_cur % len(_SPINNERS)], iter_str, err_str
         )
-
-
-# if __name__ == "__main__":
-#     from time import sleep
-
-#     tracker = ProgressTracker(1e-5, 1, 1, 10, iter_width=20, err_width=20)
-
-#     fake_errors = (1, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1, 10, 100, 1e-50)
-
-#     for i in range(len(fake_errors)):
-#         tracker.update_iteration(fake_errors[i])
-#         print(tracker.state_str("{} {} {}"), end="\r")
-#         sleep(0.25)

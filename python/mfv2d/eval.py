@@ -7,7 +7,7 @@ stack machine.
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from enum import IntEnum, IntFlag
+from enum import IntEnum
 
 from mfv2d.kform import (
     Function2D,
@@ -21,6 +21,7 @@ from mfv2d.kform import (
     KSum,
     KWeight,
     Term,
+    UnknownFormOrder,
 )
 
 
@@ -48,14 +49,14 @@ class MassMat(MatOp):
 
     Parameters
     ----------
-    order : int
+    order : UnknownFormOrder
         Order of the k-form for the mass matrix.
 
     inv : bool
         Should the matrix be inverted.
     """
 
-    order: int
+    order: UnknownFormOrder
     inv: bool
 
 
@@ -67,14 +68,14 @@ class Incidence(MatOp):
 
     Parameters
     ----------
-    begin : int
+    begin : UnknownFormOrder
         Order of the k-form for the incidence matrix from which to apply it.
 
     dual : bool
         Should the incidence matrix be applied as the dual.
     """
 
-    begin: int
+    begin: UnknownFormOrder
     dual: int
 
 
@@ -133,7 +134,7 @@ class InterProd(MatOp):
 
     Parameters
     ----------
-    starting_order : int
+    starting_order : UnknownFormOrder
         Order of the k-form to which the interior product should be applied.
 
     field_index : int
@@ -147,7 +148,7 @@ class InterProd(MatOp):
         the Newton-Raphson solver.
     """
 
-    starting_order: int
+    starting_order: UnknownFormOrder
     field_index: int
     dual: bool
     adjoint: bool
@@ -443,7 +444,7 @@ def _translate_equation(
                     if form.weight_form.is_primal:
                         mass = Identity()
                     else:
-                        mass = MassMat(0, True)
+                        mass = MassMat(order_p, True)
             else:
                 raise ValueError(
                     f"Order {form.unknown_form.order} can't be used on a 2D mesh."
@@ -463,7 +464,10 @@ def _translate_equation(
                 vr.append(Incidence(form.form.order, not form.form.is_primal))
             else:
                 res[k] = [
-                    Incidence(1 - form.form.order, form.form.is_primal),
+                    Incidence(
+                        UnknownFormOrder(form.form.order.dual.value - 1),
+                        form.form.is_primal,
+                    ),
                     Scale(-1),
                 ] + vr
         return res
@@ -499,17 +503,27 @@ def _translate_equation(
 
         if type(form) is KInteriorProduct:
             idx = vec_fields.index(form.vector_field)
+            base_form = form.form
 
-        if type(form) is KInteriorProductNonlinear:
+        elif type(form) is KInteriorProductNonlinear:
             idx = vec_fields.index(form.form_field)
+            base_form = form.form
+
+        else:
+            assert False
 
         prod_instruct: list[MatOp] = [
-            InterProd(form.form.order, idx, not form.form.is_primal, False)
+            InterProd(
+                base_form.order,
+                idx,
+                not base_form.is_primal,
+                False,
+            )
         ]
 
-        if not form.form.is_primal:
+        if not base_form.is_primal:
             prod_instruct = (
-                [MassMat(form.primal_order - 1, True)]
+                [MassMat(UnknownFormOrder(form.primal_order.value - 1), True)]
                 + prod_instruct
                 + [MassMat(form.primal_order, True)]
             )
@@ -540,18 +554,6 @@ def _translate_equation(
         return res
 
     raise TypeError("Unknown type")
-
-
-# TODO: REMOVE
-class MassMatrixRequired(IntFlag):
-    """Flags used to indicate which mass matrices need to be computed."""
-
-    MASS_NODE = 1 << 0
-    MASS_EDGE = 1 << 1
-    MASS_SURF = 1 << 2
-    MASS_INDE = 1 << 3
-    MASS_IEDG = 1 << 4
-    MASS_ISRF = 1 << 5
 
 
 def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
@@ -645,11 +647,6 @@ def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
     return f"{c:g} ({s})"
 
 
-def extract_mass_matrices(*ops: MatOp) -> set[MassMat]:
-    """Extract mass matrices which will be needed."""
-    return set(op for op in filter(lambda op: isinstance(op, MassMat), ops))  # type: ignore
-
-
 class MatOpCode(IntEnum):
     """Operation codes.
 
@@ -692,11 +689,11 @@ def translate_to_c_instructions(*ops: MatOp) -> list[MatOpCode | int | float]:
             out.append(MatOpCode.IDENTITY)
         elif type(op) is MassMat:
             out.append(MatOpCode.MASS)
-            out.append(op.order)
+            out.append(op.order.value - 1)
             out.append(int(op.inv))
         elif type(op) is Incidence:
             out.append(MatOpCode.INCIDENCE)
-            out.append(op.begin)
+            out.append(op.begin.value - 1)
             out.append(int(op.dual))
         elif type(op) is Push:
             out.append(MatOpCode.PUSH)
@@ -710,7 +707,7 @@ def translate_to_c_instructions(*ops: MatOp) -> list[MatOpCode | int | float]:
             out.append(MatOpCode.MATMUL)
         elif type(op) is InterProd:
             out.append(MatOpCode.INTERPROD)
-            out.append(op.starting_order)
+            out.append(op.starting_order.value - 1)
             out.append(op.field_index)
             out.append(op.dual)
             out.append(op.adjoint)

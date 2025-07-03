@@ -9,16 +9,17 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import IntEnum
 
 import numpy as np
 import numpy.typing as npt
-import pyvista as pv
 
 from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
     IntegrationRule1D,
     Manifold2D,
+    Surface,
 )
 
 
@@ -431,36 +432,14 @@ def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.uint32]:
     )
 
 
-# TODO: REPLACE
-@dataclass(frozen=True, eq=False)
+@dataclass(eq=False)
 class Element2D:
     """General 2D element."""
 
     parent: ElementNode2D | None
 
-    @property
-    def bottom_left(self) -> tuple[float, float]:
-        """Coordinates of the bottom left corner."""
-        raise NotImplementedError
 
-    @property
-    def bottom_right(self) -> tuple[float, float]:
-        """Coordinates of the bottom right corner."""
-        raise NotImplementedError
-
-    @property
-    def top_right(self) -> tuple[float, float]:
-        """Coordinates of the top right corner."""
-        raise NotImplementedError
-
-    @property
-    def top_left(self) -> tuple[float, float]:
-        """Coordinates of the top left corner."""
-        raise NotImplementedError
-
-
-# TODO: REPLACE
-@dataclass(frozen=True, eq=False)
+@dataclass(eq=False)
 class ElementNode2D(Element2D):
     """Two dimensional element that contains children."""
 
@@ -469,35 +448,12 @@ class ElementNode2D(Element2D):
     child_tl: Element2D
     child_tr: Element2D
 
-    maximum_order: int | None = None
-
-    @property
-    def bottom_left(self) -> tuple[float, float]:
-        """Coordinates of the bottom left corner."""
-        return self.child_bl.bottom_left
-
-    @property
-    def bottom_right(self) -> tuple[float, float]:
-        """Coordinates of the bottom right corner."""
-        return self.child_br.bottom_right
-
-    @property
-    def top_right(self) -> tuple[float, float]:
-        """Coordinates of the top right corner."""
-        return self.child_tr.top_right
-
-    @property
-    def top_left(self) -> tuple[float, float]:
-        """Coordinates of the top left corner."""
-        return self.child_tl.top_left
-
     def children(self) -> tuple[Element2D, Element2D, Element2D, Element2D]:
         """Return children of the element ordered."""
         return (self.child_bl, self.child_br, self.child_tr, self.child_tl)
 
 
-# TODO: REPLACE
-@dataclass(frozen=True, eq=False)
+@dataclass(eq=False)
 class ElementLeaf2D(Element2D):
     """Two dimensional square element.
 
@@ -524,30 +480,10 @@ class ElementLeaf2D(Element2D):
 
     order: int
 
-    _bottom_left: tuple[float, float]
-    _bottom_right: tuple[float, float]
-    _top_right: tuple[float, float]
-    _top_left: tuple[float, float]
-
-    @property
-    def bottom_left(self) -> tuple[float, float]:
-        """Coordinates of the bottom left corner."""
-        return self._bottom_left
-
-    @property
-    def bottom_right(self) -> tuple[float, float]:
-        """Coordinates of the bottom right corner."""
-        return self._bottom_right
-
-    @property
-    def top_right(self) -> tuple[float, float]:
-        """Coordinates of the top right corner."""
-        return self._top_right
-
-    @property
-    def top_left(self) -> tuple[float, float]:
-        """Coordinates of the top left corner."""
-        return self._top_left
+    bottom_left: tuple[float, float]
+    bottom_right: tuple[float, float]
+    top_right: tuple[float, float]
+    top_left: tuple[float, float]
 
     def divide(
         self,
@@ -555,7 +491,6 @@ class ElementLeaf2D(Element2D):
         order_br: int,
         order_tl: int,
         order_tr: int,
-        order_p: int | None = None,
     ) -> tuple[
         ElementNode2D,
         tuple[tuple[ElementLeaf2D, ElementLeaf2D], tuple[ElementLeaf2D, ElementLeaf2D]],
@@ -572,8 +507,6 @@ class ElementLeaf2D(Element2D):
             Order of the top left element.
         order_tr : int
             Order of the top right element.
-        order_p : int, optional
-            Order of the parent element. If given, the parent will have a fixed order.
 
         Returns
         -------
@@ -628,12 +561,13 @@ class ElementLeaf2D(Element2D):
             self.top_left,
         )
 
-        parent = ElementNode2D(self.parent, btm_l, btm_r, top_l, top_r, order_p)
+        parent = ElementNode2D(self.parent, btm_l, btm_r, top_l, top_r)
 
-        object.__setattr__(btm_l, "parent", parent)
-        object.__setattr__(btm_r, "parent", parent)
-        object.__setattr__(top_l, "parent", parent)
-        object.__setattr__(top_r, "parent", parent)
+        btm_l.parent = parent
+        btm_r.parent = parent
+        top_l.parent = parent
+        top_r.parent = parent
+
         return parent, ((btm_l, btm_r), (top_l, top_r))
 
 
@@ -734,9 +668,19 @@ class Mesh2D:
         """Number of (surface) elements in the mesh."""
         return self.primal.n_surfaces
 
-    # TODO: REPLACE
-    def get_element(self, idx: int, /) -> ElementLeaf2D:
-        """Obtain the 2D element corresponding to the index."""
+    def surface_to_element(self, idx: int, /) -> ElementLeaf2D:
+        """Create a 2D element from a surface with the given index.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the surface.
+
+        Returns
+        -------
+        ElementLeaf2D
+            Leaf element with the geometry of the specified surface.
+        """
         s = self.primal.get_surface(idx + 1)
         assert len(s) == 4, "Primal surface must be square."
         indices = np.zeros(4, dtype=int)
@@ -746,32 +690,11 @@ class Mesh2D:
         return ElementLeaf2D(
             None,
             int(self.orders[idx]),
-            tuple(self.positions[indices[0], :]),  # type: ignore
-            tuple(self.positions[indices[1], :]),  # type: ignore
-            tuple(self.positions[indices[2], :]),  # type: ignore
-            tuple(self.positions[indices[3], :]),  # type: ignore
+            (float(self.positions[indices[0], 0]), float(self.positions[indices[0], 1])),
+            (float(self.positions[indices[1], 0]), float(self.positions[indices[1], 1])),
+            (float(self.positions[indices[2], 0]), float(self.positions[indices[2], 1])),
+            (float(self.positions[indices[3], 0]), float(self.positions[indices[3], 1])),
         )
-
-    def as_polydata(self) -> pv.PolyData:
-        """Convert the mesh into PyVista's polydata.
-
-        Returns
-        -------
-        PolyData
-            PolyData representation of the mesh.
-        """
-        man = self.primal
-        pos = self.positions
-
-        indices: list[list[int]] = [
-            [man.get_line(i_line).begin.index for i_line in man.get_surface(i_surf + 1)]  # type: ignore
-            for i_surf in range(man.n_surfaces)
-        ]
-
-        return pv.PolyData.from_irregular_faces(np.pad(pos, ((0, 0), (0, 1))), indices)
-        # for i_surf in range(man.n_surfaces):
-        #     s = man.get_surface(i_surf + 1)
-        #     idx: list[int] = [man.get_line(i_line).begin.index for i_line in s]
 
 
 class FemCache:
@@ -792,11 +715,15 @@ class FemCache:
     order_diff: int
     _int_cache: dict[int, IntegrationRule1D]
     _b1_cache: dict[tuple[int, int], Basis1D]
+    _min_cache: dict[int, npt.NDArray[np.float64]]
+    _mie_cache: dict[int, npt.NDArray[np.float64]]
 
     def __init__(self, order_difference: int) -> None:
         self._int_cache = dict()
         self._b1_cache = dict()
         self.order_diff = order_difference
+        self._min_cache = dict()
+        self._mie_cache = dict()
 
     def get_integration_rule(self, order: int) -> IntegrationRule1D:
         """Return integration rule.
@@ -892,3 +819,71 @@ class FemCache:
         """Clear all caches."""
         self._int_cache = dict()
         self._b1_cache = dict()
+
+    def get_mass_inverse_1d_node(self, order: int) -> npt.NDArray[np.float64]:
+        """Get the 1D nodal mass matrix inverse."""
+        if order in self._min_cache:
+            return self._min_cache[order]
+
+        basis = self.get_basis1d(order)
+        rule = basis.rule
+        weights = rule.weights
+
+        mat = np.sum(
+            basis.node[:, None, :] * basis.node[None, :, :] * weights[None, None, :],
+            axis=2,
+        )
+        inv = np.linalg.inv(mat)
+        self._min_cache[order] = inv
+
+        return inv
+
+    def get_mass_inverse_1d_edge(self, order: int) -> npt.NDArray[np.float64]:
+        """Get the 1D edge mass matrix inverse."""
+        if order in self._mie_cache:
+            return self._mie_cache[order]
+
+        basis = self.get_basis1d(order)
+        rule = basis.rule
+        weights = rule.weights
+
+        mat = np.sum(
+            basis.edge[:, None, :] * basis.edge[None, :, :] * weights[None, None, :],
+            axis=2,
+        )
+        inv = np.linalg.inv(mat)
+        self._mie_cache[order] = inv
+
+        return inv
+
+
+class ElementSide(IntEnum):
+    """Enum specifying the side of an element."""
+
+    SIDE_BOTTOM = 1
+    SIDE_RIGHT = 2
+    SIDE_TOP = 3
+    SIDE_LEFT = 4
+
+    @property
+    def next(self) -> ElementSide:
+        """Next side."""
+        return ElementSide((self.value & 3) + 1)
+
+    @property
+    def prev(self) -> ElementSide:
+        """Previous side."""
+        return ElementSide(((self.value - 2) & 3) + 1)
+
+
+def find_surface_boundary_id_line(s: Surface, i: int) -> ElementSide:
+    """Find what boundary the line with a given index is in the surface."""
+    if s[0].index == i:
+        return ElementSide.SIDE_BOTTOM
+    if s[1].index == i:
+        return ElementSide.SIDE_RIGHT
+    if s[2].index == i:
+        return ElementSide.SIDE_TOP
+    if s[3].index == i:
+        return ElementSide.SIDE_LEFT
+    raise ValueError(f"Line with index {i} is not in the surface {s}.")

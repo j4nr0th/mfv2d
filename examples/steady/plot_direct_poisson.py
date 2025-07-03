@@ -66,6 +66,7 @@ from mfv2d import (
     Mesh2D,
     SolverSettings,
     SystemSettings,
+    UnknownFormOrder,
     solve_system_2d,
 )
 
@@ -143,9 +144,9 @@ def source_exact(x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]):
 #     \int_\Omega p^{(1)} \wedge \star \mathrm{d} u^{(0)} - \int_\Omega p^{(1)} \wedge
 #     \star q^{(1)} = 0
 
-u = KFormUnknown(2, "u", 0)
+u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
 v = u.weight
-q = KFormUnknown(2, "q", 1)
+q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
 p = q.weight
 
 system = KFormSystem(

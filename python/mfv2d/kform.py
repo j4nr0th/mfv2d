@@ -63,10 +63,6 @@ class Term:
 
     Parameters
     ----------
-    dimension : int
-        Number of dimensions of the manifold.
-        TODO: REMOVE SINCE IT IS ALWAYS 2
-
     label : str
         How to identify the term.
     """

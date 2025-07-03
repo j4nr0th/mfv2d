@@ -22,7 +22,7 @@ from mfv2d.element import (
     FixedElementArray,
     UnknownFormOrder,
     UnknownOrderings,
-    _element_node_children_on_side,
+    element_node_children_on_side,
     get_corner_dof,
     get_side_dofs,
     get_side_order,
@@ -33,7 +33,25 @@ from mfv2d.mimetic2d import ElementSide, Mesh2D, find_surface_boundary_id_line
 def _find_surface_boundary_id_node(
     mesh: Mesh2D, surf_idx: int, node_idx: int
 ) -> ElementSide:
-    """Find what boundary begins with the node with a given index is in the surface."""
+    """Find what boundary begins with the node with a given index is in the surface.
+
+    Parameters
+    ----------
+    mesh : Mesh2D
+        Mesh the surface is a part of.
+
+    surf_idx : int
+        Index of the surface.
+
+    node_idx : int
+        Index of the node.
+
+    Returns
+    -------
+    ElementSide
+        Side of the element which begins with the given node. If the node is not
+        in the surface an exception is raised.
+    """
     s = mesh.primal.get_surface(surf_idx + 1)
     for line_id, bnd_id in zip(iter(s), ElementSide, strict=True):
         line = mesh.primal.get_line(line_id)
@@ -119,11 +137,11 @@ def connect_edge_center(
     c2 = elements.child_array[e2]
 
     if len(c1):
-        c11, c12 = _element_node_children_on_side(side, c1)
+        c11, c12 = element_node_children_on_side(side, c1)
         constraints += connect_edge_center(elements, c11, c12, side)
 
     if len(c2):
-        c21, c22 = _element_node_children_on_side(side, c2)
+        c21, c22 = element_node_children_on_side(side, c2)
         constraints += connect_edge_center(elements, c21, c22, side)
 
     return constraints
@@ -174,8 +192,8 @@ def connect_edge_based(
     c2 = elements.child_array[e2]
     constraints: list[Constraint] = list()
     if len(c1) and len(c2):
-        c11, c12 = _element_node_children_on_side(s1, c1)
-        c21, c22 = _element_node_children_on_side(s2, c2)
+        c11, c12 = element_node_children_on_side(s1, c1)
+        c21, c22 = element_node_children_on_side(s2, c2)
         constraints_1 = connect_edge_based(elements, c11, s1, c22, s2, form_order)
         constraints_2 = connect_edge_based(elements, c12, s1, c21, s2, form_order)
         constraints_3: list[Constraint] = list()
@@ -193,11 +211,11 @@ def connect_edge_based(
     elif form_order == UnknownFormOrder.FORM_ORDER_0:
         # Connect the corner of two children if two are needed
         if len(c1):
-            c11, c12 = _element_node_children_on_side(s1, c1)
+            c11, c12 = element_node_children_on_side(s1, c1)
             constraints += connect_edge_center(elements, c11, c12, s1)
 
         elif len(c2):
-            c21, c22 = _element_node_children_on_side(s2, c2)
+            c21, c22 = element_node_children_on_side(s2, c2)
             constraints += connect_edge_center(elements, c21, c22, s2)
 
     order_1 = get_side_order(elements, e1, s1)

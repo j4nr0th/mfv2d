@@ -21,9 +21,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
-from functools import cache
 from itertools import accumulate
-from typing import Any, Concatenate, Generic, ParamSpec, SupportsIndex, TypeAlias, TypeVar
+from typing import Any, Concatenate, Generic, ParamSpec, SupportsIndex, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -343,110 +342,6 @@ class ElementCollection:
             np.uint32,
             copy=False,
         )
-
-    def get_element_children(self, i: int, /) -> tuple[int, ...]:
-        """Get children of an element."""
-        return tuple(int(j) for j in self.child_array[i])
-
-    def get_element_order_on_side(self, i: int, side: ElementSide, /) -> int:
-        """Return the order of an element on the side."""
-        side = ElementSide(side)
-        order = int(self.orders_array[i][1 - (side.value & 1)])
-        if order != 0:
-            return order
-
-        children = self.child_array[i]
-        c1 = int(children[side.value - 1])
-        c2 = int(children[side.value & 3])
-
-        return self.get_element_order_on_side(c1, side) + self.get_element_order_on_side(
-            c2, side
-        )
-
-    def get_boundary_dofs(
-        self, ie: int, /, order: UnknownFormOrder, side: ElementSide
-    ) -> npt.NDArray[np.uint32]:
-        """Return degrees of freedom on the side of the element."""
-        if order == UnknownFormOrder.FORM_ORDER_2:
-            return np.zeros(0, np.uint32)
-
-        if self.child_count_array[ie] == 0:
-            # This is a leaf
-            n1, n2 = self.orders_array[ie]
-            if order == UnknownFormOrder.FORM_ORDER_1:
-                if side == ElementSide.SIDE_BOTTOM:
-                    return np.arange(0, n1, dtype=np.uint32)
-                if side == ElementSide.SIDE_RIGHT:
-                    return np.astype(
-                        (n1 * (n2 + 1))
-                        + n2
-                        + np.arange(0, n2, dtype=np.uint32) * (n1 + 1),
-                        np.uint32,
-                        copy=False,
-                    )
-                if side == ElementSide.SIDE_TOP:
-                    return np.astype(
-                        np.flip(n1 * n2 + np.arange(0, n1, dtype=np.uint32)),
-                        np.uint32,
-                        copy=False,
-                    )
-                if side == ElementSide.SIDE_LEFT:
-                    return np.astype(
-                        np.flip(
-                            (n1 * (n2 + 1)) + np.arange(0, n2, dtype=np.uint32) * (n1 + 1)
-                        ),
-                        np.uint32,
-                        copy=False,
-                    )
-            if order == UnknownFormOrder.FORM_ORDER_0:
-                if side == ElementSide.SIDE_BOTTOM:
-                    return np.arange(0, n1 + 1, dtype=np.uint32)
-                if side == ElementSide.SIDE_RIGHT:
-                    return np.astype(
-                        n1 + np.arange(0, n2 + 1, dtype=np.uint32) * (n1 + 1),
-                        np.uint32,
-                        copy=False,
-                    )
-                if side == ElementSide.SIDE_TOP:
-                    return np.astype(
-                        np.flip((n1 + 1) * n2 + np.arange(0, n1 + 1, dtype=np.uint32)),
-                        np.uint32,
-                        copy=False,
-                    )
-                if side == ElementSide.SIDE_LEFT:
-                    return np.astype(
-                        np.flip(np.arange(0, n2 + 1, dtype=np.uint32) * (n1 + 1)),
-                        np.uint32,
-                        copy=False,
-                    )
-
-        else:
-            raise NotImplementedError("This should never be used again.")
-            # This is a node
-            if order == UnknownFormOrder.FORM_ORDER_1:
-                offset = sum(
-                    self.get_element_order_on_side(ie, ElementSide(i_side))
-                    for i_side in range(ElementSide.SIDE_BOTTOM, side)
-                )
-                count = self.get_element_order_on_side(ie, side)
-                return np.astype(
-                    offset + np.arange(count, dtype=np.uint32), np.uint32, copy=False
-                )
-            if order == UnknownFormOrder.FORM_ORDER_0:
-                offset = sum(
-                    self.get_element_order_on_side(ie, ElementSide(i_side))
-                    for i_side in range(ElementSide.SIDE_BOTTOM, side)
-                )
-                count = self.get_element_order_on_side(ie, side) + 1
-                res = np.astype(
-                    offset + np.arange(count, dtype=np.uint32), np.uint32, copy=False
-                )
-                if side == ElementSide.SIDE_LEFT:
-                    res[-1] = 0
-
-                return res
-
-        raise ValueError(f"Invalid value of either {order=} or {side=}.")
 
 
 def call_per_element_flex(
@@ -1291,25 +1186,13 @@ def reconstruct(
     return np.array(out, np.float64, copy=None)
 
 
-def _element_node_children_on_side(
+def element_node_children_on_side(
     side: ElementSide, children: npt.NDArray[np.uint32]
 ) -> tuple[int, int]:
     """Get children from the 4 child array for the correct side."""
     i_begin = side.value - 1
     i_end = side.value & 3
     return int(children[i_begin]), int(children[i_end])
-
-    if side == ElementSide.SIDE_BOTTOM:
-        c1, c2 = children[0], children[1]
-    elif side == ElementSide.SIDE_RIGHT:
-        c1, c2 = children[1], children[2]
-    elif side == ElementSide.SIDE_TOP:
-        c1, c2 = children[2], children[3]
-    elif side == ElementSide.SIDE_LEFT:
-        c1, c2 = children[3], children[4]
-    else:
-        raise ValueError(f"Invalid side {side=}.")
-    return int(c1), int(c2)
 
 
 def get_element_side_nodes(
@@ -1322,7 +1205,7 @@ def get_element_side_nodes(
         order = orders[(side.value - 1) & 1]
         return compute_gll(order)[0]
 
-    c1, c2 = _element_node_children_on_side(side, children)
+    c1, c2 = element_node_children_on_side(side, children)
 
     return np.concatenate(
         (
@@ -1369,7 +1252,7 @@ def _get_side_dof_nodes(
     if len(children):
         c1: int
         c2: int
-        c1, c2 = _element_node_children_on_side(side, children)
+        c1, c2 = element_node_children_on_side(side, children)
 
         dofs1 = _get_side_dof_nodes(element_collection, c1, side, order)
         dofs2 = _get_side_dof_nodes(element_collection, c2, side, order)
@@ -1406,7 +1289,31 @@ def _get_side_dof_nodes(
 def element_boundary_dofs(
     side: ElementSide, order: UnknownFormOrder, order_1: int, order_2: int
 ) -> npt.NDArray[np.uint32]:
-    """Get indices of boundary DoFs for an element on specified side."""
+    """Get indices of boundary DoFs for an element on specified side.
+
+    Parameters
+    ----------
+    side : ElementSide
+        Side of the element to get the DoFs from.
+
+    order : UnknownFormOrder
+        Order of the form to the the boundary degrees are for. Can only be a
+        0-form or an 1-form, since 2-forms have no boundary degrees of freedom
+        on the boundary.
+
+    order_1 : int
+        Order of the element in the horizontal direction.
+
+    order_2 : int
+        Order of the element in the vertical direction.
+
+    Returns
+    -------
+    array
+        Array of indices of the degrees of freedom for the given form on a
+        given side.
+    """
+    indices: npt.NDArray[np.uint32]
     if order == UnknownFormOrder.FORM_ORDER_1:
         if side == ElementSide.SIDE_BOTTOM:
             indices = np.arange(0, order_1, dtype=np.uint32)
@@ -1468,25 +1375,6 @@ def element_boundary_dofs(
     else:
         raise ValueError(f"Invalid order given by {order=}")
     return indices
-
-
-NestedIndexTuple: TypeAlias = tuple["NestedIndexTuple", "NestedIndexTuple"] | int
-
-
-def get_leaves_on_side(
-    element_collection: ElementCollection, element: int, side: ElementSide
-) -> NestedIndexTuple:
-    """Obtain leaf indices of all leaf elements on the boundary."""
-    children = element_collection.child_array[element]
-    if not len(children):
-        return element
-
-    c1, c2 = _element_node_children_on_side(side, children)
-
-    return (
-        get_leaves_on_side(element_collection, c1, side),
-        get_leaves_on_side(element_collection, c2, side),
-    )
 
 
 def get_side_dofs(
@@ -1668,96 +1556,36 @@ def get_corner_dof(
     return get_corner_dof(element_collection, child, side)
 
 
-def get_side_endpoints(
-    element_collection: ElementCollection, element: int, side: ElementSide, /
-) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Get endpoints for the specified side."""
-    children = element_collection.child_array[element]
-    if len(children):
-        c1: int
-        c2: int
-        c1, c2 = _element_node_children_on_side(side, children)
-        begin, _ = get_side_endpoints(element_collection, c1, side)
-        _, end = get_side_endpoints(element_collection, c2, side)
-        return begin, end
-
-    corners = element_collection.corners_array[element]
-    i_begin = side.value - 1
-    i_end = side.value & 3
-
-    return (
-        (corners[i_begin, 0], corners[i_begin, 1]),
-        (corners[i_end, 0], corners[i_end, 1]),
-    )
-
-
 def get_side_order(
-    element_collection: ElementCollection, element: int, side: ElementSide, /
+    element_collection: ElementCollection, element_idx: int, side: ElementSide, /
 ) -> int:
-    """Get order for the specified side."""
-    children = element_collection.child_array[element]
+    """Get order for the specified element boundary side.
+
+    element_collection : ElementCollection
+        Element collection the element is a part of.
+
+    element : int
+        Index of the element in the collection to get the side order from.
+
+    side : ElementSide
+        Side of the element to get the order for.
+
+    Returns
+    -------
+    int
+        Order on that side of the element.
+    """
+    children = element_collection.child_array[element_idx]
     if len(children):
         c1: int
         c2: int
-        c1, c2 = _element_node_children_on_side(side, children)
+        c1, c2 = element_node_children_on_side(side, children)
         return get_side_order(element_collection, c1, side) + get_side_order(
             element_collection, c2, side
         )
 
-    orders = element_collection.orders_array[element]
+    orders = element_collection.orders_array[element_idx]
     return int(orders[(side.value - 1) & 1])
-
-
-@cache
-def continuity_child_matrices(
-    order_child: int, order_parent: int
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Compute continuity equation coefficients for 0 and 1 forms between elements.
-
-    Parameters
-    ----------
-    order_child : int
-        Child's order.
-    order_parent : int
-        Parent's order.
-
-    Returns
-    -------
-    (order_child + 1, order_parent + 1) array
-        Array of coefficients for 0-form continuity.
-
-    (order_child, order_parent) array
-        Array of coefficients for 1-form continuity.
-    """
-    # assert nchild >= nparent
-    nodes_child, _ = compute_gll(order_child)
-    nodes_parent, _ = compute_gll(order_parent)
-    nodes_child = (nodes_child / 2) - 0.5  # Scale to [-1, 0]
-
-    # Axis 0: xi_j
-    # Axis 1: psi_i
-    nodal_basis = lagrange1d(nodes_parent, nodes_child)
-
-    # Axis 0: [xi_{j + 1}, xi_j]
-    # Axis 1: psi_i
-    # coeffs_1_form = np.zeros((order_child, order_parent), np.float64)
-    # for j in range(order_child):
-    #     coeffs_1_form[j, 0] = nodal_basis[j, 0] - nodal_basis[j + 1, 0]
-    #     for i in range(1, order_parent):
-    #         coeffs_1_form[j, i] = coeffs_1_form[j, i - 1] + (
-    #             nodal_basis[j, i] - nodal_basis[j + 1, i]
-    #         )
-
-    diffs = nodal_basis[:-1, :] - nodal_basis[+1:, :]
-    coeffs_1_fast = np.stack(
-        [x for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))],
-        axis=-1,
-        dtype=np.float64,
-    )
-
-    # assert np.allclose(coeffs_1_fast, coeffs_1_form)
-
-    return np.astype(nodal_basis, np.float64, copy=False), coeffs_1_fast
 
 
 @dataclass(frozen=True)
@@ -1803,54 +1631,3 @@ class Constraint:
     def __init__(self, rhs: float, *element_constraints: ElementConstraint) -> None:
         object.__setattr__(self, "rhs", float(rhs))
         object.__setattr__(self, "element_constraints", element_constraints)
-
-
-@cache
-def continuity_matrices(
-    order_high: int, order_low: int
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Compute continuity equation coefficients for 0 and 1 forms between elements.
-
-    Parameters
-    ----------
-    order_high : int
-        Higher order.
-    order_low : int
-        Lower order.
-
-    Returns
-    -------
-    (order_high + 1, order_low + 1) array
-        Array of coefficients for 0-form continuity.
-
-    (order_high, order_low) array
-        Array of coefficients for 1-form continuity.
-    """
-    assert order_high > order_low
-    nodes_n1, _ = compute_gll(order_high)
-    nodes_n2, _ = compute_gll(order_low)
-
-    # Axis 0: xi_j
-    # Axis 1: psi_i
-    nodal_basis = lagrange1d(nodes_n2, nodes_n1)
-
-    # Axis 0: [xi_{j + 1}, xi_j]
-    # Axis 1: psi_i
-    # coeffs_1_form = np.zeros((n1, n2), np.float64)
-    # for j in range(n1):
-    #     coeffs_1_form[j, 0] = nodal_basis[j, 0] - nodal_basis[j + 1, 0]
-    #     for i in range(1, n2):
-    #         coeffs_1_form[j, i] = coeffs_1_form[j, i - 1] + (
-    #             nodal_basis[j, i] - nodal_basis[j + 1, i]
-    #         )
-
-    diffs = nodal_basis[:-1, :] - nodal_basis[+1:, :]
-    coeffs_1_fast = np.stack(
-        [x for x in accumulate(diffs[..., i] for i in range(diffs.shape[-1] - 1))],
-        axis=-1,
-        dtype=np.float64,
-    )
-
-    # assert np.allclose(coeffs_1_fast, coeffs_1_form)
-
-    return np.astype(nodal_basis, np.float64, copy=False), coeffs_1_fast

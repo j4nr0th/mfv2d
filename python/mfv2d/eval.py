@@ -503,15 +503,25 @@ def _translate_equation(
 
         if type(form) is KInteriorProduct:
             idx = vec_fields.index(form.vector_field)
+            base_form = form.form
 
-        if type(form) is KInteriorProductNonlinear:
+        elif type(form) is KInteriorProductNonlinear:
             idx = vec_fields.index(form.form_field)
+            base_form = form.form
+
+        else:
+            assert False
 
         prod_instruct: list[MatOp] = [
-            InterProd(form.form.order, idx, not form.form.is_primal, False)
+            InterProd(
+                base_form.order,
+                idx,
+                not base_form.is_primal,
+                False,
+            )
         ]
 
-        if not form.form.is_primal:
+        if not base_form.is_primal:
             prod_instruct = (
                 [MassMat(UnknownFormOrder(form.primal_order.value - 1), True)]
                 + prod_instruct

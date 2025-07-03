@@ -62,7 +62,7 @@ docs = [
 
 [tool.mypy]
 mypy_path = "python/mfv2d"
-plugins = ["npt_promote", "numpy.typing.mypy_plugin"]
+plugins = ["npt_promote"]
 ignore_missing_imports = true
 warn_unused_configs = true
 warn_unused_ignores = true

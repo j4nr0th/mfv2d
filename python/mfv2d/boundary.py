@@ -22,7 +22,9 @@ from mfv2d.element import (
     ElementCollection,
     ElementConstraint,
     FixedElementArray,
-    _element_node_children_on_side,
+    element_boundary_dofs,
+    element_node_children_on_side,
+    get_side_order,
 )
 from mfv2d.kform import (
     Function2D,
@@ -64,8 +66,8 @@ class BoundaryCondition2DSteady(BoundaryCondition2D):
         Form for which the value is to be prescribed.
 
     indices : array_like
-        One dimensional array of edges on which this is prescribed.
-        TODO: check if 0-based on 1-based
+        One dimensional array of edges on which this is prescribed. Note that
+        0-based indexing is used, since orientation does not matter.
 
     func : (array, array) -> array_like
         Function that can be evaluated to obtain values of differential forms
@@ -103,7 +105,7 @@ class BoundaryCondition2DUnsteady(BoundaryCondition2D):
 
 def _element_weak_boundary_condition(
     elements: ElementCollection,
-    ie: int,
+    element_idx: int,
     side: ElementSide,
     unknown_orders: UnknownOrderings,
     unknown_index: int,
@@ -111,66 +113,70 @@ def _element_weak_boundary_condition(
     weak_terms: Sequence[tuple[float, KBoundaryProjection]],
     basis_cache: FemCache,
 ) -> tuple[ElementConstraint, ...]:
-    """Determine boundary conditions given an element and a side."""
-    children = elements.child_array[ie]
+    """Compute boundary conditions contributions the side of the element.
+
+    Parameters
+    ----------
+    elements : ElementCollection
+        Element collection that the element is in.
+
+    element_idx : int
+        Index of the element to compute the contributions on.
+
+    side : ElementSide
+        Side on which the boundary conditions should be computed.
+
+    unknown_orders : UnknownOrderings
+        Ordering of the unknown degrees of freedom.
+
+    dof_offsets : FixedElementArray of uint32
+        Offsets of the degrees of freedom in the element.
+
+    weak_terms : Sequence of (float, KBoundaryProjection)
+        Pairs of boundary projection terms and their scaling coefficients.
+
+    basis_cache : FemCache
+        Cache from which to get basis from.
+
+    Returns
+    -------
+    tuple of ElementConstraint
+        Tuple with :class:`ElementConstraint` objects that contain the
+        indices of equations where to apply in the ``dofs`` member and
+        contributions of boundary terms in the ``coeffs`` member.
+    """
+    children = elements.child_array[element_idx]
 
     if children.size != 0:
         # Node, has children
-        current: tuple[ElementConstraint, ...] = tuple()
-        if side == ElementSide.SIDE_LEFT or side == ElementSide.SIDE_BOTTOM:
-            current += _element_weak_boundary_condition(
-                elements,
-                int(children[0]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                weak_terms,
-                basis_cache,
-            )
-        if side == ElementSide.SIDE_BOTTOM or side == ElementSide.SIDE_RIGHT:
-            current += _element_weak_boundary_condition(
-                elements,
-                int(children[1]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                weak_terms,
-                basis_cache,
-            )
-        if side == ElementSide.SIDE_RIGHT or side == ElementSide.SIDE_TOP:
-            current += _element_weak_boundary_condition(
-                elements,
-                int(children[2]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                weak_terms,
-                basis_cache,
-            )
-        if side == ElementSide.SIDE_TOP or side == ElementSide.SIDE_LEFT:
-            current += _element_weak_boundary_condition(
-                elements,
-                int(children[3]),
-                side,
-                unknown_orders,
-                unknown_index,
-                dof_offsets,
-                weak_terms,
-                basis_cache,
-            )
+        c1, c2 = element_node_children_on_side(side, children)
+        return _element_weak_boundary_condition(
+            elements,
+            c1,
+            side,
+            unknown_orders,
+            unknown_index,
+            dof_offsets,
+            weak_terms,
+            basis_cache,
+        ) + _element_weak_boundary_condition(
+            elements,
+            c2,
+            side,
+            unknown_orders,
+            unknown_index,
+            dof_offsets,
+            weak_terms,
+            basis_cache,
+        )
 
-        return current
-
-    side_order = elements.get_element_order_on_side(ie, side)
+    side_order = get_side_order(elements, element_idx, side)
 
     basis_1d = basis_cache.get_basis1d(side_order)
     ndir = 2 * ((side.value & 2) >> 1) - 1
     i0 = side.value - 1
     i1 = side.value & 3
-    corners = elements.corners_array[ie]
+    corners = elements.corners_array[element_idx]
     p0: tuple[float, float] = corners[i0]
     p1: tuple[float, float] = corners[i1]
     dx = (p1[0] - p0[0]) / 2
@@ -178,8 +184,8 @@ def _element_weak_boundary_condition(
     dy = (p1[1] - p0[1]) / 2
     yv = (p1[1] + p0[1]) / 2 + dy * basis_1d.rule.nodes
     form_order = unknown_orders.form_orders[unknown_index]
-    dofs = elements.get_boundary_dofs(ie, form_order, side)
-    dofs = dofs + dof_offsets[ie][unknown_index]
+    dofs = element_boundary_dofs(side, form_order, *elements.orders_array[element_idx])
+    dofs = dofs + dof_offsets[element_idx][unknown_index]
     vals = np.zeros_like(dofs, np.float64)
 
     for k, bp in weak_terms:
@@ -202,12 +208,12 @@ def _element_weak_boundary_condition(
 
         vals[:] += np.sum(f_vals[None, ...] * basis, axis=1) * k
 
-    return (ElementConstraint(ie, dofs, vals),)
+    return (ElementConstraint(element_idx, dofs, vals),)
 
 
 def _element_strong_boundary_condition(
     elements: ElementCollection,
-    ie: int,
+    element_idx: int,
     side: ElementSide,
     unknown_orders: UnknownOrderings,
     unknown_index: int,
@@ -217,11 +223,48 @@ def _element_strong_boundary_condition(
     skip_first: bool,
     skip_last: bool,
 ) -> tuple[ElementConstraint, ...]:
-    """Determine boundary conditions given an element and a side."""
-    children = elements.child_array[ie]
+    """Compute strong boundary condition constraints on the side of the element.
+
+    Parameters
+    ----------
+    elements : ElementCollection
+        Element collection that the element is in.
+
+    element_idx : int
+        Index of the element to compute the degrees of freedom on.
+
+    side : ElementSide
+        Side on which the boundary conditions should be computed.
+
+    unknown_orders : UnknownOrderings
+        Ordering of the unknown degrees of freedom.
+
+    dof_offsets : FixedElementArray of uint32
+        Offsets of the degrees of freedom in the element.
+
+    strong_bc : BoundaryCondition2DStrong
+        Boundary condition to compute.
+
+    basis_cache : FemCache
+        Cache from which to get basis from.
+
+    skip_first : bool
+        Should the first node on the edge not be constrained for a 0-form.
+
+    skip_last : bool
+        Should the last node on the edge not be constrained for a 0-form.
+
+    Returns
+    -------
+    tuple of ElementConstraint
+        Tuple with :class:`ElementConstraint` objects that contain the
+        degrees of freedom to constrain ``dofs`` member and
+        their respective values in the ``coeffs`` member.
+    """
+    children = elements.child_array[element_idx]
     if children.size != 0:
         # Node, has children
-        c1, c2 = _element_node_children_on_side(side, children)
+        c1, c2 = element_node_children_on_side(side, children)
 
         return _element_strong_boundary_condition(
             elements,
@@ -247,13 +290,13 @@ def _element_strong_boundary_condition(
             skip_last,
         )
 
-    side_order = elements.get_element_order_on_side(ie, side)
+    side_order = get_side_order(elements, element_idx, side)
 
     basis_1d = basis_cache.get_basis1d(side_order)
     ndir = 2 * ((side.value & 2) >> 1) - 1
     i0 = side.value - 1
     i1 = side.value & 3
-    corners = elements.corners_array[ie]
+    corners = elements.corners_array[element_idx]
     p0: tuple[float, float] = corners[i0]
     p1: tuple[float, float] = corners[i1]
     # ndir, p0, p1 = _endpoints_from_line(e, i_side)
@@ -262,8 +305,8 @@ def _element_strong_boundary_condition(
     xv = np.astype((p1[0] + p0[0]) / 2 + dx * basis_1d.roots, np.float64, copy=False)
     yv = np.astype((p1[1] + p0[1]) / 2 + dy * basis_1d.roots, np.float64, copy=False)
     form_order = unknown_orders.form_orders[unknown_index]
-    dofs = elements.get_boundary_dofs(ie, form_order, side)
-    dofs = dofs + dof_offsets[ie][unknown_index]
+    dofs = element_boundary_dofs(side, form_order, *elements.orders_array[element_idx])
+    dofs = dofs + dof_offsets[element_idx][unknown_index]
     vals = np.zeros_like(dofs, np.float64)
 
     if form_order == UnknownFormOrder.FORM_ORDER_0:
@@ -334,7 +377,7 @@ def _element_strong_boundary_condition(
 
     assert vals.size == dofs.size
     # assert np.allclose(vals, new_vals)
-    return (ElementConstraint(ie, dofs, vals),)
+    return (ElementConstraint(element_idx, dofs, vals),)
 
 
 def mesh_boundary_conditions(
@@ -374,18 +417,18 @@ def mesh_boundary_conditions(
         Boundary conditions grouped per weight functions and correctly ordered to match
         the order of weight functions in the system.
 
-    caches : MutableMapping of (int, BasisCache)
-        Caches which can be used and appended to.
+    caches : FemCache
+        Cache to use for basis functions.
 
     Returns
     -------
-    tuple of ElementConstraint
+    strong : tuple of ElementConstraint
         Strong boundary conditions in a specific notation. Each of these means
         that for element given by ``ElementConstraint.i_e``, all dofs with
         indices ``ElementConstraint.dofs`` should be constrained to value
         ``ElementConstraint.coeffs``.
 
-    tuple of ElementConstraint
+    weak : tuple of ElementConstraint
         Weak boundary conditions in a specific notation. Each of these means
         that for element given by ``ElementConstraint.i_e``, all equations with
         indices ``ElementConstraint.dofs`` should have the value

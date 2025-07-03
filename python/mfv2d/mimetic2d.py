@@ -13,7 +13,6 @@ from enum import IntEnum
 
 import numpy as np
 import numpy.typing as npt
-import pyvista as pv
 
 from mfv2d._mfv2d import (
     Basis1D,
@@ -433,7 +432,6 @@ def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.uint32]:
     )
 
 
-# TODO: REPLACE
 @dataclass(eq=False)
 class Element2D:
     """General 2D element."""
@@ -441,7 +439,6 @@ class Element2D:
     parent: ElementNode2D | None
 
 
-# TODO: REPLACE
 @dataclass(eq=False)
 class ElementNode2D(Element2D):
     """Two dimensional element that contains children."""
@@ -456,7 +453,6 @@ class ElementNode2D(Element2D):
         return (self.child_bl, self.child_br, self.child_tr, self.child_tl)
 
 
-# TODO: REPLACE
 @dataclass(eq=False)
 class ElementLeaf2D(Element2D):
     """Two dimensional square element.
@@ -672,9 +668,19 @@ class Mesh2D:
         """Number of (surface) elements in the mesh."""
         return self.primal.n_surfaces
 
-    # TODO: REPLACE
-    def get_element(self, idx: int, /) -> ElementLeaf2D:
-        """Obtain the 2D element corresponding to the index."""
+    def surface_to_element(self, idx: int, /) -> ElementLeaf2D:
+        """Create a 2D element from a surface with the given index.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the surface.
+
+        Returns
+        -------
+        ElementLeaf2D
+            Leaf element with the geometry of the specified surface.
+        """
         s = self.primal.get_surface(idx + 1)
         assert len(s) == 4, "Primal surface must be square."
         indices = np.zeros(4, dtype=int)
@@ -689,27 +695,6 @@ class Mesh2D:
             (float(self.positions[indices[2], 0]), float(self.positions[indices[2], 1])),
             (float(self.positions[indices[3], 0]), float(self.positions[indices[3], 1])),
         )
-
-    def as_polydata(self) -> pv.PolyData:
-        """Convert the mesh into PyVista's polydata.
-
-        Returns
-        -------
-        PolyData
-            PolyData representation of the mesh.
-        """
-        man = self.primal
-        pos = self.positions
-
-        indices: list[list[int]] = [
-            [man.get_line(i_line).begin.index for i_line in man.get_surface(i_surf + 1)]  # type: ignore
-            for i_surf in range(man.n_surfaces)
-        ]
-
-        return pv.PolyData.from_irregular_faces(np.pad(pos, ((0, 0), (0, 1))), indices)
-        # for i_surf in range(man.n_surfaces):
-        #     s = man.get_surface(i_surf + 1)
-        #     idx: list[int] = [man.get_line(i_line).begin.index for i_line in s]
 
 
 class FemCache:

@@ -128,7 +128,7 @@ def solve_system_2d(
         check_and_refine(
             refinement_settings.division_predicate,
             refinement_settings.division_function,
-            mesh.get_element(ie),
+            mesh.surface_to_element(ie),
             0,
             refinement_settings.refinement_levels,
         )
@@ -519,6 +519,9 @@ def solve_system_2d(
     atol = solver_settings.absolute_tolerance
     rtol = solver_settings.relative_tolerance
 
+    changes: npt.NDArray[np.float64]
+    iters: npt.NDArray[np.uint32]
+
     if time_settings is not None:
         nt = time_settings.nt
         dt = time_settings.dt
@@ -526,7 +529,6 @@ def solve_system_2d(
         iters = np.zeros(nt, np.uint32)
 
         for time_index in range(nt):
-            max_residual = np.inf
             # 2 / dt * old_solution_carry + time_carry_term
             current_carry = call_per_element_flex(
                 element_collection.com,
@@ -563,7 +565,7 @@ def solve_system_2d(
                 lagrange_mat,
             )
 
-            changes[time_index] = float(max_residual)
+            changes[time_index] = float(max_residual[()])
             iters[time_index] = iter_cnt
             projected_solution = call_per_leaf_flex(
                 element_collection,

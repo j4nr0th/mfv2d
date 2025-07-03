@@ -60,7 +60,6 @@ from mfv2d.progress import ProgressTracker
 OrderDivisionFunction = Callable[[int, int, int], tuple[int, int, int, int]]
 
 
-# TODO: REPLACE
 def check_and_refine(
     pred: Callable[[ElementLeaf2D, int], bool] | None,
     order_div: OrderDivisionFunction,
@@ -71,7 +70,6 @@ def check_and_refine(
     """Return element and potentially its children."""
     out: list[Element2D]
     if level < max_level and pred is not None and pred(e, level):
-        # TODO: Make this nicer without this stupid Method mumbo jumbo
         child_orders = order_div(e.order, level, max_level)
         new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders)
         cbl = check_and_refine(pred, order_div, ebl, level + 1, max_level)
@@ -91,7 +89,7 @@ def check_and_refine(
 
 
 def compute_element_vector_fields_nonlin(
-    system: KFormSystem,
+    unknown_forms: Sequence[KFormUnknown],
     element_basis: Basis2D,
     output_basis: Basis2D,
     vector_fields: Sequence[Function2D | KFormUnknown],
@@ -103,9 +101,10 @@ def compute_element_vector_fields_nonlin(
 
     Parameters
     ----------
-    system : KFormSystem
-        System for which these vector fields should be computed.
-        TODO: REPLACE WITH JUST UNKNOWN FORMS
+    unknown_forms : Sequence of KFormUnknown
+        Unknown forms in the order they appear in the system. This is used to
+        determine what degrees of freedom are needed for the vector fields
+        based on differential forms.
 
     element_basis : Basis2D
         Basis functions that the element uses. This needs to match
@@ -144,7 +143,7 @@ def compute_element_vector_fields_nonlin(
     for i, vec_fld in enumerate(vector_fields):
         if isinstance(vec_fld, KFormUnknown):
             if solution is not None:
-                i_form = system.unknown_forms.index(vec_fld)
+                i_form = unknown_forms.index(vec_fld)
                 element_dofs = solution
                 form_offset = unknown_offsets[i_form]
                 form_offset_end = unknown_offsets[i_form + 1]
@@ -306,19 +305,12 @@ def compute_element_rhs(
     ----------
     ie : int
         Index of the element.
-        TODO: REPLACE WITH JUST ORDERS AND BASIS
 
     system : KFormSystem
         System for which to compute the rhs.
 
-    basis_cache : FemCache
+    element_caches : FemCache
         Cache from which to get the basis from.
-
-    orders : FixedElementArray[np.uint32]
-        Array with orders of the elements.
-
-    corners : FixedElementArray[np.float64]
-        Array with corners of the elements.
 
     Returns
     -------
@@ -675,7 +667,7 @@ def compute_element_vector_fields(
     basis_out = basis_cache.get_basis2d(order_1, order_2)
 
     res = compute_element_vector_fields_nonlin(
-        system,
+        system.unknown_forms,
         basis_element,
         basis_out,
         vector_fields,
@@ -713,7 +705,12 @@ def non_linear_solve_run(
     system_decomp: sla.SuperLU,
     lagrange_mat: sp.csr_array | None,
     return_all_residuals: bool = False,
-):
+) -> tuple[
+    FlexibleElementArray[np.float64, np.uint32],
+    npt.NDArray[np.float64],
+    int,
+    npt.NDArray[np.float64],
+]:
     """Run the iterative non-linear solver.
 
     Based on how the compiled system looks, this may only take a single iteration,
@@ -888,7 +885,7 @@ def non_linear_solve_run(
         del main_vec
 
     if not return_all_residuals:
-        return solution, global_lagrange, iter_cnt, max_residual
+        return solution, global_lagrange, iter_cnt, np.array(max_residual, np.float64)
 
     return solution, global_lagrange, iter_cnt, residuals
 

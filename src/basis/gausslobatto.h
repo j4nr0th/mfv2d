@@ -30,4 +30,10 @@ PyObject *compute_gauss_lobatto_integration_rule(PyObject *Py_UNUSED(self), PyOb
 MFV2D_INTERNAL
 extern PyTypeObject integration_rule_1d_type;
 
+MFV2D_INTERNAL
+PyObject *compute_legendre_polynomials(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds);
+
+MFV2D_INTERNAL
+extern const char compute_legendre_polynomials_docstring[];
+
 #endif // GAUSSLOBATTO_H

@@ -24,6 +24,12 @@ and associated integration weights.
 .. autofunction:: compute_gll
 
 
+There is also a function to evaluate Legendre polynomials. This is intended to
+be used for computing projections on Legendre hierarchical basis.
+
+.. autofunction:: compute_legendre
+
+
 Basis
 -----
 

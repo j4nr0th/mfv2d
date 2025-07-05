@@ -667,6 +667,12 @@ static PyMethodDef module_methods[] = {
          "    Element vector for the specified system.\n"
 
     },
+    {
+        .ml_name = "compute_legendre",
+        .ml_meth = (void *)compute_legendre_polynomials,
+        .ml_doc = compute_legendre_polynomials_docstring,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+    },
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

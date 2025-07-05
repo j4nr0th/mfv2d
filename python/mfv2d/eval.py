@@ -565,7 +565,7 @@ def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
     val: tuple[float, str] | None = None
     for op in expr:
         if type(op) is MassMat:
-            mat = f"M({op.order})" + ("^{-1}" if op.inv else "")
+            mat = f"M({op.order.value - 1})" + ("^{-1}" if op.inv else "")
             if val is not None:
                 c, s = val
                 val = (c, mat + " @ " + s)

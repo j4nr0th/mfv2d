@@ -36,4 +36,10 @@ PyObject *compute_legendre_polynomials(PyObject *Py_UNUSED(self), PyObject *args
 MFV2D_INTERNAL
 extern const char compute_legendre_polynomials_docstring[];
 
+MFV2D_INTERNAL
+PyObject *legendre_l2_to_h1_coefficients(PyObject *Py_UNUSED(self), PyObject *coefficients);
+
+MFV2D_INTERNAL
+extern const char legendre_l2_to_h1_coefficients_docstring[];
+
 #endif // GAUSSLOBATTO_H

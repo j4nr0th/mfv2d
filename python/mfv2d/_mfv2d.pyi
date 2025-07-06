@@ -382,6 +382,25 @@ def compute_legendre(
         >>>         if i1 != i2:
         >>>             assert abs(integral) < 1e-16
     """
+
+def legendre_l2_to_h1_coefficients(c: npt.ArrayLike, /) -> npt.NDArray[np.double]:
+    """Convert Legendre polynomial coefficients to H1 coefficients.
+
+    The :math:`H^1` coefficients are based on being expansion coefficients of hierarchical
+    basis which are orthogonal in the :math:`H^1` norm instead of in the :math:`L^2` norm,
+    which holds for Legendre polynomials instead.
+
+    Parameters
+    ----------
+    c : array_like
+        Coefficients of the Legendre polynomials.
+
+    Returns
+    -------
+    array
+        Coefficients of integrated Legendre polynomial basis.
+    """
+    ...
 @final
 class GeoID:
     """Type used to identify a geometrical object with an index and orientation.

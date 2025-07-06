@@ -546,3 +546,101 @@ const char compute_legendre_polynomials_docstring[] =
     "    >>>         if i1 != i2:\n"
     "    >>>             assert abs(integral) < 1e-16\n"
     "\n";
+
+MFV2D_INTERNAL
+const char legendre_l2_to_h1_coefficients_docstring[] =
+    "legendre_l2_to_h1_coefficients(c: array_like, /) -> array\n"
+    "Convert Legendre polynomial coefficients to H1 coefficients.\n"
+    "\n"
+    "The :math:`H^1` coefficients are based on being expansion coefficients of hierarchical\n"
+    "basis which are orthogonal in the :math:`H^1` norm instead of in the :math:`L^2` norm,\n"
+    "which holds for Legendre polynomials instead.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "c : array_like\n"
+    "    Coefficients of the Legendre polynomials.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "array\n"
+    "    Coefficients of integrated Legendre polynomial basis.\n";
+
+MFV2D_INTERNAL
+PyObject *legendre_l2_to_h1_coefficients(PyObject *Py_UNUSED(self), PyObject *coefficients)
+{
+    PyArrayObject *const coeffs_in =
+        (PyArrayObject *)PyArray_FROMANY(coefficients, NPY_DOUBLE, 1, 1, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
+
+    if (!coeffs_in)
+        return NULL;
+
+    if (PyArray_NDIM(coeffs_in) != 1)
+    {
+        PyErr_SetString(PyExc_ValueError, "Input must be a 1D array.");
+        return NULL;
+    }
+
+    const npy_intp order = PyArray_SIZE(coeffs_in) - 1;
+    if (order < 0)
+    {
+        PyErr_SetString(PyExc_ValueError, "Order must be >= 0.");
+        return NULL;
+    }
+
+    npy_intp n_coeffs = order + 1;
+    double *const coeffs = (double *)PyArray_DATA(coeffs_in);
+
+    // Compute end and beginning
+    double end = 0.0, beginning = 0.0;
+    for (npy_intp i = 0; i < n_coeffs; ++i)
+    {
+        end += coeffs[i];
+        beginning += coeffs[i] * ((i & 1) ? -1.0 : 1.0);
+    }
+
+    // Output array
+    const npy_intp dims[1] = {n_coeffs};
+    PyArrayObject *const out = (PyArrayObject *)PyArray_ZEROS(1, dims, NPY_DOUBLE, 0);
+    if (!out)
+    {
+        Py_DECREF(coeffs_in);
+        return NULL;
+    }
+    double *out_data = (double *)PyArray_DATA(out);
+
+    // First two coefficients
+    out_data[0] = (end + beginning) / 2.0;
+    if (order > 0)
+        out_data[1] = (end - beginning) / 2.0;
+
+    // Main loop
+    for (npy_intp n = 2; n < n_coeffs; ++n)
+    {
+        double carry = 0.0;
+        const npy_intp m = n / 2;
+        for (npy_intp j = 1; j <= m; ++j)
+        {
+            const npy_intp idx = n - 2 * j;
+            // norms[idx] = 2.0 / (double)(2 * idx + 1);
+            carry += 2 * (double)(2 * n - 4 * j + 1) * coeffs[idx] / (double)(2 * idx + 1);
+        }
+        double k;
+        if (n & 1) // Odd
+        {
+            k = (end - beginning) - carry;
+        }
+        else // Even
+        {
+            k = (end + beginning) - carry;
+        }
+
+        // const double scale = (double)(2 * (n - 1) + 1) / 2.0;
+        const double scale = (double)(n - 1) - 0.5; // avoids division
+        out_data[n] = scale * k;
+    }
+
+    Py_DECREF(coeffs_in);
+
+    return (PyObject *)out;
+}

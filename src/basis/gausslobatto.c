@@ -588,7 +588,7 @@ PyObject *legendre_l2_to_h1_coefficients(PyObject *Py_UNUSED(self), PyObject *co
         return NULL;
     }
 
-    npy_intp n_coeffs = order + 1;
+    const npy_intp n_coeffs = order + 1;
     double *const coeffs = (double *)PyArray_DATA(coeffs_in);
 
     // Compute end and beginning
@@ -636,7 +636,7 @@ PyObject *legendre_l2_to_h1_coefficients(PyObject *Py_UNUSED(self), PyObject *co
         }
 
         // const double scale = (double)(2 * (n - 1) + 1) / 2.0;
-        const double scale = (double)(n - 1) - 0.5; // avoids division
+        const double scale = (double)n - 0.5; // avoids division
         out_data[n] = scale * k;
     }
 

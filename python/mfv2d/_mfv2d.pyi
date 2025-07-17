@@ -1361,6 +1361,11 @@ class Mesh:
         ...
 
     @property
+    def leaf_count(self) -> int:
+        """Number of leaf elements in the mesh."""
+        ...
+
+    @property
     def boundary_indices(self) -> npt.NDArray[np.uintc]:
         """Indices of the boundary elements."""
         ...

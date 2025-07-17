@@ -9,8 +9,7 @@ from mfv2d._mfv2d import (
     compute_legendre,
     legendre_l2_to_h1_coefficients,
 )
-from mfv2d.element import poly_x, poly_y
-from mfv2d.mimetic2d import ElementLeaf2D
+from mfv2d.mimetic2d import ElementLeaf2D, bilinear_interpolate
 
 
 def _compute_legendre_coefficients(
@@ -97,8 +96,12 @@ def compute_element_field_legendre_coefficients(
     corners = np.array(
         (e.bottom_left, e.bottom_right, e.top_right, e.top_left), np.float64
     )
-    nodes_x = poly_x(corners[:, 0], rule_1.nodes[None, :], rule_2.nodes[:, None])
-    nodes_y = poly_y(corners[:, 1], rule_1.nodes[None, :], rule_2.nodes[:, None])
+    nodes_x = bilinear_interpolate(
+        corners[:, 0], rule_1.nodes[None, :], rule_2.nodes[:, None]
+    )
+    nodes_y = bilinear_interpolate(
+        corners[:, 1], rule_1.nodes[None, :], rule_2.nodes[:, None]
+    )
 
     points = pv.PolyData(
         np.stack(

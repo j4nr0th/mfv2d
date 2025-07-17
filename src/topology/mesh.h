@@ -55,6 +55,7 @@ typedef struct
     const allocator_callbacks *allocator;
     unsigned count;
     unsigned capacity;
+    unsigned leaf_count;
     element_t *elements;
 } element_mesh_t;
 

@@ -5,13 +5,11 @@ import numpy.typing as npt
 import pytest
 from mfv2d._mfv2d import compute_gll
 from mfv2d.element import (
-    ElementCollection,
     ElementLeaf2D,
+    Mesh,
     UnknownFormOrder,
-    get_side_dofs,
-    get_side_order,
 )
-from mfv2d.mimetic2d import ElementSide
+from mfv2d.mimetic2d import ElementSide, get_side_dofs, get_side_order
 
 
 def test_evaluation_twice() -> None:
@@ -23,9 +21,7 @@ def test_evaluation_twice() -> None:
     e6, ((e7, e8), (e9, e10)) = et3.divide(2, 3, 1, 1)
     object.__setattr__(e0, "child_br", e6)
 
-    collection = ElementCollection(
-        [e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
-    )
+    collection = Mesh([e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12])
     constraints = get_side_dofs(
         collection, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
@@ -70,7 +66,7 @@ def test_evaluation_once() -> None:
     et1 = ElementLeaf2D(None, 1, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
     e0, ((e1, e2), (e3, e4)) = et1.divide(4, 7, 1, 1)
 
-    collection = ElementCollection([e0, e1, e2, e3, e4])
+    collection = Mesh([e0, e1, e2, e3, e4])
     constraints = get_side_dofs(
         collection, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
@@ -120,9 +116,7 @@ def test_evaluation_twice_1() -> None:
     e6, ((e7, e8), (e9, e10)) = et3.divide(1, 1, 1, 1)
     object.__setattr__(e0, "child_br", e6)
 
-    collection = ElementCollection(
-        [e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
-    )
+    collection = Mesh([e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12])
     constraints = get_side_dofs(
         collection, 1, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
@@ -170,9 +164,7 @@ def test_evaluation() -> None:
     e3, ((e4, e5), (e6, e7)) = et3.divide(1, 1, 1, 1)
     object.__setattr__(e2, "child_bl", e3)
 
-    collection = ElementCollection(
-        [e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
-    )
+    collection = Mesh([e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12])
     constraints = get_side_dofs(
         collection, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )

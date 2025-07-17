@@ -9,41 +9,32 @@ import pyvista as pv
 import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
-from mfv2d._mfv2d import ElementMassMatrixCache
+from mfv2d._mfv2d import (
+    ElementMassMatrixCache,
+    Mesh,
+    compute_element_matrix,
+    compute_element_vector,
+)
 from mfv2d.boundary import mesh_boundary_conditions
 from mfv2d.continuity import connect_elements
-from mfv2d.element import (
-    Constraint,
-    ElementCollection,
-    ElementConstraint,
-    FixedElementArray,
-    FlexibleElementArray,
-    call_per_element_fix,
-    call_per_element_flex,
-    call_per_leaf_flex,
-    call_per_leaf_obj,
-    compute_dof_sizes,
-)
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KEquation, KFormSystem, UnknownOrderings
-from mfv2d.mimetic2d import FemCache, Mesh2D
+from mfv2d.kform import KEquation, KFormSystem, KFormUnknown, UnknownOrderings
+from mfv2d.mimetic2d import (
+    Constraint,
+    ElementConstraint,
+    FemCache,
+    compute_leaf_dof_counts,
+)
 from mfv2d.solve_system import (
-    RefinementSettings,
     SolutionStatistics,
     SolverSettings,
     SystemSettings,
     TimeSettings,
-    assemble_matrix,
-    assemble_vector,
-    check_and_refine,
     compute_element_dual,
     compute_element_primal,
     compute_element_primal_to_dual,
     compute_element_rhs,
-    compute_element_vector_fields,
-    compute_leaf_matrix,
-    divide_old,
-    extract_carry,
+    compute_element_vector_fields_nonlin,
     find_time_carry_indices,
     non_linear_solve_run,
     reconstruct_mesh_from_solution,
@@ -51,13 +42,13 @@ from mfv2d.solve_system import (
 
 
 def solve_system_2d(
-    mesh: Mesh2D,
+    mesh: Mesh,
     system_settings: SystemSettings,
-    refinement_settings: RefinementSettings = RefinementSettings(
-        refinement_levels=0,
-        division_predicate=None,
-        division_function=divide_old,
-    ),
+    # refinement_settings: RefinementSettings = RefinementSettings(
+    #     refinement_levels=0,
+    #     division_predicate=None,
+    #     division_function=divide_old,
+    # ),
     solver_settings: SolverSettings = SolverSettings(
         maximum_iterations=100,
         relaxation=1,
@@ -123,20 +114,6 @@ def solve_system_2d(
                 "boundary condition."
             )
 
-    # Make elements into a rectree
-    lists = [
-        check_and_refine(
-            refinement_settings.division_predicate,
-            refinement_settings.division_function,
-            mesh.surface_to_element(ie),
-            0,
-            refinement_settings.refinement_levels,
-        )
-        for ie in range(mesh.n_elements)
-    ]
-    element_list = sum(lists, start=[])
-    element_collection = ElementCollection(element_list)
-
     # Make element matrices and vectors
     cache_2d = FemCache(order_difference=2)
 
@@ -150,42 +127,7 @@ def solve_system_2d(
         if len(time_settings.time_march_relations) < 1:
             raise ValueError("Problem has no time march relations.")
 
-        for w, u in time_settings.time_march_relations.items():
-            if u not in system.unknown_forms:
-                raise ValueError(f"Unknown form {u} is not in the system.")
-            if w not in system.weight_forms:
-                raise ValueError(f"Weight form {w} is not in the system.")
-            if u.primal_order != w.primal_order:
-                raise ValueError(
-                    f"Forms {u} and {w} in the time march relation can not be used, as "
-                    f"they have differing primal orders ({u.primal_order} vs "
-                    f"{w.primal_order})."
-                )
-
-        time_march_indices = tuple(
-            (
-                system.unknown_forms.index(time_settings.time_march_relations[eq.weight])
-                if eq.weight in time_settings.time_march_relations
-                else None
-            )
-            for eq in system.equations
-        )
-
-        new_equations: list[KEquation] = list()
-        for ie, (eq, m_idx) in enumerate(zip(system.equations, time_march_indices)):
-            if m_idx is None:
-                new_equations.append(eq)
-            else:
-                new_equations.append(
-                    eq.left
-                    + 2
-                    / time_settings.dt
-                    * (system.weight_forms[m_idx] * system.unknown_forms[m_idx])
-                    == eq.right
-                )
-
-        system = KFormSystem(*new_equations)
-        del new_equations
+        system = update_system_for_time_march(time_settings, system)
 
     compiled_system = CompiledSystem(system)
 
@@ -202,198 +144,170 @@ def solve_system_2d(
 
     # Explicit right side
     explicit_vec: npt.NDArray[np.float64]
+    element_caches: list[ElementMassMatrixCache] = list()
+    linear_vectors: list[npt.NDArray[np.float64]] = list()
+    leaf_indices = tuple(int(val) for val in mesh.get_leaf_indices())
+    unknown_ordering = UnknownOrderings(*(form.order for form in system.unknown_forms))
+    element_dof_counts: list[npt.NDArray[np.uint32]] = list()
 
-    def compute_element_cache(
-        ie: int,
-        fem_cache: FemCache,
-        orders: FixedElementArray[np.uint32],
-        corners: FixedElementArray[np.float64],
-    ) -> ElementMassMatrixCache:
-        """Compute cache for that element."""
-        order_1, order_2 = orders[ie]
-        basis = fem_cache.get_basis2d(order_1, order_2)
-        return ElementMassMatrixCache(basis, corners[ie])
+    for leaf_idx in leaf_indices:
+        element_cache = ElementMassMatrixCache(
+            cache_2d.get_basis2d(*mesh.get_leaf_orders(leaf_idx)),
+            np.astype(mesh.get_leaf_corners(leaf_idx), np.float64, copy=False),
+        )
 
-    # Create element caches
-    element_caches = call_per_leaf_obj(
-        element_collection,
-        ElementMassMatrixCache,
-        compute_element_cache,
-        cache_2d,
-        element_collection.orders_array,
-        element_collection.corners_array,
-    )
+        element_caches.append(element_cache)
+        linear_vectors.append(compute_element_rhs(system, element_cache))
+        element_dof_counts.append(
+            compute_leaf_dof_counts(leaf_idx, unknown_ordering, mesh)
+        )
 
     # Prepare for evaluation of matrices/vectors
 
-    leaf_elements = np.flatnonzero(
-        np.concatenate(element_collection.child_count_array.values) == 0
-    )
+    dof_sizes = np.array(element_dof_counts, np.uint32)
+    dof_offsets = np.pad(np.cumsum(dof_sizes, axis=1), ((0, 0), (1, 0)))
+    element_total_dof_counts = dof_offsets[:, -1]
 
-    linear_vectors = call_per_leaf_flex(
-        element_collection, 1, np.float64, compute_element_rhs, system, element_caches
-    )
-
-    unknown_ordering = UnknownOrderings(*(form.order for form in system.unknown_forms))
-    dof_sizes = compute_dof_sizes(element_collection, unknown_ordering)
-    dof_offsets = call_per_element_fix(
-        element_collection.com,
-        np.uint32,
-        dof_sizes.shape[0] + 1,
-        lambda i, x: np.pad(np.cumsum(x[i]), (1, 0)),
-        dof_sizes,
-    )
-    total_dof_counts = call_per_element_fix(
-        element_collection.com, np.uint32, 1, lambda i, x: x[i][-1], dof_offsets
-    )
-
-    solution = FlexibleElementArray(element_collection.com, np.float64, total_dof_counts)
-
-    if system_settings.initial_conditions:
-        initial_vectors = call_per_leaf_flex(
-            element_collection,
-            1,
-            np.float64,
-            compute_element_dual,
-            unknown_ordering,
-            initial_funcs,
-            element_collection.orders_array,
-            element_caches,
-        )
-
-        initial_solution = call_per_element_flex(
-            element_collection.com,
-            1,
-            np.float64,
-            compute_element_primal,
-            unknown_ordering,
-            initial_vectors,
-            element_collection.orders_array,
-            element_caches,
-        )
-
-    else:
-        initial_vectors = None
-        initial_solution = None
-
-    if time_settings is not None:
-        time_carry_index_array = call_per_element_flex(
-            element_collection.com,
-            1,
-            np.uint32,
-            find_time_carry_indices,
-            tuple(
-                sorted(
-                    system.weight_forms.index(form)
-                    for form in time_settings.time_march_relations
-                )
-            ),
-            dof_offsets,
-            element_collection.child_count_array,
-        )
-        if initial_vectors and initial_solution:
-            # compute carry
-            old_solution_carry = extract_carry(
-                element_collection, time_carry_index_array, initial_vectors
-            )
-            solution = initial_solution
-        else:
-            old_solution_carry = FlexibleElementArray(
-                element_collection.com, np.float64, time_carry_index_array.shapes
-            )
-    else:
-        if initial_solution is not None:
-            solution = initial_solution
-
-        time_carry_index_array = None
-        old_solution_carry = None
-
-    del initial_solution, initial_vectors
-
-    assert compiled_system.linear_codes
-
-    # Compute vector fields at integration points for leaf elements
-    vec_fields_array = call_per_element_fix(
-        element_collection.com,
-        np.object_,
-        len(vector_fields),
-        compute_element_vector_fields,
-        system,
-        element_collection.child_count_array,
-        element_collection.orders_array,
-        element_collection.orders_array,
-        cache_2d,
-        vector_fields,
-        element_collection.corners_array,
-        dof_offsets,
-        solution,
-    )
-
-    linear_element_matrices = call_per_leaf_flex(
-        element_collection,
-        2,
-        np.float64,
-        compute_leaf_matrix,
-        compiled_system.linear_codes,
-        unknown_ordering,
-        element_caches,
-        vec_fields_array,
-    )
-
-    main_mat = assemble_matrix(linear_element_matrices)
-    main_vec = assemble_vector(linear_vectors)
-
-    def _find_constrained_indices(
-        ie: int,
-        i_unknown: int,
-        child_count: FixedElementArray[np.uint32],
-        dof_offsets: FixedElementArray[np.uint32],
-    ) -> npt.NDArray[np.uint32]:
-        """Find indices of DoFs that should be constrained for an element."""
-        if int(child_count[ie][0]) != 0:
-            return np.zeros(0, np.uint32)
-        offsets = dof_offsets[ie]
-        return np.arange(offsets[i_unknown], offsets[i_unknown + 1], dtype=np.uint32)
-
-    # Generate constraints that force the specified for to have the (child element) sum
-    # equal to a prescribed value.
-    constrained_form_constaints = {
-        form: Constraint(
-            k,
-            *(
-                ElementConstraint(ie, dofs, np.ones_like(dofs, dtype=np.float64))
-                for ie, dofs in enumerate(
-                    call_per_element_flex(
-                        element_collection.com,
-                        1,
-                        np.uint32,
-                        _find_constrained_indices,
-                        system.unknown_forms.index(form),
-                        element_collection.child_count_array,
-                        dof_offsets,
-                    )
-                )
-            ),
-        )
-        for k, form in constrained_forms
-    }
-
-    if boundary_conditions is None:
-        boundary_conditions = list()
-
-    top_indices = np.astype(
-        np.flatnonzero(np.array(element_collection.parent_array) == 0),
+    element_offset = np.astype(
+        np.pad(element_total_dof_counts.cumsum(), (1, 0)),
         np.uint32,
         copy=False,
     )
 
+    initial_vectors: list[npt.NDArray[np.float64]] = list()
+    initial_solution: list[npt.NDArray[np.float64]] = list()
+    if system_settings.initial_conditions:
+        for i, leaf_idx in enumerate(leaf_indices):
+            order_1, order_2 = mesh.get_leaf_orders(leaf_idx)
+            dual_dofs = compute_element_dual(
+                unknown_ordering,
+                initial_funcs,
+                order_1,
+                order_2,
+                element_caches[i],
+            )
+
+            initial_vectors.append(dual_dofs)
+            initial_solution.append(
+                compute_element_primal(
+                    unknown_ordering,
+                    dual_dofs,
+                    order_1,
+                    order_2,
+                    element_caches[i],
+                )
+            )
+
+    if initial_solution:
+        solution = np.concatenate(initial_solution)
+    else:
+        solution = np.zeros(element_offset[-1])
+
+    time_carry_index_array: npt.NDArray[np.uint32] | None = None
+    if time_settings is not None:
+        time_carry_index_array = np.concatenate(
+            [
+                find_time_carry_indices(
+                    tuple(
+                        sorted(
+                            system.weight_forms.index(form)
+                            for form in time_settings.time_march_relations
+                        )
+                    ),
+                    dof_offsets[i],
+                )
+                + element_offset[i]
+                for i in range(mesh.leaf_count)
+            ]
+        )
+
+        if initial_vectors:
+            # compute carry
+            old_solution_carry = np.concatenate(initial_vectors)[time_carry_index_array]
+        else:
+            assert time_carry_index_array is not None
+            old_solution_carry = np.zeros(time_carry_index_array.size, np.float64)
+    else:
+        time_carry_index_array = None
+        old_solution_carry = None
+
+    assert compiled_system.linear_codes
+
+    # Compute vector fields at integration points for leaf elements
+    linear_element_matrices: list[npt.NDArray[np.float64]] = list()
+
+    for ie in range(mesh.leaf_count):
+        element_cache = element_caches[ie]
+        basis = element_cache.basis_2d
+        if len(vector_fields):
+            # Recompute vector fields
+            # Compute vector fields at integration points for leaf elements
+            vec_flds = compute_element_vector_fields_nonlin(
+                system.unknown_forms,
+                basis,
+                basis,
+                vector_fields,
+                mesh.get_leaf_corners(ie),
+                dof_offsets[ie],
+                solution[ie],
+            )
+        else:
+            vec_flds = tuple()
+
+        linear_element_matrices.append(
+            compute_element_matrix(
+                unknown_ordering.form_orders,
+                compiled_system.linear_codes,
+                vec_flds,
+                element_cache,
+            )
+        )
+
+        if initial_vectors and compiled_system.rhs_codes is not None:
+            rhs_vec = compute_element_vector(
+                unknown_ordering.form_orders,
+                compiled_system.rhs_codes,
+                vec_flds,
+                element_cache,
+                initial_solution[ie],
+            )
+            linear_vectors[ie] += rhs_vec
+
+    del initial_vectors, initial_solution
+    main_mat = sp.block_diag(linear_element_matrices, format="csr")
+    main_vec = np.concatenate(linear_vectors, np.float64)  # type: ignore
+
+    # Generate constraints that force the specified for to have the (child element) sum
+    # equal to a prescribed value.
+    constrained_form_constaints: dict[KFormUnknown, Constraint] = dict()
+    for k, form in constrained_forms:
+        i_unknown = system.unknown_forms.index(form)
+        constrained_form_constaints[form] = Constraint(
+            k,
+            *(
+                ElementConstraint(
+                    ie,
+                    np.arange(
+                        dof_offsets[ie, i_unknown],
+                        dof_offsets[ie, i_unknown + 1],
+                        dtype=np.uint32,
+                    ),
+                    np.ones(dof_offsets[ie, i_unknown + 1] - dof_offsets[ie, i_unknown]),
+                )
+                for ie in range(mesh.leaf_count)
+            ),
+        )
+
+    reverse_mapping = {leaf_idx: i for i, leaf_idx in enumerate(leaf_indices)}
+    if boundary_conditions is None:
+        boundary_conditions = list()
+
     strong_bc_constraints, weak_bc_constraints = mesh_boundary_conditions(
         [eq.right for eq in system.equations],
-        mesh,
         unknown_ordering,
-        element_collection,
+        mesh,
+        reverse_mapping,
         dof_offsets,
-        top_indices,
         [
             [bc for bc in boundary_conditions if bc.form == eq.weight.base_form]
             for eq in system.equations
@@ -402,13 +316,7 @@ def solve_system_2d(
     )
 
     continuity_constraints = connect_elements(
-        element_collection, unknown_ordering, mesh, dof_offsets
-    )
-
-    element_offset = np.astype(
-        np.pad(np.array(total_dof_counts, np.uint32).flatten().cumsum(), (1, 0)),
-        np.uint32,
-        copy=False,
+        unknown_ordering, mesh, reverse_mapping, dof_offsets
     )
 
     constraint_rows: list[npt.NDArray[np.uint32]] = list()
@@ -489,9 +397,8 @@ def solve_system_2d(
 
     if time_settings is not None:
         assert time_carry_index_array is not None
-        time_carry_term = extract_carry(
-            element_collection, time_carry_index_array, linear_vectors
-        )
+        time_carry_term = main_vec[time_carry_index_array]
+
     else:
         time_carry_term = None
     del main_mat, main_vec
@@ -501,12 +408,7 @@ def solve_system_2d(
     resulting_grids: list[pv.UnstructuredGrid] = list()
 
     grid = reconstruct_mesh_from_solution(
-        system,
-        recon_order,
-        element_collection,
-        cache_2d,
-        dof_offsets,
-        solution,
+        system, recon_order, mesh, cache_2d, leaf_indices, dof_offsets, solution
     )
     grid.field_data["time"] = (0.0,)
     resulting_grids.append(grid)
@@ -530,14 +432,9 @@ def solve_system_2d(
 
         for time_index in range(nt):
             # 2 / dt * old_solution_carry + time_carry_term
-            current_carry = call_per_element_flex(
-                element_collection.com,
-                1,
-                np.float64,
-                lambda ie, x, y: 2 / dt * x[ie] + y[ie],
-                old_solution_carry,
-                time_carry_term,
-            )
+            assert old_solution_carry is not None and time_carry_term is not None
+            current_carry = 2 / dt * old_solution_carry + time_carry_term
+
             new_solution, global_lagrange, iter_cnt, max_residual = non_linear_solve_run(
                 system,
                 max_iterations,
@@ -546,8 +443,7 @@ def solve_system_2d(
                 rtol,
                 print_residual,
                 unknown_ordering,
-                element_collection,
-                leaf_elements,
+                mesh,
                 cache_2d,
                 element_caches,
                 compiled_system,
@@ -567,31 +463,24 @@ def solve_system_2d(
 
             changes[time_index] = float(max_residual[()])
             iters[time_index] = iter_cnt
-            projected_solution = call_per_leaf_flex(
-                element_collection,
-                1,
-                np.float64,
-                compute_element_primal_to_dual,
-                unknown_ordering,
-                new_solution,
-                element_collection.orders_array,
-                element_caches,
+            projected_solution = np.concat(
+                [
+                    compute_element_primal_to_dual(
+                        unknown_ordering,
+                        new_solution[element_offset[ie] : element_offset[ie + 1]],
+                        *mesh.get_leaf_orders(leaf_idx),
+                        element_caches[ie],
+                    )
+                    for ie, leaf_idx in enumerate(leaf_indices)
+                ]
             )
             assert time_carry_index_array is not None
-            new_solution_carry = extract_carry(
-                element_collection, time_carry_index_array, projected_solution
-            )
+            new_solution_carry = projected_solution[time_carry_index_array]
+
             # Compute time carry
-            new_time_carry_term = call_per_element_flex(
-                element_collection.com,
-                1,
-                np.float64,
-                lambda ie, x, y, z: 2 / dt * (x[ie] - y[ie]) - z[ie],
-                new_solution_carry,
-                old_solution_carry,
-                time_carry_term,
+            new_time_carry_term = (
+                2 / dt * (new_solution_carry - old_solution_carry) - time_carry_term
             )
-            # 2 / dt * (new_solution_carry - old_solution_carry) - time_carry_term
 
             solution = new_solution
             time_carry_term = new_time_carry_term
@@ -604,8 +493,9 @@ def solve_system_2d(
                 grid = reconstruct_mesh_from_solution(
                     system,
                     recon_order,
-                    element_collection,
+                    mesh,
                     cache_2d,
+                    leaf_indices,
                     dof_offsets,
                     solution,
                 )
@@ -626,8 +516,7 @@ def solve_system_2d(
             rtol,
             print_residual,
             unknown_ordering,
-            element_collection,
-            leaf_elements,
+            mesh,
             cache_2d,
             element_caches,
             compiled_system,
@@ -655,28 +544,64 @@ def solve_system_2d(
         # Prepare to build up the 1D Splines
 
         grid = reconstruct_mesh_from_solution(
-            system,
-            recon_order,
-            element_collection,
-            cache_2d,
-            dof_offsets,
-            solution,
+            system, recon_order, mesh, cache_2d, leaf_indices, dof_offsets, solution
         )
 
         resulting_grids.append(grid)
 
     orders, counts = np.unique(
-        np.array(element_collection.orders_array), return_counts=True
+        [mesh.get_leaf_orders(leaf_idx) for leaf_idx in leaf_indices], return_counts=True
     )
     stats = SolutionStatistics(
         element_orders={int(order): int(count) for order, count in zip(orders, counts)},
         n_total_dofs=explicit_vec.size,
         n_lagrange=int(lagrange_vec.size),
-        n_elems=element_collection.com.element_cnt,
-        n_leaves=len(leaf_elements),
-        n_leaf_dofs=sum(int(total_dof_counts[int(ie)][0]) for ie in leaf_elements),
+        n_elems=mesh.element_count,
+        n_leaves=mesh.leaf_count,
+        n_leaf_dofs=element_total_dof_counts.sum(),
         iter_history=iters,
         residual_history=np.asarray(changes, np.float64),
     )
 
     return tuple(resulting_grids), stats
+
+
+def update_system_for_time_march(
+    time_settings: TimeSettings, system: KFormSystem
+) -> KFormSystem:
+    """Update system for use with trapezoidal time march."""
+    for w, u in time_settings.time_march_relations.items():
+        if u not in system.unknown_forms:
+            raise ValueError(f"Unknown form {u} is not in the system.")
+        if w not in system.weight_forms:
+            raise ValueError(f"Weight form {w} is not in the system.")
+        if u.primal_order != w.primal_order:
+            raise ValueError(
+                f"Forms {u} and {w} in the time march relation can not be used, as "
+                f"they have differing primal orders ({u.primal_order} vs "
+                f"{w.primal_order})."
+            )
+
+    time_march_indices = tuple(
+        (
+            system.unknown_forms.index(time_settings.time_march_relations[eq.weight])
+            if eq.weight in time_settings.time_march_relations
+            else None
+        )
+        for eq in system.equations
+    )
+
+    new_equations: list[KEquation] = list()
+    for ie, (eq, m_idx) in enumerate(zip(system.equations, time_march_indices)):
+        if m_idx is None:
+            new_equations.append(eq)
+        else:
+            new_equations.append(
+                eq.left
+                + 2
+                / time_settings.dt
+                * (system.weight_forms[m_idx] * system.unknown_forms[m_idx])
+                == eq.right
+            )
+
+    return KFormSystem(*new_equations)

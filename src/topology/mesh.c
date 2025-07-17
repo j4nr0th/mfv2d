@@ -12,6 +12,7 @@ static mfv2d_result_t element_mesh_create(element_mesh_t *this, const allocator_
     this->allocator = allocator;
     this->count = n_elements;
     this->capacity = n_elements;
+    this->leaf_count = n_elements;
     this->elements = allocate(allocator, sizeof *this->elements * this->capacity);
     if (!this->elements)
     {
@@ -190,6 +191,7 @@ static mfv2d_result_t element_mesh_split_element(element_mesh_t *this, const uns
             },
     };
 
+    this->leaf_count += 3;
     this->count += 4;
 
     return MFV2D_SUCCESS;
@@ -298,6 +300,11 @@ static PyObject *mesh_get_element_count(const mesh_t *const this, void *Py_UNUSE
     return PyLong_FromUnsignedLong(this->element_mesh.count);
 }
 
+static PyObject *mesh_get_leaf_count(const mesh_t *const this, void *Py_UNUSED(closure))
+{
+    return PyLong_FromUnsignedLong(this->element_mesh.leaf_count);
+}
+
 static PyObject *mesh_get_boundary_indices(const mesh_t *const this, void *Py_UNUSED(closure))
 {
     const npy_intp shape[1] = {this->boundary_count};
@@ -328,6 +335,13 @@ static PyGetSetDef mesh_getset[] = {
         .get = (void *)mesh_get_element_count,
         .set = NULL,
         .doc = "int : Number of elements in the mesh.",
+        .closure = NULL,
+    },
+    {
+        .name = "leaf_count",
+        .get = (void *)mesh_get_leaf_count,
+        .set = NULL,
+        .doc = "int : Number of leaf elements in the mesh.",
         .closure = NULL,
     },
     {
@@ -493,13 +507,10 @@ static PyObject *mesh_get_leaf_orders(const mesh_t *const this, PyObject *index)
 
 static PyObject *mesh_get_leaf_indices(const mesh_t *const this, PyObject *Py_UNUSED(args))
 {
-    npy_intp cnt = 0;
-    for (unsigned i = 0; i < this->element_mesh.count; ++i)
-    {
-        cnt += (this->element_mesh.elements[i].base.type == ELEMENT_TYPE_LEAF);
-    }
+    const npy_intp cnt = this->element_mesh.leaf_count;
     PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(1, &cnt, NPY_UINT);
     npy_uint *const out_data = (npy_uint *)PyArray_DATA(out);
+    // TODO: reverse so that we can end as soon as we count up to cnt
     for (unsigned i = 0, j = 0; i < this->element_mesh.count; ++i)
     {
         if (this->element_mesh.elements[i].base.type == ELEMENT_TYPE_LEAF)

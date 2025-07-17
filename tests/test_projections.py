@@ -10,13 +10,12 @@ from mfv2d._mfv2d import (
     IntegrationRule1D,
     compute_element_projector,
 )
-from mfv2d.element import (
+from mfv2d.kform import UnknownFormOrder
+from mfv2d.mimetic2d import (
+    bilinear_interpolate,
     element_primal_dofs,
-    poly_x,
-    poly_y,
     reconstruct,
 )
-from mfv2d.kform import UnknownFormOrder
 
 
 def test_reconstruction_nodal() -> None:
@@ -48,8 +47,8 @@ def test_reconstruction_nodal() -> None:
     )
 
     real = test_function(
-        poly_x(corners[:, 0], test_v[None, :], test_v[:, None]),
-        poly_y(corners[:, 1], test_v[None, :], test_v[:, None]),
+        bilinear_interpolate(corners[:, 0], test_v[None, :], test_v[:, None]),
+        bilinear_interpolate(corners[:, 1], test_v[None, :], test_v[:, None]),
     )
     assert pytest.approx(recon) == real
 
@@ -83,8 +82,8 @@ def test_reconstruction_surf() -> None:
     )
 
     real = test_function(
-        poly_x(corners[:, 0], test_v[None, :], test_v[:, None]),
-        poly_y(corners[:, 1], test_v[None, :], test_v[:, None]),
+        bilinear_interpolate(corners[:, 0], test_v[None, :], test_v[:, None]),
+        bilinear_interpolate(corners[:, 1], test_v[None, :], test_v[:, None]),
     )
     assert pytest.approx(recon) == real
 

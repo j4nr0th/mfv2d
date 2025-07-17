@@ -12,9 +12,13 @@ from mfv2d._mfv2d import (
     IntegrationRule1D,
     compute_element_matrix,
 )
-from mfv2d.element import element_dual_dofs, element_primal_dofs, poly_x, poly_y
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder
+from mfv2d.mimetic2d import (
+    bilinear_interpolate,
+    element_dual_dofs,
+    element_primal_dofs,
+)
 
 Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 
@@ -99,8 +103,8 @@ def compute_system_matrix_nonlin(
 
     nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
     nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = poly_x(corners[:, 0], nodes_xi, nodes_eta)
-    y = poly_y(corners[:, 1], nodes_xi, nodes_eta)
+    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
+    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
     func_dict = {omega: omega_exact, u: u_exact}
     for i, vec_fld in enumerate(vector_fields):
         assert type(vec_fld) is KFormUnknown
@@ -144,8 +148,8 @@ def compute_system_matrix_lin(
 
     nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
     nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = poly_x(corners[:, 0], nodes_xi, nodes_eta)
-    y = poly_y(corners[:, 1], nodes_xi, nodes_eta)
+    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
+    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
     for i, vec_fld in enumerate(vector_fields):
         assert type(vec_fld) is not KFormUnknown
         assert callable(vec_fld)
@@ -187,8 +191,8 @@ def compute_system_matrix_adj(
 
     nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
     nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = poly_x(corners[:, 0], nodes_xi, nodes_eta)
-    y = poly_y(corners[:, 1], nodes_xi, nodes_eta)
+    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
+    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
     for i, vec_fld in enumerate(vector_fields):
         assert type(vec_fld) is not KFormUnknown
         assert callable(vec_fld)

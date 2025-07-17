@@ -4,6 +4,9 @@ This file includes re-exports types and functions that are expected to be used
 by users, either for directly creating them, or to just use them for type-hinting.
 """
 
+# _mfv2d
+from mfv2d._mfv2d import Mesh as Mesh
+
 # Boundary
 from mfv2d.boundary import BoundaryCondition2DSteady as BoundaryCondition2DSteady
 
@@ -16,7 +19,6 @@ from mfv2d.kform import UnknownFormOrder as UnknownFormOrder
 
 # Mimetic2D
 from mfv2d.mimetic2d import ElementLeaf2D as ElementLeaf2D
-from mfv2d.mimetic2d import Mesh2D as Mesh2D
 
 # Solve system
 from mfv2d.solve_system import RefinementSettings as RefinementSettings

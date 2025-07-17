@@ -5,13 +5,8 @@ of these include the assembly of the global matrix, the application of the
 boundary conditions, and computing the right side of the system.
 """
 
-from collections.abc import (
-    Callable,
-    Mapping,
-    Sequence,
-)
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -22,28 +17,14 @@ from scipy.sparse import linalg as sla
 from mfv2d._mfv2d import (
     Basis2D,
     ElementMassMatrixCache,
+    Mesh,
     compute_element_matrix,
     compute_element_vector,
 )
 from mfv2d.boundary import (
     BoundaryCondition2DSteady,
 )
-from mfv2d.element import (
-    ElementCollection,
-    FixedElementArray,
-    FlexibleElementArray,
-    ObjectElementArray,
-    call_per_element,
-    call_per_element_fix,
-    call_per_element_flex,
-    call_per_leaf,
-    call_per_leaf_flex,
-    element_dual_dofs,
-    poly_x,
-    poly_y,
-    reconstruct,
-)
-from mfv2d.eval import CompiledSystem, _CompiledCodeMatrix
+from mfv2d.eval import CompiledSystem
 from mfv2d.kform import (
     Function2D,
     KElementProjection,
@@ -54,7 +35,15 @@ from mfv2d.kform import (
     UnknownFormOrder,
     UnknownOrderings,
 )
-from mfv2d.mimetic2d import Element2D, ElementLeaf2D, FemCache, vtk_lagrange_ordering
+from mfv2d.mimetic2d import (
+    Element2D,
+    ElementLeaf2D,
+    FemCache,
+    bilinear_interpolate,
+    element_dual_dofs,
+    reconstruct,
+    vtk_lagrange_ordering,
+)
 from mfv2d.progress import ProgressTracker
 
 OrderDivisionFunction = Callable[[int, int, int], tuple[int, int, int, int]]
@@ -93,7 +82,7 @@ def compute_element_vector_fields_nonlin(
     element_basis: Basis2D,
     output_basis: Basis2D,
     vector_fields: Sequence[Function2D | KFormUnknown],
-    element_corners: npt.NDArray[np.float64],
+    element_corners: npt.NDArray[np.floating],
     unknown_offsets: npt.NDArray[np.uint32],
     solution: npt.NDArray[np.float64] | None,
 ) -> tuple[npt.NDArray[np.float64], ...]:
@@ -177,12 +166,12 @@ def compute_element_vector_fields_nonlin(
                 #         np.float64,
                 #     )
         else:
-            x = poly_x(
+            x = bilinear_interpolate(
                 element_corners[:, 0],
                 out_xi,
                 out_eta,
             )
-            y = poly_y(
+            y = bilinear_interpolate(
                 element_corners[:, 1],
                 out_xi,
                 out_eta,
@@ -292,9 +281,8 @@ def _extract_rhs_2d(
 
 
 def compute_element_rhs(
-    ie: int,
     system: KFormSystem,
-    element_caches: ObjectElementArray[ElementMassMatrixCache],
+    elem_cache: ElementMassMatrixCache,
 ) -> npt.NDArray[np.float64]:
     """Compute rhs for an element.
 
@@ -317,56 +305,23 @@ def compute_element_rhs(
     array
         Array with the resulting rhs.
     """
-    vecs: list[npt.NDArray[np.float64]] = list()
-
-    elem_cache = element_caches[ie]
-    for equation in system.equations:
-        vecs.append(
+    return np.concatenate(
+        [
             _extract_rhs_2d(equation.right.explicit_terms, equation.weight, elem_cache)
-        )
-
-    return np.concatenate(vecs, dtype=np.float64)
-
-
-def assemble_matrix(
-    leaf_matrices: FlexibleElementArray[np.float64, np.uint32],
-) -> sp.csr_array:
-    """Assemble global matrix."""
-    matrices: list[npt.NDArray[np.float64]] = [
-        mat for mat in leaf_matrices if mat.size != 0
-    ]
-    return cast(sp.csr_array, sp.block_diag(matrices, format="csr"))
-
-
-def assemble_vector(
-    leaf_vectors: FlexibleElementArray[np.float64, np.uint32],
-) -> npt.NDArray[np.float64]:
-    """Assemble global vector."""
-    vectors: list[npt.NDArray[np.float64]] = [
-        vec for vec in leaf_vectors if vec.size != 0
-    ]
-
-    return np.concatenate(vectors, dtype=np.float64)
-
-
-def assemble_forcing(
-    leaf_vectors: FlexibleElementArray[np.float64, np.uint32],
-) -> npt.NDArray[np.float64]:
-    """Assemble global vector."""
-    vectors: list[npt.NDArray[np.float64]] = [
-        vec for vec in leaf_vectors if vec.size != 0
-    ]
-
-    return np.concatenate(vectors, dtype=np.float64)
+            for equation in system.equations
+        ],
+        dtype=np.float64,
+    )
 
 
 def reconstruct_mesh_from_solution(
     system: KFormSystem,
     recon_order: int | None,
-    element_collection: ElementCollection,
+    mesh: Mesh,
     caches: FemCache,
-    dof_offsets: FixedElementArray[np.uint32],
-    solution: FlexibleElementArray[np.float64, np.uint32],
+    leaf_indices: Sequence[int],
+    dof_offsets: npt.NDArray[np.uint32],
+    solution: npt.NDArray[np.float64],
 ) -> pv.UnstructuredGrid:
     """Reconstruct the unknown differential forms."""
     build: dict[KFormUnknown, list[npt.NDArray[np.float64]]] = {
@@ -379,13 +334,12 @@ def reconstruct_mesh_from_solution(
     orders_1: list[int] = list()
     orders_2: list[int] = list()
     node_cnt = 0
-    for ie, cnt in enumerate(element_collection.child_count_array):
-        if int(cnt[0]) != 0:
-            continue
-
+    element_offset = 0
+    for ie in leaf_indices:
         # Extract element DoFs
-        element_dofs = solution[ie]
-        real_orders = element_collection.orders_array[ie]
+        offsets = dof_offsets[ie]
+        element_dofs = solution[element_offset : element_offset + offsets[-1]]
+        real_orders = mesh.get_leaf_orders(ie)
         element_order = int(max(real_orders)) if recon_order is None else int(recon_order)
         order_1 = int(real_orders[0])
         order_2 = int(real_orders[1])
@@ -395,13 +349,13 @@ def reconstruct_mesh_from_solution(
         ordering = vtk_lagrange_ordering(element_order) + node_cnt
         node_array.append(np.concatenate(((ordering.size,), ordering)))
         node_cnt += ordering.size
-        corners = element_collection.corners_array[ie]
-        ex = poly_x(
+        corners = mesh.get_leaf_corners(ie)
+        ex = bilinear_interpolate(
             corners[:, 0],
             element_basis.basis_xi.roots[None, :],
             element_basis.basis_eta.roots[:, None],
         )
-        ey = poly_y(
+        ey = bilinear_interpolate(
             corners[:, 1],
             element_basis.basis_xi.roots[None, :],
             element_basis.basis_eta.roots[:, None],
@@ -409,7 +363,6 @@ def reconstruct_mesh_from_solution(
 
         xvals.append(ex.flatten())
         yvals.append(ey.flatten())
-        offsets = dof_offsets[ie]
         # Loop over each of the primal forms
         for idx, form in enumerate(system.unknown_forms):
             form_offset = int(offsets[idx])
@@ -429,6 +382,8 @@ def reconstruct_mesh_from_solution(
             shape = (-1, 2) if form.order == UnknownFormOrder.FORM_ORDER_1 else (-1,)
             build[form].append(np.reshape(recon_v, shape))
 
+        element_offset += offsets[-1]
+
     grid = pv.UnstructuredGrid(
         np.concatenate(node_array),
         np.full(len(node_array), pv.CellType.LAGRANGE_QUADRILATERAL),
@@ -446,164 +401,62 @@ def reconstruct_mesh_from_solution(
     return grid
 
 
-def _extract_time_carry(
-    ie: int,
-    time_carry_index_array: FlexibleElementArray[np.uint32, np.uint32],
-    solution: FlexibleElementArray[np.float64, np.uint32],
-) -> npt.NDArray[np.float64]:
-    """Element function for extraction."""
-    """Extract time carry from solution."""
-    idx = time_carry_index_array[ie]
-    sol = solution[ie]
-    return sol[idx]
-
-
-def extract_carry(
-    element_collection: ElementCollection,
-    time_carry_index_array: FlexibleElementArray[np.uint32, np.uint32],
-    initial_solution: FlexibleElementArray[np.float64, np.uint32],
-):
-    """Extract carry terms from solution."""
-    return call_per_element_flex(
-        element_collection.com,
-        1,
-        np.float64,
-        _extract_time_carry,
-        time_carry_index_array,
-        initial_solution,
-    )
-
-
-def compute_leaf_matrix(
-    ie: int,
-    expressions: _CompiledCodeMatrix,
-    unknowns: UnknownOrderings,
-    element_caches: ObjectElementArray[ElementMassMatrixCache],
-    fields: FixedElementArray[np.object_],
-) -> npt.NDArray[np.float64]:
-    """Compute the element matrix."""
-    elem_cache = element_caches[ie]
-    vec_fields = tuple(fields[ie])
-
-    mat = compute_element_matrix(
-        unknowns.form_orders,
-        expressions,
-        vec_fields,
-        elem_cache,
-    )
-
-    return mat
-
-
-def compute_leaf_vector(
-    ie: int,
-    expressions: _CompiledCodeMatrix,
-    unknowns: UnknownOrderings,
-    element_caches: ObjectElementArray[ElementMassMatrixCache],
-    fields: FixedElementArray[np.object_],
-    solution: FlexibleElementArray[np.float64, np.uint32],
-) -> npt.NDArray[np.float64]:
-    """Compute the element vector."""
-    elem_cache = element_caches[ie]
-    vec_fields = tuple(fields[ie])
-
-    vec = compute_element_vector(
-        unknowns.form_orders,
-        expressions,
-        vec_fields,
-        elem_cache,
-        solution[ie],
-    )
-
-    return vec
-
-
-def update_leaf_vector(
-    ie: int,
-    expressions: _CompiledCodeMatrix,
-    unknowns: UnknownOrderings,
-    element_caches: ObjectElementArray[ElementMassMatrixCache],
-    fields: FixedElementArray[np.object_],
-    solution: FlexibleElementArray[np.float64, np.uint32],
-    result_array: FlexibleElementArray[np.float64, np.uint32],
-) -> None:
-    """Compute the element vector."""
-    elem_cache = element_caches[ie]
-    vec_fields = tuple(fields[ie])
-
-    vec = compute_element_vector(
-        unknowns.form_orders,
-        expressions,
-        vec_fields,
-        elem_cache,
-        solution[ie],
-    )
-    result_array[ie] = vec
-
-
 def compute_element_dual(
-    ie: int,
     ordering: UnknownOrderings,
     functions: Sequence[
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike] | None
     ],
-    orders: FixedElementArray[np.uint32],
-    element_caches: ObjectElementArray[ElementMassMatrixCache],
+    order_1: int,
+    order_2: int,
+    element_cache: ElementMassMatrixCache,
 ) -> npt.NDArray[np.float64]:
     """Compute element L2 projection."""
-    order_1, order_2 = orders[ie]
     vecs: list[npt.NDArray[np.float64]] = list()
     for order, func in zip(ordering.form_orders, functions, strict=True):
         if func is None:
             vecs.append(np.zeros(order.full_unknown_count(order_1, order_2), np.float64))
         else:
             vecs.append(
-                np.asarray(element_dual_dofs(order, element_caches[ie], func), np.float64)
+                np.asarray(element_dual_dofs(order, element_cache, func), np.float64)
             )
 
     return np.concatenate(vecs)
 
 
 def compute_element_primal(
-    ie: int,
     ordering: UnknownOrderings,
-    dual_dofs: FlexibleElementArray[np.float64, np.uint32],
-    orders: FixedElementArray[np.uint32],
-    element_caches: ObjectElementArray[ElementMassMatrixCache],
+    dual_dofs: npt.NDArray[np.float64],
+    order_1: int,
+    order_2: int,
+    element_cache: ElementMassMatrixCache,
 ) -> npt.NDArray[np.float64]:
     """Compute primal dofs from dual."""
-    order_1, order_2 = orders[ie]
-    dual = np.array(dual_dofs[ie], np.float64, copy=True)
-    elem_cache = element_caches[ie]
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
     for form in ordering.form_orders:
         cnt = form.full_unknown_count(order_1, order_2)
-        v = dual[offset : offset + cnt]
+        v = dual_dofs[offset : offset + cnt]
         if form in mats:
             m = mats[form]
         else:
-            m = elem_cache.mass_from_order(form, inverse=True)
+            m = element_cache.mass_from_order(form, inverse=True)
             mats[form] = m
 
-        dual[offset : offset + cnt] = m @ v
+        dual_dofs[offset : offset + cnt] = m @ v
 
         offset += cnt
 
-    return dual
+    return dual_dofs
 
 
 def compute_element_primal_to_dual(
-    ie: int,
     ordering: UnknownOrderings,
-    primal_dofs: FlexibleElementArray[np.float64, np.uint32],
-    orders: FixedElementArray[np.uint32],
-    element_caches: ObjectElementArray[ElementMassMatrixCache],
+    primal: npt.NDArray[np.float64],
+    order_1: int,
+    order_2: int,
+    element_cache: ElementMassMatrixCache,
 ) -> npt.NDArray[np.float64]:
     """Compute primal dofs from dual."""
-    primal = np.array(primal_dofs[ie], np.float64, copy=True)
-    order_1, order_2 = orders[ie]
-    elem_cache = element_caches[ie]
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
     for form in ordering.form_orders:
@@ -612,7 +465,7 @@ def compute_element_primal_to_dual(
         if form in mats:
             m = mats[form]
         else:
-            m = elem_cache.mass_from_order(form, inverse=False)
+            m = element_cache.mass_from_order(form, inverse=False)
             mats[form] = m
 
         primal[offset : offset + cnt] = m @ v
@@ -620,63 +473,6 @@ def compute_element_primal_to_dual(
         offset += cnt
 
     return primal
-
-
-def compute_leaf_full_mass_matrix(
-    ie: int,
-    ordering: UnknownOrderings,
-    element_caches: ObjectElementArray[ElementMassMatrixCache],
-) -> npt.NDArray[np.float64]:
-    """Compute primal dofs from dual."""
-    elem_cache = element_caches[ie]
-    mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
-    diags: list[npt.NDArray[np.float64]] = list()
-    for form in ordering.form_orders:
-        if form in mats:
-            m = mats[form]
-        else:
-            m = elem_cache.mass_from_order(form, inverse=False)
-            mats[form] = m
-
-        diags.append(m)
-
-    mat = sp.block_diag(diags).toarray()
-
-    return np.astype(mat, np.float64, copy=False)
-
-
-def compute_element_vector_fields(
-    ie: int,
-    system: KFormSystem,
-    child_count_array: FixedElementArray[np.uint32],
-    orders_in: FixedElementArray[np.uint32],
-    orders_out: FixedElementArray[np.uint32],
-    basis_cache: FemCache,
-    vector_fields: Sequence[Function2D | KFormUnknown],
-    corners: FixedElementArray[np.float64],
-    dof_offsets: FixedElementArray[np.uint32],
-    solution: FlexibleElementArray[np.float64, np.uint32],
-) -> tuple:
-    """Wrap the vector fields func."""
-    if int(child_count_array[ie][0]) != 0:
-        return (np.zeros((0, 0, 2)),) * len(vector_fields)
-
-    order_1, order_2 = orders_in[ie]
-    basis_element = basis_cache.get_basis2d(order_1, order_2)
-    order_1, order_2 = orders_out[ie]
-    basis_out = basis_cache.get_basis2d(order_1, order_2)
-
-    res = compute_element_vector_fields_nonlin(
-        system.unknown_forms,
-        basis_element,
-        basis_out,
-        vector_fields,
-        corners[ie],
-        dof_offsets[ie],
-        solution[ie],
-    )
-
-    return res
 
 
 def non_linear_solve_run(
@@ -687,18 +483,17 @@ def non_linear_solve_run(
     rtol: float,
     print_residual: bool,
     unknown_ordering: UnknownOrderings,
-    element_collection: ElementCollection,
-    leaf_elements: npt.NDArray[np.integer],
+    mesh: Mesh,
     cache_2d: FemCache,
-    element_caches: ObjectElementArray[ElementMassMatrixCache],
+    element_caches: Sequence[ElementMassMatrixCache],
     compiled_system: CompiledSystem,
     explicit_vec: npt.NDArray[np.float64],
-    dof_offsets: FixedElementArray[np.uint32],
+    dof_offsets: npt.NDArray[np.uint32],
     element_offsets: npt.NDArray[np.uint32],
-    linear_element_matrices: FlexibleElementArray[np.float64, np.uint32],
-    time_carry_index_array: FlexibleElementArray[np.uint32, np.uint32] | None,
-    time_carry_term: FlexibleElementArray[np.float64, np.uint32] | None,
-    solution: FlexibleElementArray[np.float64, np.uint32],
+    linear_element_matrices: Sequence[npt.NDArray[np.float64]],
+    time_carry_index_array: npt.NDArray[np.uint32] | None,
+    time_carry_term: npt.NDArray[np.float64] | None,
+    solution: npt.NDArray[np.float64],
     global_lagrange: npt.NDArray[np.float64],
     max_mag: float,
     vector_fields: Sequence[Function2D | KFormUnknown],
@@ -706,7 +501,7 @@ def non_linear_solve_run(
     lagrange_mat: sp.csr_array | None,
     return_all_residuals: bool = False,
 ) -> tuple[
-    FlexibleElementArray[np.float64, np.uint32],
+    npt.NDArray[np.float64],
     npt.NDArray[np.float64],
     int,
     npt.NDArray[np.float64],
@@ -721,80 +516,75 @@ def non_linear_solve_run(
     base_vec = np.array(explicit_vec, copy=True)  # Make a copy
     if time_carry_term is not None:
         assert time_carry_index_array is not None
-        for off, idx, vals in zip(
-            element_offsets, time_carry_index_array, time_carry_term
-        ):
-            base_vec[idx + int(off)] += vals
+        base_vec[time_carry_index_array] += time_carry_term
     else:
         assert time_carry_index_array is None
     residuals = np.zeros(max_iterations, np.float64)
     max_residual = 0.0
-    vec_fields_array = FixedElementArray(element_collection.com, 0, np.object_)
-    equation_values = FlexibleElementArray(
-        element_collection.com, np.float64, solution.shapes
-    )
-    explicit_values = FlexibleElementArray(
-        element_collection.com, np.float64, solution.shapes
-    )
 
     while iter_cnt < max_iterations:
-        # Recompute vector fields
-        # Compute vector fields at integration points for leaf elements
-
-        if len(vector_fields):
-            vec_fields_array = call_per_element_fix(
-                element_collection.com,
-                np.object_,
-                len(vector_fields),
-                compute_element_vector_fields,
-                system,
-                element_collection.child_count_array,
-                element_collection.orders_array,
-                element_collection.orders_array,
-                cache_2d,
-                vector_fields,
-                element_collection.corners_array,
-                dof_offsets,
-                solution,
-            )
-
         combined_solution = np.concatenate(solution, dtype=np.float64)
-
-        call_per_leaf(
-            element_collection,
-            update_leaf_vector,
-            compiled_system.lhs_full,
-            unknown_ordering,
-            element_caches,
-            vec_fields_array,
-            solution,
-            equation_values,
-        )
-
-        main_value = assemble_forcing(equation_values)
 
         if compiled_system.rhs_codes is not None:
             main_vec = np.array(base_vec, copy=True)  # Make a copy
-            # Update RHS implicit terms
-
-            call_per_leaf(
-                element_collection,
-                update_leaf_vector,
-                compiled_system.rhs_codes,
-                unknown_ordering,
-                element_caches,
-                vec_fields_array,
-                solution,
-                explicit_values,
-            )
-
-            for off, cnt, vals in (
-                (element_offsets[i], dof_offsets[i], explicit_values[i])
-                for i in leaf_elements
-            ):
-                main_vec[off : off + cnt[-1]] += vals
         else:
-            main_vec = base_vec
+            main_vec = base_vec  # Do not copy
+
+        lhs_vectors: list[npt.NDArray[np.float64]] = list()
+        lhs_matrices: list[npt.NDArray[np.float64]] = list()
+        for ie in range(mesh.leaf_count):
+            order_1, order_2 = mesh.get_leaf_orders(ie)
+            basis = cache_2d.get_basis2d(order_1, order_2)
+            if len(vector_fields):
+                # Recompute vector fields
+                # Compute vector fields at integration points for leaf elements
+                vec_flds = compute_element_vector_fields_nonlin(
+                    system.unknown_forms,
+                    basis,
+                    basis,
+                    vector_fields,
+                    mesh.get_leaf_corners(ie),
+                    dof_offsets[ie],
+                    solution[ie],
+                )
+            else:
+                vec_flds = tuple()
+
+            element_solution = solution[element_offsets[ie] : element_offsets[ie + 1]]
+            element_cache = element_caches[ie]
+
+            lhs_vec = compute_element_vector(
+                unknown_ordering.form_orders,
+                compiled_system.lhs_full,
+                vec_flds,
+                element_cache,
+                element_solution,
+            )
+            lhs_vectors.append(lhs_vec)
+
+            if compiled_system.rhs_codes is not None:
+                rhs_vec = compute_element_vector(
+                    unknown_ordering.form_orders,
+                    compiled_system.rhs_codes,
+                    vec_flds,
+                    element_cache,
+                    element_solution,
+                )
+                off = element_offsets[ie]
+                cnt = dof_offsets[ie]
+                main_vec[off : off + cnt[-1]] += rhs_vec
+                del rhs_vec
+
+            if compiled_system.nonlin_codes is not None:
+                mat = compute_element_matrix(
+                    unknown_ordering.form_orders,
+                    compiled_system.nonlin_codes,
+                    vec_flds,
+                    element_cache,
+                )
+                lhs_matrices.append(linear_element_matrices[ie] + mat)
+
+        main_value = np.concatenate(lhs_vectors)
 
         if lagrange_mat is not None:
             main_value += lagrange_mat.T @ global_lagrange
@@ -819,27 +609,8 @@ def non_linear_solve_run(
         if not (max_residual > atol and max_residual > max_mag * rtol):
             break
 
-        if compiled_system.nonlin_codes is not None:
-            new_matrices = call_per_leaf_flex(
-                element_collection,
-                2,
-                np.float64,
-                compute_leaf_matrix,
-                compiled_system.nonlin_codes,
-                unknown_ordering,
-                element_caches,
-                vec_fields_array,
-            )
-            element_matrices = call_per_leaf_flex(
-                element_collection,
-                2,
-                np.float64,
-                lambda ie, m1, m2: m1[ie] + m2[ie],
-                new_matrices,
-                linear_element_matrices,
-            )
-
-            main_mat = assemble_matrix(element_matrices)
+        if len(lhs_matrices):
+            main_mat = sp.block_diag(lhs_matrices, format="csr")
             if lagrange_mat is not None:
                 main_mat = sp.block_array(
                     [[main_mat, lagrange_mat.T], [lagrange_mat, None]], format="csc"
@@ -848,37 +619,19 @@ def non_linear_solve_run(
                 main_mat = main_mat.tocsc()
 
             system_decomp = sla.splu(main_mat)
-            del main_mat
+            del main_mat, lhs_matrices
 
         d_solution = np.asarray(
             system_decomp.solve(residual),
             dtype=np.float64,
             copy=None,
         )
-        sol_updates = extract_from_flat(
-            element_collection, element_offsets, relax * d_solution
-        )
+        solution += relax * d_solution
+
         # update lagrange multipliers (haha pliers)
         if len(global_lagrange):
             d_lag = d_solution[-global_lagrange.size :]
             global_lagrange += relax * d_lag
-
-        def _update_solution(
-            ie: int,
-            sol: FlexibleElementArray[np.float64, np.uint32],
-            up: FlexibleElementArray[np.float64, np.uint32],
-            out: FlexibleElementArray[np.float64, np.uint32],
-        ) -> None:
-            """Compute solution given update value."""
-            out[ie] = sol[ie] + up[ie]
-
-        call_per_element(
-            element_collection.com,
-            _update_solution,
-            solution,
-            sol_updates,
-            solution,
-        )
 
         iter_cnt += 1
 
@@ -888,36 +641,6 @@ def non_linear_solve_run(
         return solution, global_lagrange, iter_cnt, np.array(max_residual, np.float64)
 
     return solution, global_lagrange, iter_cnt, residuals
-
-
-_T = TypeVar("_T", bound=np.generic)
-
-
-def extract_from_flat(
-    elements: ElementCollection,
-    element_offsets: npt.NDArray[np.integer],
-    v: npt.NDArray[_T],
-) -> FlexibleElementArray[_T, np.uint32]:
-    """Extract from flat vector to per-element values."""
-
-    def _extract_single(
-        ie: int,
-        element_offsets: npt.NDArray[np.integer],
-        v: npt.NDArray[_T],
-    ) -> npt.NDArray[_T]:
-        """Extract DoFs from the vector."""
-        begin = int(element_offsets[ie])
-        end = int(element_offsets[ie + 1])
-        return v[begin:end]
-
-    return call_per_element_flex(
-        elements.com,
-        1,
-        cast(type[_T], v.dtype),
-        _extract_single,
-        element_offsets,
-        v,
-    )
 
 
 @dataclass(frozen=True)
@@ -1079,20 +802,14 @@ class SolverSettings:
 
 
 def find_time_carry_indices(
-    ie: int,
     unknowns: Sequence[int],
-    dof_offsets: FixedElementArray[np.uint32],
-    child_count_array: FixedElementArray[np.uint32],
+    dof_offsets: npt.NDArray[np.uint32],
 ) -> npt.NDArray[np.uint32]:
     """Find what are the indices of DoFs that should be carried for the time march."""
-    if int(child_count_array[ie][0]) != 0:
-        return np.zeros(0, np.uint32)
-
     output: list[npt.NDArray[np.uint32]] = list()
-    offsets = dof_offsets[ie]
     for iu, u in enumerate(unknowns):
         assert iu == 0 or unknowns[iu] < u, "Unknowns must be sorted."
-        output.append(np.arange(offsets[u], offsets[u + 1], dtype=np.uint32))
+        output.append(np.arange(dof_offsets[u], dof_offsets[u + 1], dtype=np.uint32))
     return np.concatenate(output, dtype=np.uint32)
 
 

@@ -13,31 +13,33 @@ are also two different types:
 - node-based for 0-forms on corners,
 """
 
-import numpy as np
+from collections.abc import Mapping
 
-from mfv2d.element import (
+import numpy as np
+import numpy.typing as npt
+
+from mfv2d._mfv2d import Mesh
+from mfv2d.kform import UnknownFormOrder, UnknownOrderings
+from mfv2d.mimetic2d import (
     Constraint,
-    ElementCollection,
     ElementConstraint,
-    FixedElementArray,
-    UnknownFormOrder,
-    UnknownOrderings,
+    ElementSide,
     element_node_children_on_side,
+    find_surface_boundary_id_line,
     get_corner_dof,
     get_side_dofs,
     get_side_order,
 )
-from mfv2d.mimetic2d import ElementSide, Mesh2D, find_surface_boundary_id_line
 
 
 def _find_surface_boundary_id_node(
-    mesh: Mesh2D, surf_idx: int, node_idx: int
+    mesh: Mesh, surf_idx: int, node_idx: int
 ) -> ElementSide:
     """Find what boundary begins with the node with a given index is in the surface.
 
     Parameters
     ----------
-    mesh : Mesh2D
+    mesh : Mesh
         Mesh the surface is a part of.
 
     surf_idx : int
@@ -62,7 +64,7 @@ def _find_surface_boundary_id_node(
 
 
 def connect_corner_based(
-    elements: ElementCollection,
+    mesh: Mesh,
     *pairs: tuple[int, ElementSide],
 ) -> list[Constraint]:
     """Create constraints for 0-forms on the corner.
@@ -85,10 +87,10 @@ def connect_corner_based(
     constraints: list[Constraint] = list()
 
     e1, s1 = pairs[0]
-    l1, d1 = get_corner_dof(elements, e1, s1)
+    l1, d1 = get_corner_dof(mesh, e1, s1)
     for i in range(n - 1):
         e2, s2 = pairs[i + 1]
-        l2, d2 = get_corner_dof(elements, e2, s2)
+        l2, d2 = get_corner_dof(mesh, e2, s2)
 
         constraints.append(
             Constraint(
@@ -108,7 +110,7 @@ def connect_corner_based(
 
 
 def connect_edge_center(
-    elements: ElementCollection, e1: int, e2: int, side: ElementSide
+    mesh: Mesh, e1: int, e2: int, side: ElementSide
 ) -> list[Constraint]:
     """Connect center of edges for two elements with 0-forms.
 
@@ -132,23 +134,23 @@ def connect_edge_center(
         Constraints which enforce continuity between the two elements for
         0-forms in the middle of the side.
     """
-    constraints = connect_corner_based(elements, (e1, side.next), (e2, side))
-    c1 = elements.child_array[e1]
-    c2 = elements.child_array[e2]
+    constraints = connect_corner_based(mesh, (e1, side.next), (e2, side))
+    c1 = mesh.get_element_children(e1)
+    c2 = mesh.get_element_children(e2)
 
-    if len(c1):
+    if c1 is not None:
         c11, c12 = element_node_children_on_side(side, c1)
-        constraints += connect_edge_center(elements, c11, c12, side)
+        constraints += connect_edge_center(mesh, c11, c12, side)
 
-    if len(c2):
+    if c2 is not None:
         c21, c22 = element_node_children_on_side(side, c2)
-        constraints += connect_edge_center(elements, c21, c22, side)
+        constraints += connect_edge_center(mesh, c21, c22, side)
 
     return constraints
 
 
 def connect_edge_based(
-    elements: ElementCollection,
+    elements: Mesh,
     e1: int,
     s1: ElementSide,
     e2: int,
@@ -188,10 +190,10 @@ def connect_edge_based(
         form_order == UnknownFormOrder.FORM_ORDER_0
         or form_order == UnknownFormOrder.FORM_ORDER_1
     )
-    c1 = elements.child_array[e1]
-    c2 = elements.child_array[e2]
+    c1 = elements.get_element_children(e1)
+    c2 = elements.get_element_children(e2)
     constraints: list[Constraint] = list()
-    if len(c1) and len(c2):
+    if c1 is not None and c2 is not None:
         c11, c12 = element_node_children_on_side(s1, c1)
         c21, c22 = element_node_children_on_side(s2, c2)
         constraints_1 = connect_edge_based(elements, c11, s1, c22, s2, form_order)
@@ -210,11 +212,11 @@ def connect_edge_based(
 
     elif form_order == UnknownFormOrder.FORM_ORDER_0:
         # Connect the corner of two children if two are needed
-        if len(c1):
+        if c1 is not None:
             c11, c12 = element_node_children_on_side(s1, c1)
             constraints += connect_edge_center(elements, c11, c12, s1)
 
-        elif len(c2):
+        elif c2 is not None:
             c21, c22 = element_node_children_on_side(s2, c2)
             constraints += connect_edge_center(elements, c21, c22, s2)
 
@@ -261,7 +263,7 @@ def connect_edge_based(
 
 
 def connect_element_inner(
-    elements: ElementCollection,
+    mesh: Mesh,
     element: int,
     form_order: UnknownFormOrder,
 ) -> list[Constraint]:
@@ -284,27 +286,22 @@ def connect_element_inner(
         Constraints which enforce the continuity within the element.
 
     """
-    children = elements.child_array[element]
-    if not len(children):
+    children = mesh.get_element_children(element)
+    if children is None:
         # Leaf has no need for constraints
         return list()
-
-    c_bl: int
-    c_br: int
-    c_tr: int
-    c_tl: int
 
     c_bl, c_br, c_tr, c_tl = children
 
     # Inner constraints
     child_constraints: list[Constraint] = sum(
-        (connect_element_inner(elements, c, form_order) for c in children), start=list()
+        (connect_element_inner(mesh, c, form_order) for c in children), start=list()
     )
 
     # Edge connections between child elements
     edge_constraints = (
         connect_edge_based(
-            elements,
+            mesh,
             c_bl,
             ElementSide.SIDE_RIGHT,
             c_br,
@@ -312,7 +309,7 @@ def connect_element_inner(
             form_order,
         )
         + connect_edge_based(
-            elements,
+            mesh,
             c_br,
             ElementSide.SIDE_TOP,
             c_tr,
@@ -320,7 +317,7 @@ def connect_element_inner(
             form_order,
         )
         + connect_edge_based(
-            elements,
+            mesh,
             c_tr,
             ElementSide.SIDE_LEFT,
             c_tl,
@@ -328,7 +325,7 @@ def connect_element_inner(
             form_order,
         )
         + connect_edge_based(
-            elements,
+            mesh,
             c_tl,
             ElementSide.SIDE_BOTTOM,
             c_bl,
@@ -341,7 +338,7 @@ def connect_element_inner(
     if form_order == UnknownFormOrder.FORM_ORDER_0:
         # Add corner constraint if 0-form
         corner_constraint = connect_corner_based(
-            elements,
+            mesh,
             (c_bl, ElementSide.SIDE_TOP),
             (c_br, ElementSide.SIDE_LEFT),
             (c_tr, ElementSide.SIDE_BOTTOM),
@@ -352,10 +349,10 @@ def connect_element_inner(
 
 
 def connect_elements(
-    elements: ElementCollection,
     unknowns: UnknownOrderings,
-    mesh: Mesh2D,
-    dof_offsets: FixedElementArray[np.uint32],
+    mesh: Mesh,
+    leaf_index_mapping: Mapping[int, int],
+    dof_offsets: npt.NDArray[np.uint32],
 ) -> list[Constraint]:
     """Generate constraints for all elements and unknowns.
 
@@ -387,14 +384,13 @@ def connect_elements(
 
     # Generate all intra-element constraints
     for surf_index in range(mesh.primal.n_surfaces):
-        ie = elements.root_indices[surf_index]
         if has_0:
             intra_element_0 += connect_element_inner(
-                elements, ie, UnknownFormOrder.FORM_ORDER_0
+                mesh, surf_index, UnknownFormOrder.FORM_ORDER_0
             )
         if has_1:
             intra_element_1 += connect_element_inner(
-                elements, ie, UnknownFormOrder.FORM_ORDER_1
+                mesh, surf_index, UnknownFormOrder.FORM_ORDER_1
             )
 
     # Generate inter-element constraints. This has two parts (if there are any 0-forms).
@@ -410,9 +406,6 @@ def connect_elements(
             # Boundary line, we do not constrain here, leave it for BCs
             continue
 
-        e1 = int(elements.root_indices[idx1.index])
-        e2 = int(elements.root_indices[idx2.index])
-
         surf_1 = mesh.primal.get_surface(idx1)
         surf_2 = mesh.primal.get_surface(idx2)
 
@@ -421,12 +414,22 @@ def connect_elements(
 
         if has_0:
             inter_edge_0 += connect_edge_based(
-                elements, e1, side_1, e2, side_2, UnknownFormOrder.FORM_ORDER_0
+                mesh,
+                idx1.index,
+                side_1,
+                idx2.index,
+                side_2,
+                UnknownFormOrder.FORM_ORDER_0,
             )
 
         if has_1:
             inter_edge_1 += connect_edge_based(
-                elements, e1, side_1, e2, side_2, UnknownFormOrder.FORM_ORDER_1
+                mesh,
+                idx1.index,
+                side_1,
+                idx2.index,
+                side_2,
+                UnknownFormOrder.FORM_ORDER_1,
             )
 
     # Next are the corner-based ones
@@ -455,12 +458,9 @@ def connect_elements(
                 continue
 
             inter_corner_0 += connect_corner_based(
-                elements,
+                mesh,
                 *(
-                    (
-                        elements.root_indices[ie],
-                        _find_surface_boundary_id_node(mesh, ie, node_index),
-                    )
+                    (ie, _find_surface_boundary_id_node(mesh, ie, node_index))
                     for ie in element_indices
                 ),
             )
@@ -490,7 +490,9 @@ def connect_elements(
                     0.0,
                     *(
                         ElementConstraint(
-                            ec.i_e, ec.dofs + dof_offsets[ec.i_e][i_form], ec.coeffs
+                            ec.i_e,
+                            ec.dofs + dof_offsets[leaf_index_mapping[ec.i_e], i_form],
+                            ec.coeffs,
                         )
                         for ec in constraint.element_constraints
                     ),

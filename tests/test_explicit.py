@@ -11,9 +11,9 @@ from mfv2d._mfv2d import (
     compute_element_matrix,
     compute_element_vector,
 )
-from mfv2d.element import element_primal_dofs, poly_x, poly_y
 from mfv2d.eval import translate_system
 from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder
+from mfv2d.mimetic2d import bilinear_interpolate, element_primal_dofs
 
 
 def test_explicit_evaluation():
@@ -80,8 +80,8 @@ def test_explicit_evaluation():
 
     nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
     nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = poly_x(corners[:, 0], nodes_xi, nodes_eta)
-    y = poly_y(corners[:, 1], nodes_xi, nodes_eta)
+    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
+    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
     func_dict = {vor: vor_exact, vel: vel_exact}
     for i, vec_fld in enumerate(vector_fields):
         assert type(vec_fld) is KFormUnknown

@@ -197,10 +197,10 @@ addition of the advection term on the right side of the momentum equations.
 
  .. code-block:: none
 
-    [vor(1*)]^T  ([             -1 * M(1) |  (E(2, 1))^T @ M(1) |                  0 |    0]  [vor(0)]   [<vor, exact_velocty>])   [vor(1*)]^T  ([                              0 |                        0 | 0 | 0]  [vor(0)] 
-    [vel(2*)]    ([0.001 * M(2) @ E(2, 1) |                   0 | (E(3, 2))^T @ M(2) |    0]  [vel(1)]   [<vel, exact_forcing>])   [vel(2*)]    ([-1 * M(2) @ M(2, 3; vel) @ M(1) | -1 * M(2) @ N(2, 3; vor) | 0 | 0]  [vel(1)] 
-    [pre(3*)]    ([                     0 |      M(3) @ E(3, 2) |                  0 |    0]  [pre(2)] = [                   0]) + [pre(3*)]    ([                              0 |                        0 | 0 | 0]  [pre(2)] 
-    [div(3*)]    ([                     0 | -1 * M(3) @ E(3, 2) |                  0 | M(3)]  [div(2)]   [                   0])   [div(3*)]    ([                              0 |                        0 | 0 | 0]  [div(2)] 
+    [vor(0*)]^T  ([             -1 * M(0) |  (E(1, 0))^T @ M(0) |                  0 |    0]  [vor(0)]   [<vor, exact_velocty>])   [vor(0*)]^T  ([                              0 |                        0 | 0 | 0]  [vor(0)] 
+    [vel(1*)]    ([0.001 * M(1) @ E(1, 0) |                   0 | (E(2, 1))^T @ M(1) |    0]  [vel(1)]   [<vel, exact_forcing>])   [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(1) | -1 * M(1) @ N(1, 2; vor) | 0 | 0]  [vel(1)] 
+    [pre(2*)]    ([                     0 |      M(2) @ E(2, 1) |                  0 |    0]  [pre(2)] = [                   0]) + [pre(2*)]    ([                              0 |                        0 | 0 | 0]  [pre(2)] 
+    [div(2*)]    ([                     0 | -1 * M(2) @ E(2, 1) |                  0 | M(2)]  [div(2)]   [                   0])   [div(2*)]    ([                              0 |                        0 | 0 | 0]  [div(2)] 
 
 
 
@@ -442,7 +442,7 @@ Pyvista allows for very simple 2D streamline plots.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 3.010 seconds)
+   **Total running time of the script:** (0 minutes 11.336 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_navier_stokes.py:

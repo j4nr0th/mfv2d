@@ -168,9 +168,9 @@ on the normal velocity mean that they would not be used either way.
 
  .. code-block:: none
 
-    [vor(1*)]^T  ([           -1 * M(1) | (E(2, 1))^T @ M(1) |                  0]  [vor(0)]   [<vor, boundary_velocty>])   [vor(1*)]^T  ([                              0 |                        0 | 0]  [vor(0)] 
-    [vel(2*)]    ([0.1 * M(2) @ E(2, 1) |                  0 | (E(3, 2))^T @ M(2)]  [vel(1)] = [                       ]) + [vel(2*)]    ([-1 * M(2) @ M(2, 3; vel) @ M(1) | -1 * M(2) @ N(2, 3; vor) | 0]  [vel(1)] 
-    [pre(3*)]    ([                   0 |     M(3) @ E(3, 2) |                  0]  [pre(2)]   [                      0])   [pre(3*)]    ([                              0 |                        0 | 0]  [pre(2)] 
+    [vor(0*)]^T  ([           -1 * M(0) | (E(1, 0))^T @ M(0) |                  0]  [vor(0)]   [<vor, boundary_velocty>])   [vor(0*)]^T  ([                              0 |                        0 | 0]  [vor(0)] 
+    [vel(1*)]    ([0.1 * M(1) @ E(1, 0) |                  0 | (E(2, 1))^T @ M(1)]  [vel(1)] = [                       ]) + [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(1) | -1 * M(1) @ N(1, 2; vor) | 0]  [vel(1)] 
+    [pre(2*)]    ([                   0 |     M(2) @ E(2, 1) |                  0]  [pre(2)]   [                      0])   [pre(2*)]    ([                              0 |                        0 | 0]  [pre(2)] 
     SolutionStatistics(element_orders={3: 50}, n_total_dofs=1550, n_leaf_dofs=1225, n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20,
            20, 20, 20], dtype=uint32), residual_history=array([4.73040218e-11, 3.78859860e-11, 4.94556202e-11, 4.77373419e-11,
            6.63145788e-11, 4.92627328e-11, 6.85677765e-11, 4.04782319e-11,
@@ -229,7 +229,7 @@ Pyvista allows for very simple 2D streamline plots.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 5.072 seconds)
+   **Total running time of the script:** (0 minutes 5.040 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_cavity_flow.py:

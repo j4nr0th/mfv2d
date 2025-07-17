@@ -455,10 +455,10 @@ section of how the divergence behaves.</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(1*)]^T  ([          M(1) |  (E(2, 1))^T @ M(1) |                  0 |    0]  [vor(0)]   [                         &lt;vor, vel_exact&gt;])
-[vel(2*)]    ([M(2) @ E(2, 1) |                   0 | (E(3, 2))^T @ M(2) |    0]  [vel(1)]   [&lt;vel, prs_exact&gt; + &lt;vel, momentum_source&gt;])
-[prs(3*)]    ([             0 |      M(3) @ E(3, 2) |                  0 |    0]  [prs(2)] = [                                        0])
-[div(3*)]    ([             0 | -1 * M(3) @ E(3, 2) |                  0 | M(3)]  [div(2)]   [                                        0])
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(0*)]^T  ([          M(0) |  (E(1, 0))^T @ M(0) |                  0 |    0]  [vor(0)]   [                         &lt;vor, vel_exact&gt;])
+[vel(1*)]    ([M(1) @ E(1, 0) |                   0 | (E(2, 1))^T @ M(1) |    0]  [vel(1)]   [&lt;vel, prs_exact&gt; + &lt;vel, momentum_source&gt;])
+[prs(2*)]    ([             0 |      M(2) @ E(2, 1) |                  0 |    0]  [prs(2)] = [                                        0])
+[div(2*)]    ([             0 | -1 * M(2) @ E(2, 1) |                  0 | M(2)]  [div(2)]   [                                        0])
 </pre></div>
 </div>
 </section>
@@ -663,7 +663,7 @@ Finished pval=6
 <img src="../../_images/sphx_glr_plot_stokes_flow_004.png" srcset="../../_images/sphx_glr_plot_stokes_flow_004.png" alt="plot stokes flow" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 6.06 * (0.035) ** p in L2 norm.
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.554 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.547 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-steady-plot-stokes-flow-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/e3c00fcf2989820f4cd32647db424751/plot_stokes_flow.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_stokes_flow.ipynb</span></code></a></p>

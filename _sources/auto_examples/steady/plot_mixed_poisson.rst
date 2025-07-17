@@ -215,8 +215,8 @@ introduced throught the boundary integral ``p ^ u_exact``.
 
  .. code-block:: none
 
-    [q(2*)]^T  ([     -1 * M(2) | (E(3, 2))^T @ M(2)]  [q(1)]   [          <q, u_exact>])
-    [u(3*)]    ([M(3) @ E(3, 2) |                  0]  [u(2)] = [-1 * <u, source_exact>])
+    [q(1*)]^T  ([     -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [          <q, u_exact>])
+    [u(2*)]    ([M(2) @ E(2, 1) |                  0]  [u(2)] = [-1 * <u, source_exact>])
 
 
 
@@ -503,7 +503,7 @@ Here we plot the results.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.507 seconds)
+   **Total running time of the script:** (0 minutes 1.555 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_mixed_poisson.py:

@@ -209,8 +209,8 @@ is needed to compute the error given by the :math:`H^1`.
 
  .. code-block:: none
 
-    [u(1*)]^T  ([(E(2, 1))^T @ M(1) @ E(2, 1) |         0]  [u(0)]   [-1 * <u, source_exact> + <u, q_exact>])
-    [q(2*)]    ([              M(2) @ E(2, 1) | -1 * M(2)]  [q(1)] = [                                    0])
+    [u(0*)]^T  ([(E(1, 0))^T @ M(0) @ E(1, 0) |         0]  [u(0)]   [-1 * <u, source_exact> + <u, q_exact>])
+    [q(1*)]    ([              M(1) @ E(1, 0) | -1 * M(1)]  [q(1)] = [                                    0])
 
 
 
@@ -511,7 +511,7 @@ Here we plot the results.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.372 seconds)
+   **Total running time of the script:** (0 minutes 1.465 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_direct_poisson.py:

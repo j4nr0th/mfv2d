@@ -202,10 +202,10 @@ section of how the divergence behaves.
 
  .. code-block:: none
 
-    [vor(1*)]^T  ([          M(1) |  (E(2, 1))^T @ M(1) |                  0 |    0]  [vor(0)]   [                         <vor, vel_exact>])
-    [vel(2*)]    ([M(2) @ E(2, 1) |                   0 | (E(3, 2))^T @ M(2) |    0]  [vel(1)]   [<vel, prs_exact> + <vel, momentum_source>])
-    [prs(3*)]    ([             0 |      M(3) @ E(3, 2) |                  0 |    0]  [prs(2)] = [                                        0])
-    [div(3*)]    ([             0 | -1 * M(3) @ E(3, 2) |                  0 | M(3)]  [div(2)]   [                                        0])
+    [vor(0*)]^T  ([          M(0) |  (E(1, 0))^T @ M(0) |                  0 |    0]  [vor(0)]   [                         <vor, vel_exact>])
+    [vel(1*)]    ([M(1) @ E(1, 0) |                   0 | (E(2, 1))^T @ M(1) |    0]  [vel(1)]   [<vel, prs_exact> + <vel, momentum_source>])
+    [prs(2*)]    ([             0 |      M(2) @ E(2, 1) |                  0 |    0]  [prs(2)] = [                                        0])
+    [div(2*)]    ([             0 | -1 * M(2) @ E(2, 1) |                  0 | M(2)]  [div(2)]   [                                        0])
 
 
 
@@ -525,7 +525,7 @@ The velocity error.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.554 seconds)
+   **Total running time of the script:** (0 minutes 1.547 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_stokes_flow.py:

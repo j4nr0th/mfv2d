@@ -328,6 +328,8 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.lagrange1d"><code class="docutils literal notranslate"><span class="pre">lagrange1d()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.dlagrange1d"><code class="docutils literal notranslate"><span class="pre">dlagrange1d()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_gll"><code class="docutils literal notranslate"><span class="pre">compute_gll()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_legendre"><code class="docutils literal notranslate"><span class="pre">compute_legendre()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.legendre_l2_to_h1_coefficients"><code class="docutils literal notranslate"><span class="pre">legendre_l2_to_h1_coefficients()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basis">Basis</a><ul class="nav section-nav flex-column">
@@ -540,7 +542,7 @@ well (in this case, the 52 polynomials are each evaluated at 1025 points).</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Calculations took  7.338880e-04 seconds.
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Calculations took  9.970040e-04 seconds.
 </pre></div>
 </div>
 <img alt="../_images/_mfv2d_4_1.png" src="../_images/_mfv2d_4_1.png" />
@@ -679,7 +681,7 @@ well (in this case, the 52 polynomials are each evaluated at 1025 points).</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Calculations took  3.059791e-02 seconds.
+<div class="output stream highlight-none notranslate"><div class="highlight"><pre><span></span>Calculations took  3.116916e-02 seconds.
 </pre></div>
 </div>
 <img alt="../_images/_mfv2d_9_1.png" src="../_images/_mfv2d_9_1.png" />
@@ -737,6 +739,128 @@ the weights.</p>
 <p>Since these are computed in an iterative way, giving a tolerance
 which is too strict or not allowing for sufficient iterations
 might cause an exception to be raised to do failiure to converge.</p>
+</dd></dl>
+
+<p>There is also a function to evaluate Legendre polynomials. This is intended to
+be used for computing projections on Legendre hierarchical basis.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.compute_legendre">
+<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">compute_legendre</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mfv2d._mfv2d.compute_legendre" title="Link to this definition">#</a></dt>
+<dd><p>compute_lagrange_polynomials(order: int, positions: array_like, out: array|None = None) -&gt; array
+Compute Legendre polynomials at given nodes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the scheme. The number of node-weight pairs is one more.</p></li>
+<li><p><strong>positions</strong> (<em>array_like</em>) – Positions where the polynomials should be evaluated at.</p></li>
+<li><p><strong>out</strong> (<em>array</em><em>, </em><em>optional</em>) – Output array to write to. If not specified, then a new array is allocated.
+Must have the exact correct shape (see return value) and data type
+(double/float64).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Array with the same shape as <code class="docutils literal notranslate"><span class="pre">positions</span></code> parameter, except with an
+additional first dimension, which determines which Legendre polynomial
+it is.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>To quickly illustrate how this function can be used to work with Legendre polynomials,
+some simple examples are shown.</p>
+<p>First things first, the function can be called for any order of polynomials, with
+about any shape of input array (though if you put too many dimensions you will get an
+exception). Also, you can supply an optional output parameter, such that an output
+array need not be newly allocated.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_legendre</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">vals</span> <span class="o">=</span> <span class="n">compute_legendre</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">positions</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="k">assert</span> <span class="n">vals</span> <span class="ow">is</span> <span class="n">compute_legendre</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">vals</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+<p>The output array will always have the same shape as the input array, with the only
+difference being that a new axis is added for the first dimension, which can be
+indexed to distinguish between the different Legendre polynomials.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+<span class="o">&gt;&gt;&gt;</span>     <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;$y = </span><span class="se">\\</span><span class="s2">mathcal</span><span class="se">{{</span><span class="s2">L</span><span class="se">}}</span><span class="s2">_</span><span class="se">{{</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">d</span><span class="se">}}</span><span class="si">}</span><span class="s2">$&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;$y$&quot;</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../_images/_mfv2d_12_0.png" src="../_images/_mfv2d_12_0.png" />
+</div>
+</div>
+<p>Lastly, these polynomials are all orthogonal under the <span class="math notranslate nohighlight">\(L^2\)</span> norm. This can
+be shown numerically as well.</p>
+<div class="jupyter_cell jupyter_container docutils container">
+<div class="cell_input code_cell docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntegrationRule1D</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">rule</span> <span class="o">=</span> <span class="n">IntegrationRule1D</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">vals</span> <span class="o">=</span> <span class="n">compute_legendre</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">rule</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="k">for</span> <span class="n">i1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+<span class="o">&gt;&gt;&gt;</span>     <span class="n">p1</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">i1</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<span class="o">&gt;&gt;&gt;</span>     <span class="k">for</span> <span class="n">i2</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+<span class="o">&gt;&gt;&gt;</span>         <span class="n">p2</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">i2</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span>         <span class="n">integral</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">p1</span> <span class="o">*</span> <span class="n">p2</span> <span class="o">*</span> <span class="n">rule</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span>
+<span class="o">&gt;&gt;&gt;</span>         <span class="k">if</span> <span class="n">i1</span> <span class="o">!=</span> <span class="n">i2</span><span class="p">:</span>
+<span class="o">&gt;&gt;&gt;</span>             <span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-16</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+</div>
+</div>
+</dd></dl>
+
+<p>For conversion of the Legendre basis coefficients into Legendre integral basis
+coefficients, the function <a class="reference internal" href="#mfv2d._mfv2d.legendre_l2_to_h1_coefficients" title="mfv2d._mfv2d.legendre_l2_to_h1_coefficients"><code class="xref py py-func docutils literal notranslate"><span class="pre">legendre_l2_to_h1_coefficients()</span></code></a> is provided.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d._mfv2d.legendre_l2_to_h1_coefficients">
+<span class="sig-prename descclassname"><span class="pre">mfv2d._mfv2d.</span></span><span class="sig-name descname"><span class="pre">legendre_l2_to_h1_coefficients</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em>, <em class="sig-param"><span class="positional-only-separator o"><abbr title="Positional-only parameter separator (PEP 570)"><span class="pre">/</span></abbr></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">array</span></span></span><a class="headerlink" href="#mfv2d._mfv2d.legendre_l2_to_h1_coefficients" title="Link to this definition">#</a></dt>
+<dd><p>Convert Legendre polynomial coefficients to H1 coefficients.</p>
+<p>The <span class="math notranslate nohighlight">\(H^1\)</span> coefficients are based on being expansion coefficients of hierarchical
+basis which are orthogonal in the <span class="math notranslate nohighlight">\(H^1\)</span> norm instead of in the <span class="math notranslate nohighlight">\(L^2\)</span> norm,
+which holds for Legendre polynomials instead.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>c</strong> (<em>array_like</em>) – Coefficients of the Legendre polynomials.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Coefficients of integrated Legendre polynomial basis.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -837,7 +961,7 @@ element is shown bellow.</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/_mfv2d_12_0.png" src="../_images/_mfv2d_12_0.png" />
+<img alt="../_images/_mfv2d_15_0.png" src="../_images/_mfv2d_15_0.png" />
 </div>
 </div>
 <p>Edge basis can also be shown:</p>
@@ -855,7 +979,7 @@ element is shown bellow.</p>
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="../_images/_mfv2d_13_0.png" src="../_images/_mfv2d_13_0.png" />
+<img alt="../_images/_mfv2d_16_0.png" src="../_images/_mfv2d_16_0.png" />
 </div>
 </div>
 <dl class="py attribute">
@@ -1577,6 +1701,8 @@ them to the primal space of the other.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.lagrange1d"><code class="docutils literal notranslate"><span class="pre">lagrange1d()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.dlagrange1d"><code class="docutils literal notranslate"><span class="pre">dlagrange1d()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_gll"><code class="docutils literal notranslate"><span class="pre">compute_gll()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.compute_legendre"><code class="docutils literal notranslate"><span class="pre">compute_legendre()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d._mfv2d.legendre_l2_to_h1_coefficients"><code class="docutils literal notranslate"><span class="pre">legendre_l2_to_h1_coefficients()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basis">Basis</a><ul class="nav section-nav flex-column">

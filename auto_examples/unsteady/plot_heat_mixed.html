@@ -480,8 +480,8 @@ it is also computed here.</p>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;For </span><span class="si">{</span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">dt</span></a><span class="si">=:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> total error was </span><span class="si">{</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">h1_total_error</span></a><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[q(2*)]^T  ([            -1 * M(2) | (E(3, 2))^T @ M(2)]  [q(1)]   [&lt;q, steady_u&gt;])   [q(2*)]^T  ([0 |                0]  [q(1)]
-[u(3*)]    ([0.02 * M(3) @ E(3, 2) |                  0]  [u(2)] = [&lt;u, steady_u&gt;]) + [u(3*)]    ([0 | -0.901304 * M(3)]  [u(2)]
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[q(1*)]^T  ([            -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [&lt;q, steady_u&gt;])   [q(1*)]^T  ([0 |                0]  [q(1)]
+[u(2*)]    ([0.02 * M(2) @ E(2, 1) |                  0]  [u(2)] = [&lt;u, steady_u&gt;]) + [u(2*)]    ([0 | -0.901304 * M(2)]  [u(2)]
 For dt=1 total error was 1.986e-01.
 For dt=0.667 total error was 9.133e-02.
 For dt=0.333 total error was 2.327e-02.
@@ -550,7 +550,7 @@ is symplectic.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_heat_mixed_002.png" srcset="../../_images/sphx_glr_plot_heat_mixed_002.png" alt="plot heat mixed" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 14.779 seconds)</p>
+<img src="../../_images/sphx_glr_plot_heat_mixed_002.png" srcset="../../_images/sphx_glr_plot_heat_mixed_002.png" alt="plot heat mixed" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 14.680 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-unsteady-plot-heat-mixed-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/c9772d35c598678eb773e70a04290d7a/plot_heat_mixed.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_heat_mixed.ipynb</span></code></a></p>

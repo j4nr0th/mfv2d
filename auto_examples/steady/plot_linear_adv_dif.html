@@ -452,8 +452,8 @@ diffusion coefficient <span class="math notranslate nohighlight">\(\nu\)</span> 
 <span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[q(2*)]^T  ([                                                    -1 * M(2) | (E(3, 2))^T @ M(2)]  [q(1)]   [          &lt;q, u_exact&gt;])
-[u(3*)]    ([(-0.05 * M(3) @ E(3, 2) - 1 * M(3) @ M(1, 2; a_field) @ M(2)) |                  0]  [u(2)] = [-1 * &lt;u, source_exact&gt;])
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[q(1*)]^T  ([                                                    -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [          &lt;q, u_exact&gt;])
+[u(2*)]    ([(-0.05 * M(2) @ E(2, 1) - 1 * M(2) @ M(0, 1; a_field) @ M(2)) |                  0]  [u(2)] = [-1 * &lt;u, source_exact&gt;])
 </pre></div>
 </div>
 </section>
@@ -632,7 +632,7 @@ Finished pval=6
 <img src="../../_images/sphx_glr_plot_linear_adv_dif_004.png" srcset="../../_images/sphx_glr_plot_linear_adv_dif_004.png" alt="plot linear adv dif" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 12 * (0.0541) ** p in L2 norm.
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.564 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.653 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-steady-plot-linear-adv-dif-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/cedda4db6e1dcfad4d055df92e4937a7/plot_linear_adv_dif.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_linear_adv_dif.ipynb</span></code></a></p>

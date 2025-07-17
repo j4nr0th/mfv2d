@@ -168,8 +168,8 @@ Since it includes integration by parts, it also includes weak boundary condition
 
  .. code-block:: none
 
-    [q(2*)]^T  ([-1 * M(2) | (E(3, 2))^T @ M(2)]  [q(1)]   [<q, final_u>])
-    [u(3*)]    ([        0 |               M(3)]  [u(2)] = [<u, final_u>])
+    [q(1*)]^T  ([-1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [<q, final_u>])
+    [u(2*)]    ([        0 |               M(2)]  [u(2)] = [<u, final_u>])
 
 
 
@@ -428,7 +428,7 @@ With :mod:`pyvista` the unsteady solution can even be plotted.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (1 minutes 25.354 seconds)
+   **Total running time of the script:** (1 minutes 28.206 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_reaction_mixed.py:

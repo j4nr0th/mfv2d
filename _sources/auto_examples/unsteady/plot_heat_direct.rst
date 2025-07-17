@@ -166,7 +166,7 @@ right side of the equation, this is now an iterative solve.
 
  .. code-block:: none
 
-    [u(1*)]^T  ([0.02 * (E(2, 1))^T @ M(1) @ E(2, 1)]  [u(0)] = [<u, steady_u>]) + [u(1*)]^T  ([-0.901304 * M(1)]  [u(0)] 
+    [u(0*)]^T  ([0.02 * (E(1, 0))^T @ M(0) @ E(1, 0)]  [u(0)] = [<u, steady_u>]) + [u(0*)]^T  ([-0.901304 * M(0)]  [u(0)] 
 
 
 
@@ -343,7 +343,7 @@ is symplectic.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 10.719 seconds)
+   **Total running time of the script:** (0 minutes 10.761 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_heat_direct.py:

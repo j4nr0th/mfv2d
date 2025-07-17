@@ -184,8 +184,8 @@ it is also computed here.
 
  .. code-block:: none
 
-    [q(2*)]^T  ([            -1 * M(2) | (E(3, 2))^T @ M(2)]  [q(1)]   [<q, steady_u>])   [q(2*)]^T  ([0 |                0]  [q(1)] 
-    [u(3*)]    ([0.02 * M(3) @ E(3, 2) |                  0]  [u(2)] = [<u, steady_u>]) + [u(3*)]    ([0 | -0.901304 * M(3)]  [u(2)] 
+    [q(1*)]^T  ([            -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [<q, steady_u>])   [q(1*)]^T  ([0 |                0]  [q(1)] 
+    [u(2*)]    ([0.02 * M(2) @ E(2, 1) |                  0]  [u(2)] = [<u, steady_u>]) + [u(2*)]    ([0 | -0.901304 * M(2)]  [u(2)] 
     For dt=1 total error was 1.986e-01.
     For dt=0.667 total error was 9.133e-02.
     For dt=0.333 total error was 2.327e-02.
@@ -296,7 +296,7 @@ is symplectic.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 14.779 seconds)
+   **Total running time of the script:** (0 minutes 14.680 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_heat_mixed.py:

@@ -444,7 +444,7 @@ With :mod:`pyvista` the unsteady solution can even be plotted.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (1 minutes 17.140 seconds)
+   **Total running time of the script:** (1 minutes 21.106 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_reaction.py:

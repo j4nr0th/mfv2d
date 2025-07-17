@@ -450,10 +450,10 @@ addition of the advection term on the right side of the momentum equations.</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(1*)]^T  ([             -1 * M(1) |  (E(2, 1))^T @ M(1) |                  0 |    0]  [vor(0)]   [&lt;vor, exact_velocty&gt;])   [vor(1*)]^T  ([                              0 |                        0 | 0 | 0]  [vor(0)]
-[vel(2*)]    ([0.001 * M(2) @ E(2, 1) |                   0 | (E(3, 2))^T @ M(2) |    0]  [vel(1)]   [&lt;vel, exact_forcing&gt;])   [vel(2*)]    ([-1 * M(2) @ M(2, 3; vel) @ M(1) | -1 * M(2) @ N(2, 3; vor) | 0 | 0]  [vel(1)]
-[pre(3*)]    ([                     0 |      M(3) @ E(3, 2) |                  0 |    0]  [pre(2)] = [                   0]) + [pre(3*)]    ([                              0 |                        0 | 0 | 0]  [pre(2)]
-[div(3*)]    ([                     0 | -1 * M(3) @ E(3, 2) |                  0 | M(3)]  [div(2)]   [                   0])   [div(3*)]    ([                              0 |                        0 | 0 | 0]  [div(2)]
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(0*)]^T  ([             -1 * M(0) |  (E(1, 0))^T @ M(0) |                  0 |    0]  [vor(0)]   [&lt;vor, exact_velocty&gt;])   [vor(0*)]^T  ([                              0 |                        0 | 0 | 0]  [vor(0)]
+[vel(1*)]    ([0.001 * M(1) @ E(1, 0) |                   0 | (E(2, 1))^T @ M(1) |    0]  [vel(1)]   [&lt;vel, exact_forcing&gt;])   [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(1) | -1 * M(1) @ N(1, 2; vor) | 0 | 0]  [vel(1)]
+[pre(2*)]    ([                     0 |      M(2) @ E(2, 1) |                  0 |    0]  [pre(2)] = [                   0]) + [pre(2*)]    ([                              0 |                        0 | 0 | 0]  [pre(2)]
+[div(2*)]    ([                     0 | -1 * M(2) @ E(2, 1) |                  0 | M(2)]  [div(2)]   [                   0])   [div(2*)]    ([                              0 |                        0 | 0 | 0]  [div(2)]
 </pre></div>
 </div>
 </section>
@@ -590,7 +590,7 @@ divergence flow. This guarantees that the pressure solution is sensible.</p>
 <a href="https://docs.pyvista.org/api/plotting/_autosummary/pyvista.Plotter.view_xy.html#pyvista.Plotter.view_xy" title="pyvista.Plotter.view_xy" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_navier_stokes_002.png" srcset="../../_images/sphx_glr_plot_navier_stokes_002.png" alt="plot navier stokes" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 3.010 seconds)</p>
+<img src="../../_images/sphx_glr_plot_navier_stokes_002.png" srcset="../../_images/sphx_glr_plot_navier_stokes_002.png" alt="plot navier stokes" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 11.336 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-steady-plot-navier-stokes-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/c7ab5a0f4920db990fea0417ce93f634/plot_navier_stokes.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_navier_stokes.ipynb</span></code></a></p>

@@ -58,14 +58,6 @@ typedef struct
     jacobian_t jacobian[];
 } fem_space_2d_t;
 
-typedef struct
-{
-    double x0, y0;
-    double x1, y1;
-    double x2, y2;
-    double x3, y3;
-} quad_info_t;
-
 /**
  * @brief Computes the Jacobian matrix for a given quadrilateral and finite element method (FEM) space.
  *

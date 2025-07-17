@@ -16,6 +16,7 @@
 #include "topology/lineobject.h"
 #include "topology/manifold.h"
 #include "topology/manifold2d.h"
+#include "topology/mesh.h"
 #include "topology/surfaceobject.h"
 
 // Evaluation
@@ -725,7 +726,10 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
         PyModule_AddType(mod, &svec_type_object) < 0 || PyModule_AddType(mod, &givens_rotation_type_object) < 0 ||
         PyModule_AddType(mod, &lil_mat_type_object) < 0 || PyModule_AddType(mod, &givens_series_type_object) < 0 ||
         PyModule_AddType(mod, &integration_rule_1d_type) < 0 || PyModule_AddType(mod, &basis_1d_type) < 0 ||
-        PyModule_AddType(mod, &basis_2d_type) < 0 || PyModule_AddType(mod, &element_mass_matrix_cache_type) < 0)
+        PyModule_AddType(mod, &basis_2d_type) < 0 || PyModule_AddType(mod, &element_mass_matrix_cache_type) < 0 ||
+        PyModule_AddType(mod, &mesh_type_object) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 ||
+        PyModule_AddIntMacro(mod, ELEMENT_SIDE_RIGHT) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_TOP) < 0 ||
+        PyModule_AddIntMacro(mod, ELEMENT_SIDE_LEFT) < 0)
     {
         Py_XDECREF(mod);
         return NULL;

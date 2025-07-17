@@ -5,7 +5,7 @@ C-extension which implements all the required fast code.
 """
 
 from collections.abc import Sequence
-from typing import Self, final, overload
+from typing import Self, SupportsIndex, final, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -1315,3 +1315,154 @@ def compute_element_projector(
         Tuple where each entry is the respective projection matrix for that form.
     """
     ...
+
+class Mesh:
+    """Mesh containing topology, geometry, and discretization information.
+
+    Parameters
+    ----------
+    primal : Manifold2D
+        Primal topology manifold.
+
+    dual : Manifold2D
+        Dual topology manifold.
+
+    corners : (N, 4, 2) array
+        Array of element corners.
+
+    orders : (N, 2) array
+        Array of element orders.
+    """
+
+    def __new__(
+        cls,
+        primal: Manifold2D,
+        dual: Manifold2D,
+        corners: npt.NDArray[np.double],
+        orders: npt.NDArray[np.uint],
+    ) -> Self: ...
+    @property
+    def primal(self) -> Manifold2D:
+        """Primal manifold topology."""
+        ...
+
+    @property
+    def dual(self) -> Manifold2D:
+        """Dual manifold topology."""
+        ...
+
+    @property
+    def element_count(self) -> int:
+        """Number of elements in the mesh."""
+        ...
+
+    def get_element_parent(self, idx: SupportsIndex, /) -> int | None:
+        """Get the index of the element's parent or ``None`` if it is a root element.
+
+        Parameters
+        ----------
+        idx : SupportsIndex
+            Index of the element to get the parent from.
+
+        Returns
+        -------
+        int or None
+            If the element has a parent, its index is returned. If the element is a
+            root element and has no parent, ``None`` is returned instead.
+        """
+        ...
+
+    def split_element(
+        self,
+        idx: SupportsIndex,
+        /,
+        orders_bottom_left: tuple[int, int],
+        orders_bottom_right: tuple[int, int],
+        orders_top_right: tuple[int, int],
+        orders_top_left: tuple[int, int],
+    ) -> None:
+        """Split a leaf element into four child elements.
+
+        Parameters
+        ----------
+        idx : SupportsIndex
+            Index of the element to split. Must be a leaf.
+
+        orders_bottom_left : (int, int)
+            Orders of the newly created bottom left elements.
+
+        orders_bottom_right : (int, int)
+            Orders of the newly created bottom right elements.
+
+        orders_top_right : (int, int)
+            Orders of the newly created top right elements..
+
+        orders_top_left : (int, int)
+            Orders of the newly created top left elements.
+        """
+        ...
+
+    def get_element_children(
+        self, idx: SupportsIndex, /
+    ) -> tuple[int, int, int, int] | None:
+        """Get indices of element's children.
+
+        Parameters
+        ----------
+        idx : SupportsIndex
+            Index of the element to get the children for.
+
+        Returns
+        -------
+        (int, int, int, int) or None
+            If the element has children, their indices are returned in the order bottom
+            left, bottom right, top right, and top left. If the element is a leaf element
+            and has no parents, ``None`` is returned.
+        """
+        ...
+
+    def get_leaf_corners(self, idx: SupportsIndex, /) -> npt.NDArray[np.double]:
+        """Get corners of the leaf element.
+
+        Parameters
+        ----------
+        idx : SupportsIndex
+            Index of the leaf element to get the orders for.
+
+        Returns
+        -------
+        (4, 2) array
+            Corners of the element in the counter-clockwise order, starting at
+            the bottom left corner.
+        """
+        ...
+
+    def get_leaf_orders(self, idx: SupportsIndex, /) -> tuple[int, int]:
+        """Get orders of the leaf element.
+
+        Parameters
+        ----------
+        idx : SupportsIndex
+            Index of the leaf element to get the orders for.
+
+        Returns
+        -------
+        (int, int)
+            Orders of the leaf element in the first and second direction.
+        """
+        ...
+
+    def get_leaf_indices(self) -> npt.NDArray[np.uint]:
+        """Get indices of leaf elements.
+
+        Returns
+        -------
+        (N,) array
+            Indices of leaf elements.
+        """
+        ...
+
+ELEMENT_SIDE_BOTTOM: int
+ELEMENT_SIDE_RIGHT: int
+ELEMENT_SIDE_TOP: int
+ELEMENT_SIDE_LEFT: int

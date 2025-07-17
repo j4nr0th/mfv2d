@@ -77,4 +77,17 @@ MFV2D_INTERNAL void check_memory_bounds(size_t allocated_size, size_t element_co
 #define CHECK_MEMORY_BOUNDS(allocated_size, offset, size)                                                              \
     check_memory_bounds((allocated_size), (offset), (size), __FILE__, __LINE__, __func__)
 
+typedef struct
+{
+    unsigned i, j;
+} index_2d_t;
+
+typedef struct
+{
+    double x0, y0;
+    double x1, y1;
+    double x2, y2;
+    double x3, y3;
+} quad_info_t;
+
 #endif // COMMON_H

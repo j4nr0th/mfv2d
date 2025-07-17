@@ -241,7 +241,7 @@ class KWeight(KForm):
 
     def __str__(self) -> str:
         """Return print-friendly representation of the object."""
-        return f"{self.label}({self.order}*)"
+        return f"{self.label}({self.order.value - 1}*)"
 
     @overload  # type: ignore[override]
     def __mul__(self, other: KForm, /) -> KInnerProduct: ...
@@ -551,7 +551,7 @@ class KInteriorProductNonlinear(KForm):
         if self.form_field.order != UnknownFormOrder.FORM_ORDER_1:
             raise ValueError(
                 "Interior product requires the other form to be a"
-                f" 1-form, it was instead a {self.form_field.order}-form."
+                f" 1-form, it was instead a {self.form_field.order.value - 1}-form."
             )
 
     @property
@@ -1031,7 +1031,7 @@ def _form_as_string(form: Term) -> dict[Term, str | None]:
             vu = unknown[k]
             if form.unknown_form.is_primal:
                 if form.weight.is_primal:
-                    mtx_name = f"M({form.weight.order})"
+                    mtx_name = f"M({form.weight.order.value - 1})"
                 else:
                     mtx_name = ""
             else:
@@ -1055,7 +1055,7 @@ def _form_as_string(form: Term) -> dict[Term, str | None]:
     if type(form) is KFormDerivative:
         res = _form_as_string(form.form)
         if form.form.is_primal:
-            mtx_name = f"E({form.order}, {form.order - 1})"
+            mtx_name = f"E({form.order.value - 1}, {form.order.value - 1 - 1})"
         else:
             mtx_name = f"E({form.primal_order + 1}, {form.primal_order})^T"
         for k in res:
@@ -1064,25 +1064,33 @@ def _form_as_string(form: Term) -> dict[Term, str | None]:
 
     if type(form) is KInteriorProduct:
         res = _form_as_string(form.form)
-        mtx_name = f"M({form.order}, {form.form.order}; {form.vector_field.__name__})"
+        mtx_name = (
+            f"M({form.order.value - 1}, {form.form.order.value - 1};"
+            f" {form.vector_field.__name__})"
+        )
         for k in res:
             res[k] = mtx_name + (f" @ {res[k]}" if res[k] is not None else "")
         return res
 
     if type(form) is KInteriorProductNonlinear:
         res = _form_as_string(form.form)
-        mtx_name = f"M({form.order}, {form.form.order}; {form.form_field.label})"
+        mtx_name = (
+            f"M({form.order.value - 1}, {form.form.order.value - 1};"
+            f" {form.form_field.label})"
+        )
         for k in res:
             res[k] = mtx_name + (f" @ {res[k]}" if res[k] is not None else "")
 
         assert form.form_field not in res
         if type(form.form) is KHodge:
             res[form.form_field] = (
-                f"N({form.order}, {form.form.order}; {form.form.base_form.label})"
+                f"N({form.order.value - 1}, {form.form.order.value - 1};"
+                f" {form.form.base_form.label})"
             )
         else:
             res[form.form_field] = (
-                f"N({form.order}, {form.form.order}; {form.form.label})"
+                f"N({form.order.value - 1}, {form.form.order.value - 1};"
+                f" {form.form.label})"
             )
 
         return res

@@ -295,6 +295,112 @@ def compute_gll(
     might cause an exception to be raised to do failiure to converge.
     """
     ...
+
+def compute_legendre(
+    order: int, positions: npt.ArrayLike, out: npt.NDArray[np.float64] | None = None
+) -> npt.NDArray[np.float64]:
+    r"""Compute Legendre polynomials at given nodes.
+
+    Parameters
+    ----------
+    order : int
+        Order of the scheme. The number of node-weight pairs is one more.
+
+    positions : array_like
+        Positions where the polynomials should be evaluated at.
+
+    out : array, optional
+        Output array to write to. If not specified, then a new array is allocated.
+        Must have the exact correct shape (see return value) and data type
+        (double/float64).
+
+    Returns
+    -------
+    array
+        Array with the same shape as ``positions`` parameter, except with an
+        additional first dimension, which determines which Legendre polynomial
+        it is.
+
+    Examples
+    --------
+    To quickly illustrate how this function can be used to work with Legendre polynomials,
+    some simple examples are shown.
+
+    First things first, the function can be called for any order of polynomials, with
+    about any shape of input array (though if you put too many dimensions you will get an
+    exception). Also, you can supply an optional output parameter, such that an output
+    array need not be newly allocated.
+
+    .. jupyter-execute::
+
+        >>> import numpy as np
+        >>> from mfv2d._mfv2d import compute_legendre
+        >>>
+        >>> n = 5
+        >>> positions = np.linspace(-1, +1, 101)
+        >>> vals = compute_legendre(n, positions)
+        >>> assert vals is compute_legendre(n, positions, vals)
+
+    The output array will always have the same shape as the input array, with the only
+    difference being that a new axis is added for the first dimension, which can be
+    indexed to distinguish between the different Legendre polynomials.
+
+    .. jupyter-execute::
+
+        >>> from matplotlib import pyplot as plt
+        >>>
+        >>> fig, ax = plt.subplots(1, 1)
+        >>>
+        >>> for i in range(n + 1):
+        >>>     ax.plot(positions, vals[i, ...], label=f"$y = \\mathcal{{L}}_{{{i:d}}}$")
+        >>>
+        >>> ax.set(xlabel="$x$", ylabel="$y$")
+        >>> ax.grid()
+        >>> ax.legend()
+        >>>
+        >>> fig.tight_layout()
+        >>> plt.show()
+
+    Lastly, these polynomials are all orthogonal under the :math:`L^2` norm. This can
+    be shown numerically as well.
+
+    .. jupyter-execute::
+
+        >>> from mfv2d._mfv2d import IntegrationRule1D
+        >>>
+        >>> rule = IntegrationRule1D(n + 1)
+        >>>
+        >>> vals = compute_legendre(n, rule.nodes)
+        >>>
+        >>> for i1 in range(n + 1):
+        >>>     p1 = vals[i1, ...]
+        >>>     for i2 in range(n + 1):
+        >>>         p2 = vals[i2, ...]
+        >>>
+        >>>         integral = np.sum(p1 * p2 * rule.weights)
+        >>>
+        >>>         if i1 != i2:
+        >>>             assert abs(integral) < 1e-16
+    """
+
+def legendre_l2_to_h1_coefficients(c: npt.ArrayLike, /) -> npt.NDArray[np.double]:
+    """Convert Legendre polynomial coefficients to H1 coefficients.
+
+    The :math:`H^1` coefficients are based on being expansion coefficients of hierarchical
+    basis which are orthogonal in the :math:`H^1` norm instead of in the :math:`L^2` norm,
+    which holds for Legendre polynomials instead.
+
+    Parameters
+    ----------
+    c : array_like
+        Coefficients of the Legendre polynomials.
+
+    Returns
+    -------
+    array
+        Coefficients of integrated Legendre polynomial basis.
+    """
+    ...
 @final
 class GeoID:
     """Type used to identify a geometrical object with an index and orientation.

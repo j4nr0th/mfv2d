@@ -578,16 +578,30 @@ static PyMethodDef module_methods[] = {
     {"check_bytecode", check_bytecode, METH_O, "Convert bytecode to C-values, then back to Python."},
     {"check_incidence", (void *)check_incidence, METH_VARARGS | METH_KEYWORDS,
      "Apply the incidence matrix to the input matrix."},
-    {"lagrange1d", interp_lagrange, METH_VARARGS, interp_lagrange_doc},
-    {"dlagrange1d", interp_dlagrange, METH_VARARGS, interp_dlagrange_doc},
-    {.ml_name = "compute_gll",
-     .ml_meth = (void *)compute_gauss_lobatto_nodes,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = compute_gll_docstring},
-    {.ml_name = "compute_element_matrix_test",
-     .ml_meth = (void *)compute_element_mass_matrices,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = compute_element_mass_matrices_docstr},
+    {
+        .ml_name = "lagrange1d",
+        .ml_meth = interp_lagrange,
+        .ml_flags = METH_VARARGS,
+        .ml_doc = interp_lagrange_doc,
+    },
+    {
+        .ml_name = "dlagrange1d",
+        .ml_meth = interp_dlagrange,
+        .ml_flags = METH_VARARGS,
+        .ml_doc = interp_dlagrange_doc,
+    },
+    {
+        .ml_name = "compute_gll",
+        .ml_meth = (void *)compute_gauss_lobatto_nodes,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc = compute_gll_docstring,
+    },
+    {
+        .ml_name = "compute_element_matrix_test",
+        .ml_meth = (void *)compute_element_mass_matrices,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc = compute_element_mass_matrices_docstr,
+    },
     {.ml_name = "compute_element_matrix",
      .ml_meth = (void *)compute_element_matrix,
      .ml_flags = METH_VARARGS | METH_KEYWORDS,
@@ -622,14 +636,18 @@ static PyMethodDef module_methods[] = {
                "    Element matrix for the specified system.\n"
 
     },
-    {.ml_name = "compute_element_projector",
-     .ml_meth = (void *)compute_element_projector,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = compute_element_projector_docstr},
-    {.ml_name = "compute_element_mass_matrix",
-     .ml_meth = (void *)compute_element_mass_matrix,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = compute_element_mass_matrix_docstr},
+    {
+        .ml_name = "compute_element_projector",
+        .ml_meth = (void *)compute_element_projector,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc = compute_element_projector_docstr,
+    },
+    {
+        .ml_name = "compute_element_mass_matrix",
+        .ml_meth = (void *)compute_element_mass_matrix,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc = compute_element_mass_matrix_docstr,
+    },
     {.ml_name = "compute_element_vector",
      .ml_meth = (void *)compute_element_vector,
      .ml_flags = METH_VARARGS | METH_KEYWORDS,
@@ -666,6 +684,18 @@ static PyMethodDef module_methods[] = {
          "array\n"
          "    Element vector for the specified system.\n"
 
+    },
+    {
+        .ml_name = "compute_legendre",
+        .ml_meth = (void *)compute_legendre_polynomials,
+        .ml_doc = compute_legendre_polynomials_docstring,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+    },
+    {
+        .ml_name = "legendre_l2_to_h1_coefficients",
+        .ml_meth = legendre_l2_to_h1_coefficients,
+        .ml_flags = METH_O,
+        .ml_doc = legendre_l2_to_h1_coefficients_docstring,
     },
     {NULL, NULL, 0, NULL}, // sentinel
 };

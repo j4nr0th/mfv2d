@@ -88,11 +88,11 @@ static mfv2d_result_t element_mesh_split_element(element_mesh_t *this, const uns
     const double x_top_middle = (base_quad.x2 + base_quad.x3) / 2;
     const double y_top_middle = (base_quad.y2 + base_quad.y3) / 2;
 
-    const double x_left_middle = (base_quad.x0 + base_quad.x2) / 2;
-    const double y_left_middle = (base_quad.y0 + base_quad.y2) / 2;
+    const double x_left_middle = (base_quad.x0 + base_quad.x3) / 2;
+    const double y_left_middle = (base_quad.y0 + base_quad.y3) / 2;
 
-    const double x_right_middle = (base_quad.x1 + base_quad.x3) / 2;
-    const double y_right_middle = (base_quad.y1 + base_quad.y3) / 2;
+    const double x_right_middle = (base_quad.x1 + base_quad.x2) / 2;
+    const double y_right_middle = (base_quad.y1 + base_quad.y2) / 2;
 
     const double x_middle = (base_quad.x0 + base_quad.x1 + base_quad.x2 + base_quad.x3) / 4;
     const double y_middle = (base_quad.y0 + base_quad.y1 + base_quad.y2 + base_quad.y3) / 4;
@@ -200,10 +200,23 @@ static PyObject *mesh_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     manifold2d_object_t *primal, *dual;
     PyArrayObject *corners;
     PyArrayObject *orders;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!O!O!", (char *[5]){"primal", "dual", "corners", "orders", NULL},
+    PyArrayObject *boundary;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!O!O!O!",
+                                     (char *[6]){"primal", "dual", "corners", "orders", "boundary", NULL},
                                      &manifold2d_type_object, &primal, &manifold2d_type_object, &dual, &PyArray_Type,
-                                     &corners, &PyArray_Type, &orders))
+                                     &corners, &PyArray_Type, &orders, &PyArray_Type, &boundary))
     {
+        return NULL;
+    }
+
+    if (primal->n_points != dual->n_surfaces || primal->n_lines != dual->n_lines ||
+        primal->n_surfaces != dual->n_points)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Primal and dual manifolds must have the same number of points (%u) / surfaces (%u), lines (%u) / "
+                     "lines (%u), and surfaces (%u) / points (%u).",
+                     primal->n_points, dual->n_surfaces, primal->n_lines, dual->n_lines, primal->n_surfaces,
+                     dual->n_points);
         return NULL;
     }
 
@@ -220,6 +233,12 @@ static PyObject *mesh_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
+    if (check_input_array(boundary, 1, (const npy_intp[1]){0}, NPY_UINT, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED,
+                          "boundary") < 0)
+    {
+        return NULL;
+    }
+
     const quad_info_t *const quads = (const quad_info_t *)PyArray_DATA(corners);
     const index_2d_t *const orders_ptr = (const index_2d_t *)PyArray_DATA(orders);
 
@@ -227,14 +246,24 @@ static PyObject *mesh_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     if (!this)
         return NULL;
 
+    const unsigned boundary_len = PyArray_DIM(boundary, 0);
+    const npy_uint *const boundary_data = (const npy_uint *)PyArray_DATA(boundary);
+    unsigned *const boundary_indices = allocate(&SYSTEM_ALLOCATOR, boundary_len * sizeof *boundary_indices);
+    if (!boundary_indices)
+        return NULL;
+
     const mfv2d_result_t res =
         element_mesh_create(&this->element_mesh, &SYSTEM_ALLOCATOR, n_elements, quads, orders_ptr);
     if (res != MFV2D_SUCCESS)
     {
+        deallocate(&SYSTEM_ALLOCATOR, boundary_indices);
         Py_DECREF(this);
         return NULL;
     }
 
+    memcpy(boundary_indices, boundary_data, boundary_len * sizeof *boundary_indices);
+    this->boundary_indices = boundary_indices;
+    this->boundary_count = boundary_len;
     this->primal = primal;
     this->dual = dual;
     Py_INCREF(primal);
@@ -246,6 +275,7 @@ static PyObject *mesh_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void mesh_dealloc(mesh_t *const this)
 {
     element_mesh_destroy(&this->element_mesh);
+    deallocate(&SYSTEM_ALLOCATOR, this->boundary_indices);
     Py_DECREF(this->primal);
     Py_DECREF(this->dual);
     Py_TYPE(this)->tp_free((PyObject *)this);
@@ -268,6 +298,16 @@ static PyObject *mesh_get_element_count(const mesh_t *const this, void *Py_UNUSE
     return PyLong_FromUnsignedLong(this->element_mesh.count);
 }
 
+static PyObject *mesh_get_boundary_indices(const mesh_t *const this, void *Py_UNUSED(closure))
+{
+    const npy_intp shape[1] = {this->boundary_count};
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(1, shape, NPY_UINT);
+    if (!out)
+        return NULL;
+    memcpy(PyArray_DATA(out), this->boundary_indices, this->boundary_count * sizeof *this->boundary_indices);
+    return (PyObject *)out;
+}
+
 static PyGetSetDef mesh_getset[] = {
     {
         .name = "primal",
@@ -288,6 +328,13 @@ static PyGetSetDef mesh_getset[] = {
         .get = (void *)mesh_get_element_count,
         .set = NULL,
         .doc = "int : Number of elements in the mesh.",
+        .closure = NULL,
+    },
+    {
+        .name = "boundary_indices",
+        .get = (void *)mesh_get_boundary_indices,
+        .set = NULL,
+        .doc = "array : Indices of the boundary elements.",
         .closure = NULL,
     },
     {},
@@ -357,7 +404,7 @@ static PyObject *mesh_split_element(mesh_t *const this, PyObject *args, PyObject
         (index_2d_t){orders_top_right[0], orders_top_right[1]}, (index_2d_t){orders_top_left[0], orders_top_left[1]});
     if (res != MFV2D_SUCCESS)
     {
-        PyErr_Format(PyExc_RuntimeError, "Could not split element at index %ld: %s", mfv2d_result_str(res));
+        PyErr_Format(PyExc_RuntimeError, "Could not split element at index %ld: %s", index_long, mfv2d_result_str(res));
         return NULL;
     }
 
@@ -384,7 +431,7 @@ static PyObject *mesh_get_element_children(const mesh_t *const this, PyObject *i
         Py_RETURN_NONE;
 
     const element_node_t *const node = &elem->node;
-    return Py_BuildValue("uuuu", node->child_bottom_left, node->child_bottom_right, node->child_top_right,
+    return Py_BuildValue("IIII", node->child_bottom_left, node->child_bottom_right, node->child_top_right,
                          node->child_top_left);
 }
 
@@ -441,7 +488,7 @@ static PyObject *mesh_get_leaf_orders(const mesh_t *const this, PyObject *index)
     }
 
     const element_leaf_t *const leaf = &elem->leaf;
-    return Py_BuildValue("uu", leaf->data.orders.i, leaf->data.orders.j);
+    return Py_BuildValue("II", leaf->data.orders.i, leaf->data.orders.j);
 }
 
 static PyObject *mesh_get_leaf_indices(const mesh_t *const this, PyObject *Py_UNUSED(args))
@@ -540,7 +587,7 @@ PyDoc_STRVAR(mesh_get_leaf_orders_docstr, "get_leaf_orders(idx: typing.SupportsI
                                           "(int, int)\n"
                                           "    Orders of the leaf element in the first and second direction.\n");
 
-PyDoc_STRVAR(mesh_get_leaf_indices_docstr, "get_leaf_indices() -> npt.NDArray[np.uint]\n"
+PyDoc_STRVAR(mesh_get_leaf_indices_docstr, "get_leaf_indices() -> npt.NDArray[np.uintc]\n"
                                            "Get indices of leaf elements.\n"
                                            "\n"
                                            "Returns\n"
@@ -603,7 +650,10 @@ PyDoc_STRVAR(mesh_type_docstr, "Mesh(primal : Manifold2D, dual : Manifold2D, cor
                                "    Array of element corners.\n"
                                "\n"
                                "orders : (N, 2) array\n"
-                               "    Array of element orders.\n");
+                               "    Array of element orders.\n"
+                               "\n"
+                               "boundary : (N,) array\n"
+                               "    Array of boundary edge indices.\n");
 
 PyTypeObject mesh_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Mesh",

@@ -26,13 +26,7 @@ from mfv2d._mfv2d import (
 from mfv2d._mfv2d import (
     ELEMENT_SIDE_TOP as _ELEMENT_SIDE_TOP,
 )
-from mfv2d._mfv2d import (
-    Basis1D,
-    Basis2D,
-    IntegrationRule1D,
-    Manifold2D,
-    Surface,
-)
+from mfv2d._mfv2d import Basis1D, Basis2D, IntegrationRule1D, Manifold2D, Mesh, Surface
 
 
 # TODO: remake incidence into working for two different orders
@@ -899,3 +893,73 @@ def find_surface_boundary_id_line(s: Surface, i: int) -> ElementSide:
     if s[3].index == i:
         return ElementSide.SIDE_LEFT
     raise ValueError(f"Line with index {i} is not in the surface {s}.")
+
+
+def mesh_create(
+    order: int | Sequence[int] | npt.ArrayLike,
+    positions: Sequence[tuple[float, float, float]]
+    | Sequence[Sequence[float]]
+    | Sequence[npt.ArrayLike]
+    | npt.ArrayLike,
+    lines: Sequence[tuple[int, int]]
+    | Sequence[npt.ArrayLike]
+    | Sequence[Sequence[int]]
+    | npt.ArrayLike,
+    surfaces: Sequence[tuple[int, ...]]
+    | Sequence[Sequence[int]]
+    | Sequence[npt.ArrayLike]
+    | npt.ArrayLike,
+) -> Mesh:
+    """Create new mesh from given geometry."""
+    pos = np.array(positions, np.float64, copy=True, ndmin=2)
+    if pos.ndim != 2 or pos.shape[1] != 2:
+        raise ValueError("Positions must be a (N, 2) array.")
+    # First try the regular surfaces
+    surf = np.array(surfaces, np.int32, copy=None)
+    if surf.ndim != 2 or surf.shape[1] != 4:
+        raise ValueError("Surfaces should be a (M, 4) array of integers")
+
+    n_surf = surf.shape[0]
+
+    orders_array = np.array(order, dtype=np.uint32)
+    if orders_array.ndim == 0:
+        orders_array = np.full((n_surf, 2), orders_array)
+    elif orders_array.shape[0] != n_surf:
+        raise ValueError(
+            "Orders array must contain as many entries as there are surfaces."
+        )
+    elif orders_array.ndim == 1:
+        orders_array = np.stack((orders_array, orders_array), axis=1)
+    elif orders_array.ndim != 2 or orders_array.shape[1] != 2:
+        raise ValueError(
+            "Orders must be given as either a single value, a (N,) sequence, or (N, 2)"
+            " sequence where N is the number of elements."
+        )
+
+    if np.any(orders_array < 1):
+        raise ValueError("Order can not be lower than 1.")
+
+    orders = np.astype(orders_array, np.uintc, copy=False)
+
+    lns = np.array(lines, np.int32, copy=None)
+    primal = Manifold2D.from_regular(pos.shape[0], lns, surf)
+    dual = primal.compute_dual()
+
+    corners = np.empty((n_surf, 4, 2), np.double)
+    indices = np.empty(4, np.uintc)
+    for idx_surf in range(n_surf):
+        s = primal.get_surface(idx_surf + 1)
+        assert len(s) == 4
+        for n_line in range(4):
+            line = primal.get_line(s[n_line])
+            indices[n_line] = line.begin.index
+        corners[idx_surf] = pos[indices, :]
+
+    bnd: list[int] = []
+    for n_line in range(dual.n_lines):
+        ln = dual.get_line(n_line + 1)
+        if not ln.begin or not ln.end:
+            bnd.append(n_line)
+    boundary_indices = np.array(bnd, np.uintc)
+
+    return Mesh(primal, dual, corners, orders, boundary_indices)

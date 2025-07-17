@@ -1332,6 +1332,9 @@ class Mesh:
 
     orders : (N, 2) array
         Array of element orders.
+
+    boundary : (N,) array
+        Array of boundary edge indices.
     """
 
     def __new__(
@@ -1339,7 +1342,8 @@ class Mesh:
         primal: Manifold2D,
         dual: Manifold2D,
         corners: npt.NDArray[np.double],
-        orders: npt.NDArray[np.uint],
+        orders: npt.NDArray[np.uintc],
+        boundary: npt.NDArray[np.uintc],
     ) -> Self: ...
     @property
     def primal(self) -> Manifold2D:
@@ -1354,6 +1358,11 @@ class Mesh:
     @property
     def element_count(self) -> int:
         """Number of elements in the mesh."""
+        ...
+
+    @property
+    def boundary_indices(self) -> npt.NDArray[np.uintc]:
+        """Indices of the boundary elements."""
         ...
 
     def get_element_parent(self, idx: SupportsIndex, /) -> int | None:
@@ -1452,7 +1461,7 @@ class Mesh:
         """
         ...
 
-    def get_leaf_indices(self) -> npt.NDArray[np.uint]:
+    def get_leaf_indices(self) -> npt.NDArray[np.uintc]:
         """Get indices of leaf elements.
 
         Returns

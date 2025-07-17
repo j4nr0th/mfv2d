@@ -64,6 +64,8 @@ typedef struct
     element_mesh_t element_mesh;
     manifold2d_object_t *primal;
     manifold2d_object_t *dual;
+    unsigned boundary_count;
+    unsigned *boundary_indices;
 } mesh_t;
 
 MFV2D_INTERNAL

@@ -1,5 +1,7 @@
 """Solving the actual system."""
 
+from __future__ import annotations
+
 from collections.abc import Sequence
 from typing import cast
 

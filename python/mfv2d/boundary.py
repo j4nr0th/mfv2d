@@ -12,6 +12,8 @@ though based on what is already supported, it would not be too much of a stretch
 add support for prescribing arbitrary relations on the boundary.
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 

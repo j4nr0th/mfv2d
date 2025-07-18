@@ -1,5 +1,7 @@
 """Really cool looking progress bar type."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from numpy import log

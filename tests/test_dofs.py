@@ -1,17 +1,46 @@
 """Test that DoFs are properly expressed."""
 
+from dataclasses import dataclass
+
 import numpy as np
 import numpy.typing as npt
 import pytest
 from mfv2d._mfv2d import compute_gll
+from mfv2d.continuity import _get_side_dofs
 from mfv2d.kform import UnknownFormOrder
-from mfv2d.mimetic2d import (
-    ElementLeaf2D,
-    ElementSide,
-    get_side_dofs,
-    get_side_order,
-    mesh_create,
-)
+from mfv2d.mimetic2d import ElementSide, get_side_order, mesh_create
+
+
+@dataclass(eq=False)
+class ElementLeaf2D:
+    """Two dimensional square element.
+
+    This type facilitates operations related to calculations which need
+    to be carried out on the reference element itself, such as calculation
+    of the mass and incidence matrices, as well as the reconstruction of
+    the solution.
+
+    Parameters
+    ----------
+    order_h : int
+        Order of the basis functions used for the nodal basis in the first dimension.
+    order_v : int
+        Order of the basis functions used for the nodal basis in the second dimension.
+    bottom_left : (float, float)
+        Coordinates of the bottom left corner.
+    bottom_right : (float, float)
+        Coordinates of the bottom right corner.
+    top_right : (float, float)
+        Coordinates of the top right corner.
+    top_left : (float, float)
+        Coordinates of the top left corner.
+    """
+
+    order: int
+    bottom_left: tuple[float, float]
+    bottom_right: tuple[float, float]
+    top_right: tuple[float, float]
+    top_left: tuple[float, float]
 
 
 def test_evaluation_twice() -> None:
@@ -27,7 +56,7 @@ def test_evaluation_twice() -> None:
     mesh.split_element(1, (2, 2), (4, 4), (1, 1), (1, 1))
     mesh.split_element(2, (2, 2), (3, 3), (1, 1), (1, 1))
 
-    constraints = get_side_dofs(
+    constraints = _get_side_dofs(
         mesh, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
     max_order = get_side_order(mesh, 0, ElementSide.SIDE_BOTTOM)
@@ -38,7 +67,7 @@ def test_evaluation_twice() -> None:
 
     bnd_indices = (5, 6, 9, 10)
     bnd_leaves = [
-        ElementLeaf2D(None, mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
+        ElementLeaf2D(mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
         for ie in bnd_indices
     ]
 
@@ -81,7 +110,7 @@ def test_evaluation_once() -> None:
 
     mesh.split_element(0, (4, 4), (7, 7), (1, 1), (1, 1))
 
-    constraints = get_side_dofs(
+    constraints = _get_side_dofs(
         mesh, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
     max_order = get_side_order(mesh, 0, ElementSide.SIDE_BOTTOM)
@@ -93,7 +122,7 @@ def test_evaluation_once() -> None:
 
     bnd_indices = (1, 2)
     bnd_leaves = [
-        ElementLeaf2D(None, mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
+        ElementLeaf2D(mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
         for ie in bnd_indices
     ]
     bnd_pts = tuple(
@@ -136,7 +165,7 @@ def test_evaluation_twice_1() -> None:
     mesh.split_element(0, (1, 1), (1, 1), (1, 1), (1, 1))
     mesh.split_element(1, (2, 2), (4, 4), (1, 1), (1, 1))
     mesh.split_element(2, (2, 2), (3, 3), (1, 1), (1, 1))
-    constraints = get_side_dofs(
+    constraints = _get_side_dofs(
         mesh, 1, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
     max_order = get_side_order(mesh, 1, ElementSide.SIDE_BOTTOM)
@@ -147,7 +176,7 @@ def test_evaluation_twice_1() -> None:
 
     bnd_indices = (5, 6)
     bnd_leaves = [
-        ElementLeaf2D(None, mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
+        ElementLeaf2D(mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
         for ie in bnd_indices
     ]
     assert max_order == sum(leaf.order for leaf in bnd_leaves)
@@ -190,7 +219,7 @@ def test_evaluation() -> None:
     mesh.split_element(2, (1, 1), (1, 1), (1, 1), (1, 1))
     mesh.split_element(5, (1, 1), (1, 1), (1, 1), (1, 1))
 
-    constraints = get_side_dofs(
+    constraints = _get_side_dofs(
         mesh, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
     max_order = get_side_order(mesh, 0, ElementSide.SIDE_BOTTOM)
@@ -202,7 +231,7 @@ def test_evaluation() -> None:
 
     bnd_indices = (1, 9, 10, 6)
     bnd_leaves = [
-        ElementLeaf2D(None, mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
+        ElementLeaf2D(mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
         for ie in bnd_indices
     ]
     bnd_pts = tuple(

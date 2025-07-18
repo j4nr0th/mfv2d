@@ -646,25 +646,26 @@ static PyMethodDef mesh_methods[] = {
     {},
 };
 
-PyDoc_STRVAR(mesh_type_docstr, "Mesh(primal : Manifold2D, dual : Manifold2D, corners: array, orders: array)\n"
-                               "Mesh containing topology, geometry, and discretization information.\n"
-                               "\n"
-                               "Parameters\n"
-                               "----------\n"
-                               "primal : Manifold2D\n"
-                               "    Primal topology manifold.\n"
-                               "\n"
-                               "dual : Manifold2D\n"
-                               "    Dual topology manifold.\n"
-                               "\n"
-                               "corners : (N, 4, 2) array\n"
-                               "    Array of element corners.\n"
-                               "\n"
-                               "orders : (N, 2) array\n"
-                               "    Array of element orders.\n"
-                               "\n"
-                               "boundary : (N,) array\n"
-                               "    Array of boundary edge indices.\n");
+PyDoc_STRVAR(mesh_type_docstr,
+             "Mesh(primal : Manifold2D, dual : Manifold2D, corners: array, orders: array, boundary: array)\n"
+             "Mesh containing topology, geometry, and discretization information.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "primal : Manifold2D\n"
+             "    Primal topology manifold.\n"
+             "\n"
+             "dual : Manifold2D\n"
+             "    Dual topology manifold.\n"
+             "\n"
+             "corners : (N, 4, 2) array\n"
+             "    Array of element corners.\n"
+             "\n"
+             "orders : (N, 2) array\n"
+             "    Array of element orders.\n"
+             "\n"
+             "boundary : (N,) array\n"
+             "    Array of boundary edge indices.\n");
 
 PyTypeObject mesh_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Mesh",

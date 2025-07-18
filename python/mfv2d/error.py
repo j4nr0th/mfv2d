@@ -1,15 +1,18 @@
 """Functions related to error calculations."""
 
+from __future__ import annotations
+
 import numpy as np
 import numpy.typing as npt
 import pyvista as pv
 
 from mfv2d._mfv2d import (
     IntegrationRule1D,
+    Mesh,
     compute_legendre,
     legendre_l2_to_h1_coefficients,
 )
-from mfv2d.mimetic2d import ElementLeaf2D, bilinear_interpolate
+from mfv2d.mimetic2d import bilinear_interpolate
 
 
 def _compute_legendre_coefficients(
@@ -63,7 +66,7 @@ def _compute_legendre_coefficients(
 
 
 def compute_element_field_legendre_coefficients(
-    e: ElementLeaf2D, mesh: pv.UnstructuredGrid, key: str, order_1: int, order_2: int
+    ie: int, mesh: Mesh, grid: pv.UnstructuredGrid, key: str, order_1: int, order_2: int
 ) -> npt.NDArray[np.float64]:
     """Compute Legendre coefficients of a field on the element.
 
@@ -93,9 +96,7 @@ def compute_element_field_legendre_coefficients(
     rule_1 = IntegrationRule1D(order_1 + 1)
     rule_2 = IntegrationRule1D(order_2 + 1)
 
-    corners = np.array(
-        (e.bottom_left, e.bottom_right, e.top_right, e.top_left), np.float64
-    )
+    corners = mesh.get_leaf_corners(ie)
     nodes_x = bilinear_interpolate(
         corners[:, 0], rule_1.nodes[None, :], rule_2.nodes[:, None]
     )
@@ -109,7 +110,7 @@ def compute_element_field_legendre_coefficients(
             axis=-1,
         )
     )
-    sampled = points.sample(mesh)
+    sampled = points.sample(grid)
 
     func_vals = np.asarray(sampled[key], np.float64).reshape(nodes_x.shape)
 

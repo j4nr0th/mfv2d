@@ -41,10 +41,14 @@ autodoc_default_options = {
     "inherited-members": True,
     "show-inheritence": True,
 }
-
 autodoc_type_aliases = {
-    "npt.NDArray": "array",
     "npt.ArrayLike": "array_like",
+    "npt.NDArray": "array",
+    "npt.NDArray[np.float64]": "array[float64]",
+    "npt.NDArray[np.uint32]": "array[uint32]",
+    "npt.NDArray[np.uint64]": "array[uint64]",
+    "npt.NDArray[np.double]": "array[double]",
+    "npt.NDArray[np.floating]": "array[floating]",
 }
 
 
@@ -71,11 +75,7 @@ napoleon_include_special_with_doc = True
 napoleon_use_param = True
 napoleon_use_rtype = True
 napoleon_attr_annotations = True
-napoleon_type_aliases = {
-    "array_like": ":obj:`numpy.array_like <numpy:array_like>`",
-    "ArrayLike": ":obj:`numpy.ArrayLike <numpy:ArrayLike>`",
-    "array": ":obj:`numpy.ndarray <numpy:ndarray>`",
-}
+
 
 # -- Options for Sphinx Gallery ----------------------------------------------
 # https://sphinx-gallery.github.io/stable/index.html

@@ -105,10 +105,20 @@ have a number of lines different than four.
 
 Surfaces can together form a :class:`Manifold2D` object. This is a
 collection of surfaces which supports most of needed topological
-operations. It is used as the main workhorse of
-:class:`mfv2d.mimetic2d.Mesh2D` functionality.
+operations. It is used for obtaining connectivity of the top level
+surfaces. As such, it is used in :class:`Mesh` type.
 
 .. autoclass:: Manifold2D
+    :members:
+
+For hierarchical refinement, individual surfaces of the manifold can
+be subdivided into smaller sub-surfaces. Dealing with this hierarchy
+id done with the :class:`Mesh` type, which was written in C because
+doing it purely in Python was something I tried to code about three times
+already, but did not end up working, and this is much nicer with C's
+``union``.
+
+.. autoclass:: Mesh
     :members:
 
 

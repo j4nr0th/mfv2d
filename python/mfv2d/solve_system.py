@@ -5,6 +5,8 @@ of these include the assembly of the global matrix, the application of the
 boundary conditions, and computing the right side of the system.
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 
@@ -36,8 +38,6 @@ from mfv2d.kform import (
     UnknownOrderings,
 )
 from mfv2d.mimetic2d import (
-    Element2D,
-    ElementLeaf2D,
     FemCache,
     bilinear_interpolate,
     element_dual_dofs,
@@ -45,36 +45,6 @@ from mfv2d.mimetic2d import (
     vtk_lagrange_ordering,
 )
 from mfv2d.progress import ProgressTracker
-
-OrderDivisionFunction = Callable[[int, int, int], tuple[int, int, int, int]]
-
-
-def check_and_refine(
-    pred: Callable[[ElementLeaf2D, int], bool] | None,
-    order_div: OrderDivisionFunction,
-    e: ElementLeaf2D,
-    level: int,
-    max_level: int,
-) -> list[Element2D]:
-    """Return element and potentially its children."""
-    out: list[Element2D]
-    if level < max_level and pred is not None and pred(e, level):
-        child_orders = order_div(e.order, level, max_level)
-        new_e, ((ebl, ebr), (etl, etr)) = e.divide(*child_orders)
-        cbl = check_and_refine(pred, order_div, ebl, level + 1, max_level)
-        cbr = check_and_refine(pred, order_div, ebr, level + 1, max_level)
-        ctl = check_and_refine(pred, order_div, etl, level + 1, max_level)
-        ctr = check_and_refine(pred, order_div, etr, level + 1, max_level)
-        new_e.child_bl = cbl[0]
-        new_e.child_br = cbr[0]
-        new_e.child_tl = ctl[0]
-        new_e.child_tr = ctr[0]
-        out = [new_e] + cbl + cbr + ctr + ctl
-
-    else:
-        out = [e]
-
-    return out
 
 
 def compute_element_vector_fields_nonlin(
@@ -220,7 +190,7 @@ def rhs_2d_element_projection(
         else:
             raise ValueError(f"Invalid weight order {right.weight.order}.")
 
-        return np.zeros(n_dof)
+        return np.zeros(n_dof, np.float64)
 
     return element_dual_dofs(right.weight.order, element_cache, fn)
 
@@ -703,36 +673,6 @@ class SystemSettings:
         KFormUnknown,
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
     ] = field(default_factory=dict)
-
-
-def divide_old(order: int, level: int, max_level: int) -> tuple[int, int, int, int]:
-    """Keep child order equal to parent."""
-    del level, max_level
-    return (order, order, order, order)
-
-
-@dataclass(frozen=True)
-class RefinementSettings:
-    """Type used to hold settings related to refinement information.
-
-    Parameters
-    ----------
-    refinement_levels : int
-        Number of mesh refinement levels which can be done. When zero,
-        no refinement is done.
-
-    division_predicate : Callable (Element2D, int) -> bool, optional
-        Callable used to determine if an element should be divided further. If
-        not specified, no refinement is done.
-
-    division_function : OrderDivisionFunction, optional
-        Function which determines order of the parent and child elements resulting from
-        the division of the element. When not specified, the "old" method is used.
-    """
-
-    refinement_levels: int
-    division_predicate: Callable[[ElementLeaf2D, int], bool] | None = None
-    division_function: OrderDivisionFunction = divide_old
 
 
 @dataclass(frozen=True)

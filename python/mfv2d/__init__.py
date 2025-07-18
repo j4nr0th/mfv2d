@@ -15,11 +15,9 @@ from mfv2d.kform import KWeight as KWeight
 from mfv2d.kform import UnknownFormOrder as UnknownFormOrder
 
 # Mimetic2D
-from mfv2d.mimetic2d import ElementLeaf2D as ElementLeaf2D
-from mfv2d.mimetic2d import Mesh2D as Mesh2D
+from mfv2d.mimetic2d import mesh_create as mesh_create
 
 # Solve system
-from mfv2d.solve_system import RefinementSettings as RefinementSettings
 from mfv2d.solve_system import SolverSettings as SolverSettings
 from mfv2d.solve_system import SystemSettings as SystemSettings
 from mfv2d.solve_system import TimeSettings as TimeSettings

@@ -28,6 +28,13 @@ constraints for mesh continuity.
 
 .. autofunction:: connect_elements
 
-There is also an internal function used in this module.
+There is also a number of utility functions, since hierarchical layout
+of the elements means that recursive calls have to be ofter used.
 
 .. autofunction:: _find_surface_boundary_id_node
+
+.. autofunction:: _get_corner_dof
+
+.. autofunction:: _get_side_dof_nodes
+
+.. autofunction:: _get_side_dofs

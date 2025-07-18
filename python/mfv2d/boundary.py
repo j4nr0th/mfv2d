@@ -12,20 +12,15 @@ though based on what is already supported, it would not be too much of a stretch
 add support for prescribing arbitrary relations on the boundary.
 """
 
-from collections.abc import Callable, Sequence
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
 
-from mfv2d.element import (
-    ElementCollection,
-    ElementConstraint,
-    FixedElementArray,
-    element_boundary_dofs,
-    element_node_children_on_side,
-    get_side_order,
-)
+from mfv2d._mfv2d import Mesh
 from mfv2d.kform import (
     Function2D,
     KBoundaryProjection,
@@ -34,7 +29,15 @@ from mfv2d.kform import (
     UnknownFormOrder,
     UnknownOrderings,
 )
-from mfv2d.mimetic2d import ElementSide, FemCache, Mesh2D, find_surface_boundary_id_line
+from mfv2d.mimetic2d import (
+    ElementConstraint,
+    ElementSide,
+    FemCache,
+    element_boundary_dofs,
+    element_node_children_on_side,
+    find_surface_boundary_id_line,
+    get_side_order,
+)
 
 
 @dataclass(frozen=True, init=False)
@@ -104,12 +107,13 @@ class BoundaryCondition2DUnsteady(BoundaryCondition2D):
 
 
 def _element_weak_boundary_condition(
-    elements: ElementCollection,
+    elements: Mesh,
     element_idx: int,
     side: ElementSide,
     unknown_orders: UnknownOrderings,
     unknown_index: int,
-    dof_offsets: FixedElementArray[np.uint32],
+    leaf_order_mapping: Mapping[int, int],
+    dof_offsets: npt.NDArray[np.uint32],
     weak_terms: Sequence[tuple[float, KBoundaryProjection]],
     basis_cache: FemCache,
 ) -> tuple[ElementConstraint, ...]:
@@ -145,9 +149,9 @@ def _element_weak_boundary_condition(
         indices of equations where to apply in the ``dofs`` member and
         contributions of boundary terms in the ``coeffs`` member.
     """
-    children = elements.child_array[element_idx]
+    children = elements.get_element_children(element_idx)
 
-    if children.size != 0:
+    if children is not None:
         # Node, has children
         c1, c2 = element_node_children_on_side(side, children)
         return _element_weak_boundary_condition(
@@ -156,6 +160,7 @@ def _element_weak_boundary_condition(
             side,
             unknown_orders,
             unknown_index,
+            leaf_order_mapping,
             dof_offsets,
             weak_terms,
             basis_cache,
@@ -165,6 +170,7 @@ def _element_weak_boundary_condition(
             side,
             unknown_orders,
             unknown_index,
+            leaf_order_mapping,
             dof_offsets,
             weak_terms,
             basis_cache,
@@ -176,7 +182,7 @@ def _element_weak_boundary_condition(
     ndir = 2 * ((side.value & 2) >> 1) - 1
     i0 = side.value - 1
     i1 = side.value & 3
-    corners = elements.corners_array[element_idx]
+    corners = elements.get_leaf_corners(element_idx)
     p0: tuple[float, float] = corners[i0]
     p1: tuple[float, float] = corners[i1]
     dx = (p1[0] - p0[0]) / 2
@@ -184,8 +190,8 @@ def _element_weak_boundary_condition(
     dy = (p1[1] - p0[1]) / 2
     yv = (p1[1] + p0[1]) / 2 + dy * basis_1d.rule.nodes
     form_order = unknown_orders.form_orders[unknown_index]
-    dofs = element_boundary_dofs(side, form_order, *elements.orders_array[element_idx])
-    dofs = dofs + dof_offsets[element_idx][unknown_index]
+    dofs = element_boundary_dofs(side, form_order, *elements.get_leaf_orders(element_idx))
+    dofs = dofs + dof_offsets[leaf_order_mapping[element_idx], unknown_index]
     vals = np.zeros_like(dofs, np.float64)
 
     for k, bp in weak_terms:
@@ -212,12 +218,13 @@ def _element_weak_boundary_condition(
 
 
 def _element_strong_boundary_condition(
-    elements: ElementCollection,
+    mesh: Mesh,
     element_idx: int,
     side: ElementSide,
     unknown_orders: UnknownOrderings,
     unknown_index: int,
-    dof_offsets: FixedElementArray[np.uint32],
+    leaf_order_mapping: Mapping[int, int],
+    dof_offsets: npt.NDArray[np.uint32],
     strong_bc: BoundaryCondition2DSteady,
     basis_cache: FemCache,
     skip_first: bool,
@@ -261,28 +268,30 @@ def _element_strong_boundary_condition(
         degrees of freedom to constrain ``dofs`` member and
         their respective values in the ``coeffs`` member.
     """
-    children = elements.child_array[element_idx]
-    if children.size != 0:
+    children = mesh.get_element_children(element_idx)
+    if children is not None:
         # Node, has children
         c1, c2 = element_node_children_on_side(side, children)
 
         return _element_strong_boundary_condition(
-            elements,
+            mesh,
             c1,
             side,
             unknown_orders,
             unknown_index,
+            leaf_order_mapping,
             dof_offsets,
             strong_bc,
             basis_cache,
             skip_first,
             False,
         ) + _element_strong_boundary_condition(
-            elements,
+            mesh,
             c2,
             side,
             unknown_orders,
             unknown_index,
+            leaf_order_mapping,
             dof_offsets,
             strong_bc,
             basis_cache,
@@ -290,13 +299,13 @@ def _element_strong_boundary_condition(
             skip_last,
         )
 
-    side_order = get_side_order(elements, element_idx, side)
+    side_order = get_side_order(mesh, element_idx, side)
 
     basis_1d = basis_cache.get_basis1d(side_order)
     ndir = 2 * ((side.value & 2) >> 1) - 1
     i0 = side.value - 1
     i1 = side.value & 3
-    corners = elements.corners_array[element_idx]
+    corners = mesh.get_leaf_corners(element_idx)
     p0: tuple[float, float] = corners[i0]
     p1: tuple[float, float] = corners[i1]
     # ndir, p0, p1 = _endpoints_from_line(e, i_side)
@@ -305,8 +314,8 @@ def _element_strong_boundary_condition(
     xv = np.astype((p1[0] + p0[0]) / 2 + dx * basis_1d.roots, np.float64, copy=False)
     yv = np.astype((p1[1] + p0[1]) / 2 + dy * basis_1d.roots, np.float64, copy=False)
     form_order = unknown_orders.form_orders[unknown_index]
-    dofs = element_boundary_dofs(side, form_order, *elements.orders_array[element_idx])
-    dofs = dofs + dof_offsets[element_idx][unknown_index]
+    dofs = element_boundary_dofs(side, form_order, *mesh.get_leaf_orders(element_idx))
+    dofs = dofs + dof_offsets[leaf_order_mapping[element_idx], unknown_index]
     vals = np.zeros_like(dofs, np.float64)
 
     if form_order == UnknownFormOrder.FORM_ORDER_0:
@@ -382,11 +391,10 @@ def _element_strong_boundary_condition(
 
 def mesh_boundary_conditions(
     evaluatable_terms: Sequence[KSum],
-    mesh: Mesh2D,
     unknown_order: UnknownOrderings,
-    elements: ElementCollection,
-    dof_offsets: FixedElementArray[np.uint32],
-    top_indices: npt.NDArray[np.uint32],
+    mesh: Mesh,
+    leaf_order_mapping: Mapping[int, int],
+    dof_offsets: npt.NDArray[np.uint32],
     strong_bcs: Sequence[Sequence[BoundaryCondition2DSteady]],
     basis_cache: FemCache,
 ) -> tuple[tuple[ElementConstraint, ...], tuple[ElementConstraint, ...]]:
@@ -398,9 +406,6 @@ def mesh_boundary_conditions(
         Right sides of equations that contain boundary projections to be evaluated. Must
         be ordered according to weights.
 
-    mesh : Mesh2D
-        Mesh of the top level elements.
-
     unknown_order : UnknownOrderings
         Orders of unknown forms.
 
@@ -409,9 +414,6 @@ def mesh_boundary_conditions(
 
     dof_offsets : FixedElementArray[np.uint32]
         Offsets of DoFs within each element.
-
-    top_indices : npt.NDArray[np.uint32]
-        Array with corrected indices for top level elements.
 
     strong_bcs : Sequence of Sequence of BoundaryCondition2DSteady
         Boundary conditions grouped per weight functions and correctly ordered to match
@@ -458,7 +460,6 @@ def mesh_boundary_conditions(
             raise ValueError("Dual line should be on the boundary.")
 
         # primal_line = mesh.primal.get_line(i_boundary + 1)
-        i_element = top_indices[id_surf.index]
         primal_surface = mesh.primal.get_surface(id_surf)
         i_side = find_surface_boundary_id_line(primal_surface, i_boundary)
         primal_line = mesh.primal.get_line(primal_surface[i_side.value - 1])
@@ -477,11 +478,12 @@ def mesh_boundary_conditions(
 
                 s_bcs.extend(
                     _element_strong_boundary_condition(
-                        elements,
-                        i_element,
+                        mesh,
+                        id_surf.index,
                         i_side,
                         unknown_order,
                         idx,
+                        leaf_order_mapping,
                         dof_offsets,
                         strong_term,
                         basis_cache,
@@ -496,11 +498,12 @@ def mesh_boundary_conditions(
 
                 w_bcs.extend(
                     _element_weak_boundary_condition(
-                        elements,
-                        i_element,
+                        mesh,
+                        id_surf.index,
                         i_side,
                         unknown_order,
                         idx,
+                        leaf_order_mapping,
                         dof_offsets,
                         weak_term,
                         basis_cache,

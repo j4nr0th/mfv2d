@@ -5,6 +5,8 @@ This module is concerned with converting expressions from the representation of 
 stack machine.
 """
 
+from __future__ import annotations
+
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import IntEnum

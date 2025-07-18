@@ -53,35 +53,8 @@ so that they can be translated into C almost line by line.
 .. autofunction:: apply_e21_rt
 
 
-Mesh Geometry
--------------
-
-Mesh geometry is handled by the :class:`Mesh2D` type. This uses
-:class:`mfv2d._mfv2d.Manifold2D` to store its topology and its dual topology,
-but also contains geometry. It is also equiped with helper methods for
-obtaining elements and plotting with :mod:`pyvista`.
-
-.. autoclass:: Mesh2D
-
-
-Elements
---------
-
-Surfaces of the mesh can be converted into computational elements. These
-can either be leaf elements, with the type :class:`ElementLeaf2D`, or
-nodes, which contain other nodes or leaves, with the type
-:class:`ElementNode2D`. Both are subtypes of :class:`Element2D`, which
-only contains the information about the parent.
-
-.. autoclass:: ElementLeaf2D
-
-.. autoclass:: ElementNode2D
-
-.. autoclass:: Element2D
-
-
 Element Sides
-~~~~~~~~~~~~~
+-------------
 
 Many functions have to perform operations on boundaries of the elements. To
 make this easier to type check, the type :class:`ElementSide` is introduced.
@@ -113,3 +86,89 @@ just containers for two objects and so are not a significant cost to newly
 construct each time.
 
 .. autoclass:: FemCache
+
+
+Mesh Geometry
+-------------
+
+Since :class:`mfv2d._mfv2d.Mesh` is meant as a container, constructing
+it is repetative and cumbersome. As such, the function :func:`mesh_create`
+is intended to be used for to create a new mesh from position and
+connectivity data.
+
+.. autofunction:: mesh_create
+
+
+Lagrange Multipliers and Constraints
+------------------------------------
+
+Since continuity and strong boundary conditions are enforced throught
+Lagrange multipliers, there are types to represent these relations
+efficiently. The base building block is the
+:class:`ElementConstraint` type, which describes the degrees of
+freedom and coefficients involved in a specific constraint. These
+may then be combined into :class:`Constraint` type which associates
+one or more :class:`ElementConstraint` with their right hand side value.
+
+Note that :class:`ElementConstraint` are also used to convey weak boundary
+condition information, however, in that case the coefficients in the
+:class:`ElementConstraint` object represent contributions to the right
+hand side.
+
+.. autoclass:: ElementConstraint
+
+.. autoclass:: Constraint
+
+
+Degree of Freedom Counts
+------------------------
+
+There are some utility functions provided for computing number of
+elemet degrees of freedom or lagrange multipliers. This is done
+by :func:`compute_leaf_dof_counts`.
+
+.. autofunction:: compute_leaf_dof_counts
+
+
+Element Geometry
+----------------
+
+Some functions are also provided for computing geometry of elements.
+This includes computing the Jacobian matrix (with :func:`jacobian`),
+as well as computing the physical coordinates :math:`(x, y)`
+as functions of the reference domain coordinates :math:`(\xi, \eta)`,
+since it is assumed these are bilinear (hence the :func:`bilinear_interpolate`
+function).
+
+.. autofunction:: jacobian
+
+.. autofunction:: bilinear_interpolate
+
+
+Element Projection
+------------------
+
+This submodule also contains functions for projection of arbitrary
+functions on the element as either primal or dual degrees of freedom.
+Note that the dual projection is faster, since the primal has to
+be followed by a multiplication of an inverse of the mass matrix
+for the specific :math:`k`-form.
+
+.. autofunction:: element_primal_dofs
+
+.. autofunction:: element_dual_dofs
+
+
+Reconstruction
+--------------
+
+To be able to return result for a solver as VTK file or even
+for being able to compute interior product, there has to be
+functionality to compute pointwise values for a :math:`k`-form
+given its element degrees of freedom. This is handled by the
+:func:`reconstruct` function. To help with it, :func:`vtk_lagrange_ordering`
+is provided, since VTK does not like sensible order of unknowns.
+
+.. autofunction:: reconstruct
+
+.. autofunction:: vtk_lagrange_ordering

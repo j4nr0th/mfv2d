@@ -1,43 +1,77 @@
 """Test that DoFs are properly expressed."""
 
+from dataclasses import dataclass
+
 import numpy as np
 import numpy.typing as npt
 import pytest
 from mfv2d._mfv2d import compute_gll
-from mfv2d.element import (
-    ElementCollection,
-    ElementLeaf2D,
-    UnknownFormOrder,
-    get_side_dofs,
-    get_side_order,
-)
-from mfv2d.mimetic2d import ElementSide
+from mfv2d.continuity import _get_side_dofs
+from mfv2d.kform import UnknownFormOrder
+from mfv2d.mimetic2d import ElementSide, get_side_order, mesh_create
+
+
+@dataclass(eq=False)
+class ElementLeaf2D:
+    """Two dimensional square element.
+
+    This type facilitates operations related to calculations which need
+    to be carried out on the reference element itself, such as calculation
+    of the mass and incidence matrices, as well as the reconstruction of
+    the solution.
+
+    Parameters
+    ----------
+    order_h : int
+        Order of the basis functions used for the nodal basis in the first dimension.
+    order_v : int
+        Order of the basis functions used for the nodal basis in the second dimension.
+    bottom_left : (float, float)
+        Coordinates of the bottom left corner.
+    bottom_right : (float, float)
+        Coordinates of the bottom right corner.
+    top_right : (float, float)
+        Coordinates of the top right corner.
+    top_left : (float, float)
+        Coordinates of the top left corner.
+    """
+
+    order: int
+    bottom_left: tuple[float, float]
+    bottom_right: tuple[float, float]
+    top_right: tuple[float, float]
+    top_left: tuple[float, float]
 
 
 def test_evaluation_twice() -> None:
     """Check that interpolation from child to parent works for double division."""
-    et1 = ElementLeaf2D(None, 1, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e0, ((et2, et3), (e11, e12)) = et1.divide(1, 1, 1, 1)
-    e1, ((e2, e3), (e4, e5)) = et2.divide(2, 4, 1, 1)
-    object.__setattr__(e0, "child_bl", e1)
-    e6, ((e7, e8), (e9, e10)) = et3.divide(2, 3, 1, 1)
-    object.__setattr__(e0, "child_br", e6)
+    mesh = mesh_create(
+        1,
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)),
+        ((1, 2), (2, 3), (3, 4), (4, 1)),
+        ((1, 2, 3, 4),),
+    )
 
-    collection = ElementCollection(
-        [e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
+    mesh.split_element(0, (1, 1), (1, 1), (1, 1), (1, 1))
+    mesh.split_element(1, (2, 2), (4, 4), (1, 1), (1, 1))
+    mesh.split_element(2, (2, 2), (3, 3), (1, 1), (1, 1))
+
+    constraints = _get_side_dofs(
+        mesh, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
-    constraints = get_side_dofs(
-        collection, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
-    )
-    max_order = get_side_order(collection, 0, ElementSide.SIDE_BOTTOM)
+    max_order = get_side_order(mesh, 0, ElementSide.SIDE_BOTTOM)
 
     def test_function(x: npt.ArrayLike, order: int):
         """Function to test with."""
         return np.asarray(x, np.float64) ** order
 
-    bnd_leaves = (e2, e3, e7, e8)
+    bnd_indices = (5, 6, 9, 10)
+    bnd_leaves = [
+        ElementLeaf2D(mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
+        for ie in bnd_indices
+    ]
+
     assert max_order == sum(leaf.order for leaf in bnd_leaves)
-    bnd_indices = (2, 3, 7, 8)
     bnd_pts = tuple(
         (
             compute_gll(leaf.order)[0] * (leaf.bottom_right[0] - leaf.bottom_left[0]) / 2
@@ -67,22 +101,30 @@ def test_evaluation_twice() -> None:
 
 def test_evaluation_once() -> None:
     """Check that interpolation from child to parent works for single division."""
-    et1 = ElementLeaf2D(None, 1, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e0, ((e1, e2), (e3, e4)) = et1.divide(4, 7, 1, 1)
-
-    collection = ElementCollection([e0, e1, e2, e3, e4])
-    constraints = get_side_dofs(
-        collection, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
+    mesh = mesh_create(
+        1,
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)),
+        ((1, 2), (2, 3), (3, 4), (4, 1)),
+        ((1, 2, 3, 4),),
     )
-    max_order = get_side_order(collection, 0, ElementSide.SIDE_BOTTOM)
-    assert max_order == e1.order + e2.order
+
+    mesh.split_element(0, (4, 4), (7, 7), (1, 1), (1, 1))
+
+    constraints = _get_side_dofs(
+        mesh, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
+    )
+    max_order = get_side_order(mesh, 0, ElementSide.SIDE_BOTTOM)
+    assert max_order == 11
 
     def test_function(x: npt.ArrayLike, order: int):
         """Function to test with."""
         return np.asarray(x, np.float64) ** order
 
-    bnd_leaves = (e1, e2)
     bnd_indices = (1, 2)
+    bnd_leaves = [
+        ElementLeaf2D(mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
+        for ie in bnd_indices
+    ]
     bnd_pts = tuple(
         (
             compute_gll(leaf.order)[0] * (leaf.bottom_right[0] - leaf.bottom_left[0]) / 2
@@ -113,28 +155,31 @@ def test_evaluation_once() -> None:
 
 def test_evaluation_twice_1() -> None:
     """Check that interpolation from child to parent works for double division."""
-    et1 = ElementLeaf2D(None, 1, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e0, ((et2, et3), (e11, e12)) = et1.divide(1, 1, 1, 1)
-    e1, ((e2, e3), (e4, e5)) = et2.divide(2, 4, 1, 1)
-    object.__setattr__(e0, "child_bl", e1)
-    e6, ((e7, e8), (e9, e10)) = et3.divide(1, 1, 1, 1)
-    object.__setattr__(e0, "child_br", e6)
+    mesh = mesh_create(
+        1,
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)),
+        ((1, 2), (2, 3), (3, 4), (4, 1)),
+        ((1, 2, 3, 4),),
+    )
 
-    collection = ElementCollection(
-        [e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
+    mesh.split_element(0, (1, 1), (1, 1), (1, 1), (1, 1))
+    mesh.split_element(1, (2, 2), (4, 4), (1, 1), (1, 1))
+    mesh.split_element(2, (2, 2), (3, 3), (1, 1), (1, 1))
+    constraints = _get_side_dofs(
+        mesh, 1, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
-    constraints = get_side_dofs(
-        collection, 1, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
-    )
-    max_order = get_side_order(collection, 1, ElementSide.SIDE_BOTTOM)
+    max_order = get_side_order(mesh, 1, ElementSide.SIDE_BOTTOM)
 
     def test_function(x: npt.ArrayLike, order: int):
         """Function to test with."""
         return np.asarray(x, np.float64) ** order
 
-    bnd_leaves = (e2, e3)
+    bnd_indices = (5, 6)
+    bnd_leaves = [
+        ElementLeaf2D(mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
+        for ie in bnd_indices
+    ]
     assert max_order == sum(leaf.order for leaf in bnd_leaves)
-    bnd_indices = (2, 3)
     bnd_pts = tuple(
         (
             compute_gll(leaf.order)[0] / 2
@@ -163,28 +208,32 @@ def test_evaluation_twice_1() -> None:
 
 def test_evaluation() -> None:
     """Check that interpolation from child to parent works."""
-    et1 = ElementLeaf2D(None, 1, (-1, -1), (+1, -1), (+1, +1), (-1, +1))
-    e0, ((e1, et2), (e11, e12)) = et1.divide(1, 1, 1, 1)
-    e2, ((et3, e8), (e9, e10)) = et2.divide(1, 1, 1, 1)
-    object.__setattr__(e0, "child_br", e2)
-    e3, ((e4, e5), (e6, e7)) = et3.divide(1, 1, 1, 1)
-    object.__setattr__(e2, "child_bl", e3)
+    mesh = mesh_create(
+        1,
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)),
+        ((1, 2), (2, 3), (3, 4), (4, 1)),
+        ((1, 2, 3, 4),),
+    )
 
-    collection = ElementCollection(
-        [e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
+    mesh.split_element(0, (1, 1), (1, 1), (1, 1), (1, 1))
+    mesh.split_element(2, (1, 1), (1, 1), (1, 1), (1, 1))
+    mesh.split_element(5, (1, 1), (1, 1), (1, 1), (1, 1))
+
+    constraints = _get_side_dofs(
+        mesh, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
     )
-    constraints = get_side_dofs(
-        collection, 0, ElementSide.SIDE_BOTTOM, UnknownFormOrder.FORM_ORDER_0
-    )
-    max_order = get_side_order(collection, 0, ElementSide.SIDE_BOTTOM)
+    max_order = get_side_order(mesh, 0, ElementSide.SIDE_BOTTOM)
     assert max_order == 4
 
     def test_function(x: npt.ArrayLike, order: int):
         """Function to test with."""
         return np.asarray(x, np.float64) ** order
 
-    bnd_leaves = (e1, e4, e5, e8)
-    bnd_indices = (1, 4, 5, 8)
+    bnd_indices = (1, 9, 10, 6)
+    bnd_leaves = [
+        ElementLeaf2D(mesh.get_leaf_orders(ie)[0], *mesh.get_leaf_corners(ie))
+        for ie in bnd_indices
+    ]
     bnd_pts = tuple(
         (
             compute_gll(leaf.order)[0] * (leaf.bottom_right[0] - leaf.bottom_left[0]) / 2
@@ -209,5 +258,5 @@ def test_evaluation() -> None:
                     val_child[bnd_indices.index(elem_con.i_e)][elem_con.dofs]
                     * elem_con.coeffs
                 )
-            print(f"Error for order {order=} is {np.abs(res - val_real[ic]):.3e}")
-            # assert np.isclose(res, val_real[ic])
+            # print(f"Error for order {order=} is {np.abs(res - val_real[ic]):.3e}")
+            assert np.isclose(res, val_real[ic])

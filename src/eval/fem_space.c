@@ -76,11 +76,6 @@ static unsigned fem_space_surf_basis_cnt(const fem_space_2d_t *space)
     return space->space_1.order * space->space_2.order;
 }
 
-typedef struct
-{
-    unsigned i, j;
-} index_2d_t;
-
 static index_2d_t fem_space_integration_node_counts(const fem_space_2d_t *this)
 {
     return (index_2d_t){this->space_1.n_pts, this->space_2.n_pts};

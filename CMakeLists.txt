@@ -29,6 +29,7 @@ set(MFV2D_SOURCE_FILES
         src/topology/surfaceobject.c
         src/topology/manifold.c
         src/topology/manifold2d.c
+        src/topology/mesh.c
         # Evaluation
         src/eval/allocator.c
         src/eval/incidence.c
@@ -61,6 +62,7 @@ set(MFV2D_HEADER_FILES
         src/topology/surfaceobject.h
         src/topology/manifold.h
         src/topology/manifold2d.h
+        src/topology/mesh.h
         # Evaluation
         src/eval/allocator.h
         src/eval/incidence.h

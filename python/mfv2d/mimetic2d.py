@@ -7,9 +7,10 @@ into a separate file.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import IntEnum
+from itertools import accumulate
 
 import numpy as np
 import numpy.typing as npt
@@ -17,10 +18,15 @@ import numpy.typing as npt
 from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
+    ElementMassMatrixCache,
     IntegrationRule1D,
     Manifold2D,
+    Mesh,
     Surface,
+    dlagrange1d,
+    lagrange1d,
 )
+from mfv2d.kform import UnknownFormOrder, UnknownOrderings
 
 
 # TODO: remake incidence into working for two different orders
@@ -432,271 +438,6 @@ def vtk_lagrange_ordering(order: int) -> npt.NDArray[np.uint32]:
     )
 
 
-@dataclass(eq=False)
-class Element2D:
-    """General 2D element."""
-
-    parent: ElementNode2D | None
-
-
-@dataclass(eq=False)
-class ElementNode2D(Element2D):
-    """Two dimensional element that contains children."""
-
-    child_bl: Element2D
-    child_br: Element2D
-    child_tl: Element2D
-    child_tr: Element2D
-
-    def children(self) -> tuple[Element2D, Element2D, Element2D, Element2D]:
-        """Return children of the element ordered."""
-        return (self.child_bl, self.child_br, self.child_tr, self.child_tl)
-
-
-@dataclass(eq=False)
-class ElementLeaf2D(Element2D):
-    """Two dimensional square element.
-
-    This type facilitates operations related to calculations which need
-    to be carried out on the reference element itself, such as calculation
-    of the mass and incidence matrices, as well as the reconstruction of
-    the solution.
-
-    Parameters
-    ----------
-    order_h : int
-        Order of the basis functions used for the nodal basis in the first dimension.
-    order_v : int
-        Order of the basis functions used for the nodal basis in the second dimension.
-    bottom_left : (float, float)
-        Coordinates of the bottom left corner.
-    bottom_right : (float, float)
-        Coordinates of the bottom right corner.
-    top_right : (float, float)
-        Coordinates of the top right corner.
-    top_left : (float, float)
-        Coordinates of the top left corner.
-    """
-
-    order: int
-
-    bottom_left: tuple[float, float]
-    bottom_right: tuple[float, float]
-    top_right: tuple[float, float]
-    top_left: tuple[float, float]
-
-    def divide(
-        self,
-        order_bl: int,
-        order_br: int,
-        order_tl: int,
-        order_tr: int,
-    ) -> tuple[
-        ElementNode2D,
-        tuple[tuple[ElementLeaf2D, ElementLeaf2D], tuple[ElementLeaf2D, ElementLeaf2D]],
-    ]:
-        """Divide the element into four child elements of the specified order.
-
-        Parameters
-        ----------
-        order_bl : int
-            Order of the bottom left element.
-        order_br : int
-            Order of the bottom right element.
-        order_tl : int
-            Order of the top left element.
-        order_tr : int
-            Order of the top right element.
-
-        Returns
-        -------
-        ElementNode2D
-            Parent element which contains the nodes.
-
-        (2, 2) tuple of ElementLeaf2D
-            Child elements of the same order as the element itself. Indexing the
-            tuple will give bottom/top for the first axis and left/right for the
-            second.
-        """
-        bottom_mid = (np.array(self.bottom_left) + np.array(self.bottom_right)) / 2
-        left_mid = (np.array(self.bottom_left) + np.array(self.top_left)) / 2
-        right_mid = (np.array(self.bottom_right) + np.array(self.top_right)) / 2
-        top_mid = (np.array(self.top_left) + np.array(self.top_right)) / 2
-        center_mid = (
-            np.array(self.bottom_left)
-            + np.array(self.bottom_right)
-            + np.array(self.top_left)
-            + np.array(self.top_right)
-        ) / 4
-        btm_l = ElementLeaf2D(
-            None,
-            order_bl,
-            self.bottom_left,
-            tuple(bottom_mid),
-            tuple(center_mid),
-            tuple(left_mid),
-        )
-        btm_r = ElementLeaf2D(
-            None,
-            order_br,
-            tuple(bottom_mid),
-            self.bottom_right,
-            tuple(right_mid),
-            tuple(center_mid),
-        )
-        top_r = ElementLeaf2D(
-            None,
-            order_tr,
-            tuple(center_mid),
-            tuple(right_mid),
-            self.top_right,
-            tuple(top_mid),
-        )
-        top_l = ElementLeaf2D(
-            None,
-            order_tl,
-            tuple(left_mid),
-            tuple(center_mid),
-            tuple(top_mid),
-            self.top_left,
-        )
-
-        parent = ElementNode2D(self.parent, btm_l, btm_r, top_l, top_r)
-
-        btm_l.parent = parent
-        btm_r.parent = parent
-        top_l.parent = parent
-        top_r.parent = parent
-
-        return parent, ((btm_l, btm_r), (top_l, top_r))
-
-
-class Mesh2D:
-    """Two dimensional manifold with associated geometry.
-
-    Mesh holds the primal manifold, which describes the topology of surfaces
-    and lines that make it up. It also contains the dual mesh, which contains
-    duals of all primal geometrical objects. The dual is useful when connectivity
-    is needed.
-
-    Parameters
-    ----------
-    order : int or Sequence of int or array-like
-        Orders of elements. If a single value is specified, then the same order
-        is used for all elements. If a sequence is specified, then each element
-        is given that order.
-
-    positions : (N, 2) array-like
-        Positions of the nodes.
-
-    lines : (N, 2) array-like
-        Lines of the mesh specified as pairs of nodes connected. These
-        use 1-based indexing.
-
-    surfaces : (N, 4) array-like
-        Surfaces of the mesh specified in their positive orientation
-        as 1-based indices of lines that make up the surface, with
-        negative sign indicating reverse direction.
-    """
-
-    orders: npt.NDArray[np.uint32]
-    """Orders of individual elements."""
-    positions: npt.NDArray[np.float64]
-    """Array of positions for each node in the mesh."""
-    primal: Manifold2D
-    """Primal topology of the mesh."""
-    dual: Manifold2D
-    """Dual topology of the mesh."""
-    boundary_indices: npt.NDArray[np.int32]
-    """Indices of lines that make up the boundary of the mesh. These
-        can be useful when prescribing boundary conditions."""
-
-    def __init__(
-        self,
-        order: int | Sequence[int] | npt.ArrayLike,
-        positions: Sequence[tuple[float, float, float]]
-        | Sequence[Sequence[float]]
-        | Sequence[npt.ArrayLike]
-        | npt.ArrayLike,
-        lines: Sequence[tuple[int, int]]
-        | Sequence[npt.ArrayLike]
-        | Sequence[Sequence[int]]
-        | npt.ArrayLike,
-        surfaces: Sequence[tuple[int, ...]]
-        | Sequence[Sequence[int]]
-        | Sequence[npt.ArrayLike]
-        | npt.ArrayLike,
-    ) -> None:
-        """Create new mesh from given geometry."""
-        pos = np.array(positions, np.float64, copy=True, ndmin=2)
-        if pos.ndim != 2 or pos.shape[1] != 2:
-            raise ValueError("Positions must be a (N, 2) array.")
-        # First try the regular surfaces
-        surf = np.array(surfaces, np.int32, copy=None)
-        if surf.ndim != 2 or surf.shape[1] != 4:
-            raise ValueError("Surfaces should be a (M, 4) array of integers")
-
-        orders_array = np.array(order, dtype=np.uint32)
-        if orders_array.ndim == 0:
-            orders_array = np.full(surf.shape[0], orders_array)
-        else:
-            if orders_array.ndim != 1 or orders_array.size != surf.shape[0]:
-                raise ValueError(
-                    "Orders must be 1D sequence with as many elements as the elements."
-                )
-
-        if np.any(orders_array < 1):
-            raise ValueError("Order can not be lower than 1.")
-
-        self.orders = orders_array
-
-        lns = np.array(lines, np.int32, copy=None)
-        man = Manifold2D.from_regular(pos.shape[0], lns, surf)
-
-        self.positions = pos
-        self.primal = man
-        self.dual = man.compute_dual()
-        bnd: list[int] = []
-        for n_line in range(self.dual.n_lines):
-            ln = self.dual.get_line(n_line + 1)
-            if not ln.begin or not ln.end:
-                bnd.append(n_line)
-        self.boundary_indices = np.array(bnd, np.int32)
-
-    @property
-    def n_elements(self) -> int:
-        """Number of (surface) elements in the mesh."""
-        return self.primal.n_surfaces
-
-    def surface_to_element(self, idx: int, /) -> ElementLeaf2D:
-        """Create a 2D element from a surface with the given index.
-
-        Parameters
-        ----------
-        idx : int
-            Index of the surface.
-
-        Returns
-        -------
-        ElementLeaf2D
-            Leaf element with the geometry of the specified surface.
-        """
-        s = self.primal.get_surface(idx + 1)
-        assert len(s) == 4, "Primal surface must be square."
-        indices = np.zeros(4, dtype=int)
-        for i in range(4):
-            line = self.primal.get_line(s[i])
-            indices[i] = line.begin.index
-        return ElementLeaf2D(
-            None,
-            int(self.orders[idx]),
-            (float(self.positions[indices[0], 0]), float(self.positions[indices[0], 1])),
-            (float(self.positions[indices[1], 0]), float(self.positions[indices[1], 1])),
-            (float(self.positions[indices[2], 0]), float(self.positions[indices[2], 1])),
-            (float(self.positions[indices[3], 0]), float(self.positions[indices[3], 1])),
-        )
-
-
 class FemCache:
     """Cache for integration rules and basis functions.
 
@@ -887,3 +628,690 @@ def find_surface_boundary_id_line(s: Surface, i: int) -> ElementSide:
     if s[3].index == i:
         return ElementSide.SIDE_LEFT
     raise ValueError(f"Line with index {i} is not in the surface {s}.")
+
+
+def mesh_create(
+    order: int | Sequence[int] | npt.ArrayLike,
+    positions: Sequence[tuple[float, float, float]]
+    | Sequence[Sequence[float]]
+    | Sequence[npt.ArrayLike]
+    | npt.ArrayLike,
+    lines: Sequence[tuple[int, int]]
+    | Sequence[npt.ArrayLike]
+    | Sequence[Sequence[int]]
+    | npt.ArrayLike,
+    surfaces: Sequence[tuple[int, ...]]
+    | Sequence[Sequence[int]]
+    | Sequence[npt.ArrayLike]
+    | npt.ArrayLike,
+) -> Mesh:
+    """Create new mesh from given geometry."""
+    pos = np.array(positions, np.float64, copy=True, ndmin=2)
+    if pos.ndim != 2 or pos.shape[1] != 2:
+        raise ValueError("Positions must be a (N, 2) array.")
+    # First try the regular surfaces
+    surf = np.array(surfaces, np.int32, copy=None)
+    if surf.ndim != 2 or surf.shape[1] != 4:
+        raise ValueError("Surfaces should be a (M, 4) array of integers")
+
+    n_surf = surf.shape[0]
+
+    orders_array = np.array(order, dtype=np.uint32)
+    if orders_array.ndim == 0:
+        orders_array = np.full((n_surf, 2), orders_array)
+    elif orders_array.shape[0] != n_surf:
+        raise ValueError(
+            "Orders array must contain as many entries as there are surfaces."
+        )
+    elif orders_array.ndim == 1:
+        orders_array = np.stack((orders_array, orders_array), axis=1)
+    elif orders_array.ndim != 2 or orders_array.shape[1] != 2:
+        raise ValueError(
+            "Orders must be given as either a single value, a (N,) sequence, or (N, 2)"
+            " sequence where N is the number of elements."
+        )
+
+    if np.any(orders_array < 1):
+        raise ValueError("Order can not be lower than 1.")
+
+    orders = np.astype(orders_array, np.uintc, copy=False)
+
+    lns = np.array(lines, np.int32, copy=None)
+    primal = Manifold2D.from_regular(pos.shape[0], lns, surf)
+    dual = primal.compute_dual()
+
+    corners = np.empty((n_surf, 4, 2), np.double)
+    indices = np.empty(4, np.uintc)
+    for idx_surf in range(n_surf):
+        s = primal.get_surface(idx_surf + 1)
+        assert len(s) == 4
+        for n_line in range(4):
+            line = primal.get_line(s[n_line])
+            indices[n_line] = line.begin.index
+        corners[idx_surf] = pos[indices, :]
+
+    bnd: list[int] = []
+    for n_line in range(dual.n_lines):
+        ln = dual.get_line(n_line + 1)
+        if not ln.begin or not ln.end:
+            bnd.append(n_line)
+    boundary_indices = np.array(bnd, np.uintc)
+
+    return Mesh(primal, dual, corners, orders, boundary_indices)
+
+
+def element_node_children_on_side(
+    side: ElementSide, children: tuple[int, int, int, int]
+) -> tuple[int, int]:
+    """Get children from the 4 child array for the correct side."""
+    i_begin = side.value - 1
+    i_end = side.value & 3
+    return int(children[i_begin]), int(children[i_end])
+
+
+def element_boundary_dofs(
+    side: ElementSide, order: UnknownFormOrder, order_1: int, order_2: int
+) -> npt.NDArray[np.uint32]:
+    """Get indices of boundary DoFs for an element on specified side.
+
+    Parameters
+    ----------
+    side : ElementSide
+        Side of the element to get the DoFs from.
+
+    order : UnknownFormOrder
+        Order of the form to the the boundary degrees are for. Can only be a
+        0-form or an 1-form, since 2-forms have no boundary degrees of freedom
+        on the boundary.
+
+    order_1 : int
+        Order of the element in the horizontal direction.
+
+    order_2 : int
+        Order of the element in the vertical direction.
+
+    Returns
+    -------
+    array
+        Array of indices of the degrees of freedom for the given form on a
+        given side.
+    """
+    indices: npt.NDArray[np.uint32]
+    if order == UnknownFormOrder.FORM_ORDER_1:
+        if side == ElementSide.SIDE_BOTTOM:
+            indices = np.arange(0, order_1, dtype=np.uint32)
+        elif side == ElementSide.SIDE_RIGHT:
+            indices = np.astype(
+                (order_1 * (order_2 + 1))
+                + order_2
+                + np.arange(0, order_2, dtype=np.uint32) * (order_1 + 1),
+                np.uint32,
+                copy=False,
+            )
+        elif side == ElementSide.SIDE_TOP:
+            indices = np.astype(
+                np.flip(order_1 * order_2 + np.arange(0, order_1, dtype=np.uint32)),
+                np.uint32,
+                copy=False,
+            )
+        elif side == ElementSide.SIDE_LEFT:
+            indices = np.astype(
+                np.flip(
+                    (order_1 * (order_2 + 1))
+                    + np.arange(0, order_2, dtype=np.uint32) * (order_1 + 1)
+                ),
+                np.uint32,
+                copy=False,
+            )
+        else:
+            raise ValueError(f"Invalid side given by {side=}.")
+
+    elif order == UnknownFormOrder.FORM_ORDER_0:
+        if side == ElementSide.SIDE_BOTTOM:
+            indices = np.arange(0, order_1 + 1, dtype=np.uint32)
+        elif side == ElementSide.SIDE_RIGHT:
+            indices = np.astype(
+                order_1 + np.arange(0, order_2 + 1, dtype=np.uint32) * (order_1 + 1),
+                np.uint32,
+                copy=False,
+            )
+        elif side == ElementSide.SIDE_TOP:
+            indices = np.astype(
+                np.flip(
+                    (order_1 + 1) * order_2 + np.arange(0, order_1 + 1, dtype=np.uint32)
+                ),
+                np.uint32,
+                copy=False,
+            )
+        elif side == ElementSide.SIDE_LEFT:
+            indices = np.astype(
+                np.flip(np.arange(0, order_2 + 1, dtype=np.uint32) * (order_1 + 1)),
+                np.uint32,
+                copy=False,
+            )
+        else:
+            raise ValueError(f"Invalid side given by {side=}")
+
+    elif order == UnknownFormOrder.FORM_ORDER_2:
+        raise ValueError("2-forms have no boundary DoFs.")
+
+    else:
+        raise ValueError(f"Invalid order given by {order=}")
+    return indices
+
+
+@dataclass(frozen=True)
+class ElementConstraint:
+    """Type intended to enforce a constraint on an element.
+
+    Parameters
+    ----------
+    i_e : int
+        Index of the element for which this constraint is applied.
+
+    dofs : (n,) array
+        Array with indices of the degrees of freedom of the element involved.
+
+    coeffs : (n,) array
+        Array with coefficients of degrees of freedom of the element involved.
+    """
+
+    i_e: int
+    dofs: npt.NDArray[np.uint32]
+    coeffs: npt.NDArray[np.float64]
+
+
+def get_side_order(mesh: Mesh, element_idx: int, side: ElementSide, /) -> int:
+    """Get order for the specified element boundary side.
+
+    element_collection : ElementCollection
+        Element collection the element is a part of.
+
+    element : int
+        Index of the element in the collection to get the side order from.
+
+    side : ElementSide
+        Side of the element to get the order for.
+
+    Returns
+    -------
+    int
+        Order on that side of the element.
+    """
+    children = mesh.get_element_children(element_idx)
+    if children is not None:
+        c1, c2 = element_node_children_on_side(side, children)
+        return get_side_order(mesh, c1, side) + get_side_order(mesh, c2, side)
+
+    orders = mesh.get_leaf_orders(element_idx)
+    return int(orders[(side.value - 1) & 1])
+
+
+@dataclass(frozen=True)
+class Constraint:
+    """Type used to specify constraints on degrees of freedom.
+
+    This type combines the individual :class:`ElementConstraint` together
+    with a right-hand side of the constraint.
+
+    Parameters
+    ----------
+    rhs : float
+        The right-hand side of the constraint.
+
+    *element_constraints : ElementConstraint
+        Constraints to combine together.
+    """
+
+    rhs: float
+    element_constraints: tuple[ElementConstraint, ...]
+
+    def __init__(self, rhs: float, *element_constraints: ElementConstraint) -> None:
+        object.__setattr__(self, "rhs", float(rhs))
+        object.__setattr__(self, "element_constraints", element_constraints)
+
+
+def compute_leaf_dof_counts(
+    ie: int, ordering: UnknownOrderings, mesh: Mesh
+) -> npt.NDArray[np.uint32]:
+    """Compute number of DoFs for each element.
+
+    Parameters
+    ----------
+    ie : int
+        Index of the element.
+
+    ordering : UnknownOrderings
+        Orders of differential forms in the system.
+
+    elements : ElementCollection
+        Element collection to use.
+
+    Returns
+    -------
+    array of int
+        Array with count of degrees of freedom for of each differential form
+        for the element.
+    """
+    sizes = np.zeros(ordering.count, np.uint32)
+    # This is not a child-less array
+    order_1, order_2 = mesh.get_leaf_orders(ie)
+    for i_f, form in enumerate(ordering.form_orders):
+        sizes[i_f] = form.full_unknown_count(order_1, order_2)
+
+    return sizes
+
+
+def jacobian(
+    corners: npt.NDArray[np.floating], nodes_1: npt.ArrayLike, nodes_2: npt.ArrayLike
+) -> tuple[
+    tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+]:
+    r"""Evaluate the Jacobian matrix entries.
+
+    The Jacobian matrix :math:`\mathbf{J}` is defined such that:
+
+    .. math::
+
+        \mathbf{J} = \begin{bmatrix}
+        \frac{\partial x}{\partial \xi} & \frac{\partial y}{\partial \xi} \\
+        \frac{\partial x}{\partial \eta} & \frac{\partial y}{\partial \eta} \\
+        \end{bmatrix}
+
+    Which means that a coordinate transformation is performed by:
+
+    .. math::
+
+        \begin{bmatrix} {dx} \\ {dy} \end{bmatrix} = \mathbf{J}
+        \begin{bmatrix} {d\xi} \\ {d\eta} \end{bmatrix}
+
+    Parameters
+    ----------
+    corners : (4, 2) array_like
+        Array-like containing the corners of the element.
+
+    nodes_1 : array_like
+        The first computational component for the element where the Jacobian should
+        be evaluated.
+    nodes_2 : array_like
+        The second computational component for the element where the Jacobian should
+        be evaluated.
+
+    Returns
+    -------
+    j00 : array
+        The :math:`(1, 1)` component of the Jacobian corresponding to the value of
+        :math:`\frac{\partial x}{\partial \xi}`.
+
+    j01 : array
+        The :math:`(1, 2)` component of the Jacobian corresponding to the value of
+        :math:`\frac{\partial y}{\partial \xi}`.
+
+    j10 : array
+        The :math:`(2, 1)` component of the Jacobian corresponding to the value of
+        :math:`\frac{\partial x}{\partial \eta}`.
+
+    j11 : array
+        The :math:`(2, 2)` component of the Jacobian corresponding to the value of
+        :math:`\frac{\partial y}{\partial \eta}`.
+    """
+    t0 = np.asarray(nodes_1)
+    t1 = np.asarray(nodes_2)
+
+    x0, y0 = corners[0, :]
+    x1, y1 = corners[1, :]
+    x2, y2 = corners[2, :]
+    x3, y3 = corners[3, :]
+
+    dx_dxi = np.astype(
+        ((x1 - x0) * (1 - t1) + (x2 - x3) * (1 + t1)) / 4, np.float64, copy=False
+    )
+    dx_deta = np.astype(
+        ((x3 - x0) * (1 - t0) + (x2 - x1) * (1 + t0)) / 4, np.float64, copy=False
+    )
+    dy_dxi = np.astype(
+        ((y1 - y0) * (1 - t1) + (y2 - y3) * (1 + t1)) / 4, np.float64, copy=False
+    )
+    dy_deta = np.astype(
+        ((y3 - y0) * (1 - t0) + (y2 - y1) * (1 + t0)) / 4, np.float64, copy=False
+    )
+    return ((dx_dxi, dy_dxi), (dx_deta, dy_deta))
+
+
+def bilinear_interpolate(
+    corner_vals: npt.NDArray[np.floating], xi: npt.ArrayLike, eta: npt.ArrayLike
+) -> npt.NDArray[np.float64]:
+    r"""Compute bilinear interpolation at (xi, eta) points.
+
+    The relation for the bilinear interpolation is given by equation
+    :eq:`bilinear-interpolation`, where :math:`u_0` is the bottom-left corner,
+    :math:`u_1` the bottom right, :math:`u_2` the top right, and :math:`u_3` is
+    the top left corner.
+
+    .. math::
+        :label: bilinear-interpolation
+
+        u(\xi, \eta) = u_0 \cdot \frac{(1 - \xi)(1 - \eta)}{4}
+        + u_1 \cdot \frac{(1 + \xi)(1 - \eta)}{4}
+        + u_2 \cdot \frac{(1 + \xi)(1 + \eta)}{4}
+        + u_3 \cdot \frac{(1 - \xi)(1 + \eta)}{4}
+
+    Parameters
+    ----------
+    corner_vals : (4,) array_like
+        Array with the values in the corners of the element.
+
+    xi : array_like
+        Array of the xi-coordinates on the reference domain where the
+        x-coordinate should be evaluated.
+
+    eta : array_like
+        Array of the eta-coordinates on the reference domain where the
+        x-coordinate should be evaluated.
+
+    Returns
+    -------
+    array
+        Array of interpolated values at the given xi and eta points.
+    """
+    t0 = np.asarray(xi)
+    t1 = np.asarray(eta)
+    b11 = (1 - t0) / 2
+    b12 = (1 + t0) / 2
+    b21 = (1 - t1) / 2
+    b22 = (1 + t1) / 2
+    return np.astype(
+        (corner_vals[0] * b11 + corner_vals[1] * b12) * b21
+        + (corner_vals[3] * b11 + corner_vals[2] * b12) * b22,
+        np.float64,
+        copy=False,
+    )
+
+
+def element_dual_dofs(
+    order: UnknownFormOrder,
+    element_cache: ElementMassMatrixCache,
+    function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
+) -> npt.NDArray[np.float64]:
+    r"""Compute the dual degrees of freedom (projection) of the function on the element.
+
+    Dual projection of a function is computed by taking an integral over the
+    reference domain of the function with each of the two dimensional basis.
+    This also means that these integrals are the values of the :math:`L^2`
+    projection of the function on the element.
+
+    For 0-forms are quite straight forward:
+
+    .. math::
+
+        \left(f(x, y), \psi^{(0)}_i \right)_\Omega = \int_{\Omega} f(x, y)
+        \psi^{(0)}_i(x, y) {dx} \wedge {dy} =
+        \int_{\bar{\Omega}} f(x(\xi, \eta), y(\xi, \eta)) \psi^{(0)}_i(x(\xi, \eta),
+        y(\xi, \eta))
+        \left| \mathbf{J} \right| d\xi \wedge d\eta
+
+
+    Similarly, 2-forms are also straight forward:
+
+    .. math::
+
+        \left(f(x, y), \psi^{(2)}_i \right)_\Omega = \int_{\Omega} f(x, y)
+        \psi^{(2)}_i(x, y) {dx} \wedge {dy} =
+        \int_{\bar{\Omega}} f(x(\xi, \eta), y(\xi, \eta)) \psi^{(2)}_i(x(\xi, \eta),
+        y(\xi, \eta))
+        \left| \mathbf{J} \right|^{-1} d\xi \wedge d\eta
+
+    Lastly, for 1-forms it is a bit more involved, since it has multiple components:
+
+    .. math::
+
+        \left(f_x dy - f_y dx, {\psi^{(1)}_i}_x dy - {\psi^{(1)}_i}_y dx \right)_\Omega =
+        \int_{\Omega} f_x {\psi^{(1)}_i}_x + f_y {\psi^{(1)}_i}_y {dx} \wedge {dy} =
+        \int_{\bar{\Omega}} \left( \mathbf{J} \vec{f} \right) \cdot \left(
+        \mathbf{J} \vec{\psi^{(1)}} \right) d\xi \wedge d\eta
+
+    Parameters
+    ----------
+    order : UnknownFormOrder
+        Order of the differential form to use for basis.
+
+    corners : array_like
+        Array of corners of the element.
+
+    basis : Basis2D
+        Basis function to use for the element.
+
+    function : Callable
+        Function to project.
+
+    Returns
+    -------
+    array
+        Array with dual degrees of freedom.
+    """
+    corners = element_cache.corners
+    basis = element_cache.basis_2d
+    ((x0, y0), (x1, y1), (x2, y2), (x3, y3)) = corners
+    nds_xi = basis.basis_xi.rule.nodes[None, :]
+    nds_eta = basis.basis_eta.rule.nodes[:, None]
+
+    ((j00, j01), (j10, j11)) = jacobian(corners, nds_xi, nds_eta)
+    det = j00 * j11 - j10 * j01
+
+    nds_x = bilinear_interpolate(np.array((x0, x1, x2, x3), np.float64), nds_xi, nds_eta)
+    nds_y = bilinear_interpolate(np.array((y0, y1, y2, y3), np.float64), nds_xi, nds_eta)
+
+    fv = np.array(function(nds_x, nds_y))
+    weights = basis.basis_xi.rule.weights[None, :] * basis.basis_eta.rule.weights[:, None]
+
+    dofs: list[float] = list()
+    if order == UnknownFormOrder.FORM_ORDER_0:
+        f_vals = fv * weights
+        f_nod = f_vals * det
+        for j in range(basis.basis_eta.order + 1):
+            b2 = basis.basis_eta.node[j, ...]
+            for i in range(basis.basis_xi.order + 1):
+                b1 = basis.basis_xi.node[i, ...]
+                v = np.sum(b1[None, ...] * b2[..., None] * f_nod)
+                dofs.append(v)
+
+    elif order == UnknownFormOrder.FORM_ORDER_1:
+        f_vals = fv * weights[..., None]
+
+        f_xi = j00 * f_vals[..., 0] + j01 * f_vals[..., 1]
+        f_eta = j10 * f_vals[..., 0] + j11 * f_vals[..., 1]
+
+        for j in range(basis.basis_eta.order + 1):
+            b2 = basis.basis_eta.node[j, ...]
+            for i in range(basis.basis_xi.order):
+                b1 = basis.basis_xi.edge[i, ...]
+                v = np.sum(b1[None, ...] * b2[..., None] * f_eta)
+                dofs.append(v)
+
+        for j in range(basis.basis_eta.order):
+            b2 = basis.basis_eta.edge[j, ...]
+            for i in range(basis.basis_xi.order + 1):
+                b1 = basis.basis_xi.node[i, ...]
+                v = np.sum(b1[None, ...] * b2[..., None] * f_xi)
+                dofs.append(v)
+
+    elif order == UnknownFormOrder.FORM_ORDER_2:
+        f_vals = fv * weights
+
+        for j in range(basis.basis_eta.order):
+            b2 = basis.basis_eta.edge[j, ...]
+            for i in range(basis.basis_xi.order):
+                b1 = basis.basis_xi.edge[i, ...]
+                v = np.sum(b1[None, ...] * b2[..., None] * f_vals)
+                dofs.append(v)
+
+    else:
+        raise ValueError(f"Invalid form order {order}.")
+
+    return np.array(dofs, np.float64)
+
+
+def element_primal_dofs(
+    order: UnknownFormOrder,
+    element_cache: ElementMassMatrixCache,
+    function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
+) -> npt.NDArray[np.float64]:
+    r"""Compute the primal degrees of freedom of projection of a function on the element.
+
+    Primal degrees of freedom allow for reconstruction of the function's :math:`L^2`
+    projection. This means that given these degrees of freedom, the following relation
+    holds:
+
+    .. math::
+
+        \left(\psi^{(k)}, f^{(k)} \right)_\Omega = \left(\psi^{(k)}, \bar{f}^{(k)} \right)
+        = \int_{\Omega} \psi^{(k)} \sum\left( f_i \psi^{(k)}_i \right) dx \wedge dy
+
+    for all basis functions :math:`\psi^{(k)}`.
+
+    Parameters
+    ----------
+    order : UnknownFormOrder
+        Order of the differential form to use for basis.
+
+    corners : array_like
+        Array of corners of the element.
+
+    basis : Basis2D
+        Basis function to use for the element.
+
+    function : Callable
+        Function to project.
+
+    Returns
+    -------
+    array
+        Array with primal degrees of freedom.
+    """
+    dofs = element_dual_dofs(order, element_cache, function)
+    mat = element_cache.mass_from_order(order, inverse=True)
+    assert np.allclose(
+        mat, np.linalg.inv(element_cache.mass_from_order(order, inverse=False))
+    )
+
+    return np.astype(mat @ dofs, np.float64, copy=False)
+
+
+def reconstruct(
+    corners: npt.NDArray[np.floating],
+    k: UnknownFormOrder,
+    dofs: npt.ArrayLike,
+    xi: npt.ArrayLike,
+    eta: npt.ArrayLike,
+    basis: Basis2D,
+) -> npt.NDArray[np.float64]:
+    """Reconstruct a k-form on the element from its primal degrees of freedom.
+
+    Parameters
+    ----------
+    corners : array_like
+        Array of corners of the element.
+
+    k : UnknownFormOrder
+        Order of the differential form to use for basis.
+
+    dofs : array_like
+        Degrees of freedom of the k-form.
+
+    xi : array_like
+        Coordinates of the xi-coordinate in the reference domain.
+
+    eta : array_like
+        Coordinates of the eta-coordinate in the reference domain.
+
+    basis : Basis2D
+        Basis function to use for the element.
+
+    Returns
+    -------
+    array
+        Array with the point values of the k-form at the specified coordinates.
+    """
+    k = UnknownFormOrder(k)
+    out: float | npt.NDArray[np.floating] = 0.0
+    c = np.asarray(dofs, dtype=np.float64, copy=None)
+    if c.ndim != 1:
+        raise ValueError("Coefficient array must be one dimensional.")
+
+    if k == UnknownFormOrder.FORM_ORDER_0:
+        assert c.size == (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
+        vals_xi = lagrange1d(basis.basis_xi.roots, xi)
+        vals_eta = lagrange1d(basis.basis_eta.roots, eta)
+        for i in range(basis.basis_eta.order + 1):
+            v = vals_eta[..., i]
+            for j in range(basis.basis_xi.order + 1):
+                u = vals_xi[..., j]
+                out += c[i * (basis.basis_xi.order + 1) + j] * (u * v)
+
+    elif k == UnknownFormOrder.FORM_ORDER_1:
+        assert c.size == (
+            basis.basis_eta.order + 1
+        ) * basis.basis_xi.order + basis.basis_eta.order * (basis.basis_xi.order + 1)
+        values_xi = lagrange1d(basis.basis_xi.roots, xi)
+        values_eta = lagrange1d(basis.basis_eta.roots, eta)
+        in_dvalues_xi = dlagrange1d(basis.basis_xi.roots, xi)
+        in_dvalues_eta = dlagrange1d(basis.basis_eta.roots, eta)
+        dvalues_xi = tuple(
+            accumulate(-in_dvalues_xi[..., i] for i in range(basis.basis_xi.order))
+        )
+        dvalues_eta = tuple(
+            accumulate(-in_dvalues_eta[..., i] for i in range(basis.basis_eta.order))
+        )
+        (j00, j01), (j10, j11) = jacobian(corners, xi, eta)
+        det = j00 * j11 - j10 * j01
+        out_xi: float | npt.NDArray[np.floating] = 0.0
+        out_eta: float | npt.NDArray[np.floating] = 0.0
+        for i1 in range(basis.basis_eta.order + 1):
+            v1 = values_eta[..., i1]
+            for j1 in range(basis.basis_xi.order):
+                u1 = dvalues_xi[j1]
+                out_eta += c[i1 * basis.basis_xi.order + j1] * u1 * v1
+
+        for i1 in range(basis.basis_eta.order):
+            v1 = dvalues_eta[i1]
+            for j1 in range(basis.basis_xi.order + 1):
+                u1 = values_xi[..., j1]
+
+                out_xi += (
+                    c[
+                        (basis.basis_eta.order + 1) * basis.basis_xi.order
+                        + i1 * (basis.basis_xi.order + 1)
+                        + j1
+                    ]
+                    * u1
+                    * v1
+                )
+        out = np.stack(
+            (out_xi * j00 + out_eta * j10, out_xi * j01 + out_eta * j11), axis=-1
+        )
+        out /= det[..., None]
+
+    elif k == UnknownFormOrder.FORM_ORDER_2:
+        assert c.size == basis.basis_xi.order * basis.basis_eta.order
+        in_dvalues_xi = dlagrange1d(basis.basis_xi.roots, xi)
+        in_dvalues_eta = dlagrange1d(basis.basis_eta.roots, eta)
+        dvalues_xi = tuple(
+            accumulate(-in_dvalues_xi[..., i] for i in range(basis.basis_xi.order))
+        )
+        dvalues_eta = tuple(
+            accumulate(-in_dvalues_eta[..., i] for i in range(basis.basis_eta.order))
+        )
+        (j00, j01), (j10, j11) = jacobian(corners, xi, eta)
+        det = j00 * j11 - j10 * j01
+        for i1 in range(basis.basis_eta.order):
+            v1 = dvalues_eta[i1]
+            for j1 in range(basis.basis_xi.order):
+                u1 = dvalues_xi[j1]
+                out += c[i1 * basis.basis_xi.order + j1] * u1 * v1
+
+        out /= det
+    else:
+        raise ValueError(f"Order of the differential form {k} is not valid.")
+
+    return np.array(out, np.float64, copy=None)

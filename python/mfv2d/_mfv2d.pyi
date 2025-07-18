@@ -1476,7 +1476,21 @@ class Mesh:
         """
         ...
 
+# Element side enum values
+
 ELEMENT_SIDE_BOTTOM: int
 ELEMENT_SIDE_RIGHT: int
 ELEMENT_SIDE_TOP: int
 ELEMENT_SIDE_LEFT: int
+
+# Matrix operation values
+
+MATOP_INVALID: int
+MATOP_IDENTITY: int
+MATOP_MASS: int
+MATOP_INCIDENCE: int
+MATOP_PUSH: int
+MATOP_MATMUL: int
+MATOP_SCALE: int
+MATOP_SUM: int
+MATOP_INTERPROD: int

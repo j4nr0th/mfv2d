@@ -16,18 +16,6 @@ import numpy as np
 import numpy.typing as npt
 
 from mfv2d._mfv2d import (
-    ELEMENT_SIDE_BOTTOM as _ELEMENT_SIDE_BOTTOM,
-)
-from mfv2d._mfv2d import (
-    ELEMENT_SIDE_LEFT as _ELEMENT_SIDE_LEFT,
-)
-from mfv2d._mfv2d import (
-    ELEMENT_SIDE_RIGHT as _ELEMENT_SIDE_RIGHT,
-)
-from mfv2d._mfv2d import (
-    ELEMENT_SIDE_TOP as _ELEMENT_SIDE_TOP,
-)
-from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
     ElementMassMatrixCache,
@@ -613,10 +601,10 @@ class FemCache:
 class ElementSide(IntEnum):
     """Enum specifying the side of an element."""
 
-    SIDE_BOTTOM = _ELEMENT_SIDE_BOTTOM
-    SIDE_RIGHT = _ELEMENT_SIDE_RIGHT
-    SIDE_TOP = _ELEMENT_SIDE_TOP
-    SIDE_LEFT = _ELEMENT_SIDE_LEFT
+    SIDE_BOTTOM = 1
+    SIDE_RIGHT = 2
+    SIDE_TOP = 3
+    SIDE_LEFT = 4
 
     @property
     def next(self) -> ElementSide:

@@ -11,13 +11,13 @@ typedef enum
 {
     // Error, this is not a valid operation
     MATOP_INVALID = 0,
-    // Identity operation, do nothing.
+    // Identity operation - do nothing.
     MATOP_IDENTITY = 1,
-    // Mass matrix, next two values in bytecode are the order and if it should be inverted
+    // Mass matrix, the next two values in bytecode are the order, and if it should be inverted
     MATOP_MASS = 2,
-    // Incidence matrix, next two values in bytecode are the order and if it should be dual
+    // Incidence matrix, the next two values in bytecode are the order, and if it should be dual
     MATOP_INCIDENCE = 3,
-    // Push matrix on stack in order to prepare for multiplication or summation
+    // Push matrix on the stack to prepare for multiplication or summation
     MATOP_PUSH = 4,
     // Multiply with matrix currently on stack
     MATOP_MATMUL = 5,
@@ -47,6 +47,7 @@ typedef union {
  * @param bytecode Buffer to fill with bytecode.
  * @param items Python objects which are to be converted to instructions.
  * @param p_max_stack Pointer which receives the maximum number of matrices on the argument stack.
+ * @param n_vec_fields Number of vector fields that the system has.
  * @return Non-zero on success.
  */
 MFV2D_INTERNAL

@@ -433,6 +433,7 @@ def compute_element_primal(
     """Compute primal dofs from dual."""
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
+    primal = np.empty_like(dual_dofs)
     for form in ordering.form_orders:
         cnt = form.full_unknown_count(order_1, order_2)
         v = dual_dofs[offset : offset + cnt]
@@ -442,11 +443,11 @@ def compute_element_primal(
             m = element_cache.mass_from_order(form, inverse=True)
             mats[form] = m
 
-        dual_dofs[offset : offset + cnt] = m @ v
+        primal[offset : offset + cnt] = m @ v
 
         offset += cnt
 
-    return dual_dofs
+    return primal
 
 
 def compute_element_primal_to_dual(
@@ -459,6 +460,7 @@ def compute_element_primal_to_dual(
     """Compute primal dofs from dual."""
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
+    dual = np.empty_like(primal)
     for form in ordering.form_orders:
         cnt = form.full_unknown_count(order_1, order_2)
         v = primal[offset : offset + cnt]
@@ -468,11 +470,11 @@ def compute_element_primal_to_dual(
             m = element_cache.mass_from_order(form, inverse=False)
             mats[form] = m
 
-        primal[offset : offset + cnt] = m @ v
+        dual[offset : offset + cnt] = m @ v
 
         offset += cnt
 
-    return primal
+    return dual
 
 
 def non_linear_solve_run(
@@ -523,8 +525,6 @@ def non_linear_solve_run(
     max_residual = 0.0
 
     while iter_cnt < max_iterations:
-        combined_solution = np.concatenate(solution, dtype=np.float64)
-
         if compiled_system.rhs_codes is not None:
             main_vec = np.array(base_vec, copy=True)  # Make a copy
         else:
@@ -535,6 +535,7 @@ def non_linear_solve_run(
         for ie in range(mesh.leaf_count):
             order_1, order_2 = mesh.get_leaf_orders(ie)
             basis = cache_2d.get_basis2d(order_1, order_2)
+            element_solution = solution[element_offsets[ie] : element_offsets[ie + 1]]
             if len(vector_fields):
                 # Recompute vector fields
                 # Compute vector fields at integration points for leaf elements
@@ -545,12 +546,11 @@ def non_linear_solve_run(
                     vector_fields,
                     mesh.get_leaf_corners(ie),
                     dof_offsets[ie],
-                    solution[ie],
+                    element_solution,
                 )
             else:
                 vec_flds = tuple()
 
-            element_solution = solution[element_offsets[ie] : element_offsets[ie + 1]]
             element_cache = element_caches[ie]
 
             lhs_vec = compute_element_vector(
@@ -570,9 +570,8 @@ def non_linear_solve_run(
                     element_cache,
                     element_solution,
                 )
-                off = element_offsets[ie]
-                cnt = dof_offsets[ie]
-                main_vec[off : off + cnt[-1]] += rhs_vec
+
+                main_vec[element_offsets[ie] : element_offsets[ie + 1]] += rhs_vec
                 del rhs_vec
 
             if compiled_system.nonlin_codes is not None:
@@ -589,8 +588,7 @@ def non_linear_solve_run(
         if lagrange_mat is not None:
             main_value += lagrange_mat.T @ global_lagrange
             main_value = np.concatenate(
-                (main_value, lagrange_mat @ combined_solution),
-                dtype=np.float64,
+                (main_value, lagrange_mat @ solution), dtype=np.float64
             )
 
         residual = main_vec - main_value
@@ -626,12 +624,13 @@ def non_linear_solve_run(
             dtype=np.float64,
             copy=None,
         )
-        solution += relax * d_solution
 
         # update lagrange multipliers (haha pliers)
         if len(global_lagrange):
-            d_lag = d_solution[-global_lagrange.size :]
-            global_lagrange += relax * d_lag
+            solution += relax * d_solution[: -global_lagrange.size]
+            global_lagrange += relax * d_solution[-global_lagrange.size :]
+        else:
+            solution += relax * d_solution
 
         iter_cnt += 1
 

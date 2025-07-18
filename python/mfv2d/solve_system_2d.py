@@ -9,12 +9,7 @@ import pyvista as pv
 import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
-from mfv2d._mfv2d import (
-    ElementMassMatrixCache,
-    Mesh,
-    compute_element_matrix,
-    compute_element_vector,
-)
+from mfv2d._mfv2d import ElementMassMatrixCache, Mesh, compute_element_matrix
 from mfv2d.boundary import mesh_boundary_conditions
 from mfv2d.continuity import connect_elements
 from mfv2d.eval import CompiledSystem
@@ -249,7 +244,7 @@ def solve_system_2d(
                 vector_fields,
                 mesh.get_leaf_corners(ie),
                 dof_offsets[ie],
-                solution[ie],
+                solution[element_offset[ie] : element_offset[ie + 1]],
             )
         else:
             vec_flds = tuple()
@@ -263,19 +258,19 @@ def solve_system_2d(
             )
         )
 
-        if initial_vectors and compiled_system.rhs_codes is not None:
-            rhs_vec = compute_element_vector(
-                unknown_ordering.form_orders,
-                compiled_system.rhs_codes,
-                vec_flds,
-                element_cache,
-                initial_solution[ie],
-            )
-            linear_vectors[ie] += rhs_vec
+        # if initial_vectors and compiled_system.rhs_codes is not None:
+        #     rhs_vec = compute_element_vector(
+        #         unknown_ordering.form_orders,
+        #         compiled_system.rhs_codes,
+        #         vec_flds,
+        #         element_cache,
+        #         initial_solution[ie],
+        #     )
+        #     linear_vectors[ie] += rhs_vec
 
     del initial_vectors, initial_solution
     main_mat = sp.block_diag(linear_element_matrices, format="csr")
-    main_vec = np.concatenate(linear_vectors, np.float64)  # type: ignore
+    main_vec = np.concatenate(linear_vectors, dtype=np.float64)
 
     # Generate constraints that force the specified for to have the (child element) sum
     # equal to a prescribed value.
@@ -368,7 +363,10 @@ def solve_system_2d(
         lagrange_mat = sp.csr_array(
             (
                 np.concatenate(constraint_coef),
-                (np.concatenate(constraint_rows), np.concatenate(constraint_cols)),
+                (
+                    np.concatenate(constraint_rows, dtype=np.intp),
+                    np.concatenate(constraint_cols, dtype=np.intp),
+                ),
             )
         )
         lagrange_mat.resize((ic, element_offset[-1]))
@@ -463,7 +461,7 @@ def solve_system_2d(
 
             changes[time_index] = float(max_residual[()])
             iters[time_index] = iter_cnt
-            projected_solution = np.concat(
+            projected_solution = np.concatenate(
                 [
                     compute_element_primal_to_dual(
                         unknown_ordering,

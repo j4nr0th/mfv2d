@@ -34,11 +34,11 @@ from mfv2d import (
     BoundaryCondition2DSteady,
     KFormSystem,
     KFormUnknown,
-    Mesh2D,
     SolverSettings,
     SystemSettings,
     TimeSettings,
     UnknownFormOrder,
+    mesh_create,
     solve_system_2d,
 )
 from scipy.integrate import trapezoid
@@ -137,7 +137,7 @@ rect_mesh, rx, ry = rmsh.create_elliptical_mesh(
     )
 )
 assert rx < 1e-6 and ry < 1e-6
-mesh = Mesh2D(
+mesh = mesh_create(
     P,
     np.stack((rect_mesh.pos_x, rect_mesh.pos_y), axis=-1),
     rect_mesh.lines + 1,

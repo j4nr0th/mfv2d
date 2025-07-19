@@ -305,9 +305,9 @@ def reconstruct_mesh_from_solution(
     orders_2: list[int] = list()
     node_cnt = 0
     element_offset = 0
-    for ie in leaf_indices:
+    for leaf_index, ie in enumerate(leaf_indices):
         # Extract element DoFs
-        offsets = dof_offsets[ie]
+        offsets = dof_offsets[leaf_index]
         element_dofs = solution[element_offset : element_offset + offsets[-1]]
         real_orders = mesh.get_leaf_orders(ie)
         element_order = int(max(real_orders)) if recon_order is None else int(recon_order)
@@ -456,7 +456,6 @@ def non_linear_solve_run(
     print_residual: bool,
     unknown_ordering: UnknownOrderings,
     mesh: Mesh,
-    cache_2d: FemCache,
     element_caches: Sequence[ElementMassMatrixCache],
     compiled_system: CompiledSystem,
     explicit_vec: npt.NDArray[np.float64],
@@ -502,9 +501,9 @@ def non_linear_solve_run(
 
         lhs_vectors: list[npt.NDArray[np.float64]] = list()
         lhs_matrices: list[npt.NDArray[np.float64]] = list()
-        for ie in range(mesh.leaf_count):
-            order_1, order_2 = mesh.get_leaf_orders(ie)
-            basis = cache_2d.get_basis2d(order_1, order_2)
+        for ie, leaf_index in enumerate(mesh.get_leaf_indices()):
+            element_cache = element_caches[ie]
+            basis = element_cache.basis_2d
             element_solution = solution[element_offsets[ie] : element_offsets[ie + 1]]
             if len(vector_fields):
                 # Recompute vector fields
@@ -514,14 +513,12 @@ def non_linear_solve_run(
                     basis,
                     basis,
                     vector_fields,
-                    mesh.get_leaf_corners(ie),
+                    mesh.get_leaf_corners(leaf_index),
                     dof_offsets[ie],
                     element_solution,
                 )
             else:
                 vec_flds = tuple()
-
-            element_cache = element_caches[ie]
 
             lhs_vec = compute_element_vector(
                 unknown_ordering.form_orders,

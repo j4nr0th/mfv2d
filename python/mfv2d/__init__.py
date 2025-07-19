@@ -4,6 +4,9 @@ This file includes re-exports types and functions that are expected to be used
 by users, either for directly creating them, or to just use them for type-hinting.
 """
 
+# _mfv2d
+from mfv2d._mfv2d import Mesh as Mesh
+
 # Boundary
 from mfv2d.boundary import BoundaryCondition2DSteady as BoundaryCondition2DSteady
 

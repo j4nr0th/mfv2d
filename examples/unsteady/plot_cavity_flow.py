@@ -93,7 +93,7 @@ mesh = mesh_create(
     rect_mesh.surfaces,
 )
 
-solutions, stats = solve_system_2d(
+solutions, stats, mesh = solve_system_2d(
     mesh,
     SystemSettings(
         system,

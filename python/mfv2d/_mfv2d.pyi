@@ -4,8 +4,8 @@ This file contains functions signatures and *copies* of docstrings for the
 C-extension which implements all the required fast code.
 """
 
-from collections.abc import Sequence
-from typing import Self, SupportsIndex, final, overload
+from collections.abc import Callable, Sequence
+from typing import Concatenate, ParamSpec, Self, SupportsIndex, final, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -1316,6 +1316,8 @@ def compute_element_projector(
     """
     ...
 
+_ParameterType = ParamSpec("_ParameterType")
+
 class Mesh:
     """Mesh containing topology, geometry, and discretization information.
 
@@ -1486,6 +1488,21 @@ class Mesh:
         """
         ...
 
+    def get_element_depth(self, idx: SupportsIndex, /) -> int:
+        """Check how deep the element is in the hierarchy.
+
+        Parameters
+        ----------
+        idx : SupportsIndex
+            Index of the element element to check.
+
+        Returns
+        -------
+        int
+            Number of ancestors of the element.
+        """
+        ...
+
     def set_leaf_orders(self, idx: SupportsIndex, /, order_1: int, order_2: int) -> None:
         """Set orders of a leaf element.
 
@@ -1499,6 +1516,82 @@ class Mesh:
 
         order_2 : int
             New order of the leaf in the second dimension.
+        """
+        ...
+
+    def split_depth_first(
+        self,
+        maximum_depth: int,
+        predicate: Callable[
+            Concatenate[Mesh, int, _ParameterType],
+            None
+            | tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]],
+        ],
+        *args: _ParameterType.args,
+        **kwargs: _ParameterType.kwargs,
+    ) -> Mesh:
+        """Split leaf elements based on a predicate in a depth-first approach.
+
+        Parameters
+        ----------
+        maximum_depth : int
+            Maximum number of levels of division allowed.
+
+        predicate : Callable
+            Predicate to use for determining if the element should be split.
+            It will alway be given the mesh as the first arguement and
+            the ID of the element as its second argument. If the element should
+            not be split, the function should return ``None``, otherwise it should
+            return orders for all four newly created elements.
+
+        *args
+            Arguments passed to the predicate function.
+
+        **kwargs
+            Keyword arguments passed to the predicate function.
+
+        Returns
+        -------
+        Mesh
+            Mesh with refined elements.
+        """
+        ...
+
+    def split_breath_first(
+        self,
+        maximum_depth: int,
+        predicate: Callable[
+            Concatenate[Mesh, int, _ParameterType],
+            None
+            | tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]],
+        ],
+        *args: _ParameterType.args,
+        **kwargs: _ParameterType.kwargs,
+    ) -> Mesh:
+        """Split leaf elements based on a predicate in a breath-first approach.
+
+        Parameters
+        ----------
+        maximum_depth : int
+            Maximum number of levels of division allowed.
+
+        predicate : Callable
+            Predicate to use for determining if the element should be split.
+            It will always be given the mesh as the first argument and
+            the ID of the element as its second argument. If the element should
+            not be split, the function should return ``None``, otherwise it should
+            return orders for all four newly created elements.
+
+        *args
+            Arguments passed to the predicate function.
+
+        **kwargs
+            Keyword arguments passed to the predicate function.
+
+        Returns
+        -------
+        Mesh
+            Mesh with refined elements.
         """
         ...
 

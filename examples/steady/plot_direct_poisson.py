@@ -207,7 +207,7 @@ plt.show()
 pval = 3  # Test polynomial order
 msh = mesh_create(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
 
-solution, stats = solve_system_2d(
+solution, stats, mesh = solve_system_2d(
     msh,
     system_settings=SystemSettings(
         system,
@@ -261,7 +261,7 @@ for ip, pval in enumerate(p_vals):
         pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces
     )
 
-    solution, stats = solve_system_2d(
+    solution, stats, mesh = solve_system_2d(
         msh,
         system_settings=SystemSettings(
             system,

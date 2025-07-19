@@ -22,6 +22,7 @@ from mfv2d.mimetic2d import (
     FemCache,
     compute_leaf_dof_counts,
 )
+from mfv2d.refinement import RefinementSettings, perform_mesh_refinement
 from mfv2d.solve_system import (
     SolutionStatistics,
     SolverSettings,
@@ -41,11 +42,6 @@ from mfv2d.solve_system import (
 def solve_system_2d(
     mesh: Mesh,
     system_settings: SystemSettings,
-    # refinement_settings: RefinementSettings = RefinementSettings(
-    #     refinement_levels=0,
-    #     division_predicate=None,
-    #     division_function=divide_old,
-    # ),
     solver_settings: SolverSettings = SolverSettings(
         maximum_iterations=100,
         relaxation=1,
@@ -53,10 +49,11 @@ def solve_system_2d(
         relative_tolerance=1e-5,
     ),
     time_settings: TimeSettings | None = None,
+    refinement_settings: RefinementSettings | None = None,
     *,
     recon_order: int | None = None,
     print_residual: bool = False,
-) -> tuple[Sequence[pv.UnstructuredGrid], SolutionStatistics]:
+) -> tuple[Sequence[pv.UnstructuredGrid], SolutionStatistics, Mesh]:
     """Solve the unsteady system on the specified mesh.
 
     Parameters
@@ -67,9 +64,6 @@ def solve_system_2d(
     system_settings : SystemSettings
         Settings specifying the system of equations and boundary conditions to solve for.
 
-    refinement_settings : RefinementSettings, optional
-        Settings specifying refinement of the mesh.
-
     solver_settings : SolverSettings, optional
         Settings specifying the behavior of the solver
 
@@ -77,6 +71,10 @@ def solve_system_2d(
         When set to ``None``, the equations are solved without time dependence (steady
         state). Otherwise, it specifies which equations are time derivative related and
         time step count and size.
+
+    refinement_settings : RefinementSettings or None, default: None
+        Settings specifying refinement of the mesh. If ``None`` is given instead, then
+        refinement is not performed after the solution and instead
 
     recon_order : int, optional
         When specified, all elements will be reconstructed using this polynomial order.
@@ -93,6 +91,10 @@ def solve_system_2d(
         cells. This reconstruction is done on the nodal basis for all unknowns.
     stats : SolutionStatisticsNonLin
         Statistics about the solution. This can be used for convergence tests or timing.
+    mesh : Mesh
+        When refinement settings are specified, the mesh resulting from the given
+        refinement is returned. If the settings are left as unspecified, then the original
+        mesh is returned.
     """
     system = system_settings.system
 
@@ -284,7 +286,7 @@ def solve_system_2d(
             k,
             *(
                 ElementConstraint(
-                    ie,
+                    leaf_idx,
                     np.arange(
                         dof_offsets[ie, i_unknown],
                         dof_offsets[ie, i_unknown + 1],
@@ -292,7 +294,7 @@ def solve_system_2d(
                     ),
                     np.ones(dof_offsets[ie, i_unknown + 1] - dof_offsets[ie, i_unknown]),
                 )
-                for ie in range(mesh.leaf_count)
+                for ie, leaf_idx in enumerate(leaf_indices)
             ),
         )
 
@@ -327,7 +329,7 @@ def solve_system_2d(
         constraint_vals.append(constraint.rhs)
         # print(f"Continuity constraint {ic=}:")
         for ec in constraint.element_constraints:
-            offset = int(element_offset[ec.i_e])
+            offset = int(element_offset[reverse_mapping[ec.i_e]])
             constraint_cols.append(ec.dofs + offset)
             constraint_rows.append(np.full_like(ec.dofs, ic))
             constraint_coef.append(ec.coeffs)
@@ -340,7 +342,7 @@ def solve_system_2d(
         constraint = constrained_form_constaints[form]
         constraint_vals.append(constraint.rhs)
         for ec in constraint.element_constraints:
-            offset = int(element_offset[ec.i_e])
+            offset = int(element_offset[reverse_mapping[ec.i_e]])
             constraint_cols.append(ec.dofs + offset)
             constraint_rows.append(np.full_like(ec.dofs, ic))
             constraint_coef.append(ec.coeffs)
@@ -348,7 +350,7 @@ def solve_system_2d(
 
     # Strong BC constraints
     for ec in strong_bc_constraints:
-        offset = int(element_offset[ec.i_e])
+        offset = int(element_offset[reverse_mapping[ec.i_e]])
         for ci, cv in zip(ec.dofs, ec.coeffs, strict=True):
             constraint_rows.append(np.array([ic]))
             constraint_cols.append(np.array([ci + offset]))
@@ -359,7 +361,7 @@ def solve_system_2d(
 
     # Weak BC constraints/additions
     for ec in weak_bc_constraints:
-        offset = element_offset[ec.i_e]
+        offset = element_offset[reverse_mapping[ec.i_e]]
         main_vec[ec.dofs + offset] += ec.coeffs
 
     if constraint_coef:
@@ -445,7 +447,6 @@ def solve_system_2d(
                 print_residual,
                 unknown_ordering,
                 mesh,
-                cache_2d,
                 element_caches,
                 compiled_system,
                 explicit_vec,
@@ -518,7 +519,6 @@ def solve_system_2d(
             print_residual,
             unknown_ordering,
             mesh,
-            cache_2d,
             element_caches,
             compiled_system,
             explicit_vec,
@@ -564,7 +564,26 @@ def solve_system_2d(
         residual_history=np.asarray(changes, np.float64),
     )
 
-    return tuple(resulting_grids), stats
+    if refinement_settings is not None:
+        output_mesh = perform_mesh_refinement(
+            mesh,
+            solution,
+            element_offset,
+            dof_offsets,
+            [
+                system.unknown_forms.index(form)
+                for form in refinement_settings.required_forms
+            ],
+            system.unknown_forms,
+            refinement_settings.error_calculation_function,
+            refinement_settings.h_refinement_ratio,
+            refinement_settings.refinement_limit,
+            unknown_ordering,
+        )
+    else:
+        output_mesh = mesh
+
+    return tuple(resulting_grids), stats, output_mesh
 
 
 def update_system_for_time_march(

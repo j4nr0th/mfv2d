@@ -1476,6 +1476,32 @@ class Mesh:
         """
         ...
 
+    def copy(self) -> Mesh:
+        """Create a copy of the mesh.
+
+        Returns
+        -------
+        Mesh
+            Copy of the mesh.
+        """
+        ...
+
+    def set_leaf_orders(self, idx: SupportsIndex, /, order_1: int, order_2: int) -> None:
+        """Set orders of a leaf element.
+
+        Parameters
+        ----------
+        idx : SupportsIndex
+            Index of the leaf element to set.
+
+        order_1 : int
+            New order of the leaf in the first dimension.
+
+        order_2 : int
+            New order of the leaf in the second dimension.
+        """
+        ...
+
 # Element side enum values
 
 ELEMENT_SIDE_BOTTOM: int

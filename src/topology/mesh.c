@@ -197,6 +197,18 @@ static mfv2d_result_t element_mesh_split_element(element_mesh_t *this, const uns
     return MFV2D_SUCCESS;
 }
 
+static mfv2d_result_t element_mesh_copy_element(const element_mesh_t *const src, element_mesh_t *const dst)
+{
+    element_t *const elements = allocate(&SYSTEM_ALLOCATOR, src->count * sizeof *elements);
+    if (elements == NULL)
+        return MFV2D_FAILED_ALLOC;
+
+    memcpy(elements, src->elements, src->count * sizeof *elements);
+    *dst = *src;
+    dst->elements = elements;
+    return MFV2D_SUCCESS;
+}
+
 static PyObject *mesh_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     manifold2d_object_t *primal, *dual;
@@ -522,6 +534,75 @@ static PyObject *mesh_get_leaf_indices(const mesh_t *const this, PyObject *Py_UN
     return (PyObject *)out;
 }
 
+static PyObject *mesh_copy(const mesh_t *const this, PyObject *Py_UNUSED(args))
+{
+    mesh_t *const that = (mesh_t *)mesh_type_object.tp_alloc(&mesh_type_object, 0);
+    if (!that)
+        return NULL;
+
+    that->boundary_count = this->boundary_count;
+    that->boundary_indices = allocate(&SYSTEM_ALLOCATOR, this->boundary_count * sizeof *this->boundary_indices);
+    if (!that->boundary_indices)
+    {
+        Py_DECREF(that);
+        return NULL;
+    }
+    const mfv2d_result_t res = element_mesh_copy_element(&this->element_mesh, &that->element_mesh);
+    if (res != MFV2D_SUCCESS)
+    {
+        Py_DECREF(that);
+        PyErr_Format(PyExc_RuntimeError, "Could not copy element mesh: %s", mfv2d_result_str(res));
+        return NULL;
+    }
+
+    memcpy(that->boundary_indices, this->boundary_indices, this->boundary_count * sizeof *this->boundary_indices);
+
+    that->primal = this->primal;
+    Py_INCREF(that->primal);
+    that->dual = this->dual;
+    Py_INCREF(that->dual);
+
+    return (PyObject *)that;
+}
+
+static PyObject *mesh_set_leaf_orders(const mesh_t *const this, PyObject *args, PyObject *kwds)
+{
+    long index_long;
+    long orders_i;
+    long orders_j;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "l(ll)", (char *[4]){"", "order_1", "order_2", NULL}, &index_long,
+                                     &orders_i, &orders_j))
+    {
+        return NULL;
+    }
+
+    if (index_long < 0 || index_long >= this->element_mesh.count)
+    {
+        PyErr_Format(PyExc_IndexError, "Index %ld out of range for mesh with %u elements.", index_long,
+                     this->element_mesh.count);
+        return NULL;
+    }
+
+    if (orders_i <= 0 || orders_j <= 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Orders must be positive (got (%ld, %ld)).", orders_i, orders_j);
+        return NULL;
+    }
+
+    element_t *const elem = &this->element_mesh.elements[index_long];
+    if (elem->base.type != ELEMENT_TYPE_LEAF)
+    {
+        PyErr_Format(PyExc_ValueError, "Element at index %ld is not a leaf.", index_long);
+        return NULL;
+    }
+
+    element_leaf_t *const leaf = &elem->leaf;
+    leaf->data.orders.i = orders_i;
+    leaf->data.orders.j = orders_j;
+
+    Py_RETURN_NONE;
+}
+
 PyDoc_STRVAR(mesh_get_element_parent_docstr,
              "get_element_parent(idx: typing.SupportsIndex, /) -> int | None\n"
              "Get the index of the element's parent or ``None`` if it is a root element.\n"
@@ -606,6 +687,28 @@ PyDoc_STRVAR(mesh_get_leaf_indices_docstr, "get_leaf_indices() -> npt.NDArray[np
                                            "(N,) array\n"
                                            "    Indices of leaf elements.\n");
 
+PyDoc_STRVAR(mesh_copy_docstr, "copy() -> Mesh\n"
+                               "Create a copy of the mesh.\n"
+                               "\n"
+                               "Returns\n"
+                               "-------\n"
+                               "Mesh\n"
+                               "    Copy of the mesh.\n");
+PyDoc_STRVAR(mesh_set_leaf_orders_docstr,
+             "set_leaf_orders(idx: typing.SupportsIndex, /, order_1: int, order_2: int) -> None\n"
+             "Set orders of a leaf element.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "idx : SupportsIndex\n"
+             "    Index of the leaf element to set.\n"
+             "\n"
+             "order_1 : int\n"
+             "    New order of the leaf in the first dimension.\n"
+             "\n"
+             "order_2 : int\n"
+             "    New order of the leaf in the second dimension.\n");
+
 static PyMethodDef mesh_methods[] = {
     {
         .ml_name = "get_element_parent",
@@ -642,6 +745,18 @@ static PyMethodDef mesh_methods[] = {
         .ml_meth = (void *)mesh_get_leaf_indices,
         .ml_flags = METH_NOARGS,
         .ml_doc = mesh_get_leaf_indices_docstr,
+    },
+    {
+        .ml_name = "copy",
+        .ml_meth = (void *)mesh_copy,
+        .ml_flags = METH_NOARGS,
+        .ml_doc = mesh_copy_docstr,
+    },
+    {
+        .ml_name = "set_leaf_orders",
+        .ml_meth = (void *)mesh_set_leaf_orders,
+        .ml_flags = METH_KEYWORDS | METH_VARARGS,
+        .ml_doc = mesh_set_leaf_orders_docstr,
     },
     {},
 };

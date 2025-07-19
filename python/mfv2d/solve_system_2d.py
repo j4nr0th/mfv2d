@@ -148,15 +148,16 @@ def solve_system_2d(
     element_dof_counts: list[npt.NDArray[np.uint32]] = list()
 
     for leaf_idx in leaf_indices:
+        order_1, order_2 = mesh.get_leaf_orders(leaf_idx)
         element_cache = ElementMassMatrixCache(
-            cache_2d.get_basis2d(*mesh.get_leaf_orders(leaf_idx)),
+            cache_2d.get_basis2d(order_1, order_2),
             np.astype(mesh.get_leaf_corners(leaf_idx), np.float64, copy=False),
         )
 
         element_caches.append(element_cache)
         linear_vectors.append(compute_element_rhs(system, element_cache))
         element_dof_counts.append(
-            compute_leaf_dof_counts(leaf_idx, unknown_ordering, mesh)
+            compute_leaf_dof_counts(order_1, order_2, unknown_ordering)
         )
 
     # Prepare for evaluation of matrices/vectors

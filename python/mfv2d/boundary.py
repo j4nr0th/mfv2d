@@ -107,7 +107,7 @@ class BoundaryCondition2DUnsteady(BoundaryCondition2D):
 
 
 def _element_weak_boundary_condition(
-    elements: Mesh,
+    mesh: Mesh,
     element_idx: int,
     side: ElementSide,
     unknown_orders: UnknownOrderings,
@@ -121,8 +121,8 @@ def _element_weak_boundary_condition(
 
     Parameters
     ----------
-    elements : ElementCollection
-        Element collection that the element is in.
+    mesh : Mesh
+        Mesh in which the element is in.
 
     element_idx : int
         Index of the element to compute the contributions on.
@@ -149,13 +149,13 @@ def _element_weak_boundary_condition(
         indices of equations where to apply in the ``dofs`` member and
         contributions of boundary terms in the ``coeffs`` member.
     """
-    children = elements.get_element_children(element_idx)
+    children = mesh.get_element_children(element_idx)
 
     if children is not None:
         # Node, has children
         c1, c2 = element_node_children_on_side(side, children)
         return _element_weak_boundary_condition(
-            elements,
+            mesh,
             c1,
             side,
             unknown_orders,
@@ -165,7 +165,7 @@ def _element_weak_boundary_condition(
             weak_terms,
             basis_cache,
         ) + _element_weak_boundary_condition(
-            elements,
+            mesh,
             c2,
             side,
             unknown_orders,
@@ -176,13 +176,13 @@ def _element_weak_boundary_condition(
             basis_cache,
         )
 
-    side_order = get_side_order(elements, element_idx, side)
+    side_order = get_side_order(mesh, element_idx, side)
 
     basis_1d = basis_cache.get_basis1d(side_order)
     ndir = 2 * ((side.value & 2) >> 1) - 1
     i0 = side.value - 1
     i1 = side.value & 3
-    corners = elements.get_leaf_corners(element_idx)
+    corners = mesh.get_leaf_corners(element_idx)
     p0: tuple[float, float] = corners[i0]
     p1: tuple[float, float] = corners[i1]
     dx = (p1[0] - p0[0]) / 2
@@ -190,7 +190,7 @@ def _element_weak_boundary_condition(
     dy = (p1[1] - p0[1]) / 2
     yv = (p1[1] + p0[1]) / 2 + dy * basis_1d.rule.nodes
     form_order = unknown_orders.form_orders[unknown_index]
-    dofs = element_boundary_dofs(side, form_order, *elements.get_leaf_orders(element_idx))
+    dofs = element_boundary_dofs(side, form_order, *mesh.get_leaf_orders(element_idx))
     dofs = dofs + dof_offsets[leaf_order_mapping[element_idx], unknown_index]
     vals = np.zeros_like(dofs, np.float64)
 
@@ -234,8 +234,8 @@ def _element_strong_boundary_condition(
 
     Parameters
     ----------
-    elements : ElementCollection
-        Element collection that the element is in.
+    mesh : Mesh
+        Mesh in which the element is in.
 
     element_idx : int
         Index of the element to compute the degrees of freedom on.
@@ -409,8 +409,8 @@ def mesh_boundary_conditions(
     unknown_order : UnknownOrderings
         Orders of unknown forms.
 
-    elements : ElementCollection
-        Collection of elements to use.
+    mesh : Mesh
+        Mesh in which the element is in.
 
     dof_offsets : FixedElementArray[np.uint32]
         Offsets of DoFs within each element.

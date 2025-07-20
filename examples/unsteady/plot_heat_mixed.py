@@ -97,7 +97,7 @@ dt_vals = np.zeros(nt_vals.size)
 
 for i_nt, nt in enumerate(nt_vals):
     dt = float(T_END / nt)
-    solutions, stats = solve_system_2d(
+    solutions, stats, mesh = solve_system_2d(
         mesh,
         system_settings=SystemSettings(system),
         solver_settings=SolverSettings(

@@ -25,6 +25,7 @@ typedef enum
     MFV2D_NOT_CONVERGED = 13,      // Iterations did not converge
     MFV2D_INDEX_OUT_OF_RANGE,      // Index out of range
     MFV2D_NOT_A_LEAF,              // Element is not a leaf
+    MFV2D_FAILED_CALLBACK,         // An external callback failed.
     MFV2D_UNSPECIFIED_ERROR,       // Unspecified
     EVAL_COUNT,                    // Used to check if out of range.
 } mfv2d_result_t;

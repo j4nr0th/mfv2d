@@ -70,8 +70,8 @@ def _get_corner_dof(mesh: Mesh, element: int, side: ElementSide, /) -> tuple[int
 
     Parameters
     ----------
-    element_collection : ElementCollection
-        Collection of elements the ``element`` is in.
+    mesh : Mesh
+        Mesh in which the element is in.
 
     element : int
         Element which to get DoF equations for.
@@ -121,8 +121,8 @@ def _get_side_dof_nodes(
 
     Parameters
     ----------
-    element_collection : ElementCollection
-        Collection of elements the ``element`` is in.
+    mesh : Mesh
+        Mesh in which the element is in.
 
     element : int
         Element which to get DoF equations for.
@@ -193,8 +193,8 @@ def _get_side_dofs(
 
     Parameters
     ----------
-    element_collection : ElementCollection
-        Collection of elements the ``element`` is in.
+    mesh : Mesh
+        Mesh in which the element is in.
 
     element : int
         Element which to get DoF equations for.
@@ -316,8 +316,8 @@ def connect_corner_based(
 
     Parameters
     ----------
-    elements : ElementCollection
-        Element collection to which the two elements belong to.
+    mesh : Mesh
+        Mesh in which the elements are in.
 
     *pairs : tuple of (int, ElementSide)
         Elements that should be connected as pairs of element and side
@@ -361,8 +361,8 @@ def connect_edge_center(
 
     Parameters
     ----------
-    elements : ElementCollection
-        Element collection to which the elements belong to.
+    mesh : Mesh
+        Mesh in which the element is in.
 
     e1 : int
         Index of the first element.
@@ -406,8 +406,8 @@ def connect_edge_based(
 
     Parameters
     ----------
-    elements : ElementCollection
-        Element collection to which the two elements belong to.
+    mesh : Mesh
+        Mesh in which the element is in.
 
     e1 : int
         Index of the first element.
@@ -516,8 +516,8 @@ def connect_element_inner(
 
     Parameters
     ----------
-    elements : ElementCollection
-        Element collection the element belongs to.
+    mesh : Mesh
+        Mesh in which the element is in.
 
     element : int
         Index of element to deal with.
@@ -603,13 +603,10 @@ def connect_elements(
 
     Parameters
     ----------
-    elements : ElementCollection
-        Element collection that contains all the elements.
-
     unknowns : UnknownOrderings
         Orders of unknown forms defined for all elements.
 
-    mesh : Mesh2D
+    mesh : Mesh
         Mesh with primal and dual topology of root elements.
 
     dof_offsets : FixedElementArray[np.uint32]

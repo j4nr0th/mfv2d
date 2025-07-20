@@ -16,4 +16,5 @@ module can be used, but rather how it works internally.
     modules/kform
     modules/mimetic2d
     modules/progress
+    modules/refinement
     modules/solve_system

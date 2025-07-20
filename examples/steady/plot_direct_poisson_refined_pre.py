@@ -17,15 +17,16 @@ import numpy.typing as npt
 import pyvista as pv
 import rmsh
 from matplotlib import pyplot as plt
+from matplotlib.collections import PolyCollection
 from mfv2d import (
     BoundaryCondition2DSteady,
     KFormSystem,
     KFormUnknown,
-    Mesh2D,
-    RefinementSettings,
+    Mesh,
     SolverSettings,
     SystemSettings,
     UnknownFormOrder,
+    mesh_create,
     solve_system_2d,
 )
 
@@ -96,7 +97,7 @@ ax.set_aspect("equal")
 plt.show()
 
 pval = 1  # Test polynomial order
-msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+mesh = mesh_create(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
 
 
 # %%
@@ -104,39 +105,100 @@ msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surface
 # Refinement Settings
 # -------------------
 #
-# How refinement is done is specified through :class:`mfv2d.RefinementSettings`.
-# For this example, first the number of division layers is specified. This means
-# that each element and its children can not be divided more than that number of
-# times. The second is the ``division_predicate``, which is called for each element
-# to determine if it should be divided. In this case, it is done quite arbitrarely,
-# being done for every three out of four elements, but it can also use element
-# information to determine whether or not it should occurr.
+# Refinement can be done in two ways - pre-solver refinement and post-solver refinement.
+# For pre-solver refinement, the choice of which elements are hierarchically refined is
+# based soley on geometrical and topological data. This is quite clearly because no
+# solution has been computed yet.
+#
+# Pre-solver refinement is facilitated by methods
+# :meth:`mfv2d._mfv2d.Mesh.split_depth_first` and
+# :meth:`mfv2d._mfv2d.Mesh.split_breath_first`. Both accept a predicate function they
+# evaluate for each element that could be refined, until a desired depth of refinement
+# is reached, or all leaf elements have been checked already. The difference between the
+# two is the order in which they examine leaves. Post-solver refinement is more involved,
+# so it won't me discussed here in more detail.
+#
+# The example bellow shows how the refinement will differ if first 3 out of 4 elements
+# that are checked are refined. Note that this is just for illustrative purposes and
+# that in a more realistic case for pre-solver refinement, geometry of each element
+# could be checked through the :meth:`mfv2d._mfv2d.Mesh.get_leaf_corners`.
 
-counter = 0
+
+def division_predicate(m: Mesh, ie: int, counter: list[int]):
+    """Test division predicate."""
+    counter[0] += 1
+    cnt = counter[0]
+    if (cnt & 3) != 0:
+        orders = m.get_leaf_orders(ie)
+        return orders, orders, orders, orders
+    return None
 
 
-def division_predicate(_, _idx: int) -> bool:
-    """Check if element should be divided."""
-    global counter
-    cnt = counter
-    counter += 1
-    return (cnt & 3) != 0
+counter = [0]
+depth_mesh = mesh.split_depth_first(2, division_predicate, counter)
+
+# Reset the counter
+counter = [0]
+breath_mesh = mesh.split_breath_first(2, division_predicate, counter)
 
 
-refinement_settings = RefinementSettings(
-    refinement_levels=2,
-    division_predicate=division_predicate,
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+vertices_depth = [
+    depth_mesh.get_leaf_corners(idx) for idx in depth_mesh.get_leaf_indices()
+]
+ax1.add_collection(
+    PolyCollection(
+        vertices_depth,
+        facecolors="none",
+        antialiased=True,
+    )
 )
+for idx, quad in zip(depth_mesh.get_leaf_indices(), vertices_depth):
+    ax1.text(
+        *np.mean(quad, axis=0),
+        str(idx),
+        ha="center",
+        va="center",
+        color="red",
+        fontsize=6,
+    )
+ax1.autoscale()
+ax1.set(aspect="equal", title="Depth first refinement")
 
+vertices_breath = [
+    breath_mesh.get_leaf_corners(idx) for idx in breath_mesh.get_leaf_indices()
+]
+ax2.add_collection(
+    PolyCollection(
+        vertices_breath,
+        facecolors="none",
+        antialiased=True,
+    )
+)
+for idx, quad in zip(breath_mesh.get_leaf_indices(), vertices_breath):
+    ax2.text(
+        *np.mean(quad, axis=0),
+        str(idx),
+        ha="center",
+        va="center",
+        color="red",
+        fontsize=6,
+    )
+ax2.autoscale()
+ax2.set(aspect="equal", title="Breath first refinement")
 
-solution, stats = solve_system_2d(
-    msh,
+plt.show()
+
+solution, stats, depth_mesh = solve_system_2d(
+    depth_mesh,
     system_settings=SystemSettings(
         system,
-        boundary_conditions=[BoundaryCondition2DSteady(u, msh.boundary_indices, u_exact)],
+        boundary_conditions=[
+            BoundaryCondition2DSteady(u, depth_mesh.boundary_indices, u_exact)
+        ],
     ),
     solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
-    refinement_settings=refinement_settings,
     print_residual=False,
     recon_order=25,
 )
@@ -185,32 +247,30 @@ l2_err = np.zeros(p_vals.size)
 
 
 for ip, pval in enumerate(p_vals):
-    msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+    base_mesh = mesh_create(
+        pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces
+    )
 
-    def refine_test(e, i: int) -> bool:
+    def refine_test(m: Mesh, i: int):
         """Check if element should be refined."""
-        del i
-        corners = np.array([e.bottom_left, e.bottom_right, e.top_right, e.top_left])
-        return bool(np.any(np.linalg.norm(corners, axis=-1) > 0.5))
+        corners = m.get_leaf_corners(i)
+        if np.any(np.linalg.norm(corners, axis=-1) > 0.5):
+            order = m.get_leaf_orders(i)
+            return order, order, order, order
+        # Do not refine
+        return None
 
-    def divide_new(
-        order: int, level: int, max_level: int
-    ) -> tuple[int | None, tuple[int, int, int, int]]:
-        """Keep child order equal to parent and set parent to double the child."""
-        del level, max_level
-        v = order
-        return None, (v, v, v, v)
+    mesh = base_mesh.split_depth_first(2, refine_test)
 
-    solution, stats = solve_system_2d(
-        msh,
+    solution, stats, mesh = solve_system_2d(
+        mesh,
         system_settings=SystemSettings(
             system,
             boundary_conditions=[
-                BoundaryCondition2DSteady(u, msh.boundary_indices, u_exact)
+                BoundaryCondition2DSteady(u, mesh.boundary_indices, u_exact)
             ],
         ),
         solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
-        refinement_settings=refinement_settings,
         print_residual=False,
         recon_order=25,
     )

@@ -166,11 +166,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -279,9 +279,13 @@ document.write(`
   <h1>Source code for mfv2d.progress</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Really cool looking progress bar type.&quot;&quot;&quot;</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
 
 <span class="n">_ANSI_RESET</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span>
 <span class="n">_ANSI_RED</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[31m&quot;</span>
@@ -333,8 +337,8 @@ document.write(`
             <span class="n">err_str_list</span> <span class="o">=</span> <span class="n">err_str_list</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">_ANSI_GREEN</span> <span class="o">+</span> <span class="s2">&quot;*&quot;</span> <span class="o">+</span> <span class="n">_ANSI_RESET</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">err_scale</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
-                <span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">err_initial</span><span class="p">)</span> <span class="o">-</span> <span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">err_cur</span><span class="p">))</span>
-                <span class="o">/</span> <span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">err_initial</span><span class="p">)</span> <span class="o">-</span> <span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">err_tol</span><span class="p">))</span>
+                <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">err_initial</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">err_cur</span><span class="p">))</span>
+                <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">err_initial</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">err_tol</span><span class="p">))</span>
                 <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">err_width</span>
             <span class="p">)</span>
             <span class="k">assert</span> <span class="n">err_scale</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">err_width</span> <span class="ow">and</span> <span class="n">err_scale</span> <span class="o">&gt;=</span> <span class="mi">0</span>
@@ -383,6 +387,74 @@ document.write(`
         <span class="k">return</span> <span class="n">format_string</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="n">_SPINNERS</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">iter_cur</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">_SPINNERS</span><span class="p">)],</span> <span class="n">iter_str</span><span class="p">,</span> <span class="n">err_str</span>
         <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="HistogramFormat">
+<a class="viewcode-back" href="../../modules/progress.html#mfv2d.progress.HistogramFormat">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">HistogramFormat</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type used to format a histogram from an array.&quot;&quot;&quot;</span>
+
+    <span class="n">rows</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">cols</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">tick_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">label_format</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="HistogramFormat.format">
+<a class="viewcode-back" href="../../modules/progress.html#mfv2d.progress.HistogramFormat.format">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a histogram string based on the array.&quot;&quot;&quot;</span>
+        <span class="c1"># Compute histogram and scaling</span>
+        <span class="n">hist</span><span class="p">,</span> <span class="n">bin_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cols</span><span class="p">)</span>
+        <span class="n">max_val</span> <span class="o">=</span> <span class="n">hist</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">max_val</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">scaled</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">hist</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scaled</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">((</span><span class="n">hist</span> <span class="o">/</span> <span class="n">max_val</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rows</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+        <span class="c1"># Print bars</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rows</span><span class="p">)):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;█&quot;</span> <span class="k">if</span> <span class="n">scaled</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">r</span> <span class="k">else</span> <span class="s2">&quot; &quot;</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cols</span><span class="p">)))</span>
+
+        <span class="c1"># Tick positions</span>
+        <span class="n">tick_positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cols</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tick_count</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="n">tick_row</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot; &quot;</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cols</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">pos</span> <span class="ow">in</span> <span class="n">tick_positions</span><span class="p">:</span>
+            <span class="n">tick_row</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;|&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tick_row</span><span class="p">))</span>
+
+        <span class="c1"># Label row with adjusted alignment</span>
+        <span class="n">label_row</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot; &quot;</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cols</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pos</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">tick_positions</span><span class="p">):</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_format</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">bin_edges</span><span class="p">[</span><span class="n">pos</span><span class="p">]))</span>
+            <span class="n">label_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+            <span class="c1"># First tick: left align</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">pos</span>
+            <span class="c1"># Last tick: right align</span>
+            <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">tick_positions</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">-</span> <span class="n">label_len</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="c1"># Middle ticks: center</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">-</span> <span class="n">label_len</span> <span class="o">//</span> <span class="mi">2</span>
+            <span class="c1"># Boundary checks</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">label_len</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cols</span><span class="p">)</span>
+            <span class="n">label_to_insert</span> <span class="o">=</span> <span class="n">label</span><span class="p">[:</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">]</span>
+            <span class="c1"># Place label</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">label_to_insert</span><span class="p">):</span>
+                <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cols</span><span class="p">:</span>
+                    <span class="n">label_row</span><span class="p">[</span><span class="n">start</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">label_row</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HistogramFormat.__call__">
+<a class="viewcode-back" href="../../modules/progress.html#mfv2d.progress.HistogramFormat.__call__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Call ``self.format(a)``.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">a</span><span class="p">)</span></div>
 </div>
 
 </pre></div>

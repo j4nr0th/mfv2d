@@ -166,11 +166,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -291,20 +291,15 @@ document.write(`
 <span class="sd">add support for prescribing arbitrary relations on the boundary.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.element</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">ElementCollection</span><span class="p">,</span>
-    <span class="n">ElementConstraint</span><span class="p">,</span>
-    <span class="n">FixedElementArray</span><span class="p">,</span>
-    <span class="n">element_boundary_dofs</span><span class="p">,</span>
-    <span class="n">element_node_children_on_side</span><span class="p">,</span>
-    <span class="n">get_side_order</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mesh</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Function2D</span><span class="p">,</span>
     <span class="n">KBoundaryProjection</span><span class="p">,</span>
@@ -313,7 +308,15 @@ document.write(`
     <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">UnknownOrderings</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.mimetic2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElementSide</span><span class="p">,</span> <span class="n">FemCache</span><span class="p">,</span> <span class="n">Mesh2D</span><span class="p">,</span> <span class="n">find_surface_boundary_id_line</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.mimetic2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ElementConstraint</span><span class="p">,</span>
+    <span class="n">ElementSide</span><span class="p">,</span>
+    <span class="n">FemCache</span><span class="p">,</span>
+    <span class="n">element_boundary_dofs</span><span class="p">,</span>
+    <span class="n">element_node_children_on_side</span><span class="p">,</span>
+    <span class="n">find_surface_boundary_id_line</span><span class="p">,</span>
+    <span class="n">get_side_order</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <div class="viewcode-block" id="BoundaryCondition2D">
@@ -394,12 +397,13 @@ document.write(`
 <div class="viewcode-block" id="_element_weak_boundary_condition">
 <a class="viewcode-back" href="../../modules/boundary.html#mfv2d.boundary._element_weak_boundary_condition">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">_element_weak_boundary_condition</span><span class="p">(</span>
-    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
     <span class="n">element_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span>
     <span class="n">unknown_orders</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
     <span class="n">unknown_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">FixedElementArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">leaf_order_mapping</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
     <span class="n">weak_terms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">KBoundaryProjection</span><span class="p">]],</span>
     <span class="n">basis_cache</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
@@ -407,8 +411,8 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    elements : ElementCollection</span>
-<span class="sd">        Element collection that the element is in.</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
 
 <span class="sd">    element_idx : int</span>
 <span class="sd">        Index of the element to compute the contributions on.</span>
@@ -435,38 +439,40 @@ document.write(`
 <span class="sd">        indices of equations where to apply in the ``dofs`` member and</span>
 <span class="sd">        contributions of boundary terms in the ``coeffs`` member.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">children</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">child_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">]</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">element_idx</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">children</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">children</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># Node, has children</span>
         <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">children</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_element_weak_boundary_condition</span><span class="p">(</span>
-            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
             <span class="n">c1</span><span class="p">,</span>
             <span class="n">side</span><span class="p">,</span>
             <span class="n">unknown_orders</span><span class="p">,</span>
             <span class="n">unknown_index</span><span class="p">,</span>
+            <span class="n">leaf_order_mapping</span><span class="p">,</span>
             <span class="n">dof_offsets</span><span class="p">,</span>
             <span class="n">weak_terms</span><span class="p">,</span>
             <span class="n">basis_cache</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">+</span> <span class="n">_element_weak_boundary_condition</span><span class="p">(</span>
-            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
             <span class="n">c2</span><span class="p">,</span>
             <span class="n">side</span><span class="p">,</span>
             <span class="n">unknown_orders</span><span class="p">,</span>
             <span class="n">unknown_index</span><span class="p">,</span>
+            <span class="n">leaf_order_mapping</span><span class="p">,</span>
             <span class="n">dof_offsets</span><span class="p">,</span>
             <span class="n">weak_terms</span><span class="p">,</span>
             <span class="n">basis_cache</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="n">side_order</span> <span class="o">=</span> <span class="n">get_side_order</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">element_idx</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
+    <span class="n">side_order</span> <span class="o">=</span> <span class="n">get_side_order</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">element_idx</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
 
     <span class="n">basis_1d</span> <span class="o">=</span> <span class="n">basis_cache</span><span class="o">.</span><span class="n">get_basis1d</span><span class="p">(</span><span class="n">side_order</span><span class="p">)</span>
     <span class="n">ndir</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">((</span><span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">&amp;</span> <span class="mi">2</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
     <span class="n">i0</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span>
     <span class="n">i1</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">&amp;</span> <span class="mi">3</span>
-    <span class="n">corners</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">corners_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">]</span>
+    <span class="n">corners</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_corners</span><span class="p">(</span><span class="n">element_idx</span><span class="p">)</span>
     <span class="n">p0</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="n">i0</span><span class="p">]</span>
     <span class="n">p1</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span>
     <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
@@ -474,8 +480,8 @@ document.write(`
     <span class="n">dy</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
     <span class="n">yv</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span>
     <span class="n">form_order</span> <span class="o">=</span> <span class="n">unknown_orders</span><span class="o">.</span><span class="n">form_orders</span><span class="p">[</span><span class="n">unknown_index</span><span class="p">]</span>
-    <span class="n">dofs</span> <span class="o">=</span> <span class="n">element_boundary_dofs</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="o">*</span><span class="n">elements</span><span class="o">.</span><span class="n">orders_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">])</span>
-    <span class="n">dofs</span> <span class="o">=</span> <span class="n">dofs</span> <span class="o">+</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">element_idx</span><span class="p">][</span><span class="n">unknown_index</span><span class="p">]</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">element_boundary_dofs</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="o">*</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">element_idx</span><span class="p">))</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">dofs</span> <span class="o">+</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">leaf_order_mapping</span><span class="p">[</span><span class="n">element_idx</span><span class="p">],</span> <span class="n">unknown_index</span><span class="p">]</span>
     <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
     <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">bp</span> <span class="ow">in</span> <span class="n">weak_terms</span><span class="p">:</span>
@@ -505,12 +511,13 @@ document.write(`
 <div class="viewcode-block" id="_element_strong_boundary_condition">
 <a class="viewcode-back" href="../../modules/boundary.html#mfv2d.boundary._element_strong_boundary_condition">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">_element_strong_boundary_condition</span><span class="p">(</span>
-    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
     <span class="n">element_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span>
     <span class="n">unknown_orders</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
     <span class="n">unknown_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">FixedElementArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">leaf_order_mapping</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
     <span class="n">strong_bc</span><span class="p">:</span> <span class="n">BoundaryCondition2DSteady</span><span class="p">,</span>
     <span class="n">basis_cache</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
     <span class="n">skip_first</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
@@ -520,8 +527,8 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    elements : ElementCollection</span>
-<span class="sd">        Element collection that the element is in.</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
 
 <span class="sd">    element_idx : int</span>
 <span class="sd">        Index of the element to compute the degrees of freedom on.</span>
@@ -554,28 +561,30 @@ document.write(`
 <span class="sd">        degrees of freedom to constrain ``dofs`` member and</span>
 <span class="sd">        their respective values in the ``coeffs`` member.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">children</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">child_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">children</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">element_idx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">children</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># Node, has children</span>
         <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">children</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">_element_strong_boundary_condition</span><span class="p">(</span>
-            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
             <span class="n">c1</span><span class="p">,</span>
             <span class="n">side</span><span class="p">,</span>
             <span class="n">unknown_orders</span><span class="p">,</span>
             <span class="n">unknown_index</span><span class="p">,</span>
+            <span class="n">leaf_order_mapping</span><span class="p">,</span>
             <span class="n">dof_offsets</span><span class="p">,</span>
             <span class="n">strong_bc</span><span class="p">,</span>
             <span class="n">basis_cache</span><span class="p">,</span>
             <span class="n">skip_first</span><span class="p">,</span>
             <span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">+</span> <span class="n">_element_strong_boundary_condition</span><span class="p">(</span>
-            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
             <span class="n">c2</span><span class="p">,</span>
             <span class="n">side</span><span class="p">,</span>
             <span class="n">unknown_orders</span><span class="p">,</span>
             <span class="n">unknown_index</span><span class="p">,</span>
+            <span class="n">leaf_order_mapping</span><span class="p">,</span>
             <span class="n">dof_offsets</span><span class="p">,</span>
             <span class="n">strong_bc</span><span class="p">,</span>
             <span class="n">basis_cache</span><span class="p">,</span>
@@ -583,13 +592,13 @@ document.write(`
             <span class="n">skip_last</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="n">side_order</span> <span class="o">=</span> <span class="n">get_side_order</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">element_idx</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
+    <span class="n">side_order</span> <span class="o">=</span> <span class="n">get_side_order</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">element_idx</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
 
     <span class="n">basis_1d</span> <span class="o">=</span> <span class="n">basis_cache</span><span class="o">.</span><span class="n">get_basis1d</span><span class="p">(</span><span class="n">side_order</span><span class="p">)</span>
     <span class="n">ndir</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">((</span><span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">&amp;</span> <span class="mi">2</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
     <span class="n">i0</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span>
     <span class="n">i1</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">&amp;</span> <span class="mi">3</span>
-    <span class="n">corners</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">corners_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">]</span>
+    <span class="n">corners</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_corners</span><span class="p">(</span><span class="n">element_idx</span><span class="p">)</span>
     <span class="n">p0</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="n">i0</span><span class="p">]</span>
     <span class="n">p1</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span>
     <span class="c1"># ndir, p0, p1 = _endpoints_from_line(e, i_side)</span>
@@ -598,8 +607,8 @@ document.write(`
     <span class="n">xv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">((</span><span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">yv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">((</span><span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">basis_1d</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">form_order</span> <span class="o">=</span> <span class="n">unknown_orders</span><span class="o">.</span><span class="n">form_orders</span><span class="p">[</span><span class="n">unknown_index</span><span class="p">]</span>
-    <span class="n">dofs</span> <span class="o">=</span> <span class="n">element_boundary_dofs</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="o">*</span><span class="n">elements</span><span class="o">.</span><span class="n">orders_array</span><span class="p">[</span><span class="n">element_idx</span><span class="p">])</span>
-    <span class="n">dofs</span> <span class="o">=</span> <span class="n">dofs</span> <span class="o">+</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">element_idx</span><span class="p">][</span><span class="n">unknown_index</span><span class="p">]</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">element_boundary_dofs</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="o">*</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">element_idx</span><span class="p">))</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">dofs</span> <span class="o">+</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">leaf_order_mapping</span><span class="p">[</span><span class="n">element_idx</span><span class="p">],</span> <span class="n">unknown_index</span><span class="p">]</span>
     <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
@@ -678,11 +687,10 @@ document.write(`
 <a class="viewcode-back" href="../../modules/boundary.html#mfv2d.boundary.mesh_boundary_conditions">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">mesh_boundary_conditions</span><span class="p">(</span>
     <span class="n">evaluatable_terms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">KSum</span><span class="p">],</span>
-    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh2D</span><span class="p">,</span>
     <span class="n">unknown_order</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
-    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
-    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">FixedElementArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
-    <span class="n">top_indices</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">leaf_order_mapping</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
     <span class="n">strong_bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">BoundaryCondition2DSteady</span><span class="p">]],</span>
     <span class="n">basis_cache</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
@@ -694,20 +702,14 @@ document.write(`
 <span class="sd">        Right sides of equations that contain boundary projections to be evaluated. Must</span>
 <span class="sd">        be ordered according to weights.</span>
 
-<span class="sd">    mesh : Mesh2D</span>
-<span class="sd">        Mesh of the top level elements.</span>
-
 <span class="sd">    unknown_order : UnknownOrderings</span>
 <span class="sd">        Orders of unknown forms.</span>
 
-<span class="sd">    elements : ElementCollection</span>
-<span class="sd">        Collection of elements to use.</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
 
 <span class="sd">    dof_offsets : FixedElementArray[np.uint32]</span>
 <span class="sd">        Offsets of DoFs within each element.</span>
-
-<span class="sd">    top_indices : npt.NDArray[np.uint32]</span>
-<span class="sd">        Array with corrected indices for top level elements.</span>
 
 <span class="sd">    strong_bcs : Sequence of Sequence of BoundaryCondition2DSteady</span>
 <span class="sd">        Boundary conditions grouped per weight functions and correctly ordered to match</span>
@@ -754,7 +756,6 @@ document.write(`
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Dual line should be on the boundary.&quot;</span><span class="p">)</span>
 
         <span class="c1"># primal_line = mesh.primal.get_line(i_boundary + 1)</span>
-        <span class="n">i_element</span> <span class="o">=</span> <span class="n">top_indices</span><span class="p">[</span><span class="n">id_surf</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
         <span class="n">primal_surface</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">get_surface</span><span class="p">(</span><span class="n">id_surf</span><span class="p">)</span>
         <span class="n">i_side</span> <span class="o">=</span> <span class="n">find_surface_boundary_id_line</span><span class="p">(</span><span class="n">primal_surface</span><span class="p">,</span> <span class="n">i_boundary</span><span class="p">)</span>
         <span class="n">primal_line</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">primal_surface</span><span class="p">[</span><span class="n">i_side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
@@ -773,11 +774,12 @@ document.write(`
 
                 <span class="n">s_bcs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
                     <span class="n">_element_strong_boundary_condition</span><span class="p">(</span>
-                        <span class="n">elements</span><span class="p">,</span>
-                        <span class="n">i_element</span><span class="p">,</span>
+                        <span class="n">mesh</span><span class="p">,</span>
+                        <span class="n">id_surf</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
                         <span class="n">i_side</span><span class="p">,</span>
                         <span class="n">unknown_order</span><span class="p">,</span>
                         <span class="n">idx</span><span class="p">,</span>
+                        <span class="n">leaf_order_mapping</span><span class="p">,</span>
                         <span class="n">dof_offsets</span><span class="p">,</span>
                         <span class="n">strong_term</span><span class="p">,</span>
                         <span class="n">basis_cache</span><span class="p">,</span>
@@ -792,11 +794,12 @@ document.write(`
 
                 <span class="n">w_bcs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
                     <span class="n">_element_weak_boundary_condition</span><span class="p">(</span>
-                        <span class="n">elements</span><span class="p">,</span>
-                        <span class="n">i_element</span><span class="p">,</span>
+                        <span class="n">mesh</span><span class="p">,</span>
+                        <span class="n">id_surf</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
                         <span class="n">i_side</span><span class="p">,</span>
                         <span class="n">unknown_order</span><span class="p">,</span>
                         <span class="n">idx</span><span class="p">,</span>
+                        <span class="n">leaf_order_mapping</span><span class="p">,</span>
                         <span class="n">dof_offsets</span><span class="p">,</span>
                         <span class="n">weak_term</span><span class="p">,</span>
                         <span class="n">basis_cache</span><span class="p">,</span>

@@ -84,10 +84,10 @@ Laplace operator, which the Poisson equation is defined with.
         BoundaryCondition2DSteady,
         KFormSystem,
         KFormUnknown,
-        Mesh2D,
         SolverSettings,
         SystemSettings,
         UnknownFormOrder,
+        mesh_create,
         solve_system_2d,
     )
 
@@ -286,9 +286,9 @@ looks.
 .. code-block:: Python
 
     pval = 3  # Test polynomial order
-    msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+    msh = mesh_create(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
 
-    solution, stats = solve_system_2d(
+    solution, stats, mesh = solve_system_2d(
         msh,
         system_settings=SystemSettings(
             system,
@@ -345,7 +345,7 @@ Solve for Different Orders
 
 So we solve for different orders.
 
-.. GENERATED FROM PYTHON SOURCE LINES 254-288
+.. GENERATED FROM PYTHON SOURCE LINES 254-290
 
 .. code-block:: Python
 
@@ -355,9 +355,11 @@ So we solve for different orders.
     l2_err = np.zeros(p_vals.size)
 
     for ip, pval in enumerate(p_vals):
-        msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+        msh = mesh_create(
+            pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces
+        )
 
-        solution, stats = solve_system_2d(
+        solution, stats, mesh = solve_system_2d(
             msh,
             system_settings=SystemSettings(
                 system,
@@ -401,7 +403,7 @@ So we solve for different orders.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 289-297
+.. GENERATED FROM PYTHON SOURCE LINES 291-299
 
 Plot Results
 ------------
@@ -412,7 +414,7 @@ Here we plot the results.
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 298-322
+.. GENERATED FROM PYTHON SOURCE LINES 300-324
 
 .. code-block:: Python
 
@@ -458,13 +460,13 @@ Here we plot the results.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 323-326
+.. GENERATED FROM PYTHON SOURCE LINES 325-328
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 327-349
+.. GENERATED FROM PYTHON SOURCE LINES 329-351
 
 .. code-block:: Python
 
@@ -511,7 +513,7 @@ Here we plot the results.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.465 seconds)
+   **Total running time of the script:** (0 minutes 1.371 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_direct_poisson.py:

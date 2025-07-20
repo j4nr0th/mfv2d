@@ -26,37 +26,6 @@ separately.
 .. autofunction:: rhs_2d_element_projection
 
 
-
-Matrix Assembly
----------------
-
-Global system matrix is created by :func:`assemble_matrix`, which creates
-individual merges leaf element matrices. This used to be more involved,
-but now we are in better times.
-
-.. autofunction:: assemble_matrix
-
-
-
-Vector Assembly
----------------
-
-Global system vector is similarly created by :func:`assemble_vector`. It used
-to be slow, complicated, and painful, but it's all ogre now.
-
-.. autofunction:: assemble_vector
-
-
-Forcing Assembly
-----------------
-
-Last of the assembly routines is the :func:`assemble_forcing` function. This
-assembles together the leaf element forcing (value of the given expression
-given solution).
-
-.. autofunction:: assemble_forcing
-
-
 Global Reconstruction
 ---------------------
 
@@ -66,7 +35,6 @@ of the solution for all leaf elements is implemented with the
 :class:`pyvista.UnstructuredGrid`, which can be added to the list
 of outputs.
 
-
 .. autofunction:: reconstruct_mesh_from_solution
 
 
@@ -74,39 +42,31 @@ Time March Support
 ------------------
 
 Since for time marching certain quantities must be extracted from
-the non-constraint equations, supporting functions are provided here. Namely,
-:func:`_extract_time_carry` is called on each element, which
-:func:`extract_carry` wraps. To determine what are the indices of degrees
+the non-constraint equations, supporting functions are provided here.
+To determine what are the indices of degrees
 of freedom to carry :func:`find_time_carry_indices` is used.
-
-.. autofunction:: extract_carry
-
-.. autofunction:: _extract_time_carry
 
 .. autofunction:: find_time_carry_indices
 
 
-Leaf Calculations
------------------
+With time marching element degrees of freedom have to often be mapped
+from primal to dual or the other way around. To support this,
+:func:`compute_element_primal` and :func:`compute_element_dual` can
+be used.
 
-For computing leaf element matrices and forcing, :func:`compute_leaf_matrix`
-and :func:`compute_leaf_vector` are available. These pretty much just
-coordinate calls to :func:`mfv2d._mfv2d.compute_element_matrix` and
-:func:`mfv2d._mfv2d.compute_element_vector`.
+.. autofunction:: compute_element_primal
 
-.. autofunction:: compute_leaf_matrix
+.. autofunction:: compute_element_dual
 
-.. autofunction:: compute_leaf_vector
 
-Since these also need vector field information for any interior products,
-functions to compute are also given:
-:func:`compute_element_vector_fields_nonlin` and its wrapper
-:func:`compute_element_vector_fields`.
+Supporting Calculations
+-----------------------
 
+Computing element matrices and vectors requires vector field information
+be provided. These can be computed using
+:func:`compute_element_vector_fields_nonlin`.
 
 .. autofunction:: compute_element_vector_fields_nonlin
-
-.. autofunction:: compute_element_vector_fields
 
 
 The Actual Solver
@@ -128,8 +88,6 @@ values.
 .. autoclass:: SystemSettings
 
 .. autoclass:: SolverSettings
-
-.. autoclass:: RefinementSettings
 
 .. autoclass:: TimeSettings
 

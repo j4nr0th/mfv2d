@@ -166,11 +166,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -292,33 +292,37 @@ document.write(`
 <span class="sd">- node-based for 0-forms on corners,</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.element</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">accumulate</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">compute_gll</span><span class="p">,</span> <span class="n">lagrange1d</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnknownFormOrder</span><span class="p">,</span> <span class="n">UnknownOrderings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.mimetic2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Constraint</span><span class="p">,</span>
-    <span class="n">ElementCollection</span><span class="p">,</span>
     <span class="n">ElementConstraint</span><span class="p">,</span>
-    <span class="n">FixedElementArray</span><span class="p">,</span>
-    <span class="n">UnknownFormOrder</span><span class="p">,</span>
-    <span class="n">UnknownOrderings</span><span class="p">,</span>
+    <span class="n">ElementSide</span><span class="p">,</span>
+    <span class="n">element_boundary_dofs</span><span class="p">,</span>
     <span class="n">element_node_children_on_side</span><span class="p">,</span>
-    <span class="n">get_corner_dof</span><span class="p">,</span>
-    <span class="n">get_side_dofs</span><span class="p">,</span>
+    <span class="n">find_surface_boundary_id_line</span><span class="p">,</span>
     <span class="n">get_side_order</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.mimetic2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElementSide</span><span class="p">,</span> <span class="n">Mesh2D</span><span class="p">,</span> <span class="n">find_surface_boundary_id_line</span>
 
 
 <div class="viewcode-block" id="_find_surface_boundary_id_node">
 <a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity._find_surface_boundary_id_node">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">_find_surface_boundary_id_node</span><span class="p">(</span>
-    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh2D</span><span class="p">,</span> <span class="n">surf_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">node_idx</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">surf_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">node_idx</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ElementSide</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Find what boundary begins with the node with a given index is in the surface.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    mesh : Mesh2D</span>
+<span class="sd">    mesh : Mesh</span>
 <span class="sd">        Mesh the surface is a part of.</span>
 
 <span class="sd">    surf_idx : int</span>
@@ -343,18 +347,270 @@ document.write(`
 
 
 
+<div class="viewcode-block" id="_get_corner_dof">
+<a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity._get_corner_dof">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_corner_dof</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">element</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get element index and degree of freedom index for the corner of the element.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
+
+<span class="sd">    element : int</span>
+<span class="sd">        Element which to get DoF equations for.</span>
+
+<span class="sd">    side : ElementSide</span>
+<span class="sd">        Side which begins with the corner that should be obtained.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    element_id : int</span>
+<span class="sd">        Index of the (leaf) element to which the corner belongs to.</span>
+
+<span class="sd">    dof_index : int</span>
+<span class="sd">        Index of the (0-form) degree of freedom which is in that corner.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">children</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Actual leaf</span>
+        <span class="n">order_1</span><span class="p">,</span> <span class="n">order_2</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_BOTTOM</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">elif</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_RIGHT</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">order_1</span>
+        <span class="k">elif</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_TOP</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">order_2</span> <span class="o">+</span> <span class="n">order_1</span>
+        <span class="k">elif</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_LEFT</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">order_2</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid side given by </span><span class="si">{</span><span class="n">side</span><span class="si">=}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span>
+
+    <span class="n">child</span> <span class="o">=</span> <span class="n">children</span><span class="p">[</span><span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">_get_corner_dof</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">child</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="_get_side_dof_nodes">
+<a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity._get_side_dof_nodes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_side_dof_nodes</span><span class="p">(</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">element</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span>
+    <span class="n">order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get equations for obtaining DoFs on the side for the element.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
+
+<span class="sd">    element : int</span>
+<span class="sd">        Element which to get DoF equations for.</span>
+
+<span class="sd">    side : ElementSide</span>
+<span class="sd">        Side of the element to get the DoFs for.</span>
+
+<span class="sd">    order : UnknownFormOrder</span>
+<span class="sd">        Order of unknown forms for which to get the form orders from. It</span>
+<span class="sd">        can only be ``UnknownFormOrder.FORM_ORDER_0`` or</span>
+<span class="sd">        ``UnknownFormOrder.FORM_ORDER_1``, since 2-forms do not have any</span>
+<span class="sd">        boundary DoFs.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    constraints : list of ElementConstraint</span>
+<span class="sd">        Specifiecation of which *leaf* elements are involved. These</span>
+<span class="sd">        are also ordered. The ``coeff`` member specifies positions</span>
+<span class="sd">        of these in the element.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">children</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">c1</span><span class="p">:</span> <span class="nb">int</span>
+        <span class="n">c2</span><span class="p">:</span> <span class="nb">int</span>
+        <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">children</span><span class="p">)</span>
+
+        <span class="n">dofs1</span> <span class="o">=</span> <span class="n">_get_side_dof_nodes</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">side</span><span class="p">,</span> <span class="n">order</span><span class="p">)</span>
+        <span class="n">dofs2</span> <span class="o">=</span> <span class="n">_get_side_dof_nodes</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">side</span><span class="p">,</span> <span class="n">order</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
+            <span class="c1"># Do not include the last row (DoF shared between the two)</span>
+            <span class="c1"># since it overlaps with M1. Otherwise it overconstrains.</span>
+            <span class="n">dofs2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">ElementConstraint</span><span class="p">(</span>
+                <span class="n">dofs2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">i_e</span><span class="p">,</span> <span class="n">dofs2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofs</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">dofs2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
+            <span class="c1"># Still have to remove coeffs (since that stands for child nodes!)</span>
+            <span class="n">dofs2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">ElementConstraint</span><span class="p">(</span><span class="n">dofs2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">i_e</span><span class="p">,</span> <span class="n">dofs2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofs</span><span class="p">,</span> <span class="n">dofs2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="kc">False</span>
+
+        <span class="n">combined_dofs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ElementConstraint</span><span class="p">(</span><span class="n">dof</span><span class="o">.</span><span class="n">i_e</span><span class="p">,</span> <span class="n">dof</span><span class="o">.</span><span class="n">dofs</span><span class="p">,</span> <span class="p">(</span><span class="n">dof</span><span class="o">.</span><span class="n">coeffs</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">dof</span> <span class="ow">in</span> <span class="n">dofs1</span>
+        <span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">ElementConstraint</span><span class="p">(</span><span class="n">dof</span><span class="o">.</span><span class="n">i_e</span><span class="p">,</span> <span class="n">dof</span><span class="o">.</span><span class="n">dofs</span><span class="p">,</span> <span class="p">(</span><span class="n">dof</span><span class="o">.</span><span class="n">coeffs</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">dof</span> <span class="ow">in</span> <span class="n">dofs2</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">combined_dofs</span>
+
+    <span class="c1"># This is a leaf</span>
+    <span class="n">n1</span><span class="p">,</span> <span class="n">n2</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">element_boundary_dofs</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">n1</span><span class="p">,</span> <span class="n">n2</span><span class="p">)</span>
+
+    <span class="n">side_orders</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+    <span class="n">side_order</span> <span class="o">=</span> <span class="n">side_orders</span><span class="p">[(</span><span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="p">[</span><span class="n">ElementConstraint</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">compute_gll</span><span class="p">(</span><span class="n">side_order</span><span class="p">)[</span><span class="mi">0</span><span class="p">])]</span></div>
+
+
+
+<div class="viewcode-block" id="_get_side_dofs">
+<a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity._get_side_dofs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_side_dofs</span><span class="p">(</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">element</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span>
+    <span class="n">form_order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span><span class="p">,</span>
+    <span class="n">output_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Constraint</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get DoFs on the boundary in terms of leaf element DoFs.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
+
+<span class="sd">    element : int</span>
+<span class="sd">        Element which to get DoF equations for.</span>
+
+<span class="sd">    side : ElementSide</span>
+<span class="sd">        Side of the element to get the DoFs for.</span>
+
+<span class="sd">    order : UnknownFormOrder</span>
+<span class="sd">        Order of unknown forms for which to get the form orders from. It</span>
+<span class="sd">        can only be ``UnknownFormOrder.FORM_ORDER_0`` or</span>
+<span class="sd">        ``UnknownFormOrder.FORM_ORDER_1``, since 2-forms do not have any</span>
+<span class="sd">        boundary DoFs.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple of Constraint</span>
+<span class="sd">        Tuple of constraints, each of which specifies how the &quot;normal&quot; DoFs</span>
+<span class="sd">        on the element&#39;s boundary may be constructed from DoFs of the element.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">self_order</span> <span class="o">=</span> <span class="n">get_side_order</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
+
+    <span class="c1"># If output order is not specified, use own order</span>
+    <span class="k">if</span> <span class="n">output_order</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output_order</span> <span class="o">=</span> <span class="n">self_order</span>
+
+    <span class="k">if</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">element</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">output_order</span> <span class="o">==</span> <span class="n">self_order</span><span class="p">:</span>
+        <span class="c1"># fast track for leaf elements with no projection, since it should be identity</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">element_boundary_dofs</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="o">*</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">element</span><span class="p">))</span>
+        <span class="n">out_c</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">Constraint</span><span class="p">(</span>
+                <span class="mf">0.0</span><span class="p">,</span>
+                <span class="n">ElementConstraint</span><span class="p">(</span>
+                    <span class="n">element</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">idx</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">indices</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">out_c</span>
+
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">_get_side_dof_nodes</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">side</span><span class="p">,</span> <span class="n">form_order</span><span class="p">)</span>
+
+    <span class="n">self_nodes</span> <span class="o">=</span> <span class="n">compute_gll</span><span class="p">(</span><span class="n">self_order</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">input_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">dof</span><span class="o">.</span><span class="n">coeffs</span> <span class="k">for</span> <span class="n">dof</span> <span class="ow">in</span> <span class="n">dofs</span><span class="p">])</span>
+
+    <span class="c1"># Values of output basis (axis 1) at input points (axis 0)</span>
+    <span class="c1"># nodal_basis_vals and edge_basis_vals are maps from parent dofs to child dofs</span>
+    <span class="n">nodal_basis_vals</span> <span class="o">=</span> <span class="n">lagrange1d</span><span class="p">(</span><span class="n">self_nodes</span><span class="p">,</span> <span class="n">input_nodes</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">nodal_basis_vals</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
+        <span class="n">diffs</span> <span class="o">=</span> <span class="n">nodal_basis_vals</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">nodal_basis_vals</span><span class="p">[</span><span class="o">+</span><span class="mi">1</span><span class="p">:,</span> <span class="p">:]</span>
+        <span class="n">edge_basis_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">accumulate</span><span class="p">(</span><span class="n">diffs</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">diffs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))],</span>
+            <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">edge_basis_vals</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;2-forms have no boundary DoFs.&quot;</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid for order </span><span class="si">{</span><span class="n">form_order</span><span class="si">=}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">self_order</span> <span class="o">!=</span> <span class="n">output_order</span><span class="p">:</span>
+        <span class="c1"># Values of output basis (axis 1) at input points (axis 0)</span>
+        <span class="c1"># nodal_basis_vals and edge_basis_vals are maps from parent dofs to child dofs</span>
+        <span class="n">output_nodes</span> <span class="o">=</span> <span class="n">compute_gll</span><span class="p">(</span><span class="n">output_order</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">map_nodal_basis_vals</span> <span class="o">=</span> <span class="n">lagrange1d</span><span class="p">(</span><span class="n">self_nodes</span><span class="p">,</span> <span class="n">output_nodes</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">map_nodal_basis_vals</span> <span class="o">@</span> <span class="n">m</span>
+
+        <span class="k">elif</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
+            <span class="n">diffs</span> <span class="o">=</span> <span class="n">map_nodal_basis_vals</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">map_nodal_basis_vals</span><span class="p">[</span><span class="o">+</span><span class="mi">1</span><span class="p">:,</span> <span class="p">:]</span>
+            <span class="n">map_edge_basis_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">x</span>
+                    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">accumulate</span><span class="p">(</span><span class="n">diffs</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">diffs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+                <span class="p">],</span>
+                <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">map_edge_basis_vals</span> <span class="o">@</span> <span class="n">m</span>
+
+        <span class="k">elif</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;2-forms have no boundary DoFs.&quot;</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid for order </span><span class="si">{</span><span class="n">form_order</span><span class="si">=}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+    <span class="n">vrow</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">vrow</span> <span class="ow">in</span> <span class="n">m</span><span class="p">:</span>
+        <span class="n">col_offset</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">elem_constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">elem_dofs</span> <span class="ow">in</span> <span class="n">dofs</span><span class="p">:</span>
+            <span class="n">cnt</span> <span class="o">=</span> <span class="n">elem_dofs</span><span class="o">.</span><span class="n">dofs</span><span class="o">.</span><span class="n">size</span>
+            <span class="n">element_constraint</span> <span class="o">=</span> <span class="n">ElementConstraint</span><span class="p">(</span>
+                <span class="n">elem_dofs</span><span class="o">.</span><span class="n">i_e</span><span class="p">,</span> <span class="n">elem_dofs</span><span class="o">.</span><span class="n">dofs</span><span class="p">,</span> <span class="n">vrow</span><span class="p">[</span><span class="n">col_offset</span> <span class="p">:</span> <span class="n">col_offset</span> <span class="o">+</span> <span class="n">cnt</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">col_offset</span> <span class="o">+=</span> <span class="n">cnt</span>
+            <span class="n">elem_constraints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">element_constraint</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">col_offset</span> <span class="o">==</span> <span class="n">vrow</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">constraint</span> <span class="o">=</span> <span class="n">Constraint</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">*</span><span class="n">elem_constraints</span><span class="p">)</span>
+        <span class="n">constraints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">constraint</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">constraints</span><span class="p">)</span></div>
+
+
+
 <div class="viewcode-block" id="connect_corner_based">
 <a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity.connect_corner_based">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">connect_corner_based</span><span class="p">(</span>
-    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
     <span class="o">*</span><span class="n">pairs</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">ElementSide</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create constraints for 0-forms on the corner.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    elements : ElementCollection</span>
-<span class="sd">        Element collection to which the two elements belong to.</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the elements are in.</span>
 
 <span class="sd">    *pairs : tuple of (int, ElementSide)</span>
 <span class="sd">        Elements that should be connected as pairs of element and side</span>
@@ -369,10 +625,10 @@ document.write(`
     <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
 
     <span class="n">e1</span><span class="p">,</span> <span class="n">s1</span> <span class="o">=</span> <span class="n">pairs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">l1</span><span class="p">,</span> <span class="n">d1</span> <span class="o">=</span> <span class="n">get_corner_dof</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">e1</span><span class="p">,</span> <span class="n">s1</span><span class="p">)</span>
+    <span class="n">l1</span><span class="p">,</span> <span class="n">d1</span> <span class="o">=</span> <span class="n">_get_corner_dof</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">e1</span><span class="p">,</span> <span class="n">s1</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
         <span class="n">e2</span><span class="p">,</span> <span class="n">s2</span> <span class="o">=</span> <span class="n">pairs</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-        <span class="n">l2</span><span class="p">,</span> <span class="n">d2</span> <span class="o">=</span> <span class="n">get_corner_dof</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="n">s2</span><span class="p">)</span>
+        <span class="n">l2</span><span class="p">,</span> <span class="n">d2</span> <span class="o">=</span> <span class="n">_get_corner_dof</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="n">s2</span><span class="p">)</span>
 
         <span class="n">constraints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">Constraint</span><span class="p">(</span>
@@ -395,14 +651,14 @@ document.write(`
 <div class="viewcode-block" id="connect_edge_center">
 <a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity.connect_edge_center">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">connect_edge_center</span><span class="p">(</span>
-    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span> <span class="n">e1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">e2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">e1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">e2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Connect center of edges for two elements with 0-forms.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    elements : ElementCollection</span>
-<span class="sd">        Element collection to which the elements belong to.</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
 
 <span class="sd">    e1 : int</span>
 <span class="sd">        Index of the first element.</span>
@@ -419,17 +675,17 @@ document.write(`
 <span class="sd">        Constraints which enforce continuity between the two elements for</span>
 <span class="sd">        0-forms in the middle of the side.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">constraints</span> <span class="o">=</span> <span class="n">connect_corner_based</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="p">(</span><span class="n">e1</span><span class="p">,</span> <span class="n">side</span><span class="o">.</span><span class="n">next</span><span class="p">),</span> <span class="p">(</span><span class="n">e2</span><span class="p">,</span> <span class="n">side</span><span class="p">))</span>
-    <span class="n">c1</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">child_array</span><span class="p">[</span><span class="n">e1</span><span class="p">]</span>
-    <span class="n">c2</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">child_array</span><span class="p">[</span><span class="n">e2</span><span class="p">]</span>
+    <span class="n">constraints</span> <span class="o">=</span> <span class="n">connect_corner_based</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">(</span><span class="n">e1</span><span class="p">,</span> <span class="n">side</span><span class="o">.</span><span class="n">next</span><span class="p">),</span> <span class="p">(</span><span class="n">e2</span><span class="p">,</span> <span class="n">side</span><span class="p">))</span>
+    <span class="n">c1</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">e1</span><span class="p">)</span>
+    <span class="n">c2</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">e2</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">c1</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">c1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">c11</span><span class="p">,</span> <span class="n">c12</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">c1</span><span class="p">)</span>
-        <span class="n">constraints</span> <span class="o">+=</span> <span class="n">connect_edge_center</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">c11</span><span class="p">,</span> <span class="n">c12</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
+        <span class="n">constraints</span> <span class="o">+=</span> <span class="n">connect_edge_center</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">c11</span><span class="p">,</span> <span class="n">c12</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">c2</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">c2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">c21</span><span class="p">,</span> <span class="n">c22</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">c2</span><span class="p">)</span>
-        <span class="n">constraints</span> <span class="o">+=</span> <span class="n">connect_edge_center</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">c21</span><span class="p">,</span> <span class="n">c22</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
+        <span class="n">constraints</span> <span class="o">+=</span> <span class="n">connect_edge_center</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">c21</span><span class="p">,</span> <span class="n">c22</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">constraints</span></div>
 
@@ -438,7 +694,7 @@ document.write(`
 <div class="viewcode-block" id="connect_edge_based">
 <a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity.connect_edge_based">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">connect_edge_based</span><span class="p">(</span>
-    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
     <span class="n">e1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">s1</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span>
     <span class="n">e2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -449,8 +705,8 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    elements : ElementCollection</span>
-<span class="sd">        Element collection to which the two elements belong to.</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
 
 <span class="sd">    e1 : int</span>
 <span class="sd">        Index of the first element.</span>
@@ -478,10 +734,10 @@ document.write(`
         <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span>
         <span class="ow">or</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span>
     <span class="p">)</span>
-    <span class="n">c1</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">child_array</span><span class="p">[</span><span class="n">e1</span><span class="p">]</span>
-    <span class="n">c2</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">child_array</span><span class="p">[</span><span class="n">e2</span><span class="p">]</span>
+    <span class="n">c1</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">e1</span><span class="p">)</span>
+    <span class="n">c2</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">e2</span><span class="p">)</span>
     <span class="n">constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">c2</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">c1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">c2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">c11</span><span class="p">,</span> <span class="n">c12</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">s1</span><span class="p">,</span> <span class="n">c1</span><span class="p">)</span>
         <span class="n">c21</span><span class="p">,</span> <span class="n">c22</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">s2</span><span class="p">,</span> <span class="n">c2</span><span class="p">)</span>
         <span class="n">constraints_1</span> <span class="o">=</span> <span class="n">connect_edge_based</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">c11</span><span class="p">,</span> <span class="n">s1</span><span class="p">,</span> <span class="n">c22</span><span class="p">,</span> <span class="n">s2</span><span class="p">,</span> <span class="n">form_order</span><span class="p">)</span>
@@ -500,11 +756,11 @@ document.write(`
 
     <span class="k">elif</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
         <span class="c1"># Connect the corner of two children if two are needed</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">c1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">c1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">c11</span><span class="p">,</span> <span class="n">c12</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">s1</span><span class="p">,</span> <span class="n">c1</span><span class="p">)</span>
             <span class="n">constraints</span> <span class="o">+=</span> <span class="n">connect_edge_center</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">c11</span><span class="p">,</span> <span class="n">c12</span><span class="p">,</span> <span class="n">s1</span><span class="p">)</span>
 
-        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">c2</span><span class="p">):</span>
+        <span class="k">elif</span> <span class="n">c2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">c21</span><span class="p">,</span> <span class="n">c22</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">s2</span><span class="p">,</span> <span class="n">c2</span><span class="p">)</span>
             <span class="n">constraints</span> <span class="o">+=</span> <span class="n">connect_edge_center</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">c21</span><span class="p">,</span> <span class="n">c22</span><span class="p">,</span> <span class="n">s2</span><span class="p">)</span>
 
@@ -514,8 +770,8 @@ document.write(`
     <span class="n">highest_order</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">order_1</span><span class="p">,</span> <span class="n">order_2</span><span class="p">)</span>
 
     <span class="c1"># Do not do the corners for 0-forms</span>
-    <span class="n">dofs_1</span> <span class="o">=</span> <span class="n">get_side_dofs</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">e1</span><span class="p">,</span> <span class="n">s1</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="n">highest_order</span><span class="p">)</span>
-    <span class="n">dofs_2</span> <span class="o">=</span> <span class="n">get_side_dofs</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="n">s2</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="n">highest_order</span><span class="p">)</span>
+    <span class="n">dofs_1</span> <span class="o">=</span> <span class="n">_get_side_dofs</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">e1</span><span class="p">,</span> <span class="n">s1</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="n">highest_order</span><span class="p">)</span>
+    <span class="n">dofs_2</span> <span class="o">=</span> <span class="n">_get_side_dofs</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="n">s2</span><span class="p">,</span> <span class="n">form_order</span><span class="p">,</span> <span class="n">highest_order</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
         <span class="n">dofs_1</span> <span class="o">=</span> <span class="n">dofs_1</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
@@ -554,7 +810,7 @@ document.write(`
 <div class="viewcode-block" id="connect_element_inner">
 <a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity.connect_element_inner">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">connect_element_inner</span><span class="p">(</span>
-    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
     <span class="n">element</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">form_order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]:</span>
@@ -562,8 +818,8 @@ document.write(`
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    elements : ElementCollection</span>
-<span class="sd">        Element collection the element belongs to.</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
 
 <span class="sd">    element : int</span>
 <span class="sd">        Index of element to deal with.</span>
@@ -577,27 +833,22 @@ document.write(`
 <span class="sd">        Constraints which enforce the continuity within the element.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">children</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">child_array</span><span class="p">[</span><span class="n">element</span><span class="p">]</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">children</span><span class="p">):</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">children</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># Leaf has no need for constraints</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">()</span>
-
-    <span class="n">c_bl</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">c_br</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">c_tr</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">c_tl</span><span class="p">:</span> <span class="nb">int</span>
 
     <span class="n">c_bl</span><span class="p">,</span> <span class="n">c_br</span><span class="p">,</span> <span class="n">c_tr</span><span class="p">,</span> <span class="n">c_tl</span> <span class="o">=</span> <span class="n">children</span>
 
     <span class="c1"># Inner constraints</span>
     <span class="n">child_constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">connect_element_inner</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">form_order</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">children</span><span class="p">),</span> <span class="n">start</span><span class="o">=</span><span class="nb">list</span><span class="p">()</span>
+        <span class="p">(</span><span class="n">connect_element_inner</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">form_order</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">children</span><span class="p">),</span> <span class="n">start</span><span class="o">=</span><span class="nb">list</span><span class="p">()</span>
     <span class="p">)</span>
 
     <span class="c1"># Edge connections between child elements</span>
     <span class="n">edge_constraints</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">connect_edge_based</span><span class="p">(</span>
-            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
             <span class="n">c_bl</span><span class="p">,</span>
             <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_RIGHT</span><span class="p">,</span>
             <span class="n">c_br</span><span class="p">,</span>
@@ -605,7 +856,7 @@ document.write(`
             <span class="n">form_order</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="o">+</span> <span class="n">connect_edge_based</span><span class="p">(</span>
-            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
             <span class="n">c_br</span><span class="p">,</span>
             <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_TOP</span><span class="p">,</span>
             <span class="n">c_tr</span><span class="p">,</span>
@@ -613,7 +864,7 @@ document.write(`
             <span class="n">form_order</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="o">+</span> <span class="n">connect_edge_based</span><span class="p">(</span>
-            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
             <span class="n">c_tr</span><span class="p">,</span>
             <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_LEFT</span><span class="p">,</span>
             <span class="n">c_tl</span><span class="p">,</span>
@@ -621,7 +872,7 @@ document.write(`
             <span class="n">form_order</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="o">+</span> <span class="n">connect_edge_based</span><span class="p">(</span>
-            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
             <span class="n">c_tl</span><span class="p">,</span>
             <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_BOTTOM</span><span class="p">,</span>
             <span class="n">c_bl</span><span class="p">,</span>
@@ -634,7 +885,7 @@ document.write(`
     <span class="k">if</span> <span class="n">form_order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
         <span class="c1"># Add corner constraint if 0-form</span>
         <span class="n">corner_constraint</span> <span class="o">=</span> <span class="n">connect_corner_based</span><span class="p">(</span>
-            <span class="n">elements</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
             <span class="p">(</span><span class="n">c_bl</span><span class="p">,</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_TOP</span><span class="p">),</span>
             <span class="p">(</span><span class="n">c_br</span><span class="p">,</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_LEFT</span><span class="p">),</span>
             <span class="p">(</span><span class="n">c_tr</span><span class="p">,</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_BOTTOM</span><span class="p">),</span>
@@ -648,22 +899,19 @@ document.write(`
 <div class="viewcode-block" id="connect_elements">
 <a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity.connect_elements">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">connect_elements</span><span class="p">(</span>
-    <span class="n">elements</span><span class="p">:</span> <span class="n">ElementCollection</span><span class="p">,</span>
     <span class="n">unknowns</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
-    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh2D</span><span class="p">,</span>
-    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">FixedElementArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">leaf_index_mapping</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate constraints for all elements and unknowns.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    elements : ElementCollection</span>
-<span class="sd">        Element collection that contains all the elements.</span>
-
 <span class="sd">    unknowns : UnknownOrderings</span>
 <span class="sd">        Orders of unknown forms defined for all elements.</span>
 
-<span class="sd">    mesh : Mesh2D</span>
+<span class="sd">    mesh : Mesh</span>
 <span class="sd">        Mesh with primal and dual topology of root elements.</span>
 
 <span class="sd">    dof_offsets : FixedElementArray[np.uint32]</span>
@@ -683,14 +931,13 @@ document.write(`
 
     <span class="c1"># Generate all intra-element constraints</span>
     <span class="k">for</span> <span class="n">surf_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">n_surfaces</span><span class="p">):</span>
-        <span class="n">ie</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">root_indices</span><span class="p">[</span><span class="n">surf_index</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">has_0</span><span class="p">:</span>
             <span class="n">intra_element_0</span> <span class="o">+=</span> <span class="n">connect_element_inner</span><span class="p">(</span>
-                <span class="n">elements</span><span class="p">,</span> <span class="n">ie</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span>
+                <span class="n">mesh</span><span class="p">,</span> <span class="n">surf_index</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">has_1</span><span class="p">:</span>
             <span class="n">intra_element_1</span> <span class="o">+=</span> <span class="n">connect_element_inner</span><span class="p">(</span>
-                <span class="n">elements</span><span class="p">,</span> <span class="n">ie</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span>
+                <span class="n">mesh</span><span class="p">,</span> <span class="n">surf_index</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span>
             <span class="p">)</span>
 
     <span class="c1"># Generate inter-element constraints. This has two parts (if there are any 0-forms).</span>
@@ -706,9 +953,6 @@ document.write(`
             <span class="c1"># Boundary line, we do not constrain here, leave it for BCs</span>
             <span class="k">continue</span>
 
-        <span class="n">e1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">elements</span><span class="o">.</span><span class="n">root_indices</span><span class="p">[</span><span class="n">idx1</span><span class="o">.</span><span class="n">index</span><span class="p">])</span>
-        <span class="n">e2</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">elements</span><span class="o">.</span><span class="n">root_indices</span><span class="p">[</span><span class="n">idx2</span><span class="o">.</span><span class="n">index</span><span class="p">])</span>
-
         <span class="n">surf_1</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">get_surface</span><span class="p">(</span><span class="n">idx1</span><span class="p">)</span>
         <span class="n">surf_2</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">get_surface</span><span class="p">(</span><span class="n">idx2</span><span class="p">)</span>
 
@@ -717,12 +961,22 @@ document.write(`
 
         <span class="k">if</span> <span class="n">has_0</span><span class="p">:</span>
             <span class="n">inter_edge_0</span> <span class="o">+=</span> <span class="n">connect_edge_based</span><span class="p">(</span>
-                <span class="n">elements</span><span class="p">,</span> <span class="n">e1</span><span class="p">,</span> <span class="n">side_1</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="n">side_2</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span>
+                <span class="n">mesh</span><span class="p">,</span>
+                <span class="n">idx1</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+                <span class="n">side_1</span><span class="p">,</span>
+                <span class="n">idx2</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+                <span class="n">side_2</span><span class="p">,</span>
+                <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">,</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">has_1</span><span class="p">:</span>
             <span class="n">inter_edge_1</span> <span class="o">+=</span> <span class="n">connect_edge_based</span><span class="p">(</span>
-                <span class="n">elements</span><span class="p">,</span> <span class="n">e1</span><span class="p">,</span> <span class="n">side_1</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="n">side_2</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span>
+                <span class="n">mesh</span><span class="p">,</span>
+                <span class="n">idx1</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+                <span class="n">side_1</span><span class="p">,</span>
+                <span class="n">idx2</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+                <span class="n">side_2</span><span class="p">,</span>
+                <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">,</span>
             <span class="p">)</span>
 
     <span class="c1"># Next are the corner-based ones</span>
@@ -751,12 +1005,9 @@ document.write(`
                 <span class="k">continue</span>
 
             <span class="n">inter_corner_0</span> <span class="o">+=</span> <span class="n">connect_corner_based</span><span class="p">(</span>
-                <span class="n">elements</span><span class="p">,</span>
+                <span class="n">mesh</span><span class="p">,</span>
                 <span class="o">*</span><span class="p">(</span>
-                    <span class="p">(</span>
-                        <span class="n">elements</span><span class="o">.</span><span class="n">root_indices</span><span class="p">[</span><span class="n">ie</span><span class="p">],</span>
-                        <span class="n">_find_surface_boundary_id_node</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">ie</span><span class="p">,</span> <span class="n">node_index</span><span class="p">),</span>
-                    <span class="p">)</span>
+                    <span class="p">(</span><span class="n">ie</span><span class="p">,</span> <span class="n">_find_surface_boundary_id_node</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">ie</span><span class="p">,</span> <span class="n">node_index</span><span class="p">))</span>
                     <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="n">element_indices</span>
                 <span class="p">),</span>
             <span class="p">)</span>
@@ -786,7 +1037,9 @@ document.write(`
                     <span class="mf">0.0</span><span class="p">,</span>
                     <span class="o">*</span><span class="p">(</span>
                         <span class="n">ElementConstraint</span><span class="p">(</span>
-                            <span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">,</span> <span class="n">ec</span><span class="o">.</span><span class="n">dofs</span> <span class="o">+</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">][</span><span class="n">i_form</span><span class="p">],</span> <span class="n">ec</span><span class="o">.</span><span class="n">coeffs</span>
+                            <span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">,</span>
+                            <span class="n">ec</span><span class="o">.</span><span class="n">dofs</span> <span class="o">+</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">leaf_index_mapping</span><span class="p">[</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">],</span> <span class="n">i_form</span><span class="p">],</span>
+                            <span class="n">ec</span><span class="o">.</span><span class="n">coeffs</span><span class="p">,</span>
                         <span class="p">)</span>
                         <span class="k">for</span> <span class="n">ec</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">element_constraints</span>
                     <span class="p">),</span>

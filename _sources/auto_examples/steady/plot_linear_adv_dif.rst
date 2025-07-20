@@ -75,10 +75,10 @@ As with the mixed Poisson, error for this case will be measured in two ways - wi
     from mfv2d import (
         KFormSystem,
         KFormUnknown,
-        Mesh2D,
         SolverSettings,
         SystemSettings,
         UnknownFormOrder,
+        mesh_create,
         solve_system_2d,
     )
 
@@ -253,9 +253,9 @@ looks.
 .. code-block:: Python
 
     pval = 3
-    msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+    msh = mesh_create(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
 
-    solution, stats = solve_system_2d(
+    solution, stats, mesh = solve_system_2d(
         msh,
         system_settings=SystemSettings(system),
         solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
@@ -305,7 +305,7 @@ Solve for Different Orders
 
 So we solve for different orders.
 
-.. GENERATED FROM PYTHON SOURCE LINES 212-242
+.. GENERATED FROM PYTHON SOURCE LINES 212-244
 
 .. code-block:: Python
 
@@ -315,9 +315,11 @@ So we solve for different orders.
     l2_err = np.zeros(p_vals.size)
 
     for ip, pval in enumerate(p_vals):
-        msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+        msh = mesh_create(
+            pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces
+        )
 
-        solution, stats = solve_system_2d(
+        solution, stats, mesh = solve_system_2d(
             msh,
             system_settings=SystemSettings(system),
             solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
@@ -357,7 +359,7 @@ So we solve for different orders.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 243-251
+.. GENERATED FROM PYTHON SOURCE LINES 245-253
 
 Plot Results
 ------------
@@ -368,7 +370,7 @@ Here we plot the results.
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 252-275
+.. GENERATED FROM PYTHON SOURCE LINES 254-277
 
 .. code-block:: Python
 
@@ -413,13 +415,13 @@ Here we plot the results.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 276-279
+.. GENERATED FROM PYTHON SOURCE LINES 278-281
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 280-302
+.. GENERATED FROM PYTHON SOURCE LINES 282-304
 
 .. code-block:: Python
 
@@ -466,7 +468,7 @@ Here we plot the results.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.653 seconds)
+   **Total running time of the script:** (0 minutes 1.562 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_linear_adv_dif.py:

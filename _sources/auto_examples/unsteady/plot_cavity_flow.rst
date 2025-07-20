@@ -38,11 +38,11 @@ on a fairly coarse grid.
         BoundaryCondition2DSteady,
         KFormSystem,
         KFormUnknown,
-        Mesh2D,
         SolverSettings,
         SystemSettings,
         TimeSettings,
         UnknownFormOrder,
+        mesh_create,
         solve_system_2d,
     )
 
@@ -134,14 +134,14 @@ on the normal velocity mean that they would not be used either way.
     )
     assert rx < 1e-6, ry < 1e-6
 
-    mesh = Mesh2D(
+    mesh = mesh_create(
         P,
         np.stack((rect_mesh.pos_x, rect_mesh.pos_y), axis=-1),
         rect_mesh.lines + 1,
         rect_mesh.surfaces,
     )
 
-    solutions, stats = solve_system_2d(
+    solutions, stats, mesh = solve_system_2d(
         mesh,
         SystemSettings(
             system,
@@ -171,7 +171,7 @@ on the normal velocity mean that they would not be used either way.
     [vor(0*)]^T  ([           -1 * M(0) | (E(1, 0))^T @ M(0) |                  0]  [vor(0)]   [<vor, boundary_velocty>])   [vor(0*)]^T  ([                              0 |                        0 | 0]  [vor(0)] 
     [vel(1*)]    ([0.1 * M(1) @ E(1, 0) |                  0 | (E(2, 1))^T @ M(1)]  [vel(1)] = [                       ]) + [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(1) | -1 * M(1) @ N(1, 2; vor) | 0]  [vel(1)] 
     [pre(2*)]    ([                   0 |     M(2) @ E(2, 1) |                  0]  [pre(2)]   [                      0])   [pre(2*)]    ([                              0 |                        0 | 0]  [pre(2)] 
-    SolutionStatistics(element_orders={3: 50}, n_total_dofs=1550, n_leaf_dofs=1225, n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+    SolutionStatistics(element_orders={(3, 3): 25}, n_total_dofs=1550, n_leaf_dofs=np.uint64(1225), n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20,
            20, 20, 20], dtype=uint32), residual_history=array([4.73040218e-11, 3.78859860e-11, 4.94556202e-11, 4.77373419e-11,
            6.63145788e-11, 4.92627328e-11, 6.85677765e-11, 4.04782319e-11,
            7.24523080e-11, 9.98627847e-11, 7.65691122e-11, 9.79617637e-11,
@@ -229,7 +229,7 @@ Pyvista allows for very simple 2D streamline plots.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 5.040 seconds)
+   **Total running time of the script:** (0 minutes 4.587 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_cavity_flow.py:

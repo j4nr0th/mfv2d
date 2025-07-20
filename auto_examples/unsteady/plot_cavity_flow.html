@@ -168,11 +168,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -356,11 +356,11 @@ on a fairly coarse grid.</p>
     <a href="../../modules/boundary.html#mfv2d.boundary.BoundaryCondition2D" title="mfv2d.boundary.BoundaryCondition2D" class="sphx-glr-backref-module-mfv2d-boundary sphx-glr-backref-type-py-class"><span class="n">BoundaryCondition2DSteady</span></a><span class="p">,</span>
     <span class="n">KFormSystem</span><span class="p">,</span>
     <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">,</span>
-    <span class="n">Mesh2D</span><span class="p">,</span>
     <span class="n">SolverSettings</span><span class="p">,</span>
     <span class="n">SystemSettings</span><span class="p">,</span>
     <span class="n">TimeSettings</span><span class="p">,</span>
     <span class="n">UnknownFormOrder</span><span class="p">,</span>
+    <span class="n">mesh_create</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -422,14 +422,14 @@ on the normal velocity mean that they would not be used either way.</p>
 <span class="p">)</span>
 <span class="k">assert</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">rx</span></a> <span class="o">&lt;</span> <span class="mf">1e-6</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">ry</span></a> <span class="o">&lt;</span> <span class="mf">1e-6</span>
 
-<span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh2D</span><span class="p">(</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">mesh_create</span><span class="p">(</span>
     <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">P</span></a><span class="p">,</span>
     <a href="https://numpy.org/doc/stable/reference/generated/numpy.stack.html#numpy.stack" title="numpy.stack" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">stack</span></a><span class="p">((</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">rect_mesh</span><span class="o">.</span><span class="n">pos_x</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">rect_mesh</span><span class="o">.</span><span class="n">pos_y</span></a><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span>
     <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">rect_mesh</span><span class="o">.</span><span class="n">lines</span></a> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
     <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">rect_mesh</span><span class="o">.</span><span class="n">surfaces</span></a><span class="p">,</span>
 <span class="p">)</span>
 
-<a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">,</span> <a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
+<a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">,</span> <a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
     <span class="n">mesh</span><span class="p">,</span>
     <span class="n">SystemSettings</span><span class="p">(</span>
         <span class="n">system</span><span class="p">,</span>
@@ -451,7 +451,7 @@ on the normal velocity mean that they would not be used either way.</p>
 <div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(0*)]^T  ([           -1 * M(0) | (E(1, 0))^T @ M(0) |                  0]  [vor(0)]   [&lt;vor, boundary_velocty&gt;])   [vor(0*)]^T  ([                              0 |                        0 | 0]  [vor(0)]
 [vel(1*)]    ([0.1 * M(1) @ E(1, 0) |                  0 | (E(2, 1))^T @ M(1)]  [vel(1)] = [                       ]) + [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(1) | -1 * M(1) @ N(1, 2; vor) | 0]  [vel(1)]
 [pre(2*)]    ([                   0 |     M(2) @ E(2, 1) |                  0]  [pre(2)]   [                      0])   [pre(2*)]    ([                              0 |                        0 | 0]  [pre(2)]
-SolutionStatistics(element_orders={3: 50}, n_total_dofs=1550, n_leaf_dofs=1225, n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20,
+SolutionStatistics(element_orders={(3, 3): 25}, n_total_dofs=1550, n_leaf_dofs=np.uint64(1225), n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20,
        20, 20, 20], dtype=uint32), residual_history=array([4.73040218e-11, 3.78859860e-11, 4.94556202e-11, 4.77373419e-11,
        6.63145788e-11, 4.92627328e-11, 6.85677765e-11, 4.04782319e-11,
        7.24523080e-11, 9.98627847e-11, 7.65691122e-11, 9.79617637e-11,
@@ -485,7 +485,7 @@ SolutionStatistics(element_orders={3: 50}, n_total_dofs=1550, n_leaf_dofs=1225, 
 <a href="https://docs.pyvista.org/api/plotting/_autosummary/pyvista.Plotter.view_xy.html#pyvista.Plotter.view_xy" title="pyvista.Plotter.view_xy" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_cavity_flow_001.png" srcset="../../_images/sphx_glr_plot_cavity_flow_001.png" alt="plot cavity flow" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 5.040 seconds)</p>
+<img src="../../_images/sphx_glr_plot_cavity_flow_001.png" srcset="../../_images/sphx_glr_plot_cavity_flow_001.png" alt="plot cavity flow" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 4.587 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-unsteady-plot-cavity-flow-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/0a495aa1f69b1d0cb94824dca19aacaa/plot_cavity_flow.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_cavity_flow.ipynb</span></code></a></p>

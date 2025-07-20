@@ -12,9 +12,9 @@ module can be used, but rather how it works internally.
     modules/_mfv2d
     modules/boundary
     modules/continuity
-    modules/element
     modules/eval
     modules/kform
     modules/mimetic2d
     modules/progress
+    modules/refinement
     modules/solve_system

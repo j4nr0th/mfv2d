@@ -52,7 +52,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'modules/progress';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="solve_system" href="solve_system.html" />
+    <link rel="next" title="refinement" href="refinement.html" />
     <link rel="prev" title="mimetic2d" href="mimetic2d.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -167,11 +167,11 @@
 <li class="toctree-l2"><a class="reference internal" href="_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="continuity.html">continuity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -337,6 +337,15 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.ProgressTracker.update_iteration"><code class="docutils literal notranslate"><span class="pre">ProgressTracker.update_iteration()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat"><code class="docutils literal notranslate"><span class="pre">HistogramFormat</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.__call__"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.cols"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.cols</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.format"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.format()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.label_format"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.label_format</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.rows"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.rows</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.tick_count"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.tick_count</span></code></a></li>
+</ul>
+</li>
 </ul>
             </nav>
         </div>
@@ -350,13 +359,12 @@ document.write(`
                   
   <section id="progress">
 <h1>progress<a class="headerlink" href="#progress" title="Link to this heading">#</a></h1>
-<p>This is a small submodule which serves no other purpose other than to
-fill the command line with colored garbage an emojis to indicate
-how screwed your solution is getting over the course of iterations.</p>
-<p>About the only noteworthy thing in it is the type <a class="reference internal" href="#mfv2d.progress.ProgressTracker" title="mfv2d.progress.ProgressTracker"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgressTracker</span></code></a>,
-which contains state about where the solver stated, when it should stop
-and what is the current state. It also has methods that allow it to
-have pretty terminal output.</p>
+<p>This is a small submodule which contains code to make printing progress
+reports and feedback pretty.</p>
+<p>To report on the state of the solver, the <a class="reference internal" href="#mfv2d.progress.ProgressTracker" title="mfv2d.progress.ProgressTracker"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProgressTracker</span></code></a> type
+is used, which contains state about where the solver stated, when it
+should stop and what is the current state. It also has methods that
+allow it to have pretty terminal output.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="mfv2d.progress.ProgressTracker">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.progress.</span></span><span class="sig-name descname"><span class="pre">ProgressTracker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">err_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">err_initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">err_cur</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">iter_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">iter_cur</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iter_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">err_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/progress.html#ProgressTracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.progress.ProgressTracker" title="Link to this definition">#</a></dt>
@@ -435,6 +443,48 @@ and error indicator bar in that order.</p>
 
 </dd></dl>
 
+<p>For reporting on error distribution and distribution of element orders,
+the type <a class="reference internal" href="#mfv2d.progress.HistogramFormat" title="mfv2d.progress.HistogramFormat"><code class="xref py py-class docutils literal notranslate"><span class="pre">HistogramFormat</span></code></a> is used. It can behave oddly for very
+low number of elements.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.progress.HistogramFormat">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.progress.</span></span><span class="sig-name descname"><span class="pre">HistogramFormat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">rows:</span> <span class="pre">int,</span> <span class="pre">cols:</span> <span class="pre">int,</span> <span class="pre">tick_count:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">2,</span> <span class="pre">label_format:</span> <span class="pre">~collections.abc.Callable[[float],</span> <span class="pre">str]</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'str'&gt;</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/progress.html#HistogramFormat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.progress.HistogramFormat" title="Link to this definition">#</a></dt>
+<dd><p>Type used to format a histogram from an array.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.progress.HistogramFormat.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/progress.html#HistogramFormat.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.progress.HistogramFormat.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Call <code class="docutils literal notranslate"><span class="pre">self.format(a)</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.progress.HistogramFormat.cols">
+<span class="sig-name descname"><span class="pre">cols</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.progress.HistogramFormat.cols" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.progress.HistogramFormat.format">
+<span class="sig-name descname"><span class="pre">format</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">array_like</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/progress.html#HistogramFormat.format"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.progress.HistogramFormat.format" title="Link to this definition">#</a></dt>
+<dd><p>Create a histogram string based on the array.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.progress.HistogramFormat.label_format">
+<span class="sig-name descname"><span class="pre">label_format</span></span><a class="headerlink" href="#mfv2d.progress.HistogramFormat.label_format" title="Link to this definition">#</a></dt>
+<dd><p>alias of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.progress.HistogramFormat.rows">
+<span class="sig-name descname"><span class="pre">rows</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.progress.HistogramFormat.rows" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.progress.HistogramFormat.tick_count">
+<span class="sig-name descname"><span class="pre">tick_count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#mfv2d.progress.HistogramFormat.tick_count" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
 
 
@@ -458,11 +508,11 @@ and error indicator bar in that order.</p>
       </div>
     </a>
     <a class="right-next"
-       href="solve_system.html"
+       href="refinement.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">solve_system</p>
+        <p class="prev-next-title">refinement</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -494,6 +544,15 @@ and error indicator bar in that order.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.ProgressTracker.iter_width"><code class="docutils literal notranslate"><span class="pre">ProgressTracker.iter_width</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.ProgressTracker.state_str"><code class="docutils literal notranslate"><span class="pre">ProgressTracker.state_str()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.ProgressTracker.update_iteration"><code class="docutils literal notranslate"><span class="pre">ProgressTracker.update_iteration()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat"><code class="docutils literal notranslate"><span class="pre">HistogramFormat</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.__call__"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.__call__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.cols"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.cols</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.format"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.format()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.label_format"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.label_format</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.rows"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.rows</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.progress.HistogramFormat.tick_count"><code class="docutils literal notranslate"><span class="pre">HistogramFormat.tick_count</span></code></a></li>
 </ul>
 </li>
 </ul>

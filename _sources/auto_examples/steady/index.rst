@@ -108,14 +108,31 @@ Examples of the code.
 
 .. only:: html
 
-  .. image:: /auto_examples/steady/images/thumb/sphx_glr_plot_direct_poisson_refined_thumb.png
+  .. image:: /auto_examples/steady/images/thumb/sphx_glr_plot_direct_poisson_refined_pre_thumb.png
     :alt:
 
-  :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined.py`
+  :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_pre.py`
 
 .. raw:: html
 
       <div class="sphx-glr-thumbnail-title">Poisson Equation with Local Refinement</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="As mentioned in sphx_glr_auto_examples_steady_plot_direct_poisson_refined_pre.py example, refinement can be done &quot;post-solver&quot; as well. This means that mesh refinement is performed after the solver finishes running. This does not change the computed solution, but allows for next solve to be more accurate, if repeated.">
+
+.. only:: html
+
+  .. image:: /auto_examples/steady/images/thumb/sphx_glr_plot_direct_poisson_refined_post_p_thumb.png
+    :alt:
+
+  :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_post_p.py`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Post-Solver p-Refinement</div>
     </div>
 
 
@@ -134,5 +151,6 @@ Examples of the code.
    /auto_examples/steady/plot_linear_adv_dif
    /auto_examples/steady/plot_direct_poisson
    /auto_examples/steady/plot_stokes_flow
-   /auto_examples/steady/plot_direct_poisson_refined
+   /auto_examples/steady/plot_direct_poisson_refined_pre
+   /auto_examples/steady/plot_direct_poisson_refined_post_p
 

@@ -167,11 +167,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../modules/continuity.html">continuity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../modules/progress.html">progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -360,9 +360,12 @@ document.write(`
 </div><div class="sphx-glr-thumbcontainer" tooltip="Stokes flow is a steady state solution to the Poisson equation, with an added incompressibility constraint. It is also the symmetric part of Navier-Stokes equations, so solving it is the first step in solving Navier-Stokes."><img alt="" src="../_images/sphx_glr_plot_stokes_flow_thumb.png" />
 <p><a class="reference internal" href="steady/plot_stokes_flow.html#sphx-glr-auto-examples-steady-plot-stokes-flow-py"><span class="std std-ref">Stokes Flow</span></a></p>
   <div class="sphx-glr-thumbnail-title">Stokes Flow</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="One of key features of mfv2d is the ability to locally refine the mesh with both hierarchical refinement (divide elements) or with polynomial refinement (increase order of elements)."><img alt="" src="../_images/sphx_glr_plot_direct_poisson_refined_thumb.png" />
-<p><a class="reference internal" href="steady/plot_direct_poisson_refined.html#sphx-glr-auto-examples-steady-plot-direct-poisson-refined-py"><span class="std std-ref">Poisson Equation with Local Refinement</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="One of key features of mfv2d is the ability to locally refine the mesh with both hierarchical refinement (divide elements) or with polynomial refinement (increase order of elements)."><img alt="" src="../_images/sphx_glr_plot_direct_poisson_refined_pre_thumb.png" />
+<p><a class="reference internal" href="steady/plot_direct_poisson_refined_pre.html#sphx-glr-auto-examples-steady-plot-direct-poisson-refined-pre-py"><span class="std std-ref">Poisson Equation with Local Refinement</span></a></p>
   <div class="sphx-glr-thumbnail-title">Poisson Equation with Local Refinement</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="As mentioned in sphx_glr_auto_examples_steady_plot_direct_poisson_refined_pre.py example, refinement can be done &quot;post-solver&quot; as well. This means that mesh refinement is performed after the solver finishes running. This does not change the computed solution, but allows for next solve to be more accurate, if repeated."><img alt="" src="../_images/sphx_glr_plot_direct_poisson_refined_post_p_thumb.png" />
+<p><a class="reference internal" href="steady/plot_direct_poisson_refined_post_p.html#sphx-glr-auto-examples-steady-plot-direct-poisson-refined-post-p-py"><span class="std std-ref">Post-Solver p-Refinement</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Post-Solver p-Refinement</div>
 </div></div></section>
 <section id="examples-unsteady">
 <h1>Examples Unsteady<a class="headerlink" href="#examples-unsteady" title="Link to this heading">#</a></h1>

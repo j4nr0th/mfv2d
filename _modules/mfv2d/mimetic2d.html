@@ -166,11 +166,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../modules/element.html">element</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
 </ul>
 </details></li>
@@ -286,9 +286,10 @@ document.write(`
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">accumulate</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
@@ -296,10 +297,15 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Basis1D</span><span class="p">,</span>
     <span class="n">Basis2D</span><span class="p">,</span>
+    <span class="n">ElementMassMatrixCache</span><span class="p">,</span>
     <span class="n">IntegrationRule1D</span><span class="p">,</span>
     <span class="n">Manifold2D</span><span class="p">,</span>
+    <span class="n">Mesh</span><span class="p">,</span>
     <span class="n">Surface</span><span class="p">,</span>
+    <span class="n">dlagrange1d</span><span class="p">,</span>
+    <span class="n">lagrange1d</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnknownFormOrder</span><span class="p">,</span> <span class="n">UnknownOrderings</span>
 
 
 <span class="c1"># TODO: remake incidence into working for two different orders</span>
@@ -694,6 +700,8 @@ document.write(`
 
 
 
+<div class="viewcode-block" id="vtk_lagrange_ordering">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.vtk_lagrange_ordering">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">vtk_lagrange_ordering</span><span class="p">(</span><span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Ordering for vtkLagrangeQuadrilateral.</span>
 
@@ -738,292 +746,7 @@ document.write(`
         <span class="p">),</span>
         <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
         <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">)</span>
-
-
-<div class="viewcode-block" id="Element2D">
-<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.Element2D">[docs]</a>
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">eq</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">Element2D</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;General 2D element.&quot;&quot;&quot;</span>
-
-    <span class="n">parent</span><span class="p">:</span> <span class="n">ElementNode2D</span> <span class="o">|</span> <span class="kc">None</span></div>
-
-
-
-<div class="viewcode-block" id="ElementNode2D">
-<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.ElementNode2D">[docs]</a>
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">eq</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ElementNode2D</span><span class="p">(</span><span class="n">Element2D</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Two dimensional element that contains children.&quot;&quot;&quot;</span>
-
-    <span class="n">child_bl</span><span class="p">:</span> <span class="n">Element2D</span>
-    <span class="n">child_br</span><span class="p">:</span> <span class="n">Element2D</span>
-    <span class="n">child_tl</span><span class="p">:</span> <span class="n">Element2D</span>
-    <span class="n">child_tr</span><span class="p">:</span> <span class="n">Element2D</span>
-
-<div class="viewcode-block" id="ElementNode2D.children">
-<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.ElementNode2D.children">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">children</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Element2D</span><span class="p">,</span> <span class="n">Element2D</span><span class="p">,</span> <span class="n">Element2D</span><span class="p">,</span> <span class="n">Element2D</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return children of the element ordered.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">child_bl</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">child_br</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">child_tr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">child_tl</span><span class="p">)</span></div>
-</div>
-
-
-
-<div class="viewcode-block" id="ElementLeaf2D">
-<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D">[docs]</a>
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">eq</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ElementLeaf2D</span><span class="p">(</span><span class="n">Element2D</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Two dimensional square element.</span>
-
-<span class="sd">    This type facilitates operations related to calculations which need</span>
-<span class="sd">    to be carried out on the reference element itself, such as calculation</span>
-<span class="sd">    of the mass and incidence matrices, as well as the reconstruction of</span>
-<span class="sd">    the solution.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    order_h : int</span>
-<span class="sd">        Order of the basis functions used for the nodal basis in the first dimension.</span>
-<span class="sd">    order_v : int</span>
-<span class="sd">        Order of the basis functions used for the nodal basis in the second dimension.</span>
-<span class="sd">    bottom_left : (float, float)</span>
-<span class="sd">        Coordinates of the bottom left corner.</span>
-<span class="sd">    bottom_right : (float, float)</span>
-<span class="sd">        Coordinates of the bottom right corner.</span>
-<span class="sd">    top_right : (float, float)</span>
-<span class="sd">        Coordinates of the top right corner.</span>
-<span class="sd">    top_left : (float, float)</span>
-<span class="sd">        Coordinates of the top left corner.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">order</span><span class="p">:</span> <span class="nb">int</span>
-
-    <span class="n">bottom_left</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
-    <span class="n">bottom_right</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
-    <span class="n">top_right</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
-    <span class="n">top_left</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
-
-<div class="viewcode-block" id="ElementLeaf2D.divide">
-<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.ElementLeaf2D.divide">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">divide</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">order_bl</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">order_br</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">order_tl</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">order_tr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
-        <span class="n">ElementNode2D</span><span class="p">,</span>
-        <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">ElementLeaf2D</span><span class="p">,</span> <span class="n">ElementLeaf2D</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ElementLeaf2D</span><span class="p">,</span> <span class="n">ElementLeaf2D</span><span class="p">]],</span>
-    <span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Divide the element into four child elements of the specified order.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        order_bl : int</span>
-<span class="sd">            Order of the bottom left element.</span>
-<span class="sd">        order_br : int</span>
-<span class="sd">            Order of the bottom right element.</span>
-<span class="sd">        order_tl : int</span>
-<span class="sd">            Order of the top left element.</span>
-<span class="sd">        order_tr : int</span>
-<span class="sd">            Order of the top right element.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        ElementNode2D</span>
-<span class="sd">            Parent element which contains the nodes.</span>
-
-<span class="sd">        (2, 2) tuple of ElementLeaf2D</span>
-<span class="sd">            Child elements of the same order as the element itself. Indexing the</span>
-<span class="sd">            tuple will give bottom/top for the first axis and left/right for the</span>
-<span class="sd">            second.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">bottom_mid</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bottom_left</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bottom_right</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span>
-        <span class="n">left_mid</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bottom_left</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">top_left</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span>
-        <span class="n">right_mid</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bottom_right</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">top_right</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span>
-        <span class="n">top_mid</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">top_left</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">top_right</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span>
-        <span class="n">center_mid</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bottom_left</span><span class="p">)</span>
-            <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bottom_right</span><span class="p">)</span>
-            <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">top_left</span><span class="p">)</span>
-            <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">top_right</span><span class="p">)</span>
-        <span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
-        <span class="n">btm_l</span> <span class="o">=</span> <span class="n">ElementLeaf2D</span><span class="p">(</span>
-            <span class="kc">None</span><span class="p">,</span>
-            <span class="n">order_bl</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bottom_left</span><span class="p">,</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">bottom_mid</span><span class="p">),</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">center_mid</span><span class="p">),</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">left_mid</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">btm_r</span> <span class="o">=</span> <span class="n">ElementLeaf2D</span><span class="p">(</span>
-            <span class="kc">None</span><span class="p">,</span>
-            <span class="n">order_br</span><span class="p">,</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">bottom_mid</span><span class="p">),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bottom_right</span><span class="p">,</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">right_mid</span><span class="p">),</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">center_mid</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">top_r</span> <span class="o">=</span> <span class="n">ElementLeaf2D</span><span class="p">(</span>
-            <span class="kc">None</span><span class="p">,</span>
-            <span class="n">order_tr</span><span class="p">,</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">center_mid</span><span class="p">),</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">right_mid</span><span class="p">),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">top_right</span><span class="p">,</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">top_mid</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">top_l</span> <span class="o">=</span> <span class="n">ElementLeaf2D</span><span class="p">(</span>
-            <span class="kc">None</span><span class="p">,</span>
-            <span class="n">order_tl</span><span class="p">,</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">left_mid</span><span class="p">),</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">center_mid</span><span class="p">),</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="n">top_mid</span><span class="p">),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">top_left</span><span class="p">,</span>
-        <span class="p">)</span>
-
-        <span class="n">parent</span> <span class="o">=</span> <span class="n">ElementNode2D</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="n">btm_l</span><span class="p">,</span> <span class="n">btm_r</span><span class="p">,</span> <span class="n">top_l</span><span class="p">,</span> <span class="n">top_r</span><span class="p">)</span>
-
-        <span class="n">btm_l</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
-        <span class="n">btm_r</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
-        <span class="n">top_l</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
-        <span class="n">top_r</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
-
-        <span class="k">return</span> <span class="n">parent</span><span class="p">,</span> <span class="p">((</span><span class="n">btm_l</span><span class="p">,</span> <span class="n">btm_r</span><span class="p">),</span> <span class="p">(</span><span class="n">top_l</span><span class="p">,</span> <span class="n">top_r</span><span class="p">))</span></div>
-</div>
-
-
-
-<div class="viewcode-block" id="Mesh2D">
-<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">Mesh2D</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Two dimensional manifold with associated geometry.</span>
-
-<span class="sd">    Mesh holds the primal manifold, which describes the topology of surfaces</span>
-<span class="sd">    and lines that make it up. It also contains the dual mesh, which contains</span>
-<span class="sd">    duals of all primal geometrical objects. The dual is useful when connectivity</span>
-<span class="sd">    is needed.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    order : int or Sequence of int or array-like</span>
-<span class="sd">        Orders of elements. If a single value is specified, then the same order</span>
-<span class="sd">        is used for all elements. If a sequence is specified, then each element</span>
-<span class="sd">        is given that order.</span>
-
-<span class="sd">    positions : (N, 2) array-like</span>
-<span class="sd">        Positions of the nodes.</span>
-
-<span class="sd">    lines : (N, 2) array-like</span>
-<span class="sd">        Lines of the mesh specified as pairs of nodes connected. These</span>
-<span class="sd">        use 1-based indexing.</span>
-
-<span class="sd">    surfaces : (N, 4) array-like</span>
-<span class="sd">        Surfaces of the mesh specified in their positive orientation</span>
-<span class="sd">        as 1-based indices of lines that make up the surface, with</span>
-<span class="sd">        negative sign indicating reverse direction.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">orders</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Orders of individual elements.&quot;&quot;&quot;</span>
-    <span class="n">positions</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Array of positions for each node in the mesh.&quot;&quot;&quot;</span>
-    <span class="n">primal</span><span class="p">:</span> <span class="n">Manifold2D</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Primal topology of the mesh.&quot;&quot;&quot;</span>
-    <span class="n">dual</span><span class="p">:</span> <span class="n">Manifold2D</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Dual topology of the mesh.&quot;&quot;&quot;</span>
-    <span class="n">boundary_indices</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Indices of lines that make up the boundary of the mesh. These</span>
-<span class="sd">        can be useful when prescribing boundary conditions.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
-        <span class="n">positions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span>
-        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>
-        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span>
-        <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
-        <span class="n">lines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
-        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span>
-        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
-        <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
-        <span class="n">surfaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span>
-        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
-        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span>
-        <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new mesh from given geometry.&quot;&quot;&quot;</span>
-        <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">pos</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Positions must be a (N, 2) array.&quot;</span><span class="p">)</span>
-        <span class="c1"># First try the regular surfaces</span>
-        <span class="n">surf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">surfaces</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">surf</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">surf</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Surfaces should be a (M, 4) array of integers&quot;</span><span class="p">)</span>
-
-        <span class="n">orders_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">orders_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">orders_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">surf</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">orders_array</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">orders_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">orders_array</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">surf</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Orders must be 1D sequence with as many elements as the elements.&quot;</span>
-                <span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">orders_array</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Order can not be lower than 1.&quot;</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">orders</span> <span class="o">=</span> <span class="n">orders_array</span>
-
-        <span class="n">lns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-        <span class="n">man</span> <span class="o">=</span> <span class="n">Manifold2D</span><span class="o">.</span><span class="n">from_regular</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lns</span><span class="p">,</span> <span class="n">surf</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">positions</span> <span class="o">=</span> <span class="n">pos</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">primal</span> <span class="o">=</span> <span class="n">man</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dual</span> <span class="o">=</span> <span class="n">man</span><span class="o">.</span><span class="n">compute_dual</span><span class="p">()</span>
-        <span class="n">bnd</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">n_line</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dual</span><span class="o">.</span><span class="n">n_lines</span><span class="p">):</span>
-            <span class="n">ln</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dual</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">n_line</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">ln</span><span class="o">.</span><span class="n">begin</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">ln</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
-                <span class="n">bnd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">n_line</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">boundary_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bnd</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">n_elements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of (surface) elements in the mesh.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">n_surfaces</span>
-
-<div class="viewcode-block" id="Mesh2D.surface_to_element">
-<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.Mesh2D.surface_to_element">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">surface_to_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ElementLeaf2D</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a 2D element from a surface with the given index.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        idx : int</span>
-<span class="sd">            Index of the surface.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        ElementLeaf2D</span>
-<span class="sd">            Leaf element with the geometry of the specified surface.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">get_surface</span><span class="p">(</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;Primal surface must be square.&quot;</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
-            <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">primal</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-            <span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">begin</span><span class="o">.</span><span class="n">index</span>
-        <span class="k">return</span> <span class="n">ElementLeaf2D</span><span class="p">(</span>
-            <span class="kc">None</span><span class="p">,</span>
-            <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">orders</span><span class="p">[</span><span class="n">idx</span><span class="p">]),</span>
-            <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">])),</span>
-            <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">])),</span>
-            <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="mi">1</span><span class="p">])),</span>
-            <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="mi">1</span><span class="p">])),</span>
-        <span class="p">)</span></div>
-</div>
+    <span class="p">)</span></div>
 
 
 
@@ -1243,6 +966,719 @@ document.write(`
     <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">index</span> <span class="o">==</span> <span class="n">i</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_LEFT</span>
     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Line with index </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> is not in the surface </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="mesh_create">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.mesh_create">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mesh_create</span><span class="p">(</span>
+    <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">positions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span>
+    <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span>
+    <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span>
+    <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">lines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
+    <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span>
+    <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
+    <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">surfaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span>
+    <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
+    <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span>
+    <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create new mesh from given geometry.&quot;&quot;&quot;</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pos</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Positions must be a (N, 2) array.&quot;</span><span class="p">)</span>
+    <span class="c1"># First try the regular surfaces</span>
+    <span class="n">surf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">surfaces</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">surf</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">surf</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Surfaces should be a (M, 4) array of integers&quot;</span><span class="p">)</span>
+
+    <span class="n">n_surf</span> <span class="o">=</span> <span class="n">surf</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">orders_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">orders_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">orders_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n_surf</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">orders_array</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">orders_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">n_surf</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Orders array must contain as many entries as there are surfaces.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">orders_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">orders_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">((</span><span class="n">orders_array</span><span class="p">,</span> <span class="n">orders_array</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">orders_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">orders_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Orders must be given as either a single value, a (N,) sequence, or (N, 2)&quot;</span>
+            <span class="s2">&quot; sequence where N is the number of elements.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">orders_array</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Order can not be lower than 1.&quot;</span><span class="p">)</span>
+
+    <span class="n">orders</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">orders_array</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uintc</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">lns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">primal</span> <span class="o">=</span> <span class="n">Manifold2D</span><span class="o">.</span><span class="n">from_regular</span><span class="p">(</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lns</span><span class="p">,</span> <span class="n">surf</span><span class="p">)</span>
+    <span class="n">dual</span> <span class="o">=</span> <span class="n">primal</span><span class="o">.</span><span class="n">compute_dual</span><span class="p">()</span>
+
+    <span class="n">corners</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n_surf</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uintc</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">idx_surf</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_surf</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">primal</span><span class="o">.</span><span class="n">get_surface</span><span class="p">(</span><span class="n">idx_surf</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span>
+        <span class="k">for</span> <span class="n">n_line</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="n">primal</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">n_line</span><span class="p">])</span>
+            <span class="n">indices</span><span class="p">[</span><span class="n">n_line</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">begin</span><span class="o">.</span><span class="n">index</span>
+        <span class="n">corners</span><span class="p">[</span><span class="n">idx_surf</span><span class="p">]</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">indices</span><span class="p">,</span> <span class="p">:]</span>
+
+    <span class="n">bnd</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">n_line</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dual</span><span class="o">.</span><span class="n">n_lines</span><span class="p">):</span>
+        <span class="n">ln</span> <span class="o">=</span> <span class="n">dual</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">n_line</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ln</span><span class="o">.</span><span class="n">begin</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">ln</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+            <span class="n">bnd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">n_line</span><span class="p">)</span>
+    <span class="n">boundary_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bnd</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uintc</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">primal</span><span class="p">,</span> <span class="n">dual</span><span class="p">,</span> <span class="n">corners</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span> <span class="n">boundary_indices</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">element_node_children_on_side</span><span class="p">(</span>
+    <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span> <span class="n">children</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get children from the 4 child array for the correct side.&quot;&quot;&quot;</span>
+    <span class="n">i_begin</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">i_end</span> <span class="o">=</span> <span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">&amp;</span> <span class="mi">3</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">children</span><span class="p">[</span><span class="n">i_begin</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">children</span><span class="p">[</span><span class="n">i_end</span><span class="p">])</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">element_boundary_dofs</span><span class="p">(</span>
+    <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span><span class="p">,</span> <span class="n">order_1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">order_2</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get indices of boundary DoFs for an element on specified side.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    side : ElementSide</span>
+<span class="sd">        Side of the element to get the DoFs from.</span>
+
+<span class="sd">    order : UnknownFormOrder</span>
+<span class="sd">        Order of the form to the the boundary degrees are for. Can only be a</span>
+<span class="sd">        0-form or an 1-form, since 2-forms have no boundary degrees of freedom</span>
+<span class="sd">        on the boundary.</span>
+
+<span class="sd">    order_1 : int</span>
+<span class="sd">        Order of the element in the horizontal direction.</span>
+
+<span class="sd">    order_2 : int</span>
+<span class="sd">        Order of the element in the vertical direction.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">        Array of indices of the degrees of freedom for the given form on a</span>
+<span class="sd">        given side.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">indices</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_BOTTOM</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">order_1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_RIGHT</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">order_1</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+                <span class="o">+</span> <span class="n">order_2</span>
+                <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">order_2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+                <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_TOP</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">order_1</span> <span class="o">*</span> <span class="n">order_2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">order_1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+                <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_LEFT</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">order_1</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+                    <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">order_2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+                <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid side given by </span><span class="si">{</span><span class="n">side</span><span class="si">=}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_BOTTOM</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_RIGHT</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                <span class="n">order_1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">order_2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+                <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_TOP</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">order_2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+                <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">side</span> <span class="o">==</span> <span class="n">ElementSide</span><span class="o">.</span><span class="n">SIDE_LEFT</span><span class="p">:</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">order_2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">order_1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+                <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid side given by </span><span class="si">{</span><span class="n">side</span><span class="si">=}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;2-forms have no boundary DoFs.&quot;</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid order given by </span><span class="si">{</span><span class="n">order</span><span class="si">=}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">indices</span>
+
+
+<div class="viewcode-block" id="ElementConstraint">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.ElementConstraint">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ElementConstraint</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type intended to enforce a constraint on an element.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    i_e : int</span>
+<span class="sd">        Index of the element for which this constraint is applied.</span>
+
+<span class="sd">    dofs : (n,) array</span>
+<span class="sd">        Array with indices of the degrees of freedom of the element involved.</span>
+
+<span class="sd">    coeffs : (n,) array</span>
+<span class="sd">        Array with coefficients of degrees of freedom of the element involved.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">i_e</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">dofs</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_side_order</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">element_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">side</span><span class="p">:</span> <span class="n">ElementSide</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get order for the specified element boundary side.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mesh : Mesh</span>
+<span class="sd">        Mesh in which the element is in.</span>
+
+<span class="sd">    element : int</span>
+<span class="sd">        Index of the element in the collection to get the side order from.</span>
+
+<span class="sd">    side : ElementSide</span>
+<span class="sd">        Side of the element to get the order for.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        Order on that side of the element.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">children</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_element_children</span><span class="p">(</span><span class="n">element_idx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">children</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">element_node_children_on_side</span><span class="p">(</span><span class="n">side</span><span class="p">,</span> <span class="n">children</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">get_side_order</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span> <span class="o">+</span> <span class="n">get_side_order</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">c2</span><span class="p">,</span> <span class="n">side</span><span class="p">)</span>
+
+    <span class="n">orders</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">element_idx</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">orders</span><span class="p">[(</span><span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">])</span>
+
+
+<div class="viewcode-block" id="Constraint">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.Constraint">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Constraint</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type used to specify constraints on degrees of freedom.</span>
+
+<span class="sd">    This type combines the individual :class:`ElementConstraint` together</span>
+<span class="sd">    with a right-hand side of the constraint.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rhs : float</span>
+<span class="sd">        The right-hand side of the constraint.</span>
+
+<span class="sd">    *element_constraints : ElementConstraint</span>
+<span class="sd">        Constraints to combine together.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">rhs</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">element_constraints</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ElementConstraint</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rhs</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="n">element_constraints</span><span class="p">:</span> <span class="n">ElementConstraint</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;rhs&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">rhs</span><span class="p">))</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;element_constraints&quot;</span><span class="p">,</span> <span class="n">element_constraints</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="compute_leaf_dof_counts">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.compute_leaf_dof_counts">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_leaf_dof_counts</span><span class="p">(</span>
+    <span class="n">order_1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">order_2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ordering</span><span class="p">:</span> <span class="n">UnknownOrderings</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute number of DoFs for each element.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    order_1 : int</span>
+<span class="sd">        Order of the element in the first dimension.</span>
+
+<span class="sd">    order_2 : int</span>
+<span class="sd">        Order of the element in the second dimension.</span>
+
+<span class="sd">    ordering : UnknownOrderings</span>
+<span class="sd">        Orders of differential forms in the system.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array of int</span>
+<span class="sd">        Array with count of degrees of freedom for of each differential form</span>
+<span class="sd">        for the element.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">form</span><span class="o">.</span><span class="n">full_unknown_count</span><span class="p">(</span><span class="n">order_1</span><span class="p">,</span> <span class="n">order_2</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">ordering</span><span class="o">.</span><span class="n">form_orders</span><span class="p">],</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="jacobian">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.jacobian">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">jacobian</span><span class="p">(</span>
+    <span class="n">corners</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span> <span class="n">nodes_1</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="n">nodes_2</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
+    <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
+    <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
+<span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Evaluate the Jacobian matrix entries.</span>
+
+<span class="sd">    The Jacobian matrix :math:`\mathbf{J}` is defined such that:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \mathbf{J} = \begin{bmatrix}</span>
+<span class="sd">        \frac{\partial x}{\partial \xi} &amp; \frac{\partial y}{\partial \xi} \\</span>
+<span class="sd">        \frac{\partial x}{\partial \eta} &amp; \frac{\partial y}{\partial \eta} \\</span>
+<span class="sd">        \end{bmatrix}</span>
+
+<span class="sd">    Which means that a coordinate transformation is performed by:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \begin{bmatrix} {dx} \\ {dy} \end{bmatrix} = \mathbf{J}</span>
+<span class="sd">        \begin{bmatrix} {d\xi} \\ {d\eta} \end{bmatrix}</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    corners : (4, 2) array_like</span>
+<span class="sd">        Array-like containing the corners of the element.</span>
+
+<span class="sd">    nodes_1 : array_like</span>
+<span class="sd">        The first computational component for the element where the Jacobian should</span>
+<span class="sd">        be evaluated.</span>
+<span class="sd">    nodes_2 : array_like</span>
+<span class="sd">        The second computational component for the element where the Jacobian should</span>
+<span class="sd">        be evaluated.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    j00 : array</span>
+<span class="sd">        The :math:`(1, 1)` component of the Jacobian corresponding to the value of</span>
+<span class="sd">        :math:`\frac{\partial x}{\partial \xi}`.</span>
+
+<span class="sd">    j01 : array</span>
+<span class="sd">        The :math:`(1, 2)` component of the Jacobian corresponding to the value of</span>
+<span class="sd">        :math:`\frac{\partial y}{\partial \xi}`.</span>
+
+<span class="sd">    j10 : array</span>
+<span class="sd">        The :math:`(2, 1)` component of the Jacobian corresponding to the value of</span>
+<span class="sd">        :math:`\frac{\partial x}{\partial \eta}`.</span>
+
+<span class="sd">    j11 : array</span>
+<span class="sd">        The :math:`(2, 2)` component of the Jacobian corresponding to the value of</span>
+<span class="sd">        :math:`\frac{\partial y}{\partial \eta}`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">nodes_1</span><span class="p">)</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">nodes_2</span><span class="p">)</span>
+
+    <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">x1</span><span class="p">,</span> <span class="n">y1</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">x3</span><span class="p">,</span> <span class="n">y3</span> <span class="o">=</span> <span class="n">corners</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="p">:]</span>
+
+    <span class="n">dx_dxi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+        <span class="p">((</span><span class="n">x1</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t1</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">x2</span> <span class="o">-</span> <span class="n">x3</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">t1</span><span class="p">))</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="n">dx_deta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+        <span class="p">((</span><span class="n">x3</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">x2</span> <span class="o">-</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">t0</span><span class="p">))</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="n">dy_dxi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+        <span class="p">((</span><span class="n">y1</span> <span class="o">-</span> <span class="n">y0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t1</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">y2</span> <span class="o">-</span> <span class="n">y3</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">t1</span><span class="p">))</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="n">dy_deta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+        <span class="p">((</span><span class="n">y3</span> <span class="o">-</span> <span class="n">y0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">y2</span> <span class="o">-</span> <span class="n">y1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">t0</span><span class="p">))</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="p">((</span><span class="n">dx_dxi</span><span class="p">,</span> <span class="n">dy_dxi</span><span class="p">),</span> <span class="p">(</span><span class="n">dx_deta</span><span class="p">,</span> <span class="n">dy_deta</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="bilinear_interpolate">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.bilinear_interpolate">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bilinear_interpolate</span><span class="p">(</span>
+    <span class="n">corner_vals</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span> <span class="n">xi</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span> <span class="n">eta</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Compute bilinear interpolation at (xi, eta) points.</span>
+
+<span class="sd">    The relation for the bilinear interpolation is given by equation</span>
+<span class="sd">    :eq:`bilinear-interpolation`, where :math:`u_0` is the bottom-left corner,</span>
+<span class="sd">    :math:`u_1` the bottom right, :math:`u_2` the top right, and :math:`u_3` is</span>
+<span class="sd">    the top left corner.</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        :label: bilinear-interpolation</span>
+
+<span class="sd">        u(\xi, \eta) = u_0 \cdot \frac{(1 - \xi)(1 - \eta)}{4}</span>
+<span class="sd">        + u_1 \cdot \frac{(1 + \xi)(1 - \eta)}{4}</span>
+<span class="sd">        + u_2 \cdot \frac{(1 + \xi)(1 + \eta)}{4}</span>
+<span class="sd">        + u_3 \cdot \frac{(1 - \xi)(1 + \eta)}{4}</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    corner_vals : (4,) array_like</span>
+<span class="sd">        Array with the values in the corners of the element.</span>
+
+<span class="sd">    xi : array_like</span>
+<span class="sd">        Array of the xi-coordinates on the reference domain where the</span>
+<span class="sd">        x-coordinate should be evaluated.</span>
+
+<span class="sd">    eta : array_like</span>
+<span class="sd">        Array of the eta-coordinates on the reference domain where the</span>
+<span class="sd">        x-coordinate should be evaluated.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">        Array of interpolated values at the given xi and eta points.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span>
+    <span class="n">b11</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">b12</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">t0</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">b21</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">b22</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">t1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">corner_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">b11</span> <span class="o">+</span> <span class="n">corner_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">b12</span><span class="p">)</span> <span class="o">*</span> <span class="n">b21</span>
+        <span class="o">+</span> <span class="p">(</span><span class="n">corner_vals</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="n">b11</span> <span class="o">+</span> <span class="n">corner_vals</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">b12</span><span class="p">)</span> <span class="o">*</span> <span class="n">b22</span><span class="p">,</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+        <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="element_dual_dofs">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.element_dual_dofs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">element_dual_dofs</span><span class="p">(</span>
+    <span class="n">order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span><span class="p">,</span>
+    <span class="n">element_cache</span><span class="p">:</span> <span class="n">ElementMassMatrixCache</span><span class="p">,</span>
+    <span class="n">function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Compute the dual degrees of freedom (projection) of the function on the element.</span>
+
+<span class="sd">    Dual projection of a function is computed by taking an integral over the</span>
+<span class="sd">    reference domain of the function with each of the two dimensional basis.</span>
+<span class="sd">    This also means that these integrals are the values of the :math:`L^2`</span>
+<span class="sd">    projection of the function on the element.</span>
+
+<span class="sd">    For 0-forms are quite straight forward:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \left(f(x, y), \psi^{(0)}_i \right)_\Omega = \int_{\Omega} f(x, y)</span>
+<span class="sd">        \psi^{(0)}_i(x, y) {dx} \wedge {dy} =</span>
+<span class="sd">        \int_{\bar{\Omega}} f(x(\xi, \eta), y(\xi, \eta)) \psi^{(0)}_i(x(\xi, \eta),</span>
+<span class="sd">        y(\xi, \eta))</span>
+<span class="sd">        \left| \mathbf{J} \right| d\xi \wedge d\eta</span>
+
+
+<span class="sd">    Similarly, 2-forms are also straight forward:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \left(f(x, y), \psi^{(2)}_i \right)_\Omega = \int_{\Omega} f(x, y)</span>
+<span class="sd">        \psi^{(2)}_i(x, y) {dx} \wedge {dy} =</span>
+<span class="sd">        \int_{\bar{\Omega}} f(x(\xi, \eta), y(\xi, \eta)) \psi^{(2)}_i(x(\xi, \eta),</span>
+<span class="sd">        y(\xi, \eta))</span>
+<span class="sd">        \left| \mathbf{J} \right|^{-1} d\xi \wedge d\eta</span>
+
+<span class="sd">    Lastly, for 1-forms it is a bit more involved, since it has multiple components:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \left(f_x dy - f_y dx, {\psi^{(1)}_i}_x dy - {\psi^{(1)}_i}_y dx \right)_\Omega =</span>
+<span class="sd">        \int_{\Omega} f_x {\psi^{(1)}_i}_x + f_y {\psi^{(1)}_i}_y {dx} \wedge {dy} =</span>
+<span class="sd">        \int_{\bar{\Omega}} \left( \mathbf{J} \vec{f} \right) \cdot \left(</span>
+<span class="sd">        \mathbf{J} \vec{\psi^{(1)}} \right) d\xi \wedge d\eta</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    order : UnknownFormOrder</span>
+<span class="sd">        Order of the differential form to use for basis.</span>
+
+<span class="sd">    corners : array_like</span>
+<span class="sd">        Array of corners of the element.</span>
+
+<span class="sd">    basis : Basis2D</span>
+<span class="sd">        Basis function to use for the element.</span>
+
+<span class="sd">    function : Callable</span>
+<span class="sd">        Function to project.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">        Array with dual degrees of freedom.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">corners</span> <span class="o">=</span> <span class="n">element_cache</span><span class="o">.</span><span class="n">corners</span>
+    <span class="n">basis</span> <span class="o">=</span> <span class="n">element_cache</span><span class="o">.</span><span class="n">basis_2d</span>
+    <span class="p">((</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">),</span> <span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">),</span> <span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">),</span> <span class="p">(</span><span class="n">x3</span><span class="p">,</span> <span class="n">y3</span><span class="p">))</span> <span class="o">=</span> <span class="n">corners</span>
+    <span class="n">nds_xi</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">nds_eta</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="p">((</span><span class="n">j00</span><span class="p">,</span> <span class="n">j01</span><span class="p">),</span> <span class="p">(</span><span class="n">j10</span><span class="p">,</span> <span class="n">j11</span><span class="p">))</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">corners</span><span class="p">,</span> <span class="n">nds_xi</span><span class="p">,</span> <span class="n">nds_eta</span><span class="p">)</span>
+    <span class="n">det</span> <span class="o">=</span> <span class="n">j00</span> <span class="o">*</span> <span class="n">j11</span> <span class="o">-</span> <span class="n">j10</span> <span class="o">*</span> <span class="n">j01</span>
+
+    <span class="n">nds_x</span> <span class="o">=</span> <span class="n">bilinear_interpolate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">x0</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">x3</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">nds_xi</span><span class="p">,</span> <span class="n">nds_eta</span><span class="p">)</span>
+    <span class="n">nds_y</span> <span class="o">=</span> <span class="n">bilinear_interpolate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">y0</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="n">y3</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">nds_xi</span><span class="p">,</span> <span class="n">nds_eta</span><span class="p">)</span>
+
+    <span class="n">fv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">function</span><span class="p">(</span><span class="n">nds_x</span><span class="p">,</span> <span class="n">nds_y</span><span class="p">))</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">weights</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="n">dofs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
+        <span class="n">f_vals</span> <span class="o">=</span> <span class="n">fv</span> <span class="o">*</span> <span class="n">weights</span>
+        <span class="n">f_nod</span> <span class="o">=</span> <span class="n">f_vals</span> <span class="o">*</span> <span class="n">det</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">b2</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">node</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">b1</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">node</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">b1</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">*</span> <span class="n">b2</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">f_nod</span><span class="p">)</span>
+                <span class="n">dofs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
+        <span class="n">f_vals</span> <span class="o">=</span> <span class="n">fv</span> <span class="o">*</span> <span class="n">weights</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+
+        <span class="n">f_xi</span> <span class="o">=</span> <span class="n">j00</span> <span class="o">*</span> <span class="n">f_vals</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">j01</span> <span class="o">*</span> <span class="n">f_vals</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">f_eta</span> <span class="o">=</span> <span class="n">j10</span> <span class="o">*</span> <span class="n">f_vals</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">j11</span> <span class="o">*</span> <span class="n">f_vals</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">b2</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">node</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span><span class="p">):</span>
+                <span class="n">b1</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">edge</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">b1</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">*</span> <span class="n">b2</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">f_eta</span><span class="p">)</span>
+                <span class="n">dofs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span><span class="p">):</span>
+            <span class="n">b2</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">edge</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">b1</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">node</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">b1</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">*</span> <span class="n">b2</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">f_xi</span><span class="p">)</span>
+                <span class="n">dofs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">:</span>
+        <span class="n">f_vals</span> <span class="o">=</span> <span class="n">fv</span> <span class="o">*</span> <span class="n">weights</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span><span class="p">):</span>
+            <span class="n">b2</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">edge</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span><span class="p">):</span>
+                <span class="n">b1</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">edge</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">b1</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">*</span> <span class="n">b2</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">f_vals</span><span class="p">)</span>
+                <span class="n">dofs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid form order </span><span class="si">{</span><span class="n">order</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="element_primal_dofs">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.element_primal_dofs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">element_primal_dofs</span><span class="p">(</span>
+    <span class="n">order</span><span class="p">:</span> <span class="n">UnknownFormOrder</span><span class="p">,</span>
+    <span class="n">element_cache</span><span class="p">:</span> <span class="n">ElementMassMatrixCache</span><span class="p">,</span>
+    <span class="n">function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Compute the primal degrees of freedom of projection of a function on the element.</span>
+
+<span class="sd">    Primal degrees of freedom allow for reconstruction of the function&#39;s :math:`L^2`</span>
+<span class="sd">    projection. This means that given these degrees of freedom, the following relation</span>
+<span class="sd">    holds:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \left(\psi^{(k)}, f^{(k)} \right)_\Omega = \left(\psi^{(k)}, \bar{f}^{(k)} \right)</span>
+<span class="sd">        = \int_{\Omega} \psi^{(k)} \sum\left( f_i \psi^{(k)}_i \right) dx \wedge dy</span>
+
+<span class="sd">    for all basis functions :math:`\psi^{(k)}`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    order : UnknownFormOrder</span>
+<span class="sd">        Order of the differential form to use for basis.</span>
+
+<span class="sd">    corners : array_like</span>
+<span class="sd">        Array of corners of the element.</span>
+
+<span class="sd">    basis : Basis2D</span>
+<span class="sd">        Basis function to use for the element.</span>
+
+<span class="sd">    function : Callable</span>
+<span class="sd">        Function to project.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">        Array with primal degrees of freedom.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dofs</span> <span class="o">=</span> <span class="n">element_dual_dofs</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">element_cache</span><span class="p">,</span> <span class="n">function</span><span class="p">)</span>
+    <span class="n">mat</span> <span class="o">=</span> <span class="n">element_cache</span><span class="o">.</span><span class="n">mass_from_order</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span>
+        <span class="n">mat</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">element_cache</span><span class="o">.</span><span class="n">mass_from_order</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">mat</span> <span class="o">@</span> <span class="n">dofs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="reconstruct">
+<a class="viewcode-back" href="../../modules/mimetic2d.html#mfv2d.mimetic2d.reconstruct">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">reconstruct</span><span class="p">(</span>
+    <span class="n">corners</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span>
+    <span class="n">k</span><span class="p">:</span> <span class="n">UnknownFormOrder</span><span class="p">,</span>
+    <span class="n">dofs</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">xi</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">eta</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">basis</span><span class="p">:</span> <span class="n">Basis2D</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reconstruct a k-form on the element from its primal degrees of freedom.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    corners : array_like</span>
+<span class="sd">        Array of corners of the element.</span>
+
+<span class="sd">    k : UnknownFormOrder</span>
+<span class="sd">        Order of the differential form to use for basis.</span>
+
+<span class="sd">    dofs : array_like</span>
+<span class="sd">        Degrees of freedom of the k-form.</span>
+
+<span class="sd">    xi : array_like</span>
+<span class="sd">        Coordinates of the xi-coordinate in the reference domain.</span>
+
+<span class="sd">    eta : array_like</span>
+<span class="sd">        Coordinates of the eta-coordinate in the reference domain.</span>
+
+<span class="sd">    basis : Basis2D</span>
+<span class="sd">        Basis function to use for the element.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">        Array with the point values of the k-form at the specified coordinates.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">UnknownFormOrder</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+    <span class="n">out</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dofs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Coefficient array must be one dimensional.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">c</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">vals_xi</span> <span class="o">=</span> <span class="n">lagrange1d</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+        <span class="n">vals_eta</span> <span class="o">=</span> <span class="n">lagrange1d</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">vals_eta</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">u</span> <span class="o">=</span> <span class="n">vals_xi</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+                <span class="n">out</span> <span class="o">+=</span> <span class="n">c</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">c</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="p">(</span>
+            <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="p">)</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">*</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">values_xi</span> <span class="o">=</span> <span class="n">lagrange1d</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+        <span class="n">values_eta</span> <span class="o">=</span> <span class="n">lagrange1d</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="n">in_dvalues_xi</span> <span class="o">=</span> <span class="n">dlagrange1d</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+        <span class="n">in_dvalues_eta</span> <span class="o">=</span> <span class="n">dlagrange1d</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="n">dvalues_xi</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">accumulate</span><span class="p">(</span><span class="o">-</span><span class="n">in_dvalues_xi</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="n">dvalues_eta</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">accumulate</span><span class="p">(</span><span class="o">-</span><span class="n">in_dvalues_eta</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="p">(</span><span class="n">j00</span><span class="p">,</span> <span class="n">j01</span><span class="p">),</span> <span class="p">(</span><span class="n">j10</span><span class="p">,</span> <span class="n">j11</span><span class="p">)</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">corners</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="n">det</span> <span class="o">=</span> <span class="n">j00</span> <span class="o">*</span> <span class="n">j11</span> <span class="o">-</span> <span class="n">j10</span> <span class="o">*</span> <span class="n">j01</span>
+        <span class="n">out_xi</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">out_eta</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">i1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">v1</span> <span class="o">=</span> <span class="n">values_eta</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i1</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">j1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span><span class="p">):</span>
+                <span class="n">u1</span> <span class="o">=</span> <span class="n">dvalues_xi</span><span class="p">[</span><span class="n">j1</span><span class="p">]</span>
+                <span class="n">out_eta</span> <span class="o">+=</span> <span class="n">c</span><span class="p">[</span><span class="n">i1</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="n">j1</span><span class="p">]</span> <span class="o">*</span> <span class="n">u1</span> <span class="o">*</span> <span class="n">v1</span>
+
+        <span class="k">for</span> <span class="n">i1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span><span class="p">):</span>
+            <span class="n">v1</span> <span class="o">=</span> <span class="n">dvalues_eta</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">j1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">u1</span> <span class="o">=</span> <span class="n">values_xi</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">j1</span><span class="p">]</span>
+
+                <span class="n">out_xi</span> <span class="o">+=</span> <span class="p">(</span>
+                    <span class="n">c</span><span class="p">[</span>
+                        <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span>
+                        <span class="o">+</span> <span class="n">i1</span> <span class="o">*</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                        <span class="o">+</span> <span class="n">j1</span>
+                    <span class="p">]</span>
+                    <span class="o">*</span> <span class="n">u1</span>
+                    <span class="o">*</span> <span class="n">v1</span>
+                <span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">out_xi</span> <span class="o">*</span> <span class="n">j00</span> <span class="o">+</span> <span class="n">out_eta</span> <span class="o">*</span> <span class="n">j10</span><span class="p">,</span> <span class="n">out_xi</span> <span class="o">*</span> <span class="n">j01</span> <span class="o">+</span> <span class="n">out_eta</span> <span class="o">*</span> <span class="n">j11</span><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span>
+        <span class="p">)</span>
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">det</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+
+    <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">c</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span>
+        <span class="n">in_dvalues_xi</span> <span class="o">=</span> <span class="n">dlagrange1d</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+        <span class="n">in_dvalues_eta</span> <span class="o">=</span> <span class="n">dlagrange1d</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">roots</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="n">dvalues_xi</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">accumulate</span><span class="p">(</span><span class="o">-</span><span class="n">in_dvalues_xi</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="n">dvalues_eta</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">accumulate</span><span class="p">(</span><span class="o">-</span><span class="n">in_dvalues_eta</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="p">(</span><span class="n">j00</span><span class="p">,</span> <span class="n">j01</span><span class="p">),</span> <span class="p">(</span><span class="n">j10</span><span class="p">,</span> <span class="n">j11</span><span class="p">)</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">corners</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="n">det</span> <span class="o">=</span> <span class="n">j00</span> <span class="o">*</span> <span class="n">j11</span> <span class="o">-</span> <span class="n">j10</span> <span class="o">*</span> <span class="n">j01</span>
+        <span class="k">for</span> <span class="n">i1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span><span class="p">):</span>
+            <span class="n">v1</span> <span class="o">=</span> <span class="n">dvalues_eta</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">j1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span><span class="p">):</span>
+                <span class="n">u1</span> <span class="o">=</span> <span class="n">dvalues_xi</span><span class="p">[</span><span class="n">j1</span><span class="p">]</span>
+                <span class="n">out</span> <span class="o">+=</span> <span class="n">c</span><span class="p">[</span><span class="n">i1</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="n">j1</span><span class="p">]</span> <span class="o">*</span> <span class="n">u1</span> <span class="o">*</span> <span class="n">v1</span>
+
+        <span class="n">out</span> <span class="o">/=</span> <span class="n">det</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Order of the differential form </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> is not valid.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
 
 </pre></div>
 

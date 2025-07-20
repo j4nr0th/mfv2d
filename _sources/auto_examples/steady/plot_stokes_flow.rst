@@ -75,10 +75,10 @@ system :eq:`steady-stokes-variational`.
         BoundaryCondition2DSteady,
         KFormSystem,
         KFormUnknown,
-        Mesh2D,
         SolverSettings,
         SystemSettings,
         UnknownFormOrder,
+        mesh_create,
         solve_system_2d,
     )
 
@@ -288,9 +288,9 @@ to machine precision.
 
 
     pval = 3
-    msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+    msh = mesh_create(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
 
-    solution, stats = solve_system_2d(
+    solution, stats, mesh = solve_system_2d(
         msh,
         system_settings=SystemSettings(
             system,
@@ -342,7 +342,7 @@ Solve for Different Orders
 So we solve for different orders. Before that, we remake the system without the
 divergence form.
 
-.. GENERATED FROM PYTHON SOURCE LINES 242-290
+.. GENERATED FROM PYTHON SOURCE LINES 242-292
 
 .. code-block:: Python
 
@@ -360,9 +360,11 @@ divergence form.
     l2_err = np.zeros(p_vals.size)
 
     for ip, pval in enumerate(p_vals):
-        msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+        msh = mesh_create(
+            pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces
+        )
 
-        solution, stats = solve_system_2d(
+        solution, stats, mesh = solve_system_2d(
             msh,
             system_settings=SystemSettings(
                 system,
@@ -412,7 +414,7 @@ divergence form.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 291-301
+.. GENERATED FROM PYTHON SOURCE LINES 293-303
 
 Plot Results
 ------------
@@ -425,7 +427,7 @@ Here we plot the results.
 The vorticity error.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 302-326
+.. GENERATED FROM PYTHON SOURCE LINES 304-328
 
 .. code-block:: Python
 
@@ -471,14 +473,14 @@ The vorticity error.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 327-331
+.. GENERATED FROM PYTHON SOURCE LINES 329-333
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
 The velocity error.
 
-.. GENERATED FROM PYTHON SOURCE LINES 332-354
+.. GENERATED FROM PYTHON SOURCE LINES 334-356
 
 .. code-block:: Python
 
@@ -525,7 +527,7 @@ The velocity error.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.547 seconds)
+   **Total running time of the script:** (0 minutes 1.456 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_stokes_flow.py:

@@ -7,7 +7,7 @@ This submodule is provides types which allow for creating a description
 of the system to solve using Python's operator overloading. It also
 allows for caching any syntax errors with it. It could be even further
 improved in the future if `Python's generic typing <https://typing.python.org/en/latest/reference/generics.html>`_
-would be used.
+will ever support inheritence for generic types.
 
 
 Different :math:`k`-Form Types

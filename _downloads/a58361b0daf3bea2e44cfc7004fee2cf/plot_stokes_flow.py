@@ -53,10 +53,10 @@ from mfv2d import (
     BoundaryCondition2DSteady,
     KFormSystem,
     KFormUnknown,
-    Mesh2D,
     SolverSettings,
     SystemSettings,
     UnknownFormOrder,
+    mesh_create,
     solve_system_2d,
 )
 
@@ -204,9 +204,9 @@ plt.show()
 #
 
 pval = 3
-msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+msh = mesh_create(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
 
-solution, stats = solve_system_2d(
+solution, stats, mesh = solve_system_2d(
     msh,
     system_settings=SystemSettings(
         system,
@@ -253,9 +253,11 @@ h1_err = np.zeros(p_vals.size)
 l2_err = np.zeros(p_vals.size)
 
 for ip, pval in enumerate(p_vals):
-    msh = Mesh2D(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+    msh = mesh_create(
+        pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces
+    )
 
-    solution, stats = solve_system_2d(
+    solution, stats, mesh = solve_system_2d(
         msh,
         system_settings=SystemSettings(
             system,

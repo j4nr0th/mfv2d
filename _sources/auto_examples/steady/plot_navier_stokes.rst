@@ -73,10 +73,10 @@ system :eq:`steady-ns-variational`.
         BoundaryCondition2DSteady,
         KFormSystem,
         KFormUnknown,
-        Mesh2D,
         SolverSettings,
         SystemSettings,
         UnknownFormOrder,
+        mesh_create,
         solve_system_2d,
     )
 
@@ -238,7 +238,7 @@ a bit unstable to compute when under-resolved.
     )
     assert rx < 1e-6, ry < 1e-6
 
-    mesh = Mesh2D(
+    mesh = mesh_create(
         P,
         np.stack((rect_mesh.pos_x, rect_mesh.pos_y), axis=-1),
         rect_mesh.lines + 1,
@@ -266,7 +266,7 @@ Here we solve the system.
 
 
 
-    solutions, stats = solve_system_2d(
+    solutions, stats, mesh = solve_system_2d(
         mesh,
         SystemSettings(
             system,
@@ -291,7 +291,7 @@ Here we solve the system.
 
  .. code-block:: none
 
-    SolutionStatistics(element_orders={6: 98}, n_total_dofs=11270, n_leaf_dofs=10045, n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([6.96336197e-02, 9.02580252e-02, 1.81090247e-11]))
+    SolutionStatistics(element_orders={(6, 6): 49}, n_total_dofs=11270, n_leaf_dofs=np.uint64(10045), n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([6.96336197e-02, 9.02580252e-02, 1.81090247e-11]))
 
 
 
@@ -442,7 +442,7 @@ Pyvista allows for very simple 2D streamline plots.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 11.336 seconds)
+   **Total running time of the script:** (0 minutes 3.157 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_navier_stokes.py:

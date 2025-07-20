@@ -1,0 +1,721 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>refinement &#8212; mfv2d  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../_static/jupyter-sphinx.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/thebelab-helper.js"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules/refinement';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="solve_system" href="solve_system.html" />
+    <link rel="prev" title="progress" href="progress.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mfv2d  documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../basis.html">Mimetic Spectral Elements Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../auto_examples/index.html">Examples</a></li>
+
+
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../modules.html">Modules</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="_mfv2d.html">_mfv2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="continuity.html">continuity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kform.html">kform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="progress.html">progress</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">refinement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="solve_system.html">solve_system</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/modules/refinement.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>refinement</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#utilities">Utilities</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement._compute_legendre_coefficients"><code class="docutils literal notranslate"><span class="pre">_compute_legendre_coefficients()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#refinement-settings">Refinement Settings</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings"><code class="docutils literal notranslate"><span class="pre">RefinementSettings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.error_calculation_function"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.error_calculation_function</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.h_refinement_ratio"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.h_refinement_ratio</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.reconstruction_orders"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.reconstruction_orders</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.refinement_limit"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.refinement_limit</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.report_error_distribution"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.report_error_distribution</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.report_order_distribution"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.report_order_distribution</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.required_forms"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.required_forms</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.ErrorCalculationFunction"><code class="docutils literal notranslate"><span class="pre">ErrorCalculationFunction</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.ErrorCalculationFunction.__call__"><code class="docutils literal notranslate"><span class="pre">ErrorCalculationFunction.__call__()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#refinement-limits">Refinement Limits</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitUnknownCount"><code class="docutils literal notranslate"><span class="pre">RefinementLimitUnknownCount</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitUnknownCount.maximum_count"><code class="docutils literal notranslate"><span class="pre">RefinementLimitUnknownCount.maximum_count</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitUnknownCount.maximum_fraction"><code class="docutils literal notranslate"><span class="pre">RefinementLimitUnknownCount.maximum_fraction</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitElementCount"><code class="docutils literal notranslate"><span class="pre">RefinementLimitElementCount</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitElementCount.maximum_count"><code class="docutils literal notranslate"><span class="pre">RefinementLimitElementCount.maximum_count</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitElementCount.maximum_fraction"><code class="docutils literal notranslate"><span class="pre">RefinementLimitElementCount.maximum_fraction</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitErrorValue"><code class="docutils literal notranslate"><span class="pre">RefinementLimitErrorValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitErrorValue.minimum_fraction"><code class="docutils literal notranslate"><span class="pre">RefinementLimitErrorValue.minimum_fraction</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitErrorValue.minimum_value"><code class="docutils literal notranslate"><span class="pre">RefinementLimitErrorValue.minimum_value</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#doing-the-refinement">Doing the Refinement</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.perform_mesh_refinement"><code class="docutils literal notranslate"><span class="pre">perform_mesh_refinement()</span></code></a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="refinement">
+<h1>refinement<a class="headerlink" href="#refinement" title="Link to this heading">#</a></h1>
+<p>This submodule’s purpose is to provide support functions for mesh refinement,
+namely the ones involved in post-solver refinement. Currently heavily work in
+progress.</p>
+<section id="utilities">
+<h2>Utilities<a class="headerlink" href="#utilities" title="Link to this heading">#</a></h2>
+<p>For computing Legendre decomposition of functions for error estimation, the
+function <a class="reference internal" href="#mfv2d.refinement._compute_legendre_coefficients" title="mfv2d.refinement._compute_legendre_coefficients"><code class="xref py py-func docutils literal notranslate"><span class="pre">_compute_legendre_coefficients()</span></code></a> is provided.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d.refinement._compute_legendre_coefficients">
+<span class="sig-prename descclassname"><span class="pre">mfv2d.refinement.</span></span><span class="sig-name descname"><span class="pre">_compute_legendre_coefficients</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order_1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">order_2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">rule_1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D"><span class="pre">IntegrationRule1D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">rule_2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D"><span class="pre">IntegrationRule1D</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">func_vals</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/refinement.html#_compute_legendre_coefficients"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.refinement._compute_legendre_coefficients" title="Link to this definition">#</a></dt>
+<dd><p>Compute Legendre coefficients from function values at integration nodes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>order_1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the coefficients in the first direction.</p></li>
+<li><p><strong>order_2</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Order of the coefficients in the second direction.</p></li>
+<li><p><strong>rule_1</strong> (<a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D"><em>IntegrationRule1D</em></a>) – Integration rule to use in the first direction.</p></li>
+<li><p><strong>rule_2</strong> (<a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.IntegrationRule1D" title="mfv2d._mfv2d.IntegrationRule1D"><em>IntegrationRule1D</em></a>) – Integration rule to use in the second direction.</p></li>
+<li><p><strong>func_vals</strong> (<em>array</em>) – Array of function values at the positions of integration
+rules.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Array of coefficients for Legendre basis.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(order_1 + 1, order_2 + 1) array</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="refinement-settings">
+<h2>Refinement Settings<a class="headerlink" href="#refinement-settings" title="Link to this heading">#</a></h2>
+<p>Refinement settings are specified using the type <a class="reference internal" href="#mfv2d.refinement.RefinementSettings" title="mfv2d.refinement.RefinementSettings"><code class="xref py py-class docutils literal notranslate"><span class="pre">RefinementSettings</span></code></a>.
+There are a few additional types introduced to help type hint and define
+all parameters (for example <a class="reference internal" href="#mfv2d.refinement.ErrorCalculationFunction" title="mfv2d.refinement.ErrorCalculationFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">ErrorCalculationFunction</span></code></a>).</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementSettings">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.refinement.</span></span><span class="sig-name descname"><span class="pre">RefinementSettings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">required_forms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="kform.html#mfv2d.kform.KFormUnknown" title="mfv2d.kform.KFormUnknown"><span class="pre">KFormUnknown</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_calculation_function</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.refinement.ErrorCalculationFunction" title="mfv2d.refinement.ErrorCalculationFunction"><span class="pre">ErrorCalculationFunction</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">refinement_limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.refinement.RefinementLimitUnknownCount" title="mfv2d.refinement.RefinementLimitUnknownCount"><span class="pre">RefinementLimitUnknownCount</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.refinement.RefinementLimitElementCount" title="mfv2d.refinement.RefinementLimitElementCount"><span class="pre">RefinementLimitElementCount</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.refinement.RefinementLimitErrorValue" title="mfv2d.refinement.RefinementLimitErrorValue"><span class="pre">RefinementLimitErrorValue</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">h_refinement_ratio</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">report_error_distribution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">report_order_distribution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reconstruction_orders</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/refinement.html#RefinementSettings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.refinement.RefinementSettings" title="Link to this definition">#</a></dt>
+<dd><p>Settings pertaining to refinement of a mesh.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementSettings.error_calculation_function">
+<span class="sig-name descname"><span class="pre">error_calculation_function</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.refinement.ErrorCalculationFunction" title="mfv2d.refinement.ErrorCalculationFunction"><span class="pre">ErrorCalculationFunction</span></a></em><a class="headerlink" href="#mfv2d.refinement.RefinementSettings.error_calculation_function" title="Link to this definition">#</a></dt>
+<dd><p>Function called to calculate error estimate and h-refinement cost.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementSettings.h_refinement_ratio">
+<span class="sig-name descname"><span class="pre">h_refinement_ratio</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#mfv2d.refinement.RefinementSettings.h_refinement_ratio" title="Link to this definition">#</a></dt>
+<dd><p>Ratio between element error and h-refinement cost where refinement can happen.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementSettings.reconstruction_orders">
+<span class="sig-name descname"><span class="pre">reconstruction_orders</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#mfv2d.refinement.RefinementSettings.reconstruction_orders" title="Link to this definition">#</a></dt>
+<dd><p>Order at which error should be reconstructed.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementSettings.refinement_limit">
+<span class="sig-name descname"><span class="pre">refinement_limit</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.refinement.RefinementLimitUnknownCount" title="mfv2d.refinement.RefinementLimitUnknownCount"><span class="pre">RefinementLimitUnknownCount</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.refinement.RefinementLimitElementCount" title="mfv2d.refinement.RefinementLimitElementCount"><span class="pre">RefinementLimitElementCount</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#mfv2d.refinement.RefinementLimitErrorValue" title="mfv2d.refinement.RefinementLimitErrorValue"><span class="pre">RefinementLimitErrorValue</span></a></em><a class="headerlink" href="#mfv2d.refinement.RefinementSettings.refinement_limit" title="Link to this definition">#</a></dt>
+<dd><p>Limit for mesh refinement.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementSettings.report_error_distribution">
+<span class="sig-name descname"><span class="pre">report_error_distribution</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#mfv2d.refinement.RefinementSettings.report_error_distribution" title="Link to this definition">#</a></dt>
+<dd><p>Should the error distribution be reported.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementSettings.report_order_distribution">
+<span class="sig-name descname"><span class="pre">report_order_distribution</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#mfv2d.refinement.RefinementSettings.report_order_distribution" title="Link to this definition">#</a></dt>
+<dd><p>Should the order distribution be reported.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementSettings.required_forms">
+<span class="sig-name descname"><span class="pre">required_forms</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="kform.html#mfv2d.kform.KFormUnknown" title="mfv2d.kform.KFormUnknown"><span class="pre">KFormUnknown</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#mfv2d.refinement.RefinementSettings.required_forms" title="Link to this definition">#</a></dt>
+<dd><p>Forms that are needed by the error calculation function.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.refinement.ErrorCalculationFunction">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.refinement.</span></span><span class="sig-name descname"><span class="pre">ErrorCalculationFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/refinement.html#ErrorCalculationFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.refinement.ErrorCalculationFunction" title="Link to this definition">#</a></dt>
+<dd><p>Type that can compute error.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mfv2d.refinement.ErrorCalculationFunction.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/mfv2d/refinement.html#ErrorCalculationFunction.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.refinement.ErrorCalculationFunction.__call__" title="Link to this definition">#</a></dt>
+<dd><p>Compute the error.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>array</em>) – x-coordinates of integration points.</p></li>
+<li><p><strong>y</strong> (<em>array</em>) – y-coordinates of integration points.</p></li>
+<li><p><strong>w</strong> (<em>array</em>) – Integration weights at the specified points.</p></li>
+<li><p><strong>**kwargs</strong> (<em>array</em>) – Values of desired forms at specified positions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>float</em> – Error measure of the element. Not negative.</p></li>
+<li><p><em>float</em> – Cost of h-refinement.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<section id="refinement-limits">
+<h3>Refinement Limits<a class="headerlink" href="#refinement-limits" title="Link to this heading">#</a></h3>
+<p>To specify when the refineemnt should stop, several different dataclasses are
+available. <a class="reference internal" href="#mfv2d.refinement.RefinementLimitUnknownCount" title="mfv2d.refinement.RefinementLimitUnknownCount"><code class="xref py py-class docutils literal notranslate"><span class="pre">RefinementLimitUnknownCount</span></code></a> limits it based on number of
+new degrees of freedom that are introduced,
+<a class="reference internal" href="#mfv2d.refinement.RefinementLimitElementCount" title="mfv2d.refinement.RefinementLimitElementCount"><code class="xref py py-class docutils literal notranslate"><span class="pre">RefinementLimitElementCount</span></code></a> is based on the number of elements
+refined, added, and <a class="reference internal" href="#mfv2d.refinement.RefinementLimitErrorValue" title="mfv2d.refinement.RefinementLimitErrorValue"><code class="xref py py-class docutils literal notranslate"><span class="pre">RefinementLimitErrorValue</span></code></a> is based on the
+error value of elements.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementLimitUnknownCount">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.refinement.</span></span><span class="sig-name descname"><span class="pre">RefinementLimitUnknownCount</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">maximum_fraction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">maximum_count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/refinement.html#RefinementLimitUnknownCount"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.refinement.RefinementLimitUnknownCount" title="Link to this definition">#</a></dt>
+<dd><p>Limit refinement based on change in number of degrees of freedom.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementLimitUnknownCount.maximum_count">
+<span class="sig-name descname"><span class="pre">maximum_count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.refinement.RefinementLimitUnknownCount.maximum_count" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementLimitUnknownCount.maximum_fraction">
+<span class="sig-name descname"><span class="pre">maximum_fraction</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><a class="headerlink" href="#mfv2d.refinement.RefinementLimitUnknownCount.maximum_fraction" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementLimitElementCount">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.refinement.</span></span><span class="sig-name descname"><span class="pre">RefinementLimitElementCount</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">maximum_fraction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">maximum_count</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/refinement.html#RefinementLimitElementCount"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.refinement.RefinementLimitElementCount" title="Link to this definition">#</a></dt>
+<dd><p>Limit refinement based on the number of elements.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementLimitElementCount.maximum_count">
+<span class="sig-name descname"><span class="pre">maximum_count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#mfv2d.refinement.RefinementLimitElementCount.maximum_count" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementLimitElementCount.maximum_fraction">
+<span class="sig-name descname"><span class="pre">maximum_fraction</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><a class="headerlink" href="#mfv2d.refinement.RefinementLimitElementCount.maximum_fraction" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementLimitErrorValue">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mfv2d.refinement.</span></span><span class="sig-name descname"><span class="pre">RefinementLimitErrorValue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">minimum_fraction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">minimum_value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mfv2d/refinement.html#RefinementLimitErrorValue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.refinement.RefinementLimitErrorValue" title="Link to this definition">#</a></dt>
+<dd><p>Limit refinement based on value of the errror.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementLimitErrorValue.minimum_fraction">
+<span class="sig-name descname"><span class="pre">minimum_fraction</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><a class="headerlink" href="#mfv2d.refinement.RefinementLimitErrorValue.minimum_fraction" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mfv2d.refinement.RefinementLimitErrorValue.minimum_value">
+<span class="sig-name descname"><span class="pre">minimum_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><a class="headerlink" href="#mfv2d.refinement.RefinementLimitErrorValue.minimum_value" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+<section id="doing-the-refinement">
+<h2>Doing the Refinement<a class="headerlink" href="#doing-the-refinement" title="Link to this heading">#</a></h2>
+<p>After the solver obtains a solution for the problem, refinement is performed
+by invoking the function <a class="reference internal" href="#mfv2d.refinement.perform_mesh_refinement" title="mfv2d.refinement.perform_mesh_refinement"><code class="xref py py-func docutils literal notranslate"><span class="pre">perform_mesh_refinement()</span></code></a>. This takes values
+computed by the solver, as well as all that is specified through
+<a class="reference internal" href="#mfv2d.refinement.RefinementSettings" title="mfv2d.refinement.RefinementSettings"><code class="xref py py-class docutils literal notranslate"><span class="pre">RefinementSettings</span></code></a>.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mfv2d.refinement.perform_mesh_refinement">
+<span class="sig-prename descclassname"><span class="pre">mfv2d.refinement.</span></span><span class="sig-name descname"><span class="pre">perform_mesh_refinement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Mesh" title="mfv2d._mfv2d.Mesh"><span class="pre">Mesh</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.float64</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">element_offsets</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.uint32</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dof_offsets</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">npt.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">np.uint32</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">required_unknown_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unknown_forms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="kform.html#mfv2d.kform.KFormUnknown" title="mfv2d.kform.KFormUnknown"><span class="pre">KFormUnknown</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_calculation_function</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mfv2d.refinement.ErrorCalculationFunction" title="mfv2d.refinement.ErrorCalculationFunction"><span class="pre">ErrorCalculationFunction</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">h_refinement_ratio</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">refinement_limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">RefinementLimit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unknown_ordering</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="kform.html#mfv2d.kform.UnknownOrderings" title="mfv2d.kform.UnknownOrderings"><span class="pre">UnknownOrderings</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">report_error_distribution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reconstruction_orders</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Mesh" title="mfv2d._mfv2d.Mesh"><span class="pre">Mesh</span></a></span></span><a class="reference internal" href="../_modules/mfv2d/refinement.html#perform_mesh_refinement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mfv2d.refinement.perform_mesh_refinement" title="Link to this definition">#</a></dt>
+<dd><p>Perform a round of mesh refinement.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mesh</strong> (<a class="reference internal" href="_mfv2d.html#mfv2d._mfv2d.Mesh" title="mfv2d._mfv2d.Mesh"><em>Mesh</em></a>) – Mesh on which to perform refinement on.</p></li>
+<li><p><strong>settings</strong> (<a class="reference internal" href="#mfv2d.refinement.RefinementSettings" title="mfv2d.refinement.RefinementSettings"><em>RefinementSettings</em></a>) – Specifications of how the refinement shoud be performed.</p></li>
+<li><p><strong>solution</strong> (<em>array</em>) – Solution for degrees of freedom.</p></li>
+<li><p><strong>element_offsets</strong> (<em>array</em>) – Array with offsets for the beginning of</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="progress.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">progress</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="solve_system.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">solve_system</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#utilities">Utilities</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement._compute_legendre_coefficients"><code class="docutils literal notranslate"><span class="pre">_compute_legendre_coefficients()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#refinement-settings">Refinement Settings</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings"><code class="docutils literal notranslate"><span class="pre">RefinementSettings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.error_calculation_function"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.error_calculation_function</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.h_refinement_ratio"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.h_refinement_ratio</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.reconstruction_orders"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.reconstruction_orders</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.refinement_limit"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.refinement_limit</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.report_error_distribution"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.report_error_distribution</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.report_order_distribution"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.report_order_distribution</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementSettings.required_forms"><code class="docutils literal notranslate"><span class="pre">RefinementSettings.required_forms</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.ErrorCalculationFunction"><code class="docutils literal notranslate"><span class="pre">ErrorCalculationFunction</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.ErrorCalculationFunction.__call__"><code class="docutils literal notranslate"><span class="pre">ErrorCalculationFunction.__call__()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#refinement-limits">Refinement Limits</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitUnknownCount"><code class="docutils literal notranslate"><span class="pre">RefinementLimitUnknownCount</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitUnknownCount.maximum_count"><code class="docutils literal notranslate"><span class="pre">RefinementLimitUnknownCount.maximum_count</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitUnknownCount.maximum_fraction"><code class="docutils literal notranslate"><span class="pre">RefinementLimitUnknownCount.maximum_fraction</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitElementCount"><code class="docutils literal notranslate"><span class="pre">RefinementLimitElementCount</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitElementCount.maximum_count"><code class="docutils literal notranslate"><span class="pre">RefinementLimitElementCount.maximum_count</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitElementCount.maximum_fraction"><code class="docutils literal notranslate"><span class="pre">RefinementLimitElementCount.maximum_fraction</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitErrorValue"><code class="docutils literal notranslate"><span class="pre">RefinementLimitErrorValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitErrorValue.minimum_fraction"><code class="docutils literal notranslate"><span class="pre">RefinementLimitErrorValue.minimum_fraction</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.RefinementLimitErrorValue.minimum_value"><code class="docutils literal notranslate"><span class="pre">RefinementLimitErrorValue.minimum_value</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#doing-the-refinement">Doing the Refinement</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mfv2d.refinement.perform_mesh_refinement"><code class="docutils literal notranslate"><span class="pre">perform_mesh_refinement()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Jan Roth
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Jan Roth.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

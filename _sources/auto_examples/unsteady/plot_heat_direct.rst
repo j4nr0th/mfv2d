@@ -57,11 +57,11 @@ equation :eq:`unsteady-heat-direct-variational`.
         BoundaryCondition2DSteady,
         KFormSystem,
         KFormUnknown,
-        Mesh2D,
         SolverSettings,
         SystemSettings,
         TimeSettings,
         UnknownFormOrder,
+        mesh_create,
         solve_system_2d,
     )
     from scipy.integrate import trapezoid
@@ -202,7 +202,7 @@ before. As for the time steps, values of 2, 4, 8, 16, 32, 64, and 128 are used.
         )
     )
     assert rx < 1e-6 and ry < 1e-6
-    mesh = Mesh2D(
+    mesh = mesh_create(
         P,
         np.stack((rect_mesh.pos_x, rect_mesh.pos_y), axis=-1),
         rect_mesh.lines + 1,
@@ -234,7 +234,7 @@ Now we run the calculations and get the error.
 
     for i_nt, nt in enumerate(nt_vals):
         dt = float(T_END / nt)
-        solutions, stats = solve_system_2d(
+        solutions, stats, mesh = solve_system_2d(
             mesh,
             system_settings=SystemSettings(
                 system,
@@ -343,7 +343,7 @@ is symplectic.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 10.761 seconds)
+   **Total running time of the script:** (0 minutes 7.502 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_heat_direct.py:

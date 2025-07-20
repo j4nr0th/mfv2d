@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:25.655** total execution time for 13 files **from all galleries**:
+**00:10.854** total execution time for 13 files **from all galleries**:
 
 .. container::
 
@@ -33,7 +33,7 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_post_p.py` (``../examples/steady/plot_direct_poisson_refined_post_p.py``)
-     - 00:25.655
+     - 00:10.854
      - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson.py` (``../examples/steady/plot_direct_poisson.py``)
      - 00:00.000

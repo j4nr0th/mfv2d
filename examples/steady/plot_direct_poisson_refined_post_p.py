@@ -302,7 +302,7 @@ plot_mesh_comparisons(results[0], *results[1:-1:3], results[-1])
 
 errors_uniform: list[tuple[int, float]] = list()
 
-for pval in range(3, 11):
+for pval in range(3, 9):
     mesh = mesh_create(
         pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces
     )
@@ -329,8 +329,29 @@ fig, ax = plt.subplots()
 el = np.array(errors_local)
 eu = np.array(errors_uniform)
 
-ax.plot(el[:, 0], el[:, 1], label="Local Refinement", marker="x")
-ax.plot(eu[:, 0], eu[:, 1], label="Uniform Refinement", marker="x")
+kl1, kl0 = np.polyfit(el[:, 0] / 1000, np.log(el[:, 1]), 1)
+kl1, kl0 = np.exp(kl1), np.exp(kl0)
+ku1, ku0 = np.polyfit(eu[:, 0] / 1000, np.log(eu[:, 1]), 1)
+ku1, ku0 = np.exp(ku1), np.exp(ku0)
+
+ax.scatter(el[:, 0], el[:, 1], label="Local Refinement", marker="x", color="blue")
+ax.scatter(eu[:, 0], eu[:, 1], label="Uniform Refinement", marker="x", color="orange")
+ax.plot(
+    el[:, 0],
+    kl0 * kl1 ** (el[:, 0] / 1000),
+    label=f"${kl0:.3g} \\cdot \\left({{{kl1:+.3g}}}^{{\\frac{{N_\\mathrm{{dofs}}}}"
+    f"{{1000}}}}\\right)$",
+    color="blue",
+    linestyle="dashed",
+)
+ax.plot(
+    eu[:, 0],
+    ku0 * ku1 ** (eu[:, 0] / 1000),
+    label=f"${ku0:.3g} \\cdot \\left({{{ku1:+.3g}}}^{{\\frac{{N_\\mathrm{{dofs}}}}"
+    f"{{1000}}}}\\right)$",
+    color="orange",
+    linestyle="dashed",
+)
 ax.grid()
 ax.legend()
 ax.set(

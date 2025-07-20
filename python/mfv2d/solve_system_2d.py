@@ -22,6 +22,7 @@ from mfv2d.mimetic2d import (
     FemCache,
     compute_leaf_dof_counts,
 )
+from mfv2d.progress import HistogramFormat
 from mfv2d.refinement import RefinementSettings, perform_mesh_refinement
 from mfv2d.solve_system import (
     SolutionStatistics,
@@ -58,7 +59,7 @@ def solve_system_2d(
 
     Parameters
     ----------
-    mesh : Mesh2D
+    mesh : Mesh
         Mesh on which to solve the system on.
 
     system_settings : SystemSettings
@@ -550,11 +551,13 @@ def solve_system_2d(
 
         resulting_grids.append(grid)
 
-    orders, counts = np.unique(
-        [mesh.get_leaf_orders(leaf_idx) for leaf_idx in leaf_indices], return_counts=True
-    )
+    mesh_orders = [mesh.get_leaf_orders(leaf_idx) for leaf_idx in leaf_indices]
+    orders, counts = np.unique(mesh_orders, axis=0, return_counts=True)
     stats = SolutionStatistics(
-        element_orders={int(order): int(count) for order, count in zip(orders, counts)},
+        element_orders={
+            (int(order[0]), int(order[1])): int(count)
+            for order, count in zip(orders, counts)
+        },
         n_total_dofs=explicit_vec.size,
         n_lagrange=int(lagrange_vec.size),
         n_elems=mesh.element_count,
@@ -565,6 +568,15 @@ def solve_system_2d(
     )
 
     if refinement_settings is not None:
+        if refinement_settings.report_order_distribution:
+            order_hist = HistogramFormat(5, 60, 5, label_format=lambda x: f"{x:.1f}")
+            geo_order = np.linalg.norm(mesh_orders, axis=1) / np.sqrt(2)
+            print("Initial mesh order distribution\n" + "=" * 60)
+            print(order_hist.format(geo_order))
+            print("=" * 60)
+        else:
+            order_hist = None
+
         output_mesh = perform_mesh_refinement(
             mesh,
             solution,
@@ -579,7 +591,24 @@ def solve_system_2d(
             refinement_settings.h_refinement_ratio,
             refinement_settings.refinement_limit,
             unknown_ordering,
+            refinement_settings.report_error_distribution,
+            (None, None)
+            if refinement_settings.reconstruction_orders is None
+            else refinement_settings.reconstruction_orders,
         )
+        if refinement_settings.report_order_distribution:
+            assert order_hist is not None
+            geo_order = np.linalg.norm(
+                [
+                    output_mesh.get_leaf_orders(ie)
+                    for ie in output_mesh.get_leaf_indices()
+                ],
+                axis=1,
+            ) / np.sqrt(2)
+            print("Refined mesh order distribution\n" + "=" * 60)
+            print(order_hist.format(geo_order))
+            print("=" * 60)
+
     else:
         output_mesh = mesh
 

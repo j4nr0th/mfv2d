@@ -824,8 +824,10 @@ class ElementConstraint:
 def get_side_order(mesh: Mesh, element_idx: int, side: ElementSide, /) -> int:
     """Get order for the specified element boundary side.
 
-    element_collection : ElementCollection
-        Element collection the element is a part of.
+    Parameters
+    ----------
+    mesh : Mesh
+        Mesh in which the element is in.
 
     element : int
         Index of the element in the collection to get the side order from.
@@ -886,9 +888,6 @@ def compute_leaf_dof_counts(
 
     ordering : UnknownOrderings
         Orders of differential forms in the system.
-
-    elements : ElementCollection
-        Element collection to use.
 
     Returns
     -------

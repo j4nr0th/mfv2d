@@ -20,6 +20,12 @@ from mfv2d.kform import UnknownFormOrder as UnknownFormOrder
 # Mimetic2D
 from mfv2d.mimetic2d import mesh_create as mesh_create
 
+# Refinement settings
+from mfv2d.refinement import RefinementLimitElementCount as RefinementLimitElementCount
+from mfv2d.refinement import RefinementLimitErrorValue as RefinementLimitErrorValue
+from mfv2d.refinement import RefinementLimitUnknownCount as RefinementLimitUnknownCount
+from mfv2d.refinement import RefinementSettings as RefinementSettings
+
 # Solve system
 from mfv2d.solve_system import SolverSettings as SolverSettings
 from mfv2d.solve_system import SystemSettings as SystemSettings

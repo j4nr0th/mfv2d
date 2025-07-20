@@ -199,7 +199,7 @@ static mfv2d_result_t element_mesh_split_element(element_mesh_t *this, const uns
 
 static mfv2d_result_t element_mesh_copy_element(const element_mesh_t *const src, element_mesh_t *const dst)
 {
-    element_t *const elements = allocate(&SYSTEM_ALLOCATOR, src->count * sizeof *elements);
+    element_t *const elements = allocate(&SYSTEM_ALLOCATOR, src->capacity * sizeof *elements);
     if (elements == NULL)
         return MFV2D_FAILED_ALLOC;
 
@@ -595,7 +595,7 @@ static PyObject *mesh_set_leaf_orders(const mesh_t *const this, PyObject *args, 
     long index_long;
     long orders_i;
     long orders_j;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "l(ll)", (char *[4]){"", "order_1", "order_2", NULL}, &index_long,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "lll", (char *[4]){"", "order_1", "order_2", NULL}, &index_long,
                                      &orders_i, &orders_j))
     {
         return NULL;

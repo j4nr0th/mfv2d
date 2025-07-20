@@ -23,6 +23,7 @@ from mfv2d.mimetic2d import (
     compute_leaf_dof_counts,
     reconstruct,
 )
+from mfv2d.progress import HistogramFormat
 
 
 def _compute_legendre_coefficients(
@@ -153,6 +154,7 @@ class ErrorCalculationFunction(Protocol):
         self,
         x: npt.NDArray[np.float64],
         y: npt.NDArray[np.float64],
+        w: npt.NDArray[np.float64],
         **kwargs: npt.NDArray[np.float64],
     ) -> tuple[float, float]:
         """Compute the error.
@@ -164,6 +166,9 @@ class ErrorCalculationFunction(Protocol):
 
         y : array
             y-coordinates of integration points.
+
+        w : array
+            Integration weights at the specified points.
 
         **kwargs : array
             Values of desired forms at specified positions.
@@ -212,29 +217,26 @@ RefinementLimit = (
 class RefinementSettings:
     """Settings pertaining to refinement of a mesh."""
 
-    required_forms: tuple[KFormUnknown]
+    required_forms: Sequence[KFormUnknown]
     """Forms that are needed by the error calculation function."""
 
     error_calculation_function: ErrorCalculationFunction
     """Function called to calculate error estimate and h-refinement cost."""
 
-    h_refinement_ratio: float
-    """Ratio between element error and h-refinement cost where refinement can happen."""
-
     refinement_limit: RefinementLimit
     """Limit for mesh refinement."""
 
-    def __init__(
-        self,
-        required_forms: Sequence[KFormUnknown],
-        error_calculation_function: ErrorCalculationFunction,
-        h_refinement_ratio: float,
-        refinement_limit: RefinementLimit,
-    ) -> None:
-        object.__setattr__(self, "required_forms", tuple(required_forms))
-        object.__setattr__(self, "error_calculation_function", error_calculation_function)
-        object.__setattr__(self, "h_refinement_ratio", h_refinement_ratio)
-        object.__setattr__(self, "refinement_limit", refinement_limit)
+    h_refinement_ratio: float = 0.0
+    """Ratio between element error and h-refinement cost where refinement can happen."""
+
+    report_error_distribution: bool = False
+    """Should the error distribution be reported."""
+
+    report_order_distribution: bool = False
+    """Should the order distribution be reported."""
+
+    reconstruction_orders: tuple[int, int] | None = None
+    """Order at which error should be reconstructed."""
 
 
 def perform_mesh_refinement(
@@ -248,6 +250,8 @@ def perform_mesh_refinement(
     h_refinement_ratio: float,
     refinement_limit: RefinementLimit,
     unknown_ordering: UnknownOrderings,
+    report_error_distribution: bool,
+    reconstruction_orders: tuple[int | None, int | None],
 ) -> Mesh:
     """Perform a round of mesh refinement.
 
@@ -281,10 +285,10 @@ def perform_mesh_refinement(
 
         corners = mesh.get_leaf_corners(idx)
         order_1, order_2 = mesh.get_leaf_orders(idx)
-        basis = basis_cache.get_basis2d(order_1, order_2)
+        basis = basis_cache.get_basis2d(order_1, order_2, *reconstruction_orders)
 
-        nodes_xi = basis.basis_xi.node[None, :]
-        nodes_eta = basis.basis_eta.node[:, None]
+        nodes_xi = basis.basis_xi.rule.nodes[None, :]
+        nodes_eta = basis.basis_eta.rule.nodes[:, None]
         x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
         y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
         form_vals: dict[str, npt.NDArray[np.float64]] = dict()
@@ -298,13 +302,26 @@ def perform_mesh_refinement(
                 nodes_eta,
                 basis,
             )
-        elem_vals = error_calculation_function(x, y, *form_vals)
+        elem_vals = error_calculation_function(
+            x,
+            y,
+            basis.basis_xi.rule.weights[None, :] * basis.basis_eta.rule.weights[:, None],
+            **form_vals,
+        )
         if elem_vals[0] < 0:
             raise ValueError(
                 "Error calculation function returned a negative error estimate."
             )
 
         element_error[i_leaf], href_cost[i_leaf] = elem_vals
+
+    if report_error_distribution:
+        error_log = np.log10(element_error)
+        hist = HistogramFormat(5, 60, 5, label_format=lambda x: f"10^({x:.2g})")
+        print("Error estimate distribution\n" + "=" * 60)
+        print(hist.format(error_log))
+        print("=" * 60)
+        del error_log, hist
 
     error_order = np.flip(np.argsort(element_error))
     ordered_indices = indices[error_order]
@@ -324,8 +341,8 @@ def perform_mesh_refinement(
 
                 if (
                     cost_fraction[i_leaf] <= h_refinement_ratio
-                    and (order_1 > 3)
-                    and (order_2 > 3)
+                    and (order_1 > 1)
+                    and (order_2 > 1)
                 ):
                     new_orders = (order_1 // 2, order_2 // 2)
                     mesh.split_element(

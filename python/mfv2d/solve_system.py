@@ -753,7 +753,7 @@ def find_time_carry_indices(
 class SolutionStatistics:
     """Information about the solution."""
 
-    element_orders: dict[int, int]
+    element_orders: dict[tuple[int, int], int]
     n_total_dofs: int
     n_leaf_dofs: int
     n_lagrange: int

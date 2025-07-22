@@ -71,7 +71,7 @@ enum
 typedef struct
 {
     unsigned n_fields;                       // Number of vector fields provided.
-    const npy_uint64 *offsets;               // Pointer to an array containing arrays of vector fields.
+    unsigned components[VECTOR_FIELDS_MAX];  // Pointer to an array containing arrays of vector fields.
     const double *fields[VECTOR_FIELDS_MAX]; // Array of offsets for elements.
 } field_information_t;
 

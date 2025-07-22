@@ -60,13 +60,13 @@ static mfv2d_result_t matrix_as_full(error_stack_t *error_stack, const matrix_t 
 
 typedef mfv2d_result_t (*const bytecode_operation)(
     const void *operations[static MATOP_COUNT], error_stack_t *error_stack, unsigned order, unsigned remaining,
-    const bytecode_t code[static remaining], element_mass_matrix_cache_t *element_cache,
+    const bytecode_t code[static remaining], element_fem_space_2d_t *element_cache,
     const field_information_t *vector_fields, unsigned n_stack, unsigned stack_pos, matrix_t stack[restrict n_stack],
     const allocator_callbacks *allocator, matrix_t *current, const matrix_full_t *initial);
 
 static mfv2d_result_t execute_next(const bytecode_operation operations[static MATOP_COUNT], error_stack_t *error_stack,
                                    const unsigned order, const unsigned remaining,
-                                   const bytecode_t code[static remaining], element_mass_matrix_cache_t *element_cache,
+                                   const bytecode_t code[static remaining], element_fem_space_2d_t *element_cache,
                                    const field_information_t *vector_fields, const unsigned n_stack,
                                    const unsigned stack_pos, matrix_t stack[restrict n_stack],
                                    const allocator_callbacks *allocator, matrix_t *current,
@@ -90,8 +90,7 @@ static mfv2d_result_t execute_next(const bytecode_operation operations[static MA
 
 static mfv2d_result_t operation_identity(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                          const unsigned order, const unsigned remaining,
-                                         const bytecode_t code[static remaining],
-                                         element_mass_matrix_cache_t *element_cache,
+                                         const bytecode_t code[static remaining], element_fem_space_2d_t *element_cache,
                                          const field_information_t *vector_fields, const unsigned n_stack,
                                          const unsigned stack_pos, matrix_t stack[restrict n_stack],
                                          const allocator_callbacks *allocator, matrix_t *current,
@@ -108,8 +107,7 @@ static mfv2d_result_t operation_identity(const void *operations[static MATOP_COU
 
 static mfv2d_result_t operation_scale(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                       const unsigned order, const unsigned remaining,
-                                      const bytecode_t code[static remaining],
-                                      element_mass_matrix_cache_t *element_cache,
+                                      const bytecode_t code[static remaining], element_fem_space_2d_t *element_cache,
                                       const field_information_t *vector_fields, const unsigned n_stack,
                                       const unsigned stack_pos, matrix_t stack[restrict n_stack],
                                       const allocator_callbacks *allocator, matrix_t *current,
@@ -136,8 +134,7 @@ static mfv2d_result_t operation_scale(const void *operations[static MATOP_COUNT]
 
 static mfv2d_result_t operation_push(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                      const unsigned order, const unsigned remaining,
-                                     const bytecode_t code[static remaining],
-                                     element_mass_matrix_cache_t *element_cache,
+                                     const bytecode_t code[static remaining], element_fem_space_2d_t *element_cache,
                                      const field_information_t *vector_fields, const unsigned n_stack,
                                      unsigned stack_pos, matrix_t stack[restrict n_stack],
                                      const allocator_callbacks *allocator, matrix_t *current,
@@ -171,7 +168,7 @@ static mfv2d_result_t operation_push(const void *operations[static MATOP_COUNT],
 static mfv2d_result_t operation_incidence(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                           const unsigned order, const unsigned remaining,
                                           const bytecode_t code[static remaining],
-                                          element_mass_matrix_cache_t *element_cache,
+                                          element_fem_space_2d_t *element_cache,
                                           const field_information_t *vector_fields, const unsigned n_stack,
                                           const unsigned stack_pos, matrix_t stack[restrict n_stack],
                                           const allocator_callbacks *allocator, matrix_t *current,
@@ -248,8 +245,7 @@ static mfv2d_result_t operation_incidence(const void *operations[static MATOP_CO
 
 static mfv2d_result_t operation_mass(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                      const unsigned order, const unsigned remaining,
-                                     const bytecode_t code[static remaining],
-                                     element_mass_matrix_cache_t *element_cache,
+                                     const bytecode_t code[static remaining], element_fem_space_2d_t *element_cache,
                                      const field_information_t *vector_fields, const unsigned n_stack,
                                      const unsigned stack_pos, matrix_t stack[restrict n_stack],
                                      const allocator_callbacks *allocator, matrix_t *current,
@@ -356,8 +352,7 @@ static mfv2d_result_t operation_mass(const void *operations[static MATOP_COUNT],
 
 static mfv2d_result_t operation_matmul(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                        const unsigned order, const unsigned remaining,
-                                       const bytecode_t code[static remaining],
-                                       element_mass_matrix_cache_t *element_cache,
+                                       const bytecode_t code[static remaining], element_fem_space_2d_t *element_cache,
                                        const field_information_t *vector_fields, const unsigned n_stack,
                                        unsigned stack_pos, matrix_t stack[restrict n_stack],
                                        const allocator_callbacks *allocator, matrix_t *current,
@@ -390,7 +385,7 @@ static mfv2d_result_t operation_matmul(const void *operations[static MATOP_COUNT
 
 static mfv2d_result_t operation_sum(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                     const unsigned order, const unsigned remaining,
-                                    const bytecode_t code[static remaining], element_mass_matrix_cache_t *element_cache,
+                                    const bytecode_t code[static remaining], element_fem_space_2d_t *element_cache,
                                     const field_information_t *vector_fields, const unsigned n_stack,
                                     unsigned stack_pos, matrix_t stack[restrict n_stack],
                                     const allocator_callbacks *allocator, matrix_t *current,
@@ -433,7 +428,7 @@ static mfv2d_result_t operation_sum(const void *operations[static MATOP_COUNT], 
 static mfv2d_result_t operation_interprod(const void *operations[static MATOP_COUNT], error_stack_t *error_stack,
                                           const unsigned order, const unsigned remaining,
                                           const bytecode_t code[static remaining],
-                                          element_mass_matrix_cache_t *element_cache,
+                                          element_fem_space_2d_t *element_cache,
                                           const field_information_t *vector_fields, const unsigned n_stack,
                                           const unsigned stack_pos, matrix_t stack[restrict n_stack],
                                           const allocator_callbacks *allocator, matrix_t *current,
@@ -588,7 +583,7 @@ static mfv2d_result_t operation_interprod(const void *operations[static MATOP_CO
 
 MFV2D_INTERNAL
 mfv2d_result_t evaluate_block(error_stack_t *error_stack, const form_order_t form, const unsigned order,
-                              const bytecode_t *code, element_mass_matrix_cache_t *element_cache,
+                              const bytecode_t *code, element_fem_space_2d_t *element_cache,
                               const field_information_t *vector_fields, const unsigned n_stack,
                               matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
                               matrix_full_t *p_out, const matrix_full_t *initial)

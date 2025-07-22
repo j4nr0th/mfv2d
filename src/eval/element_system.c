@@ -1,12 +1,70 @@
 #include "element_system.h"
 #include "allocator.h"
 #include "basis.h"
-#include "element_cache.h"
 #include "element_eval.h"
+#include "element_fem_space.h"
 #include "fem_space.h"
 
 #include <numpy/ndarrayobject.h>
 
+static int extract_element_vector_fields(PyObject *vector_fields_obj, const element_fem_space_2d_t *const element_cache,
+                                         field_information_t *const out_field_information)
+{
+    // Validate vector_fields is a sequence
+    if (!PySequence_Check(vector_fields_obj))
+    {
+        PyErr_SetString(PyExc_TypeError, "vector_fields must be a sequence of np.ndarray");
+        return -1;
+    }
+
+    const unsigned n1 = element_cache->basis_xi->integration_rule->order + 1;
+    const unsigned n2 = element_cache->basis_eta->integration_rule->order + 1;
+
+    // Validate each element in vector_fields is a float64 ndarray
+    const Py_ssize_t n_vector_fields = PySequence_Size(vector_fields_obj);
+    if (n_vector_fields > VECTOR_FIELDS_MAX)
+    {
+        PyErr_Format(PyExc_ValueError, "Can not have more than %d vector fields (%d were given).", VECTOR_FIELDS_MAX,
+                     (int)n_vector_fields);
+        return -1;
+    }
+    field_information_t element_field_information = {.n_fields = n_vector_fields};
+    for (Py_ssize_t i = 0; i < n_vector_fields; ++i)
+    {
+        PyObject *item = PySequence_GetItem(vector_fields_obj, i);
+        if (check_input_array((PyArrayObject *)item, 0, (const npy_intp[0]){}, NPY_DOUBLE,
+                              NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "vector_fields element") < 0)
+        {
+            Py_DECREF(item);
+            return -1;
+        }
+        const PyArrayObject *array = (const PyArrayObject *)item;
+        const int dim = PyArray_NDIM(array);
+        const npy_intp *const dims = PyArray_DIMS(array);
+        if (dim == 2 && dims[0] == n1 && dims[1] == n2)
+        {
+            element_field_information.components[i] = 1;
+        }
+        else if (dim == 3 && dims[0] == n1 && dims[1] == n2 && dims[2] == 2)
+        {
+            element_field_information.components[i] = 2;
+        }
+        else
+        {
+            PyErr_Format(PyExc_ValueError, "Vector field %d must be a 2D or 3D array of shape (%d, %d) or (%d, %d, 2).",
+                         i, n1, n2, n1, n2);
+
+            Py_DECREF(item);
+            return -1;
+        }
+
+        element_field_information.fields[i] = PyArray_DATA(array);
+        Py_DECREF(item);
+    }
+
+    *out_field_information = element_field_information;
+    return 0;
+}
 MFV2D_INTERNAL
 PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwargs)
 {
@@ -14,18 +72,18 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     PyObject *form_orders_obj = NULL;
     PyObject *expressions = NULL;
     PyObject *vector_fields_obj = NULL;
-    element_mass_matrix_cache_t *element_cache = NULL;
+    element_fem_space_2d_t *element_cache = NULL;
     Py_ssize_t stack_memory = 1 << 24;
 
     static char *kwlist[7] = {"form_orders", "expressions", "vector_fields", "element_cache", " stack_memory ", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO!|n", kwlist,
-                                     &form_orders_obj,                // Sequence[int]
-                                     &expressions,                    // _CompiledCodeMatrix (PyObject*)
-                                     &vector_fields_obj,              // Sequence[np.ndarray]
-                                     &element_mass_matrix_cache_type, // For type checking
-                                     &element_cache,                  // element cache
-                                     &stack_memory                    // int
+                                     &form_orders_obj,           // Sequence[int]
+                                     &expressions,               // _CompiledCodeMatrix (PyObject*)
+                                     &vector_fields_obj,         // Sequence[np.ndarray]
+                                     &element_fem_space_2d_type, // For type checking
+                                     &element_cache,             // element cache
+                                     &stack_memory               // int
                                      ))
     {
         return NULL;
@@ -55,46 +113,18 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         return NULL;
     }
 
-    // Validate vector_fields is a sequence
-    if (!PySequence_Check(vector_fields_obj))
+    field_information_t element_field_information;
+    if (extract_element_vector_fields(vector_fields_obj, element_cache, &element_field_information) < 0)
     {
-        PyErr_SetString(PyExc_TypeError, "vector_fields must be a sequence of np.ndarray");
         return NULL;
-    }
-
-    const fem_space_1d_t space_1 = basis_1d_as_fem_space(element_cache->basis_xi),
-                         space_2 = basis_1d_as_fem_space(element_cache->basis_eta);
-
-    const unsigned n1 = space_1.n_pts, n2 = space_2.n_pts;
-
-    // Validate each element in vector_fields is a float64 ndarray
-    const Py_ssize_t n_vector_fields = PySequence_Size(vector_fields_obj);
-    if (n_vector_fields > VECTOR_FIELDS_MAX)
-    {
-        PyErr_Format(PyExc_ValueError, "Can not have more than %d vector fields (%d were given).", VECTOR_FIELDS_MAX,
-                     (int)n_vector_fields);
-        return NULL;
-    }
-    field_information_t element_field_information = {.n_fields = n_vector_fields, .offsets = NULL, .fields = {}};
-    for (Py_ssize_t i = 0; i < n_vector_fields; ++i)
-    {
-        PyObject *item = PySequence_GetItem(vector_fields_obj, i);
-        if (check_input_array((PyArrayObject *)item, 2, (const npy_intp[2]){n2 * n1, 2}, NPY_DOUBLE,
-                              NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "vector_fields element") < 0)
-        {
-            Py_DECREF(item);
-            return NULL;
-        }
-        element_field_information.fields[i] = PyArray_DATA((const PyArrayObject *)item);
-        Py_DECREF(item);
     }
 
     // Create the system template
     system_template_t system_template = {};
-    if (!system_template_create(&system_template, form_orders_obj, expressions, (unsigned)n_vector_fields,
-                                &SYSTEM_ALLOCATOR))
+    if (!system_template_create(&system_template, form_orders_obj, expressions,
+                                (unsigned)element_field_information.n_fields, &SYSTEM_ALLOCATOR))
     {
-        goto end;
+        return NULL;
     }
 
     size_t element_size = 0;
@@ -174,8 +204,6 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         row_offset += row_len;
     }
 
-// Cleanup
-cleanup_stacks:
     deallocate(&SYSTEM_ALLOCATOR, matrix_stack);
     // Clean error stack
     if (err_stack->position != 0)
@@ -213,7 +241,7 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     PyObject *form_orders_obj = NULL;
     PyObject *expressions = NULL;
     PyObject *vector_fields_obj = NULL;
-    element_mass_matrix_cache_t *element_cache = NULL;
+    element_fem_space_2d_t *element_cache = NULL;
     PyArrayObject *solution = NULL;
     Py_ssize_t stack_memory = 1 << 24;
 
@@ -221,13 +249,13 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
                               " stack_memory ", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO!O|n", kwlist,
-                                     &form_orders_obj,                // Sequence[int]
-                                     &expressions,                    // _CompiledCodeMatrix (PyObject*)
-                                     &vector_fields_obj,              // Sequence[np.ndarray]
-                                     &element_mass_matrix_cache_type, // For type checking
-                                     &element_cache,                  // element cache
-                                     &solution,                       // np.ndarray
-                                     &stack_memory                    // int
+                                     &form_orders_obj,           // Sequence[int]
+                                     &expressions,               // _CompiledCodeMatrix (PyObject*)
+                                     &vector_fields_obj,         // Sequence[np.ndarray]
+                                     &element_fem_space_2d_type, // For type checking
+                                     &element_cache,             // element cache
+                                     &solution,                  // np.ndarray
+                                     &stack_memory               // int
                                      ))
     {
         return NULL;
@@ -257,46 +285,18 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         return NULL;
     }
 
-    // Validate vector_fields is a sequence
-    if (!PySequence_Check(vector_fields_obj))
+    field_information_t element_field_information;
+    if (extract_element_vector_fields(vector_fields_obj, element_cache, &element_field_information) < 0)
     {
-        PyErr_SetString(PyExc_TypeError, "vector_fields must be a sequence of np.ndarray");
         return NULL;
-    }
-
-    const fem_space_1d_t space_1 = basis_1d_as_fem_space(element_cache->basis_xi),
-                         space_2 = basis_1d_as_fem_space(element_cache->basis_eta);
-
-    const unsigned n1 = space_1.n_pts, n2 = space_2.n_pts;
-
-    // Validate each element in vector_fields is a float64 ndarray
-    const Py_ssize_t n_vector_fields = PySequence_Size(vector_fields_obj);
-    if (n_vector_fields > VECTOR_FIELDS_MAX)
-    {
-        PyErr_Format(PyExc_ValueError, "Can not have more than %d vector fields (%d were given).", VECTOR_FIELDS_MAX,
-                     (int)n_vector_fields);
-        return NULL;
-    }
-    field_information_t element_field_information = {.n_fields = n_vector_fields, .offsets = NULL, .fields = {}};
-    for (Py_ssize_t i = 0; i < n_vector_fields; ++i)
-    {
-        PyObject *item = PySequence_GetItem(vector_fields_obj, i);
-        if (check_input_array((PyArrayObject *)item, 2, (const npy_intp[2]){n2 * n1, 2}, NPY_DOUBLE,
-                              NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "vector_fields element") < 0)
-        {
-            Py_DECREF(item);
-            return NULL;
-        }
-        element_field_information.fields[i] = PyArray_DATA((const PyArrayObject *)item);
-        Py_DECREF(item);
     }
 
     // Create the system template
     system_template_t system_template = {};
-    if (!system_template_create(&system_template, form_orders_obj, expressions, (unsigned)n_vector_fields,
-                                &SYSTEM_ALLOCATOR))
+    if (!system_template_create(&system_template, form_orders_obj, expressions,
+                                (unsigned)element_field_information.n_fields, &SYSTEM_ALLOCATOR))
     {
-        goto end;
+        return NULL;
     }
 
     size_t element_size = 0;
@@ -334,7 +334,7 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     double *restrict const output_mat = PyArray_DATA(return_value);
     memset(output_mat, 0, sizeof *output_mat * element_size);
     unsigned row_offset = 0;
-    for (unsigned row = 0; row < system_template.n_forms; ++row)
+    for (unsigned row = 0; row < system_template.n_forms && res == MFV2D_SUCCESS; ++row)
     {
         const unsigned row_len = form_degrees_of_freedom_count(system_template.form_orders[row], order_1, order_2);
         size_t col_offset = 0;
@@ -358,7 +358,7 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
             if (res != MFV2D_SUCCESS)
             {
                 MFV2D_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
-                goto cleanup_stacks;
+                break;
             }
             if (row_len != mat.base.rows || 1 != mat.base.cols)
             {
@@ -366,7 +366,7 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
                             "Output matrix arrays don't match expected dims (got %u x %u when needed %u x %u).",
                             mat.base.rows, mat.base.cols, row_len, 1);
                 res = MFV2D_DIMS_MISMATCH;
-                goto cleanup_stacks;
+                break;
             }
 
             for (unsigned i_out = 0; i_out < row_len; ++i_out)
@@ -380,8 +380,6 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         row_offset += row_len;
     }
 
-// Cleanup
-cleanup_stacks:
     // Clean error stack
     if (err_stack->position != 0)
     {

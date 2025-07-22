@@ -19,27 +19,27 @@ typedef struct
     matrix_full_t mass_node_inv; // Cached can be empty
     matrix_full_t mass_edge_inv; // Cached can be empty
     matrix_full_t mass_surf_inv; // Cached can be empty
-} element_mass_matrix_cache_t;
+} element_fem_space_2d_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject element_mass_matrix_cache_type;
+extern PyTypeObject element_fem_space_2d_type;
 
 MFV2D_INTERNAL
-const matrix_full_t *element_mass_cache_get_node(element_mass_matrix_cache_t *cache);
+const matrix_full_t *element_mass_cache_get_node(element_fem_space_2d_t *cache);
 
 MFV2D_INTERNAL
-const matrix_full_t *element_mass_cache_get_edge(element_mass_matrix_cache_t *cache);
+const matrix_full_t *element_mass_cache_get_edge(element_fem_space_2d_t *cache);
 
 MFV2D_INTERNAL
-const matrix_full_t *element_mass_cache_get_surf(element_mass_matrix_cache_t *cache);
+const matrix_full_t *element_mass_cache_get_surf(element_fem_space_2d_t *cache);
 
 MFV2D_INTERNAL
-const matrix_full_t *element_mass_cache_get_node_inv(element_mass_matrix_cache_t *cache);
+const matrix_full_t *element_mass_cache_get_node_inv(element_fem_space_2d_t *cache);
 
 MFV2D_INTERNAL
-const matrix_full_t *element_mass_cache_get_edge_inv(element_mass_matrix_cache_t *cache);
+const matrix_full_t *element_mass_cache_get_edge_inv(element_fem_space_2d_t *cache);
 
 MFV2D_INTERNAL
-const matrix_full_t *element_mass_cache_get_surf_inv(element_mass_matrix_cache_t *cache);
+const matrix_full_t *element_mass_cache_get_surf_inv(element_fem_space_2d_t *cache);
 
 #endif // ELEMENT_CACHE_H

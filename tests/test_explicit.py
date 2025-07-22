@@ -6,7 +6,7 @@ import pytest
 from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
-    ElementMassMatrixCache,
+    ElementFemSpace2D,
     IntegrationRule1D,
     compute_element_matrix,
     compute_element_vector,
@@ -98,7 +98,7 @@ def test_explicit_evaluation():
     )
     del vec_field_lists
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     sys_mat = compute_element_matrix(
         [UnknownFormOrder(form.order) for form in system.unknown_forms],
         codes,

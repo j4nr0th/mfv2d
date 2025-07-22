@@ -1,7 +1,7 @@
-#include "element_cache.h"
+#include "element_fem_space.h"
 #include "basis.h"
 
-static void element_mass_matrix_cache_dealloc(element_mass_matrix_cache_t *this)
+static void element_fem_space_2d_dealloc(element_fem_space_2d_t *this)
 {
     Py_DECREF(this->basis_xi);
     Py_DECREF(this->basis_eta);
@@ -15,7 +15,7 @@ static void element_mass_matrix_cache_dealloc(element_mass_matrix_cache_t *this)
     Py_TYPE(this)->tp_free((PyObject *)this);
 }
 
-static PyObject *element_mass_matrix_cache_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+static PyObject *element_fem_space_2d_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
     basis_2d_t *basis;
     PyArrayObject *corners;
@@ -28,7 +28,7 @@ static PyObject *element_mass_matrix_cache_new(PyTypeObject *type, PyObject *arg
                           "corners") < 0)
         return NULL;
 
-    element_mass_matrix_cache_t *const self = (element_mass_matrix_cache_t *)type->tp_alloc(type, 0);
+    element_fem_space_2d_t *const self = (element_fem_space_2d_t *)type->tp_alloc(type, 0);
     if (!self)
         return NULL;
 
@@ -53,7 +53,7 @@ static PyObject *element_mass_matrix_cache_new(PyTypeObject *type, PyObject *arg
     return (PyObject *)self;
 }
 
-static PyObject *element_mass_matrix_cache_get_mass_node(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_mass_node(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     const matrix_full_t *out = element_mass_cache_get_node(self);
     if (out == NULL)
@@ -65,7 +65,7 @@ static PyObject *element_mass_matrix_cache_get_mass_node(element_mass_matrix_cac
     return (PyObject *)matrix_full_to_array(out);
 }
 
-static PyObject *element_mass_matrix_cache_get_mass_edge(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_mass_edge(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     const matrix_full_t *out = element_mass_cache_get_edge(self);
     if (out == NULL)
@@ -77,7 +77,7 @@ static PyObject *element_mass_matrix_cache_get_mass_edge(element_mass_matrix_cac
     return (PyObject *)matrix_full_to_array(out);
 }
 
-static PyObject *element_mass_matrix_cache_get_mass_surf(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_mass_surf(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     const matrix_full_t *out = element_mass_cache_get_surf(self);
     if (out == NULL)
@@ -89,24 +89,24 @@ static PyObject *element_mass_matrix_cache_get_mass_surf(element_mass_matrix_cac
     return (PyObject *)matrix_full_to_array(out);
 }
 
-static PyObject *element_mass_matrix_cache_get_basis_2d(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_basis_2d(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     return (PyObject *)create_basis_2d_object(&basis_2d_type, self->basis_xi, self->basis_eta);
 }
 
-static PyObject *element_mass_matrix_cache_get_basis_xi(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_basis_xi(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     Py_INCREF(self->basis_xi);
     return (PyObject *)self->basis_xi;
 }
 
-static PyObject *element_mass_matrix_cache_get_basis_eta(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_basis_eta(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     Py_INCREF(self->basis_eta);
     return (PyObject *)self->basis_eta;
 }
 
-static PyObject *element_mass_matrix_cache_get_corners(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_corners(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     const matrix_full_t corners = {
         .base = {.type = MATRIX_TYPE_FULL, .rows = 4, .cols = 2},
@@ -115,7 +115,7 @@ static PyObject *element_mass_matrix_cache_get_corners(element_mass_matrix_cache
     return (PyObject *)matrix_full_to_array(&corners);
 }
 
-static PyObject *element_mass_matrix_cache_get_node_inv(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_node_inv(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     const matrix_full_t *out = element_mass_cache_get_node_inv(self);
     if (out == NULL)
@@ -126,7 +126,7 @@ static PyObject *element_mass_matrix_cache_get_node_inv(element_mass_matrix_cach
     return (PyObject *)matrix_full_to_array(out);
 }
 
-static PyObject *element_mass_matrix_cache_get_edge_inv(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_edge_inv(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     const matrix_full_t *out = element_mass_cache_get_edge_inv(self);
     if (out == NULL)
@@ -137,7 +137,7 @@ static PyObject *element_mass_matrix_cache_get_edge_inv(element_mass_matrix_cach
     return (PyObject *)matrix_full_to_array(out);
 }
 
-static PyObject *element_mass_matrix_cache_get_surf_inv(element_mass_matrix_cache_t *self, void *Py_UNUSED(closure))
+static PyObject *element_fem_space_2d_get_surf_inv(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
     const matrix_full_t *out = element_mass_cache_get_surf_inv(self);
     if (out == NULL)
@@ -148,52 +148,52 @@ static PyObject *element_mass_matrix_cache_get_surf_inv(element_mass_matrix_cach
     return (PyObject *)matrix_full_to_array(out);
 }
 
-static PyGetSetDef element_mass_matrix_cache_getsets[] = {
+static PyGetSetDef element_fem_space_2d_getsets[] = {
     {.name = "mass_node",
-     .get = (getter)element_mass_matrix_cache_get_mass_node,
+     .get = (getter)element_fem_space_2d_get_mass_node,
      .doc = "array : Mass matrix for nodal basis.",
      .set = NULL},
     {.name = "mass_edge",
-     .get = (getter)element_mass_matrix_cache_get_mass_edge,
+     .get = (getter)element_fem_space_2d_get_mass_edge,
      .doc = "array : Mass matrix for edge basis.",
      .set = NULL},
     {.name = "mass_surf",
-     .get = (getter)element_mass_matrix_cache_get_mass_surf,
+     .get = (getter)element_fem_space_2d_get_mass_surf,
      .doc = "array : Mass matrix for surface basis.",
      .set = NULL},
     {.name = "mass_node_inv",
-     .get = (getter)element_mass_matrix_cache_get_node_inv,
+     .get = (getter)element_fem_space_2d_get_node_inv,
      .doc = "array : Inverse mass matrix for nodal basis.",
      .set = NULL},
     {.name = "mass_edge_inv",
-     .get = (getter)element_mass_matrix_cache_get_edge_inv,
+     .get = (getter)element_fem_space_2d_get_edge_inv,
      .doc = "array : Inverse mass matrix for edge basis.",
      .set = NULL},
     {.name = "mass_surf_inv",
-     .get = (getter)element_mass_matrix_cache_get_surf_inv,
+     .get = (getter)element_fem_space_2d_get_surf_inv,
      .doc = "array : Inverse mass matrix for surface basis.",
      .set = NULL},
     {
         .name = "basis_2d",
-        .get = (getter)element_mass_matrix_cache_get_basis_2d,
+        .get = (getter)element_fem_space_2d_get_basis_2d,
         .doc = "Basis2D : Basis used for the element.",
         .set = NULL,
     },
     {
         .name = "basis_xi",
-        .get = (getter)element_mass_matrix_cache_get_basis_xi,
+        .get = (getter)element_fem_space_2d_get_basis_xi,
         .doc = "Basis1D : Basis used for the first dimension.",
         .set = NULL,
     },
     {
         .name = "basis_eta",
-        .get = (getter)element_mass_matrix_cache_get_basis_eta,
+        .get = (getter)element_fem_space_2d_get_basis_eta,
         .doc = "Basis1D : Basis used for the second dimension.",
         .set = NULL,
     },
     {
         .name = "corners",
-        .get = (getter)element_mass_matrix_cache_get_corners,
+        .get = (getter)element_fem_space_2d_get_corners,
         .doc = "array : Corners of the element.",
         .set = NULL,
     },
@@ -201,8 +201,7 @@ static PyGetSetDef element_mass_matrix_cache_getsets[] = {
     {0}, // Sentilel
 };
 
-static PyObject *element_mass_matrix_cache_mass_from_order(element_mass_matrix_cache_t *this, PyObject *args,
-                                                           PyObject *kwargs)
+static PyObject *element_fem_space_2d_mass_from_order(element_fem_space_2d_t *this, PyObject *args, PyObject *kwargs)
 {
     int i_order;
     int inverse = 0;
@@ -253,26 +252,26 @@ PyDoc_STRVAR(mass_from_order_docstr, "mass_from_order(order: UnknownFormOrder, i
                                      "array\n"
                                      "    Mass matrix of the specified order (or inverse if specified).\n");
 
-static PyMethodDef element_mass_matrix_cache_methods[] = {
-    {"mass_from_order", (PyCFunction)element_mass_matrix_cache_mass_from_order, METH_VARARGS | METH_KEYWORDS,
+static PyMethodDef element_fem_space_2d_methods[] = {
+    {"mass_from_order", (PyCFunction)element_fem_space_2d_mass_from_order, METH_VARARGS | METH_KEYWORDS,
      mass_from_order_docstr},
     {0}, // Sentinel
 };
 
 MFV2D_INTERNAL
-PyTypeObject element_mass_matrix_cache_type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.ElementMassMatrixCache",
-    .tp_basicsize = sizeof(element_mass_matrix_cache_t),
+PyTypeObject element_fem_space_2d_type = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.ElementFemSpace2D",
+    .tp_basicsize = sizeof(element_fem_space_2d_t),
     .tp_itemsize = 0,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
     .tp_doc = "Caches element mass matrices",
-    .tp_new = element_mass_matrix_cache_new,
-    .tp_dealloc = (destructor)element_mass_matrix_cache_dealloc,
-    .tp_getset = element_mass_matrix_cache_getsets,
-    .tp_methods = element_mass_matrix_cache_methods,
+    .tp_new = element_fem_space_2d_new,
+    .tp_dealloc = (destructor)element_fem_space_2d_dealloc,
+    .tp_getset = element_fem_space_2d_getsets,
+    .tp_methods = element_fem_space_2d_methods,
 };
 
-const matrix_full_t *element_mass_cache_get_node(element_mass_matrix_cache_t *cache)
+const matrix_full_t *element_mass_cache_get_node(element_fem_space_2d_t *cache)
 {
     if (cache->mass_node.data == NULL)
     {
@@ -284,7 +283,7 @@ const matrix_full_t *element_mass_cache_get_node(element_mass_matrix_cache_t *ca
     return &cache->mass_node;
 }
 
-const matrix_full_t *element_mass_cache_get_edge(element_mass_matrix_cache_t *cache)
+const matrix_full_t *element_mass_cache_get_edge(element_fem_space_2d_t *cache)
 {
     if (cache->mass_edge.data == NULL)
     {
@@ -296,7 +295,7 @@ const matrix_full_t *element_mass_cache_get_edge(element_mass_matrix_cache_t *ca
     return &cache->mass_edge;
 }
 
-const matrix_full_t *element_mass_cache_get_surf(element_mass_matrix_cache_t *cache)
+const matrix_full_t *element_mass_cache_get_surf(element_fem_space_2d_t *cache)
 {
     if (cache->mass_surf.data == NULL)
     {
@@ -308,7 +307,7 @@ const matrix_full_t *element_mass_cache_get_surf(element_mass_matrix_cache_t *ca
     return &cache->mass_surf;
 }
 
-const matrix_full_t *element_mass_cache_get_node_inv(element_mass_matrix_cache_t *cache)
+const matrix_full_t *element_mass_cache_get_node_inv(element_fem_space_2d_t *cache)
 {
     if (cache->mass_node_inv.data == NULL)
     {
@@ -323,7 +322,7 @@ const matrix_full_t *element_mass_cache_get_node_inv(element_mass_matrix_cache_t
     return &cache->mass_node_inv;
 }
 
-const matrix_full_t *element_mass_cache_get_edge_inv(element_mass_matrix_cache_t *cache)
+const matrix_full_t *element_mass_cache_get_edge_inv(element_fem_space_2d_t *cache)
 {
     if (cache->mass_edge_inv.data == NULL)
     {
@@ -338,7 +337,7 @@ const matrix_full_t *element_mass_cache_get_edge_inv(element_mass_matrix_cache_t
     return &cache->mass_edge_inv;
 }
 
-const matrix_full_t *element_mass_cache_get_surf_inv(element_mass_matrix_cache_t *cache)
+const matrix_full_t *element_mass_cache_get_surf_inv(element_fem_space_2d_t *cache)
 {
     if (cache->mass_surf_inv.data == NULL)
     {

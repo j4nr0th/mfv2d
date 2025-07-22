@@ -18,7 +18,7 @@ import numpy.typing as npt
 from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
-    ElementMassMatrixCache,
+    ElementFemSpace2D,
     IntegrationRule1D,
     Manifold2D,
     Mesh,
@@ -1030,7 +1030,7 @@ def bilinear_interpolate(
 
 def element_dual_dofs(
     order: UnknownFormOrder,
-    element_cache: ElementMassMatrixCache,
+    element_cache: ElementFemSpace2D,
     function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
 ) -> npt.NDArray[np.float64]:
     r"""Compute the dual degrees of freedom (projection) of the function on the element.
@@ -1153,7 +1153,7 @@ def element_dual_dofs(
 
 def element_primal_dofs(
     order: UnknownFormOrder,
-    element_cache: ElementMassMatrixCache,
+    element_cache: ElementFemSpace2D,
     function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
 ) -> npt.NDArray[np.float64]:
     r"""Compute the primal degrees of freedom of projection of a function on the element.
@@ -1198,12 +1198,11 @@ def element_primal_dofs(
 
 
 def reconstruct(
-    corners: npt.NDArray[np.floating],
-    k: UnknownFormOrder,
+    fem_space: ElementFemSpace2D,
+    order: UnknownFormOrder,
     dofs: npt.ArrayLike,
     xi: npt.ArrayLike,
     eta: npt.ArrayLike,
-    basis: Basis2D,
 ) -> npt.NDArray[np.float64]:
     """Reconstruct a k-form on the element from its primal degrees of freedom.
 
@@ -1232,13 +1231,19 @@ def reconstruct(
     array
         Array with the point values of the k-form at the specified coordinates.
     """
-    k = UnknownFormOrder(k)
-    out: float | npt.NDArray[np.floating] = 0.0
+    order = UnknownFormOrder(order)
     c = np.asarray(dofs, dtype=np.float64, copy=None)
     if c.ndim != 1:
         raise ValueError("Coefficient array must be one dimensional.")
 
-    if k == UnknownFormOrder.FORM_ORDER_0:
+    basis = fem_space.basis_2d
+    ndofs = order.full_unknown_count(basis.basis_xi.order, basis.basis_eta.order)
+    out = np.zeros_like(np.asarray(xi) + np.asarray(eta), np.float64)
+
+    if c.size != ndofs:
+        raise ValueError("The number of degrees of freedom is not correct.")
+
+    if order == UnknownFormOrder.FORM_ORDER_0:
         assert c.size == (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
         vals_xi = lagrange1d(basis.basis_xi.roots, xi)
         vals_eta = lagrange1d(basis.basis_eta.roots, eta)
@@ -1247,25 +1252,24 @@ def reconstruct(
             for j in range(basis.basis_xi.order + 1):
                 u = vals_xi[..., j]
                 out += c[i * (basis.basis_xi.order + 1) + j] * (u * v)
+        return np.array(out, np.float64, copy=None)
 
-    elif k == UnknownFormOrder.FORM_ORDER_1:
-        assert c.size == (
-            basis.basis_eta.order + 1
-        ) * basis.basis_xi.order + basis.basis_eta.order * (basis.basis_xi.order + 1)
+    (j00, j01), (j10, j11) = jacobian(fem_space.corners, xi, eta)
+    det = j00 * j11 - j10 * j01
+    in_dvalues_xi = dlagrange1d(basis.basis_xi.roots, xi)
+    in_dvalues_eta = dlagrange1d(basis.basis_eta.roots, eta)
+    dvalues_xi = tuple(
+        accumulate(-in_dvalues_xi[..., i] for i in range(basis.basis_xi.order))
+    )
+    dvalues_eta = tuple(
+        accumulate(-in_dvalues_eta[..., i] for i in range(basis.basis_eta.order))
+    )
+
+    if order == UnknownFormOrder.FORM_ORDER_1:
         values_xi = lagrange1d(basis.basis_xi.roots, xi)
         values_eta = lagrange1d(basis.basis_eta.roots, eta)
-        in_dvalues_xi = dlagrange1d(basis.basis_xi.roots, xi)
-        in_dvalues_eta = dlagrange1d(basis.basis_eta.roots, eta)
-        dvalues_xi = tuple(
-            accumulate(-in_dvalues_xi[..., i] for i in range(basis.basis_xi.order))
-        )
-        dvalues_eta = tuple(
-            accumulate(-in_dvalues_eta[..., i] for i in range(basis.basis_eta.order))
-        )
-        (j00, j01), (j10, j11) = jacobian(corners, xi, eta)
-        det = j00 * j11 - j10 * j01
-        out_xi: float | npt.NDArray[np.floating] = 0.0
-        out_eta: float | npt.NDArray[np.floating] = 0.0
+        out_xi = np.zeros_like(out)
+        out_eta = np.zeros_like(out)
         for i1 in range(basis.basis_eta.order + 1):
             v1 = values_eta[..., i1]
             for j1 in range(basis.basis_xi.order):
@@ -1289,28 +1293,15 @@ def reconstruct(
         out = np.stack(
             (out_xi * j00 + out_eta * j10, out_xi * j01 + out_eta * j11), axis=-1
         )
-        out /= det[..., None]
+        return np.array(out / det[..., None], np.float64, copy=None)
 
-    elif k == UnknownFormOrder.FORM_ORDER_2:
-        assert c.size == basis.basis_xi.order * basis.basis_eta.order
-        in_dvalues_xi = dlagrange1d(basis.basis_xi.roots, xi)
-        in_dvalues_eta = dlagrange1d(basis.basis_eta.roots, eta)
-        dvalues_xi = tuple(
-            accumulate(-in_dvalues_xi[..., i] for i in range(basis.basis_xi.order))
-        )
-        dvalues_eta = tuple(
-            accumulate(-in_dvalues_eta[..., i] for i in range(basis.basis_eta.order))
-        )
-        (j00, j01), (j10, j11) = jacobian(corners, xi, eta)
-        det = j00 * j11 - j10 * j01
+    if order == UnknownFormOrder.FORM_ORDER_2:
         for i1 in range(basis.basis_eta.order):
             v1 = dvalues_eta[i1]
             for j1 in range(basis.basis_xi.order):
                 u1 = dvalues_xi[j1]
                 out += c[i1 * basis.basis_xi.order + j1] * u1 * v1
 
-        out /= det
-    else:
-        raise ValueError(f"Order of the differential form {k} is not valid.")
+        return np.array(out / det, np.float64, copy=None)
 
-    return np.array(out, np.float64, copy=None)
+    raise ValueError(f"Order of the differential form {order} is not valid.")

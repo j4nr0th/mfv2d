@@ -9,10 +9,9 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
-from mfv2d._mfv2d import Mesh, compute_legendre
+from mfv2d._mfv2d import ElementFemSpace2D, IntegrationRule1D, Mesh, compute_legendre
 from mfv2d.kform import KFormUnknown, UnknownOrderings
 from mfv2d.mimetic2d import (
-    FemCache,
     bilinear_interpolate,
     compute_leaf_dof_counts,
     jacobian,
@@ -211,6 +210,7 @@ def perform_mesh_refinement(
     refinement_limit: RefinementLimit,
     unknown_ordering: UnknownOrderings,
     report_error_distribution: bool,
+    element_fem_spaces: Sequence[ElementFemSpace2D],
     reconstruction_orders: tuple[int | None, int | None],
 ) -> Mesh:
     """Perform a round of mesh refinement.
@@ -235,32 +235,52 @@ def perform_mesh_refinement(
 
     element_error = np.empty(mesh.leaf_count)
     href_cost = np.empty(mesh.leaf_count)
-    basis_cache = FemCache(2)
 
     indices = mesh.get_leaf_indices()
+    recon_order_1, recon_order_2 = reconstruction_orders
+    int_nodes: dict[int, npt.NDArray[np.double]] = dict()
 
     for i_leaf, idx in enumerate(indices):
         element_solution = solution[element_offsets[i_leaf] : element_offsets[i_leaf + 1]]
         offsets = dof_offsets[i_leaf]
 
-        corners = mesh.get_leaf_corners(idx)
-        order_1, order_2 = mesh.get_leaf_orders(idx)
-        basis = basis_cache.get_basis2d(order_1, order_2, *reconstruction_orders)
+        element_space = element_fem_spaces[i_leaf]
+        corners = element_space.corners
+        basis = element_space.basis_2d
+        order_1 = basis.basis_xi.order
+        order_2 = basis.basis_eta.order
 
-        nodes_xi = basis.basis_xi.rule.nodes[None, :]
-        nodes_eta = basis.basis_eta.rule.nodes[:, None]
+        if recon_order_1 is None:
+            nodes_xi = basis.basis_xi.rule.nodes[None, :]
+            int_nodes[order_1] = nodes_xi
+        else:
+            if recon_order_1 not in int_nodes:
+                nodes_xi = IntegrationRule1D(recon_order_1).nodes[None, :]
+                int_nodes[recon_order_1] = nodes_xi
+            else:
+                nodes_xi = int_nodes[recon_order_1]
+
+        if recon_order_2 is None:
+            nodes_eta = basis.basis_eta.rule.nodes[:, None]
+            int_nodes[order_2] = nodes_eta
+        else:
+            if recon_order_2 not in int_nodes:
+                nodes_eta = IntegrationRule1D(recon_order_2).nodes[:, None]
+                int_nodes[recon_order_2] = nodes_eta
+            else:
+                nodes_eta = int_nodes[recon_order_2]
+
         x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
         y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
         form_vals: dict[str, npt.NDArray[np.float64]] = dict()
         for form_idx in required_unknown_indices:
             form = unknown_forms[form_idx]
             form_vals[form.label] = reconstruct(
-                corners,
+                element_space,
                 form.order,
                 element_solution[offsets[form_idx] : offsets[form_idx + 1]],
                 nodes_xi,
                 nodes_eta,
-                basis,
             )
         jac = jacobian(corners, nodes_xi, nodes_eta)
         det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
@@ -337,8 +357,8 @@ def perform_mesh_refinement(
 
                 if (
                     cost_fraction[i_leaf] <= h_refinement_ratio
-                    and (order_1 > 3)
-                    and (order_2 > 3)
+                    and (order_1 > 1)
+                    and (order_2 > 1)
                 ):
                     new_orders = (order_1 // 2, order_2 // 2)
                     mesh.split_element(
@@ -374,8 +394,8 @@ def perform_mesh_refinement(
 
                 if (
                     cost_fraction[i_leaf] <= h_refinement_ratio
-                    and (order_1 > 3)
-                    and (order_2 > 3)
+                    and (order_1 > 1)
+                    and (order_2 > 1)
                 ):
                     new_orders = (order_1 // 2, order_2 // 2)
                     mesh.split_element(

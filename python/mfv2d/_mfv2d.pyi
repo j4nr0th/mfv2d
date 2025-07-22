@@ -1141,8 +1141,12 @@ class Basis2D:
     def basis_eta(self) -> Basis1D: ...
 
 @final
-class ElementMassMatrixCache:
-    """Caches element mass matrices."""
+class ElementFemSpace2D:
+    """Type that cotains corners and basis for each (leaf) element.
+
+    It is also used to compute mass matrices and cache them, since they're often
+    reused.
+    """
 
     def __new__(cls, basis: Basis2D, corners: npt.NDArray[np.float64]) -> Self: ...
     @property
@@ -1218,7 +1222,7 @@ def compute_element_matrix(
     form_orders: Sequence[UnknownFormOrder],
     expressions: _CompiledCodeMatrix,
     vector_fields: Sequence[npt.NDArray[np.float64]],
-    element_cache: ElementMassMatrixCache,
+    element_cache: ElementFemSpace2D,
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
     """Compute a single element matrix.
@@ -1234,7 +1238,7 @@ def compute_element_matrix(
     vector_fields : Sequence of arrays
         Vector field arrays as required for interior product evaluations.
 
-    element_cache : ElementMassMatrixCache
+    element_cache : ElementFemSpace2D
         Cache of the element basis and mass matrices.
 
     stack_memory : int, default: 1 << 24
@@ -1251,7 +1255,7 @@ def compute_element_vector(
     form_orders: Sequence[UnknownFormOrder],
     expressions: _CompiledCodeMatrix,
     vector_fields: Sequence[npt.NDArray[np.float64]],
-    element_cache: ElementMassMatrixCache,
+    element_cache: ElementFemSpace2D,
     solution: npt.NDArray[np.float64],
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
@@ -1268,7 +1272,7 @@ def compute_element_vector(
     vector_fields : Sequence of arrays
         Vector field arrays as required for interior product evaluations.
 
-    element_cache : ElementMassMatrixCache
+    element_cache : ElementFemSpace2D
         Cache of the element basis and mass matrices.
 
     solution : array

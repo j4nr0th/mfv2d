@@ -11,7 +11,7 @@ import pyvista as pv
 import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
-from mfv2d._mfv2d import ElementMassMatrixCache, Mesh, compute_element_matrix
+from mfv2d._mfv2d import ElementFemSpace2D, Mesh, compute_element_matrix
 from mfv2d.boundary import BoundaryCondition2DSteady, mesh_boundary_conditions
 from mfv2d.continuity import connect_elements
 from mfv2d.eval import CompiledSystem
@@ -52,7 +52,7 @@ def _compute_system(
 ) -> tuple[
     list[npt.NDArray[np.float64]],
     list[npt.NDArray[np.float64]],
-    list[ElementMassMatrixCache],
+    list[ElementFemSpace2D],
     None | sp.csr_array,
     npt.NDArray[np.float64],
 ]:
@@ -84,7 +84,7 @@ def _compute_system(
     )
 
     element_caches = [
-        ElementMassMatrixCache(
+        ElementFemSpace2D(
             basis_cache.get_basis2d(orders[0] + dk, orders[1] + dk),
             np.astype(corners, np.float64, copy=False),
         )
@@ -327,17 +327,17 @@ def solve_system_2d(
     )
 
     # Explicit right side
-    element_caches: list[ElementMassMatrixCache] = list()
+    element_fem_spaces: list[ElementFemSpace2D] = list()
     linear_vectors: list[npt.NDArray[np.float64]] = list()
 
     for leaf_idx in leaf_indices:
         order_1, order_2 = mesh.get_leaf_orders(leaf_idx)
-        element_cache = ElementMassMatrixCache(
+        element_cache = ElementFemSpace2D(
             cache_2d.get_basis2d(order_1, order_2),
             np.astype(mesh.get_leaf_corners(leaf_idx), np.float64, copy=False),
         )
 
-        element_caches.append(element_cache)
+        element_fem_spaces.append(element_cache)
         linear_vectors.append(compute_element_rhs(system, element_cache))
 
     # Prepare for evaluation of matrices/vectors
@@ -352,7 +352,7 @@ def solve_system_2d(
                 initial_funcs,
                 order_1,
                 order_2,
-                element_caches[i],
+                element_fem_spaces[i],
             )
 
             initial_vectors.append(dual_dofs)
@@ -362,7 +362,7 @@ def solve_system_2d(
                     dual_dofs,
                     order_1,
                     order_2,
-                    element_caches[i],
+                    element_fem_spaces[i],
                 )
             )
 
@@ -404,18 +404,16 @@ def solve_system_2d(
     # Compute vector fields at integration points for leaf elements
     linear_element_matrices: list[npt.NDArray[np.float64]] = list()
 
-    for ie in range(mesh.leaf_count):
-        element_cache = element_caches[ie]
-        basis = element_cache.basis_2d
+    for ie, element_space in enumerate(element_fem_spaces):
+        basis = element_space.basis_2d
         if len(vector_fields):
             # Recompute vector fields
             # Compute vector fields at integration points for leaf elements
             vec_flds = compute_element_vector_fields_nonlin(
                 system.unknown_forms,
-                basis,
+                element_space,
                 basis,
                 vector_fields,
-                mesh.get_leaf_corners(ie),
                 dof_offsets[ie],
                 solution[element_offset[ie] : element_offset[ie + 1]],
             )
@@ -427,7 +425,7 @@ def solve_system_2d(
                 unknown_ordering.form_orders,
                 compiled_system.linear_codes,
                 vec_flds,
-                element_cache,
+                element_space,
             )
         )
 
@@ -569,7 +567,7 @@ def solve_system_2d(
     resulting_grids: list[pv.UnstructuredGrid] = list()
 
     grid = reconstruct_mesh_from_solution(
-        system, recon_order, mesh, cache_2d, leaf_indices, dof_offsets, solution
+        system, recon_order, element_fem_spaces, dof_offsets, solution
     )
     grid.field_data["time"] = (0.0,)
     resulting_grids.append(grid)
@@ -604,8 +602,7 @@ def solve_system_2d(
                 rtol,
                 print_residual,
                 unknown_ordering,
-                mesh,
-                element_caches,
+                element_fem_spaces,
                 compiled_system,
                 explicit_vec,
                 dof_offsets,
@@ -629,7 +626,7 @@ def solve_system_2d(
                         unknown_ordering,
                         new_solution[element_offset[ie] : element_offset[ie + 1]],
                         *mesh.get_leaf_orders(leaf_idx),
-                        element_caches[ie],
+                        element_fem_spaces[ie],
                     )
                     for ie, leaf_idx in enumerate(leaf_indices)
                 ]
@@ -651,13 +648,7 @@ def solve_system_2d(
                 # Prepare to build up the 1D Splines
 
                 grid = reconstruct_mesh_from_solution(
-                    system,
-                    recon_order,
-                    mesh,
-                    cache_2d,
-                    leaf_indices,
-                    dof_offsets,
-                    solution,
+                    system, recon_order, element_fem_spaces, dof_offsets, solution
                 )
                 grid.field_data["time"] = (float((time_index + 1) * dt),)
                 resulting_grids.append(grid)
@@ -676,8 +667,7 @@ def solve_system_2d(
             rtol,
             print_residual,
             unknown_ordering,
-            mesh,
-            element_caches,
+            element_fem_spaces,
             compiled_system,
             explicit_vec,
             dof_offsets,
@@ -703,7 +693,7 @@ def solve_system_2d(
         # Prepare to build up the 1D Splines
 
         grid = reconstruct_mesh_from_solution(
-            system, recon_order, mesh, cache_2d, leaf_indices, dof_offsets, solution
+            system, recon_order, element_fem_spaces, dof_offsets, solution
         )
 
         resulting_grids.append(grid)
@@ -749,6 +739,7 @@ def solve_system_2d(
             refinement_settings.refinement_limit,
             unknown_ordering,
             refinement_settings.report_error_distribution,
+            element_fem_spaces,
             (None, None)
             if refinement_settings.reconstruction_orders is None
             else refinement_settings.reconstruction_orders,

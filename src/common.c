@@ -67,8 +67,8 @@ allocator_callbacks PYTHON_ALLOCATOR = {
 };
 
 MFV2D_INTERNAL
-int check_input_array(const PyArrayObject *const arr, const unsigned n_dim, const npy_intp dims[], const int dtype,
-                      const int flags, const char *name)
+int check_input_array(const PyArrayObject *const arr, const unsigned n_dim, const npy_intp dims[static n_dim],
+                      const int dtype, const int flags, const char *name)
 {
     if (!PyArray_Check(arr))
     {
@@ -86,7 +86,7 @@ int check_input_array(const PyArrayObject *const arr, const unsigned n_dim, cons
         return -1;
     }
 
-    if (PyArray_NDIM(arr) != n_dim)
+    if (n_dim && PyArray_NDIM(arr) != n_dim)
     {
         PyErr_Format(PyExc_ValueError,
                      "Number of dimensions for the array %s does not match expected value (expected %u, got %u).", name,

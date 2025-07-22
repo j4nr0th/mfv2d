@@ -8,7 +8,7 @@ import pytest
 from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
-    ElementMassMatrixCache,
+    ElementFemSpace2D,
     IntegrationRule1D,
     compute_element_matrix,
 )
@@ -121,7 +121,7 @@ def compute_system_matrix_nonlin(
     )
     del vec_field_lists
     assert compiled.nonlin_codes is not None
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     emat = compute_element_matrix(
         [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.nonlin_codes,
@@ -164,7 +164,7 @@ def compute_system_matrix_lin(
         np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
     )
     del vec_field_lists
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     emat = compute_element_matrix(
         [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.lhs_full,
@@ -208,7 +208,7 @@ def compute_system_matrix_adj(
     )
     del vec_field_lists
     assert compiled.nonlin_codes is not None
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     emat = compute_element_matrix(
         [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.nonlin_codes,
@@ -276,7 +276,7 @@ def test_advect_10(corner_vals: npt.ArrayLike) -> None:
 
     exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
         UnknownFormOrder.FORM_ORDER_1, elem_cache, omega_exact
     )
@@ -337,7 +337,7 @@ def test_dual_advect_10(corner_vals: npt.ArrayLike) -> None:
 
     exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
         UnknownFormOrder.FORM_ORDER_1, elem_cache, omega_exact
     )
@@ -401,7 +401,7 @@ def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     fmat = emat[: (N + 1) * (N + 1), -2 * (N + 1) * N :]
     gmat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) : -2 * (N + 1) * N]
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
         UnknownFormOrder.FORM_ORDER_1, elem_cache, omega_exact
     )
@@ -467,7 +467,7 @@ def test_advect_dual_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike
     fmat = emat[: N * N, -2 * (N + 1) * N :]
     gmat = emat[: N * N, N * N : -2 * (N + 1) * N]
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
         UnknownFormOrder.FORM_ORDER_1, elem_cache, omega_exact
     )
@@ -521,7 +521,7 @@ def test_advect_21(corner_vals: npt.ArrayLike) -> None:
 
     exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
         UnknownFormOrder.FORM_ORDER_2, elem_cache, omega_exact
     )
@@ -575,7 +575,7 @@ def test_dual_advect_21_undeformed(corner_vals: npt.ArrayLike) -> None:
 
     exact_eprod = exact_interior_prod_2_dual(u_exact, omega_exact)
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
         UnknownFormOrder.FORM_ORDER_0, elem_cache, omega_exact
     )
@@ -630,7 +630,7 @@ def test_advect_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     fmat = emat[: N**2, : 2 * (N + 1) * N]
     gmat = emat[: N**2, 2 * (N + 1) * N :]
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
         UnknownFormOrder.FORM_ORDER_2, elem_cache, omega_exact
     )
@@ -689,7 +689,7 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
     fmat = emat[(N + 1) ** 2 :, (N + 1) ** 2 :]
     gmat = emat[(N + 1) ** 2 :, : (N + 1) ** 2]
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    elem_cache = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
         UnknownFormOrder.FORM_ORDER_0, elem_cache, omega_exact
     )

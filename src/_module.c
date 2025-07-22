@@ -24,11 +24,6 @@
 #include "eval/element_system.h"
 #include "eval/incidence.h"
 
-// Solver
-#include "solve/givens.h"
-#include "solve/lil_matrix.h"
-#include "solve/svector.h"
-
 // Basis
 
 #include "basis/gausslobatto.h"
@@ -723,8 +718,6 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
     if (!((mod = PyModule_Create(&module))) || PyModule_AddType(mod, &geo_id_type_object) < 0 ||
         PyModule_AddType(mod, &line_type_object) < 0 || PyModule_AddType(mod, &surface_type_object) < 0 ||
         PyModule_AddType(mod, &manifold_type_object) < 0 || PyModule_AddType(mod, &manifold2d_type_object) < 0 ||
-        PyModule_AddType(mod, &svec_type_object) < 0 || PyModule_AddType(mod, &givens_rotation_type_object) < 0 ||
-        PyModule_AddType(mod, &lil_mat_type_object) < 0 || PyModule_AddType(mod, &givens_series_type_object) < 0 ||
         PyModule_AddType(mod, &integration_rule_1d_type) < 0 || PyModule_AddType(mod, &basis_1d_type) < 0 ||
         PyModule_AddType(mod, &basis_2d_type) < 0 || PyModule_AddType(mod, &element_fem_space_2d_type) < 0 ||
         PyModule_AddType(mod, &mesh_type_object) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 ||

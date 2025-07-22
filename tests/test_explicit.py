@@ -88,9 +88,6 @@ def test_explicit_evaluation():
         assert not callable(vec_fld)
         fn = func_dict[vec_fld]
         vf = fn(x, y)
-        if vec_fld.order != UnknownFormOrder.FORM_ORDER_1:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
         vec_field_lists[i].append(vf)
 
     vec_fields = tuple(

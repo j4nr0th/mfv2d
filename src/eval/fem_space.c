@@ -664,7 +664,7 @@ mfv2d_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, ma
                         const double val_basis = edge_v_basis_value(fem_space, idx_basis, i_point, j_point);
                         const double val_weight = edge_v_basis_value(fem_space, idx_weight, i_point, j_point);
                         const jacobian_t *jac = fem_space->jacobian + (j_point + i_point * n_pts_1);
-                        const double jac_term = field[i_point * (2 * n_pts_1) + 2 * j_point + 0] *
+                        const double jac_term = field[i_point * (n_pts_1) + j_point] *
                                                 (jac->j00 * jac->j00 + jac->j01 * jac->j01) / jac->det;
                         v += val_basis * val_weight * jac_term * integration_weight_value(fem_space, i_point, j_point);
                     }
@@ -685,7 +685,7 @@ mfv2d_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, ma
                         const double val_basis = edge_h_basis_value(fem_space, idx_basis, i_point, j_point);
                         const double val_weight = edge_h_basis_value(fem_space, idx_weight, i_point, j_point);
                         const jacobian_t *jac = fem_space->jacobian + (j_point + i_point * n_pts_1);
-                        const double jac_term = field[i_point * (2 * n_pts_1) + 2 * j_point + 0] *
+                        const double jac_term = field[i_point * (n_pts_1) + j_point] *
                                                 (jac->j11 * jac->j11 + jac->j10 * jac->j10) / jac->det;
                         v += val_basis * val_weight * jac_term * integration_weight_value(fem_space, i_point, j_point);
                     }
@@ -707,8 +707,8 @@ mfv2d_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, ma
                         const double val_basis = edge_v_basis_value(fem_space, idx_basis, i_point, j_point);
                         const double val_weight = edge_h_basis_value(fem_space, idx_weight, i_point, j_point);
                         const jacobian_t *jac = fem_space->jacobian + (j_point + i_point * n_pts_1);
-                        const double jac_term = field[i_point * (2 * n_pts_1) + 2 * j_point + 0] *
-                                                (jac->j01 * jac->j11 + jac->j00 * jac->j10) / jac->det;
+                        const double jac_term =
+                            field[i_point * n_pts_1 + j_point] * (jac->j01 * jac->j11 + jac->j00 * jac->j10) / jac->det;
                         v += val_basis * val_weight * jac_term * integration_weight_value(fem_space, i_point, j_point);
                     }
                 }
@@ -731,7 +731,7 @@ mfv2d_result_t compute_mass_matrix_edge_edge(const fem_space_2d_t *fem_space, ma
                     {
                         const double val_basis = edge_v_basis_value(fem_space, idx_basis, i_point, j_point);
                         const double val_weight = edge_h_basis_value(fem_space, idx_weight, i_point, j_point);
-                        const double jac_term = field[i_point * (2 * n_pts_1) + 2 * j_point + 0];
+                        const double jac_term = field[i_point * n_pts_1 + j_point];
                         v += val_basis * val_weight * jac_term * integration_weight_value(fem_space, i_point, j_point);
                     }
                 }

@@ -20,8 +20,8 @@ typedef struct
 } system_template_t;
 
 MFV2D_INTERNAL
-int system_template_create(system_template_t *this, PyObject *orders, PyObject *expr_matrix, unsigned n_vec_fields,
-                           const allocator_callbacks *allocator);
+int system_template_create(system_template_t *this, PyObject *orders, PyObject *expr_matrix,
+                           const field_information_t *fields, const allocator_callbacks *allocator);
 
 MFV2D_INTERNAL
 void system_template_destroy(system_template_t *this, const allocator_callbacks *allocator);

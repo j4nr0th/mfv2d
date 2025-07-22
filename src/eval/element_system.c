@@ -121,8 +121,8 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
 
     // Create the system template
     system_template_t system_template = {};
-    if (!system_template_create(&system_template, form_orders_obj, expressions,
-                                (unsigned)element_field_information.n_fields, &SYSTEM_ALLOCATOR))
+    if (!system_template_create(&system_template, form_orders_obj, expressions, &element_field_information,
+                                &SYSTEM_ALLOCATOR))
     {
         return NULL;
     }
@@ -293,8 +293,8 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
 
     // Create the system template
     system_template_t system_template = {};
-    if (!system_template_create(&system_template, form_orders_obj, expressions,
-                                (unsigned)element_field_information.n_fields, &SYSTEM_ALLOCATOR))
+    if (!system_template_create(&system_template, form_orders_obj, expressions, &element_field_information,
+                                &SYSTEM_ALLOCATOR))
     {
         return NULL;
     }

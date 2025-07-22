@@ -1,10 +1,13 @@
 #include "system_template.h"
+
+#include "matrix.h"
+
 #include <numpy/ndarrayobject.h>
 #include <numpy/npy_no_deprecated_api.h>
 
 MFV2D_INTERNAL
-int system_template_create(system_template_t *this, PyObject *orders, PyObject *expr_matrix, unsigned n_vec_fields,
-                           const allocator_callbacks *allocator)
+int system_template_create(system_template_t *this, PyObject *orders, PyObject *expr_matrix,
+                           const field_information_t *fields, const allocator_callbacks *allocator)
 {
     // Find the number of forms
     {
@@ -111,7 +114,7 @@ int system_template_create(system_template_t *this, PyObject *orders, PyObject *
             }
             this->bytecodes[row * this->n_forms + col] = bc;
             unsigned stack;
-            if (!convert_bytecode(expr_count, bc, PySequence_Fast_ITEMS(seq), &stack, n_vec_fields))
+            if (!convert_bytecode(expr_count, bc, PySequence_Fast_ITEMS(seq), &stack, fields))
             {
                 Py_DECREF(seq);
                 Py_DECREF(expr);

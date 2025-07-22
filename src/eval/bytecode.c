@@ -4,6 +4,8 @@
 
 #include "bytecode.h"
 
+#include "matrix.h"
+
 #define MATRIX_OP_ENTRY(op) [op] = #op
 static const char *matrix_op_strings[MATOP_COUNT] = {
     MATRIX_OP_ENTRY(MATOP_INVALID), MATRIX_OP_ENTRY(MATOP_IDENTITY),  MATRIX_OP_ENTRY(MATOP_MASS),
@@ -21,7 +23,7 @@ const char *matrix_op_str(const matrix_op_t op)
 
 MFV2D_INTERNAL
 int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyObject *items[static n],
-                     unsigned *p_max_stack, const unsigned n_vec_fields)
+                     unsigned *p_max_stack, const field_information_t *fields)
 {
     bytecode[0].u32 = n;
     unsigned stack_load = 0, max_load = 0;
@@ -162,37 +164,59 @@ int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyOb
             else
             {
                 i += 1;
-                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                const unsigned start_order = PyLong_AsLong(items[i]);
+                bytecode[i + 1].u32 = start_order;
                 if (PyErr_Occurred())
+                {
+                    bad_value = 1;
+                    break;
+                }
+                if (start_order > 2)
                 {
                     bad_value = 1;
                     break;
                 }
                 i += 1;
-                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                const unsigned field_index = PyLong_AsLong(items[i]);
+                bytecode[i + 1].u32 = field_index;
                 if (PyErr_Occurred())
                 {
                     bad_value = 1;
                     break;
                 }
-                if (bytecode[i + 1].u32 >= n_vec_fields)
+                if (field_index >= fields->n_fields)
                 {
                     out_of_bounds = 1;
                     break;
                 }
                 i += 1;
-                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                const unsigned dual = PyLong_AsLong(items[i]);
+                bytecode[i + 1].u32 = dual;
                 if (PyErr_Occurred())
                 {
                     bad_value = 1;
                     break;
                 }
                 i += 1;
-                bytecode[i + 1].u32 = PyLong_AsLong(items[i]);
+                const unsigned adjoint = PyLong_AsLong(items[i]);
+                bytecode[i + 1].u32 = adjoint;
                 if (PyErr_Occurred())
                 {
                     bad_value = 1;
                     break;
+                }
+
+                // Determine if the field should be a scalar or a vector.
+                unsigned n_components = 2;
+                if (start_order != 1 && adjoint)
+                {
+                    n_components = 1;
+                }
+                if (fields->components[field_index] != n_components)
+                {
+                    PyErr_Format(PyExc_ValueError, "Field %u has %u components, but the instruction requires %u.",
+                                 field_index, fields->components[field_index], n_components);
+                    return 0;
                 }
             }
             break;
@@ -210,6 +234,7 @@ int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyOb
 
         if (bad_value)
         {
+            PyErr_Format(PyExc_ValueError, "Incorrect value for the required item.");
             return 0;
         }
     }

@@ -111,9 +111,6 @@ def compute_system_matrix_nonlin(
         assert not callable(vec_fld)
         fn = func_dict[vec_fld]
         vf = fn(x, y)
-        if vec_fld.order != UnknownFormOrder.FORM_ORDER_1:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
         vec_field_lists[i].append(vf)
 
     vec_fields = tuple(
@@ -122,6 +119,7 @@ def compute_system_matrix_nonlin(
     del vec_field_lists
     assert compiled.nonlin_codes is not None
     elem_cache = ElementFemSpace2D(basis_2d, corners)
+
     emat = compute_element_matrix(
         [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.nonlin_codes,
@@ -155,9 +153,6 @@ def compute_system_matrix_lin(
         assert callable(vec_fld)
 
         vf = np.asarray(vec_fld(x, y), np.float64)
-        if vf.shape[-1] != 2:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
         vec_field_lists[i].append(vf)
 
     vec_fields = tuple(

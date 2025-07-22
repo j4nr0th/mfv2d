@@ -6,6 +6,7 @@
 #define BYTECODE_H
 
 #include "../common.h"
+#include "matrix.h"
 
 typedef enum
 {
@@ -52,6 +53,6 @@ typedef union {
  */
 MFV2D_INTERNAL
 int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyObject *items[static n],
-                     unsigned *p_max_stack, const unsigned n_vec_fields);
+                     unsigned *p_max_stack, const field_information_t *fields);
 
 #endif // BYTECODE_H

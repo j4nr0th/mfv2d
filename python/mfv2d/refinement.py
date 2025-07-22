@@ -8,30 +8,25 @@ from typing import Protocol
 
 import numpy as np
 import numpy.typing as npt
-import pyvista as pv
 
-from mfv2d._mfv2d import (
-    IntegrationRule1D,
-    Mesh,
-    compute_legendre,
-    legendre_l2_to_h1_coefficients,
-)
+from mfv2d._mfv2d import Mesh, compute_legendre
 from mfv2d.kform import KFormUnknown, UnknownOrderings
 from mfv2d.mimetic2d import (
     FemCache,
     bilinear_interpolate,
     compute_leaf_dof_counts,
+    jacobian,
     reconstruct,
 )
 from mfv2d.progress import HistogramFormat
 
 
-def _compute_legendre_coefficients(
+def compute_legendre_coefficients(
     order_1: int,
     order_2: int,
-    rule_1: IntegrationRule1D,
-    rule_2: IntegrationRule1D,
-    func_vals: npt.NDArray[np.float64],
+    nodes_xi: npt.NDArray[np.float64],
+    nodes_eta: npt.NDArray[np.float64],
+    weighted_function: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.float64]:
     """Compute Legendre coefficients from function values at integration nodes.
 
@@ -43,28 +38,20 @@ def _compute_legendre_coefficients(
     order_2 : int
         Order of the coefficients in the second direction.
 
-    rule_1 : IntegrationRule1D
-        Integration rule to use in the first direction.
-
-    rule_2 : IntegrationRule1D
-        Integration rule to use in the second direction.
-
-    func_vals : array
-        Array of function values at the positions of integration
-        rules.
+    weighted_function : array
+        Product of function, integration weight, and Jacobian for all integration points.
 
     Returns
     -------
     (order_1 + 1, order_2 + 1) array
         Array of coefficients for Legendre basis.
     """
-    leg1 = compute_legendre(order_1, rule_1.nodes)
-    leg2 = compute_legendre(order_2, rule_2.nodes)
-    wleg1 = leg1 * rule_1.weights[None, ...]
-    wleg2 = leg2 * rule_2.weights[None, ...]
+    leg1 = compute_legendre(order_1, nodes_xi.flatten())
+    leg2 = compute_legendre(order_2, nodes_eta.flatten())
 
     rleg = np.sum(
-        func_vals[None, None, ...] * (wleg1[None, :, None, :] * wleg2[:, None, :, None]),
+        weighted_function[None, None, ...]
+        * (leg1[None, :, None, :] * leg2[:, None, :, None]),
         axis=(-2, -1),
     )
     n1 = np.arange(order_1 + 1)
@@ -76,78 +63,7 @@ def _compute_legendre_coefficients(
     return rleg
 
 
-def compute_element_field_legendre_coefficients(
-    ie: int, mesh: Mesh, grid: pv.UnstructuredGrid, key: str, order_1: int, order_2: int
-) -> npt.NDArray[np.float64]:
-    """Compute Legendre coefficients of a field on the element.
-
-    Parameters
-    ----------
-    e : ElementLeaf2D
-        Element on which the error coefficients
-
-    mesh : pyvista.UnstructuredGrid
-        Mesh from which the field is computed from.
-
-    key : str
-        Key of the field which is to be converted.
-
-    order_1 : int
-        Order of the coefficients in the first direction.
-
-    order_2 : int
-        Order of the coefficients in the second direction.
-
-    Returns
-    -------
-    (order_1 + 1, order_2 + 1) array
-        Array of coefficients for Legendre basis.
-    """
-    # These rules are GLL, so they need an extra order for proper integration.
-    rule_1 = IntegrationRule1D(order_1 + 1)
-    rule_2 = IntegrationRule1D(order_2 + 1)
-
-    corners = mesh.get_leaf_corners(ie)
-    nodes_x = bilinear_interpolate(
-        corners[:, 0], rule_1.nodes[None, :], rule_2.nodes[:, None]
-    )
-    nodes_y = bilinear_interpolate(
-        corners[:, 1], rule_1.nodes[None, :], rule_2.nodes[:, None]
-    )
-
-    points = pv.PolyData(
-        np.stack(
-            (nodes_x.flatten(), nodes_y.flatten(), np.zeros_like(nodes_x).flatten()),
-            axis=-1,
-        )
-    )
-    sampled = points.sample(grid)
-
-    func_vals = np.asarray(sampled[key], np.float64).reshape(nodes_x.shape)
-
-    return _compute_legendre_coefficients(order_1, order_2, rule_1, rule_2, func_vals)
-
-
-def legendre_l2_to_h1_2d(c: npt.ArrayLike, /) -> npt.NDArray[np.float64]:
-    """Convert Legendre coefficients to those defined by the H1 seminorm."""
-    coeffs = np.asarray(c, np.float64)
-    if coeffs.ndim != 2:
-        raise ValueError("Coefficients must be a 2D array!")
-
-    out = np.empty_like(coeffs)
-
-    # Throught the first dimension
-    for i in range(coeffs.shape[0]):
-        out[i, :] = legendre_l2_to_h1_coefficients(coeffs[i, :])
-
-    # Throught the second dimension
-    for j in range(out.shape[1]):
-        out[:, j] = legendre_l2_to_h1_coefficients(out[:, j])
-
-    return out
-
-
-class ErrorCalculationFunction(Protocol):
+class ErrorCalculationFunctionFull(Protocol):
     """Type that can compute error."""
 
     def __call__(
@@ -155,6 +71,10 @@ class ErrorCalculationFunction(Protocol):
         x: npt.NDArray[np.float64],
         y: npt.NDArray[np.float64],
         w: npt.NDArray[np.float64],
+        order_1: int,
+        order_2: int,
+        xi: npt.NDArray[np.float64],
+        eta: npt.NDArray[np.float64],
         **kwargs: npt.NDArray[np.float64],
     ) -> tuple[float, float]:
         """Compute the error.
@@ -168,7 +88,44 @@ class ErrorCalculationFunction(Protocol):
             y-coordinates of integration points.
 
         w : array
-            Integration weights at the specified points.
+            Integration weights at the specified points, multiplied by the Jacobian.
+
+        **kwargs : array
+            Values of desired forms at specified positions.
+
+        Returns
+        -------
+        float
+            Error measure of the element. Not negative.
+
+        float
+            Cost of h-refinement.
+        """
+        ...
+
+
+class ErrorCalculationFunctionSimple(Protocol):
+    """Type that can compute error."""
+
+    def __call__(
+        self,
+        x: npt.NDArray[np.float64],
+        y: npt.NDArray[np.float64],
+        w: npt.NDArray[np.float64],
+        **kwargs: npt.NDArray[np.float64] | int,
+    ) -> tuple[float, float]:
+        """Compute the error.
+
+        Parameters
+        ----------
+        x : array
+            x-coordinates of integration points.
+
+        y : array
+            y-coordinates of integration points.
+
+        w : array
+            Integration weights at the specified points, multiplied by the Jacobian.
 
         **kwargs : array
             Values of desired forms at specified positions.
@@ -220,7 +177,9 @@ class RefinementSettings:
     required_forms: Sequence[KFormUnknown]
     """Forms that are needed by the error calculation function."""
 
-    error_calculation_function: ErrorCalculationFunction
+    error_calculation_function: (
+        ErrorCalculationFunctionFull | ErrorCalculationFunctionSimple
+    )
     """Function called to calculate error estimate and h-refinement cost."""
 
     refinement_limit: RefinementLimit
@@ -246,7 +205,8 @@ def perform_mesh_refinement(
     dof_offsets: npt.NDArray[np.uint32],
     required_unknown_indices: Sequence[int],
     unknown_forms: Sequence[KFormUnknown],
-    error_calculation_function: ErrorCalculationFunction,
+    error_calculation_function: ErrorCalculationFunctionFull
+    | ErrorCalculationFunctionSimple,
     h_refinement_ratio: float,
     refinement_limit: RefinementLimit,
     unknown_ordering: UnknownOrderings,
@@ -302,10 +262,18 @@ def perform_mesh_refinement(
                 nodes_eta,
                 basis,
             )
+        jac = jacobian(corners, nodes_xi, nodes_eta)
+        det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
         elem_vals = error_calculation_function(
-            x,
-            y,
-            basis.basis_xi.rule.weights[None, :] * basis.basis_eta.rule.weights[:, None],
+            x=x,
+            y=y,
+            w=basis.basis_xi.rule.weights[None, :]
+            * basis.basis_eta.rule.weights[:, None]
+            * det,
+            order_1=order_1,
+            order_2=order_2,
+            xi=np.astype(nodes_xi, np.float64, copy=False),
+            eta=np.astype(nodes_eta, np.float64, copy=False),
             **form_vals,
         )
         if elem_vals[0] < 0:

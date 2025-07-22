@@ -139,7 +139,9 @@ ax.set_aspect("equal")
 plt.show()
 
 pval = 3  # Test polynomial order
-mesh = mesh_create(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces)
+mesh_initial = mesh_create(
+    pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.surfaces
+)
 
 
 def plot_mesh_comparisons(*meshes: tuple[str, Mesh]) -> None:
@@ -199,7 +201,6 @@ def error_calc_function(
     **kwargs,
 ) -> tuple[float, float]:
     """Compute L2 error "estimate" and H1 refinement cost."""
-    assert len(kwargs) == 1
     u = kwargs["u"]
     real_u = u_exact(x, y)
     err = (real_u - u) ** 2 * w
@@ -226,14 +227,17 @@ refinement_settings = RefinementSettings(
 N_ROUNDS = 10
 system_settings = SystemSettings(
     system=system,
-    boundary_conditions=[BoundaryCondition2DSteady(u, mesh.boundary_indices, u_exact)],
+    boundary_conditions=[
+        BoundaryCondition2DSteady(u, mesh_initial.boundary_indices, u_exact)
+    ],
 )
 
-results = [("Initial", mesh)]
+results = [("Initial", mesh_initial)]
 errors_local: list[tuple[int, float]] = list()
 plotter = pv.Plotter(off_screen=True, window_size=(1600, 900), shape=(1, 2))
 plotter.open_gif("direct-poisson-refinement-post-p.gif", fps=1)
 
+mesh = mesh_initial
 for i_round in range(N_ROUNDS):
     base_mesh = mesh
     solutions, statistics, mesh = solve_system_2d(

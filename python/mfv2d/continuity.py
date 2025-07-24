@@ -15,18 +15,21 @@ are also two different types:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from itertools import accumulate
 
 import numpy as np
 import numpy.typing as npt
+import scipy.sparse as sp
 
 from mfv2d._mfv2d import Mesh, compute_gll, lagrange1d
-from mfv2d.kform import UnknownFormOrder, UnknownOrderings
+from mfv2d.boundary import BoundaryCondition2DSteady, mesh_boundary_conditions
+from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder, UnknownOrderings
 from mfv2d.mimetic2d import (
     Constraint,
     ElementConstraint,
     ElementSide,
+    FemCache,
     element_boundary_dofs,
     element_node_children_on_side,
     find_surface_boundary_id_line,
@@ -745,3 +748,119 @@ def connect_elements(
             real_constraints += base
 
     return real_constraints
+
+
+def _add_system_constraints(
+    system: KFormSystem,
+    mesh: Mesh,
+    basis_cache: FemCache,
+    unknown_ordering: UnknownOrderings,
+    constrained_forms: Sequence[tuple[float, KFormUnknown]],
+    boundary_conditions: Sequence[BoundaryCondition2DSteady],
+    leaf_indices: Sequence[int],
+    dof_offsets: npt.NDArray[np.uint32],
+    element_offset: npt.NDArray[np.uint32],
+    linear_vectors: Sequence[npt.NDArray[np.float64]],
+) -> tuple[sp.csr_array | None, npt.NDArray[np.float64]]:
+    """Compute constraints for the system and vectors with weak boundary conditions."""
+    constrained_form_constaints: dict[KFormUnknown, Constraint] = dict()
+    for k, form in constrained_forms:
+        i_unknown = system.unknown_forms.index(form)
+        constrained_form_constaints[form] = Constraint(
+            k,
+            *(
+                ElementConstraint(
+                    leaf_idx,
+                    np.arange(
+                        offsets[i_unknown],
+                        offsets[i_unknown + 1],
+                        dtype=np.uint32,
+                    ),
+                    np.ones(offsets[i_unknown + 1] - offsets[i_unknown]),
+                )
+                for leaf_idx, offsets in zip(leaf_indices, dof_offsets)
+            ),
+        )
+
+    reverse_mapping = {leaf_idx: i for i, leaf_idx in enumerate(leaf_indices)}
+    if boundary_conditions is None:
+        boundary_conditions = list()
+
+    strong_bc_constraints, weak_bc_constraints = mesh_boundary_conditions(
+        [eq.right for eq in system.equations],
+        unknown_ordering,
+        mesh,
+        reverse_mapping,
+        dof_offsets,
+        [
+            [bc for bc in boundary_conditions if bc.form == eq.weight.base_form]
+            for eq in system.equations
+        ],
+        basis_cache,
+    )
+
+    continuity_constraints = connect_elements(
+        unknown_ordering, mesh, reverse_mapping, dof_offsets
+    )
+
+    constraint_rows: list[npt.NDArray[np.uint32]] = list()
+    constraint_cols: list[npt.NDArray[np.uint32]] = list()
+    constraint_coef: list[npt.NDArray[np.float64]] = list()
+    constraint_vals: list[float] = list()
+    # Continuity constraints
+    ic = 0
+    for constraint in continuity_constraints:
+        constraint_vals.append(constraint.rhs)
+        # print(f"Continuity constraint {ic=}:")
+        for ec in constraint.element_constraints:
+            offset = int(element_offset[reverse_mapping[ec.i_e]])
+            constraint_cols.append(ec.dofs + offset)
+            constraint_rows.append(np.full_like(ec.dofs, ic))
+            constraint_coef.append(ec.coeffs)
+        #     print(ec)
+        # print("")
+        ic += 1
+
+    # Form constraining
+    for form in constrained_form_constaints:
+        constraint = constrained_form_constaints[form]
+        constraint_vals.append(constraint.rhs)
+        for ec in constraint.element_constraints:
+            offset = int(element_offset[reverse_mapping[ec.i_e]])
+            constraint_cols.append(ec.dofs + offset)
+            constraint_rows.append(np.full_like(ec.dofs, ic))
+            constraint_coef.append(ec.coeffs)
+        ic += 1
+
+    # Strong BC constraints
+    for ec in strong_bc_constraints:
+        offset = int(element_offset[reverse_mapping[ec.i_e]])
+        for ci, cv in zip(ec.dofs, ec.coeffs, strict=True):
+            constraint_rows.append(np.array([ic]))
+            constraint_cols.append(np.array([ci + offset]))
+            constraint_coef.append(np.array([1.0]))
+            constraint_vals.append(float(cv))
+
+            ic += 1
+
+    # Weak BC constraints/additions
+    for ec in weak_bc_constraints:
+        ie = reverse_mapping[ec.i_e]
+        linear_vectors[ie][ec.dofs] += ec.coeffs
+
+    if constraint_coef:
+        lagrange_mat = sp.csr_array(
+            (
+                np.concatenate(constraint_coef),
+                (
+                    np.concatenate(constraint_rows, dtype=np.intp),
+                    np.concatenate(constraint_cols, dtype=np.intp),
+                ),
+            )
+        )
+        lagrange_mat.resize((ic, element_offset[-1]))
+        lagrange_vec = np.array(constraint_vals, np.float64)
+    else:
+        lagrange_mat = None
+        lagrange_vec = np.zeros(0, np.float64)
+    return lagrange_mat, lagrange_vec

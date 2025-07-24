@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+
+# from itertools import chain
 from typing import cast
 
 import numpy as np
@@ -11,14 +13,18 @@ import pyvista as pv
 import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
-from mfv2d._mfv2d import ElementFemSpace2D, Mesh, compute_element_matrix
-from mfv2d.boundary import BoundaryCondition2DSteady, mesh_boundary_conditions
-from mfv2d.continuity import connect_elements
+from mfv2d._mfv2d import (
+    # Basis2D,
+    ElementFemSpace2D,
+    Mesh,
+    # compute_element_matrix,
+    # compute_element_projector,
+)
+
+# from mfv2d.boundary import BoundaryCondition2DSteady
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KEquation, KFormSystem, KFormUnknown, UnknownOrderings
+from mfv2d.kform import KEquation, KFormSystem, UnknownOrderings  # ,  KFormUnknown
 from mfv2d.mimetic2d import (
-    Constraint,
-    ElementConstraint,
     FemCache,
     compute_leaf_dof_counts,
 )
@@ -29,210 +35,16 @@ from mfv2d.solve_system import (
     SolverSettings,
     SystemSettings,
     TimeSettings,
+    # _add_system_constraints,
+    _compute_linear_system,
     compute_element_dual,
     compute_element_primal,
     compute_element_primal_to_dual,
-    compute_element_rhs,
-    compute_element_vector_fields_nonlin,
+    # compute_element_rhs,
     find_time_carry_indices,
     non_linear_solve_run,
     reconstruct_mesh_from_solution,
 )
-
-
-def _add_system_constraints(
-    system: KFormSystem,
-    mesh: Mesh,
-    basis_cache: FemCache,
-    unknown_ordering: UnknownOrderings,
-    constrained_forms: Sequence[tuple[float, KFormUnknown]],
-    boundary_conditions: Sequence[BoundaryCondition2DSteady],
-    leaf_indices: Sequence[int],
-    dof_offsets: npt.NDArray[np.uint32],
-    element_offset: npt.NDArray[np.uint32],
-    linear_vectors: Sequence[npt.NDArray[np.float64]],
-) -> tuple[sp.csr_array | None, npt.NDArray[np.float64]]:
-    """Compute constraints for the system and vectors with weak boundary conditions."""
-    constrained_form_constaints: dict[KFormUnknown, Constraint] = dict()
-    for k, form in constrained_forms:
-        i_unknown = system.unknown_forms.index(form)
-        constrained_form_constaints[form] = Constraint(
-            k,
-            *(
-                ElementConstraint(
-                    leaf_idx,
-                    np.arange(
-                        offsets[i_unknown],
-                        offsets[i_unknown + 1],
-                        dtype=np.uint32,
-                    ),
-                    np.ones(offsets[i_unknown + 1] - offsets[i_unknown]),
-                )
-                for leaf_idx, offsets in zip(leaf_indices, dof_offsets)
-            ),
-        )
-
-    reverse_mapping = {leaf_idx: i for i, leaf_idx in enumerate(leaf_indices)}
-    if boundary_conditions is None:
-        boundary_conditions = list()
-
-    strong_bc_constraints, weak_bc_constraints = mesh_boundary_conditions(
-        [eq.right for eq in system.equations],
-        unknown_ordering,
-        mesh,
-        reverse_mapping,
-        dof_offsets,
-        [
-            [bc for bc in boundary_conditions if bc.form == eq.weight.base_form]
-            for eq in system.equations
-        ],
-        basis_cache,
-    )
-
-    continuity_constraints = connect_elements(
-        unknown_ordering, mesh, reverse_mapping, dof_offsets
-    )
-
-    constraint_rows: list[npt.NDArray[np.uint32]] = list()
-    constraint_cols: list[npt.NDArray[np.uint32]] = list()
-    constraint_coef: list[npt.NDArray[np.float64]] = list()
-    constraint_vals: list[float] = list()
-    # Continuity constraints
-    ic = 0
-    for constraint in continuity_constraints:
-        constraint_vals.append(constraint.rhs)
-        # print(f"Continuity constraint {ic=}:")
-        for ec in constraint.element_constraints:
-            offset = int(element_offset[reverse_mapping[ec.i_e]])
-            constraint_cols.append(ec.dofs + offset)
-            constraint_rows.append(np.full_like(ec.dofs, ic))
-            constraint_coef.append(ec.coeffs)
-        #     print(ec)
-        # print("")
-        ic += 1
-
-    # Form constraining
-    for form in constrained_form_constaints:
-        constraint = constrained_form_constaints[form]
-        constraint_vals.append(constraint.rhs)
-        for ec in constraint.element_constraints:
-            offset = int(element_offset[reverse_mapping[ec.i_e]])
-            constraint_cols.append(ec.dofs + offset)
-            constraint_rows.append(np.full_like(ec.dofs, ic))
-            constraint_coef.append(ec.coeffs)
-        ic += 1
-
-    # Strong BC constraints
-    for ec in strong_bc_constraints:
-        offset = int(element_offset[reverse_mapping[ec.i_e]])
-        for ci, cv in zip(ec.dofs, ec.coeffs, strict=True):
-            constraint_rows.append(np.array([ic]))
-            constraint_cols.append(np.array([ci + offset]))
-            constraint_coef.append(np.array([1.0]))
-            constraint_vals.append(float(cv))
-
-            ic += 1
-
-    # Weak BC constraints/additions
-    for ec in weak_bc_constraints:
-        ie = reverse_mapping[ec.i_e]
-        linear_vectors[ie][ec.dofs] += ec.coeffs
-
-    if constraint_coef:
-        lagrange_mat = sp.csr_array(
-            (
-                np.concatenate(constraint_coef),
-                (
-                    np.concatenate(constraint_rows, dtype=np.intp),
-                    np.concatenate(constraint_cols, dtype=np.intp),
-                ),
-            )
-        )
-        lagrange_mat.resize((ic, element_offset[-1]))
-        lagrange_vec = np.array(constraint_vals, np.float64)
-    else:
-        lagrange_mat = None
-        lagrange_vec = np.zeros(0, np.float64)
-    return lagrange_mat, lagrange_vec
-
-
-def _compute_system(
-    dk: int,
-    system: KFormSystem,
-    compiled: CompiledSystem,
-    mesh: Mesh,
-    basis_cache: FemCache,
-    unknown_ordering: UnknownOrderings,
-    constrained_forms: Sequence[tuple[float, KFormUnknown]],
-    boundary_conditions: Sequence[BoundaryCondition2DSteady],
-) -> tuple[
-    list[npt.NDArray[np.float64]],
-    list[npt.NDArray[np.float64]],
-    list[ElementFemSpace2D],
-    None | sp.csr_array,
-    npt.NDArray[np.float64],
-]:
-    """Compute system matrix and vector.
-
-    Parameters
-    ----------
-    dk : int
-        Order increase from baseline.
-    """
-    if dk < 0:
-        raise ValueError(f"Order difference should be non-negaive ({dk=}).")
-
-    leaf_indices = tuple(int(val) for val in mesh.get_leaf_indices())
-
-    dof_sizes = np.array(
-        [
-            compute_leaf_dof_counts(*mesh.get_leaf_orders(leaf_idx), unknown_ordering)
-            for leaf_idx in leaf_indices
-        ],
-        np.uint32,
-    )
-    dof_offsets = np.pad(np.cumsum(dof_sizes, axis=1), ((0, 0), (1, 0)))
-    element_total_dof_counts = dof_offsets[:, -1]
-    element_offset = np.astype(
-        np.pad(element_total_dof_counts.cumsum(), (1, 0)),
-        np.uint32,
-        copy=False,
-    )
-
-    element_caches = [
-        ElementFemSpace2D(
-            basis_cache.get_basis2d(orders[0] + dk, orders[1] + dk),
-            np.astype(corners, np.float64, copy=False),
-        )
-        for (orders, corners) in (
-            (mesh.get_leaf_orders(ie), mesh.get_leaf_corners(ie)) for ie in leaf_indices
-        )
-    ]
-    linear_vectors = [compute_element_rhs(system, cache) for cache in element_caches]
-    # TODO: deal with scalar and vector fields.
-    linear_matrices = [
-        compute_element_matrix(
-            unknown_ordering.form_orders, compiled.linear_codes, tuple(), cache
-        )
-        for cache in element_caches
-    ]
-
-    # Generate constraints that force the specified for to have the (child element) sum
-    # equal to a prescribed value.
-    lagrange_mat, lagrange_vec = _add_system_constraints(
-        system,
-        mesh,
-        basis_cache,
-        unknown_ordering,
-        constrained_forms,
-        boundary_conditions,
-        leaf_indices,
-        dof_offsets,
-        element_offset,
-        linear_vectors,
-    )
-
-    return linear_vectors, linear_matrices, element_caches, lagrange_mat, lagrange_vec
 
 
 def solve_system_2d(
@@ -339,24 +151,12 @@ def solve_system_2d(
     unknown_ordering = UnknownOrderings(*(form.order for form in system.unknown_forms))
     leaf_indices = tuple(int(val) for val in mesh.get_leaf_indices())
 
-    dof_sizes = np.array(
-        [
-            compute_leaf_dof_counts(*mesh.get_leaf_orders(leaf_idx), unknown_ordering)
-            for leaf_idx in leaf_indices
-        ],
-        np.uint32,
-    )
-    dof_offsets = np.pad(np.cumsum(dof_sizes, axis=1), ((0, 0), (1, 0)))
-    element_total_dof_counts = dof_offsets[:, -1]
-    element_offset = np.astype(
-        np.pad(element_total_dof_counts.cumsum(), (1, 0)),
-        np.uint32,
-        copy=False,
+    dof_offsets, element_total_dof_counts, element_offset = _compute_offsets_and_sizes(
+        mesh, unknown_ordering, leaf_indices, 0
     )
 
     # Explicit right side
     element_fem_spaces: list[ElementFemSpace2D] = list()
-    linear_vectors: list[npt.NDArray[np.float64]] = list()
 
     for leaf_idx in leaf_indices:
         order_1, order_2 = mesh.get_leaf_orders(leaf_idx)
@@ -366,32 +166,20 @@ def solve_system_2d(
         )
 
         element_fem_spaces.append(element_cache)
-        linear_vectors.append(compute_element_rhs(system, element_cache))
 
     # Prepare for evaluation of matrices/vectors
 
     initial_vectors: list[npt.NDArray[np.float64]] = list()
     initial_solution: list[npt.NDArray[np.float64]] = list()
     if system_settings.initial_conditions:
-        for i, leaf_idx in enumerate(leaf_indices):
-            order_1, order_2 = mesh.get_leaf_orders(leaf_idx)
+        for element_space in element_fem_spaces:
             dual_dofs = compute_element_dual(
-                unknown_ordering,
-                initial_funcs,
-                order_1,
-                order_2,
-                element_fem_spaces[i],
+                unknown_ordering, initial_funcs, element_space
             )
 
             initial_vectors.append(dual_dofs)
             initial_solution.append(
-                compute_element_primal(
-                    unknown_ordering,
-                    dual_dofs,
-                    order_1,
-                    order_2,
-                    element_fem_spaces[i],
-                )
+                compute_element_primal(unknown_ordering, dual_dofs, element_space)
             )
 
     if initial_solution:
@@ -427,52 +215,24 @@ def solve_system_2d(
         time_carry_index_array = None
         old_solution_carry = None
 
-    assert compiled_system.linear_codes
-
-    # Compute vector fields at integration points for leaf elements
-    linear_element_matrices: list[npt.NDArray[np.float64]] = list()
-
-    for ie, element_space in enumerate(element_fem_spaces):
-        basis = element_space.basis_2d
-        if len(vector_fields):
-            # Recompute vector fields
-            # Compute vector fields at integration points for leaf elements
-            vec_flds = compute_element_vector_fields_nonlin(
-                system.unknown_forms,
-                element_space,
-                basis,
-                vector_fields,
-                dof_offsets[ie],
-                solution[element_offset[ie] : element_offset[ie + 1]],
-            )
-        else:
-            vec_flds = tuple()
-
-        linear_element_matrices.append(
-            compute_element_matrix(
-                unknown_ordering.form_orders,
-                compiled_system.linear_codes,
-                vec_flds,
-                element_space,
-            )
+    linear_vectors, linear_element_matrices, lagrange_mat, lagrange_vec = (
+        _compute_linear_system(
+            element_fem_spaces,
+            dof_offsets,
+            element_offset,
+            leaf_indices,
+            system,
+            compiled_system,
+            mesh,
+            cache_2d,
+            unknown_ordering,
+            constrained_forms,
+            boundary_conditions if boundary_conditions is not None else list(),
+            initial_solution,
         )
-
+    )
     del initial_vectors, initial_solution
 
-    # Generate constraints that force the specified for to have the (child element) sum
-    # equal to a prescribed value.
-    lagrange_mat, lagrange_vec = _add_system_constraints(
-        system,
-        mesh,
-        cache_2d,
-        unknown_ordering,
-        constrained_forms,
-        boundary_conditions,
-        leaf_indices,
-        dof_offsets,
-        element_offset,
-        linear_vectors,
-    )
     main_mat = sp.block_diag(linear_element_matrices, format="csr")
     main_vec = np.concatenate(linear_vectors, dtype=np.float64)
 
@@ -705,6 +465,26 @@ def solve_system_2d(
     return tuple(resulting_grids), stats, output_mesh
 
 
+def _compute_offsets_and_sizes(
+    mesh: Mesh, unknown_ordering: UnknownOrderings, leaf_indices: Sequence[int], dp: int
+) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.uint32], npt.NDArray[np.uint32]]:
+    """Compute DoF offsets and sizes for the mesh and the system."""
+    dof_sizes = np.array(
+        [
+            compute_leaf_dof_counts(orders[0] + dp, orders[1] + dp, unknown_ordering)
+            for orders in (mesh.get_leaf_orders(leaf_idx) for leaf_idx in leaf_indices)
+        ],
+        np.uint32,
+    )
+    dof_offsets = np.pad(np.cumsum(dof_sizes, axis=1), ((0, 0), (1, 0)))
+    element_total_dof_counts = dof_offsets[:, -1]
+    element_offset = np.astype(
+        np.pad(element_total_dof_counts.cumsum(), (1, 0)), np.uint32, copy=False
+    )
+
+    return dof_offsets, element_total_dof_counts, element_offset
+
+
 def update_system_for_time_march(
     time_settings: TimeSettings, system: KFormSystem
 ) -> KFormSystem:
@@ -744,3 +524,137 @@ def update_system_for_time_march(
             )
 
     return KFormSystem(*new_equations)
+
+
+# def do_vms(
+#     mesh: Mesh,
+#     unknown_ordering: UnknownOrderings,
+#     leaf_indices: Sequence[int],
+#     basis_cache: FemCache,
+#     element_fem_spaces: Sequence[ElementFemSpace2D],
+#     order_diff: int,
+#     boundary_conditions: Sequence[BoundaryCondition2DSteady],
+#     constrained_forms: Sequence[tuple[float, KFormUnknown]],
+#     original_system: KFormSystem,
+#     symmetric_system: KFormSystem,
+#     antisymmetric_system: KFormSystem,
+#     coarse_forcing: npt.NDArray[np.float64],
+#     coarse_dof_offsets: npt.NDArray[np.uint32],
+#     coarse_element_offset: npt.NDArray[np.uint32],
+#     coarse_lagrange_mat: None | sp.csr_array,
+# ):
+#     """Do the VMS here."""
+#     fine_fem_spaces = [
+#         ElementFemSpace2D(
+#             Basis2D(
+#                 basis_cache.get_basis1d(element_space.basis_xi.order + order_diff),
+#                 basis_cache.get_basis1d(element_space.basis_eta.order + order_diff),
+#             ),
+#             element_space.corners,
+#         )
+#         for element_space in element_fem_spaces
+#     ]
+
+#     fine_dof_offsets, fine_element_total_dof_counts, fine_element_offset = (
+#         _compute_offsets_and_sizes(mesh, unknown_ordering, leaf_indices, order_diff)
+#     )
+
+#     compiled_symmetric = CompiledSystem(symmetric_system)
+#     fine_linear_vectors = [
+#         compute_element_rhs(original_system, cache) for cache in fine_fem_spaces
+#     ]
+#     fine_lagrange_mat, _ = _add_system_constraints(
+#         original_system,
+#         mesh,
+#         basis_cache,
+#         unknown_ordering,
+#         constrained_forms,
+#         boundary_conditions,
+#         leaf_indices,
+#         fine_dof_offsets,
+#         fine_element_offset,
+#         fine_linear_vectors,
+#     )
+
+#     fine_linear_matrices = [
+#         compute_element_matrix(
+#             unknown_ordering.form_orders,
+#             compiled_symmetric.linear_codes,
+#             tuple(),
+#             element_space,
+#         )
+#         for element_space in fine_fem_spaces
+#     ]
+
+#     fine_antisym_matrices = [
+#         compute_element_matrix(
+#             unknown_ordering.form_orders,
+#             CompiledSystem(antisymmetric_system).
+#         )
+#     ]
+
+#     coarse_linear_matrices = [
+#         compute_element_matrix(
+#             unknown_ordering.form_orders,
+#             compiled_symmetric.linear_codes,
+#             tuple(),
+#             element_space,
+#         )
+#         for element_space in element_fem_spaces
+#     ]
+
+#     element_projectors = [
+#         compute_element_projector(
+#             unknown_ordering.form_orders,
+#             fine_space.corners,
+#             fine_space.basis_2d,
+#             coarse_space.basis_2d,
+#         )
+#         for coarse_space, fine_space in zip(
+#             element_fem_spaces, fine_fem_spaces, strict=True
+#         )
+#     ]
+
+#     projection_matrix = cast(sp.csr_array, sp.block_diag(element_projectors, "csr"))
+#     fine_forcing = np.concatenate(fine_linear_vectors)
+#     residual = fine_forcing - projection_matrix @ coarse_forcing
+#     # Assume Lagrange multipliers are satisfied.
+
+#     system_matrix_fine = sp.block_diag(fine_linear_matrices)
+
+#     system_matrix_coarse = sp.block_diag(coarse_linear_matrices)
+#     if coarse_lagrange_mat is not None:
+#         system_matrix_coarse = sp.block_array(
+#             [
+#                 [system_matrix_coarse, coarse_lagrange_mat.T],
+#                 [coarse_lagrange_mat, None],
+#             ]
+#         )
+
+#     fine_mass_inverse = sp.block_diag(
+#         [
+#             element_space.mass_from_order(order, inverse=True)
+#             for order in unknown_ordering.form_orders
+#             for element_space in fine_fem_spaces
+#         ]
+#     )
+#     if fine_lagrange_mat is not None:
+#         n = fine_lagrange_mat.shape[0]
+#         residual = np.pad(residual, (0, n))
+#         system_matrix_fine = sp.block_array(
+#             [
+#                 [system_matrix_fine, fine_lagrange_mat.T],
+#                 [fine_lagrange_mat, None],
+#             ]
+#         )
+#         fine_mass_inverse.resize(
+#             fine_mass_inverse.shape[0] + n, fine_mass_inverse.shape[1] + n
+#         )
+
+#     fine_part = sla.spsolve(system_matrix_fine, fine_mass_inverse)
+
+#     coarse_part = projection_matrix.T @ sla.spsolve(
+#         system_matrix_coarse, projection_matrix @ fine_mass_inverse
+#     )
+
+#     fine_scale_green = fine_part - coarse_part

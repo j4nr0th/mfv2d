@@ -19,12 +19,14 @@ from scipy.sparse import linalg as sla
 from mfv2d._mfv2d import (
     Basis2D,
     ElementFemSpace2D,
+    Mesh,
     compute_element_matrix,
     compute_element_vector,
 )
 from mfv2d.boundary import (
     BoundaryCondition2DSteady,
 )
+from mfv2d.continuity import _add_system_constraints
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import (
     Function2D,
@@ -37,6 +39,7 @@ from mfv2d.kform import (
     UnknownOrderings,
 )
 from mfv2d.mimetic2d import (
+    FemCache,
     bilinear_interpolate,
     element_dual_dofs,
     reconstruct,
@@ -330,18 +333,23 @@ def compute_element_dual(
     functions: Sequence[
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike] | None
     ],
-    order_1: int,
-    order_2: int,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
 ) -> npt.NDArray[np.float64]:
     """Compute element L2 projection."""
     vecs: list[npt.NDArray[np.float64]] = list()
     for order, func in zip(ordering.form_orders, functions, strict=True):
         if func is None:
-            vecs.append(np.zeros(order.full_unknown_count(order_1, order_2), np.float64))
+            vecs.append(
+                np.zeros(
+                    order.full_unknown_count(
+                        element_space.basis_xi.order, element_space.basis_eta.order
+                    ),
+                    np.float64,
+                )
+            )
         else:
             vecs.append(
-                np.asarray(element_dual_dofs(order, element_cache, func), np.float64)
+                np.asarray(element_dual_dofs(order, element_space, func), np.float64)
             )
 
     return np.concatenate(vecs)
@@ -350,21 +358,21 @@ def compute_element_dual(
 def compute_element_primal(
     ordering: UnknownOrderings,
     dual_dofs: npt.NDArray[np.float64],
-    order_1: int,
-    order_2: int,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
 ) -> npt.NDArray[np.float64]:
     """Compute primal dofs from dual."""
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
     primal = np.empty_like(dual_dofs)
     for form in ordering.form_orders:
-        cnt = form.full_unknown_count(order_1, order_2)
+        cnt = form.full_unknown_count(
+            element_space.basis_xi.order, element_space.basis_eta.order
+        )
         v = dual_dofs[offset : offset + cnt]
         if form in mats:
             m = mats[form]
         else:
-            m = element_cache.mass_from_order(form, inverse=True)
+            m = element_space.mass_from_order(form, inverse=True)
             mats[form] = m
 
         primal[offset : offset + cnt] = m @ v
@@ -718,3 +726,86 @@ class VmsSettings:
     full_system: KFormSystem
     symmetric_part: KFormSystem
     advection_part: KFormSystem
+
+
+def _compute_linear_system(
+    element_fem_spaces: Sequence[ElementFemSpace2D],
+    dof_offsets: npt.NDArray[np.uint32],
+    element_offset: npt.NDArray[np.uint32],
+    leaf_indices: Sequence[int],
+    system: KFormSystem,
+    compiled: CompiledSystem,
+    mesh: Mesh,
+    basis_cache: FemCache,
+    unknown_ordering: UnknownOrderings,
+    constrained_forms: Sequence[tuple[float, KFormUnknown]],
+    boundary_conditions: Sequence[BoundaryCondition2DSteady],
+    initial_solution: list[npt.NDArray[np.float64]],
+) -> tuple[
+    list[npt.NDArray[np.float64]],
+    list[npt.NDArray[np.float64]],
+    None | sp.csr_array,
+    npt.NDArray[np.float64],
+]:
+    """Compute system matrix and vector.
+
+    Parameters
+    ----------
+    dk : int
+        Order increase from baseline.
+    """
+    linear_vectors = [compute_element_rhs(system, cache) for cache in element_fem_spaces]
+
+    if initial_solution:
+        linear_matrices = [
+            compute_element_matrix(
+                unknown_ordering.form_orders,
+                compiled.linear_codes,
+                compute_element_vector_fields_nonlin(
+                    system.unknown_forms,
+                    element_space,
+                    element_space.basis_2d,
+                    system.vector_fields,
+                    dof_offsets,
+                    element_solution,
+                ),
+                element_space,
+            )
+            for element_space, element_solution in zip(
+                element_fem_spaces, initial_solution, strict=True
+            )
+        ]
+    else:
+        linear_matrices = [
+            compute_element_matrix(
+                unknown_ordering.form_orders,
+                compiled.linear_codes,
+                compute_element_vector_fields_nonlin(
+                    system.unknown_forms,
+                    element_space,
+                    element_space.basis_2d,
+                    system.vector_fields,
+                    dof_offsets,
+                    None,
+                ),
+                element_space,
+            )
+            for element_space in element_fem_spaces
+        ]
+
+    # Generate constraints that force the specified for to have the (child element) sum
+    # equal to a prescribed value.
+    lagrange_mat, lagrange_vec = _add_system_constraints(
+        system,
+        mesh,
+        basis_cache,
+        unknown_ordering,
+        constrained_forms,
+        boundary_conditions,
+        leaf_indices,
+        dof_offsets,
+        element_offset,
+        linear_vectors,
+    )
+
+    return linear_vectors, linear_matrices, lagrange_mat, lagrange_vec

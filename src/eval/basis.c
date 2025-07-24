@@ -340,17 +340,29 @@ static PyObject *basis_2d_get_basis_eta(const basis_2d_t *self, void *Py_UNUSED(
     return (PyObject *)self->basis_eta;
 }
 
-// Deallocation
 static void basis_2d_dealloc(basis_2d_t *self)
 {
     Py_XDECREF(self->basis_xi);
     Py_XDECREF(self->basis_eta);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
-// Getters (read-only)
+
+static PyObject *basis_2d_get_orders(const basis_2d_t *self, void *Py_UNUSED(closure))
+{
+    return Py_BuildValue("II", self->basis_xi->order, self->basis_eta->order);
+}
+
+static PyObject *basis_2d_get_integration_orders(const basis_2d_t *self, void *Py_UNUSED(closure))
+{
+    return Py_BuildValue("II", self->basis_xi->integration_rule->order, self->basis_eta->integration_rule->order);
+}
+
 static PyGetSetDef Basis2D_getset[] = {
     {"basis_xi", (getter)basis_2d_get_basis_xi, NULL, "Basis1D : Basis used for the Xi direction.", NULL},
     {"basis_eta", (getter)basis_2d_get_basis_eta, NULL, "Basis1D : Basis used for the Eta direction.", NULL},
+    {"orders", (getter)basis_2d_get_orders, NULL, "(int, int) : Order of the basis."},
+    {"integration_orders", (getter)basis_2d_get_integration_orders, NULL,
+     "(int, int) : Order of the integration rules."},
     {NULL} // Sentinel
 };
 

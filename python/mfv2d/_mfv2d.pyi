@@ -861,6 +861,16 @@ class ElementFemSpace2D:
         """Return (cached) inverse surface mass matrix."""
         ...
 
+    @property
+    def orders(self) -> tuple[int, int]:
+        """Orders of the basis."""
+        ...
+
+    @property
+    def integration_orders(self) -> tuple[int, int]:
+        """Orders of integration rules used by the basis."""
+        ...
+
     def mass_from_order(
         self, order: UnknownFormOrder, inverse: bool = False
     ) -> npt.NDArray[np.float64]:

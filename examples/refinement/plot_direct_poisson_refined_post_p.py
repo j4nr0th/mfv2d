@@ -4,12 +4,12 @@ r"""
 Post-Solver p-Refinement
 ========================
 
-As mentioned in :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_pre.py` example,
+As mentioned in :ref:`sphx_glr_auto_examples_refinement_plot_direct_poisson_refined_pre.py` example,
 refinement can be done "post-solver" as well. This means that mesh refinement is performed after
 the solver finishes running. This does not change the computed solution, but allows for next solve
 to be more accurate, if repeated.
 
-The setup for the run is the same as one in :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_pre.py`,
+The setup for the run is the same as one in :ref:`sphx_glr_auto_examples_refinement_plot_direct_poisson_refined_pre.py`,
 so it will be only briefly mentioned.
 """  # noqa
 

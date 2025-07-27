@@ -1204,7 +1204,7 @@ static PyMethodDef mesh_methods[] = {
         .ml_doc = mesh_split_breath_first_docstr,
     },
     {
-        .ml_name = "mesh_uniform_p_change",
+        .ml_name = "uniform_p_change",
         .ml_meth = (void *)mesh_uniform_p_change,
         .ml_flags = METH_VARARGS,
         .ml_doc = mesh_uniform_p_change_docstr,

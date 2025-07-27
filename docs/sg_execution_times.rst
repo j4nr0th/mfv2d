@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:10.854** total execution time for 13 files **from all galleries**:
+**02:20.400** total execution time for 14 files **from all galleries**:
 
 .. container::
 
@@ -32,13 +32,25 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_post_p.py` (``../examples/steady/plot_direct_poisson_refined_post_p.py``)
-     - 00:10.854
+   * - :ref:`sphx_glr_auto_examples_unsteady_plot_reaction_mixed.py` (``../examples/unsteady/plot_reaction_mixed.py``)
+     - 00:39.551
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_unsteady_plot_reaction.py` (``../examples/unsteady/plot_reaction.py``)
+     - 00:33.496
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_refinement_plot_direct_poison_post_hp.py` (``../examples/refinement/plot_direct_poison_post_hp.py``)
+     - 00:28.912
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_refinement_plot_direct_poisson_refined_pre.py` (``../examples/refinement/plot_direct_poisson_refined_pre.py``)
+     - 00:21.475
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_refinement_plot_direct_poisson_refined_post_p.py` (``../examples/refinement/plot_direct_poisson_refined_post_p.py``)
+     - 00:12.473
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_unsteady_plot_vector_reaction.py` (``../examples/unsteady/plot_vector_reaction.py``)
+     - 00:04.492
      - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson.py` (``../examples/steady/plot_direct_poisson.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_pre.py` (``../examples/steady/plot_direct_poisson_refined_pre.py``)
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_linear_adv_dif.py` (``../examples/steady/plot_linear_adv_dif.py``)
@@ -60,14 +72,5 @@ Computation times
      - 00:00.000
      - 0.0
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_heat_mixed.py` (``../examples/unsteady/plot_heat_mixed.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_unsteady_plot_reaction.py` (``../examples/unsteady/plot_reaction.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_unsteady_plot_reaction_mixed.py` (``../examples/unsteady/plot_reaction_mixed.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_unsteady_plot_vector_reaction.py` (``../examples/unsteady/plot_vector_reaction.py``)
      - 00:00.000
      - 0.0

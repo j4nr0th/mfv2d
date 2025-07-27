@@ -25,6 +25,9 @@ from mfv2d.refinement import RefinementLimitElementCount as RefinementLimitEleme
 from mfv2d.refinement import RefinementLimitErrorValue as RefinementLimitErrorValue
 from mfv2d.refinement import RefinementLimitUnknownCount as RefinementLimitUnknownCount
 from mfv2d.refinement import RefinementSettings as RefinementSettings
+from mfv2d.refinement import (
+    compute_legendre_coefficients as compute_legendre_coefficients,
+)
 
 # Solve system
 from mfv2d.solve_system import SolverSettings as SolverSettings

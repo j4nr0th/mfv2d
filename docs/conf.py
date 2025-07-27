@@ -81,7 +81,11 @@ napoleon_attr_annotations = True
 # https://sphinx-gallery.github.io/stable/index.html
 sphinx_gallery_conf = {
     "examples_dirs": "../examples",
-    "subsection_order": ["../examples/steady", "../examples/unsteady"],
+    "subsection_order": [
+        "../examples/steady",
+        "../examples/unsteady",
+        "../examples/refinement",
+    ],
     "gallery_dirs": "auto_examples",
     "reference_url": {
         # The module you locally document uses None

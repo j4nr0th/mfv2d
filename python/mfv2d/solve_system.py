@@ -17,7 +17,6 @@ import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
 from mfv2d._mfv2d import (
-    Basis2D,
     ElementFemSpace2D,
     Mesh,
     compute_element_matrix,
@@ -27,7 +26,6 @@ from mfv2d.boundary import BoundaryCondition2DSteady
 from mfv2d.continuity import _add_system_constraints
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import (
-    Function2D,
     KElementProjection,
     KExplicit,
     KFormSystem,
@@ -44,82 +42,6 @@ from mfv2d.mimetic2d import (
     vtk_lagrange_ordering,
 )
 from mfv2d.progress import ProgressTracker
-
-
-def compute_element_vector_fields_nonlin(
-    unknown_forms: Sequence[KFormUnknown],
-    element_fem_space: ElementFemSpace2D,
-    output_basis: Basis2D,
-    vector_fields: Sequence[Function2D | KFormUnknown],
-    unknown_offsets: npt.NDArray[np.uint32],
-    solution: npt.NDArray[np.float64] | None,
-) -> tuple[npt.NDArray[np.float64], ...]:
-    """Evaluate vector fields which may be non-linear.
-
-    Parameters
-    ----------
-    unknown_forms : Sequence of KFormUnknown
-        Unknown forms in the order they appear in the system. This is used to
-        determine what degrees of freedom are needed for the vector fields
-        based on differential forms.
-
-    element_basis : Basis2D
-        Basis functions that the element uses. This needs to match
-        with the number of degrees of freedom of the element.
-
-    output_basis : Basis2D
-        Basis onto which the result is to be computed.
-
-    vector_fields : Sequence of Function2D or KFormUnknown
-        Description of the vector fields. Can be a callable which gives its
-        value at a point, or instead it can be an unknown in the system.
-
-    element_corners : (4, 2) array
-        Array of the element corner points.
-
-    unknown_offsets : array
-        Array with offsets of the degrees of freedom within the element. This
-        is used to pick correct degrees of freedom from the element DoFs vector.
-
-    solution : array, optional
-        Array of the element degrees of freedom. If not provided, all are assumed
-        to be zero instead.
-
-    Returns
-    -------
-    tuple of array
-        Tuple with arrays with values of the vector field at each point of the 2D
-        basis integration rules.
-    """
-    vec_field_lists: list[npt.NDArray[np.float64]] = list()
-    # Extract element DoFs
-
-    out_xi = output_basis.basis_xi.rule.nodes[None, :]
-    out_eta = output_basis.basis_eta.rule.nodes[:, None]
-
-    for vec_fld in vector_fields:
-        if isinstance(vec_fld, KFormUnknown):
-            if solution is not None:
-                i_form = unknown_forms.index(vec_fld)
-                form_dofs = solution[
-                    unknown_offsets[i_form] : unknown_offsets[i_form + 1]
-                ]
-                vf = reconstruct(
-                    element_fem_space, vec_fld.order, form_dofs, out_xi, out_eta
-                )
-            else:
-                if vec_fld.order == UnknownFormOrder.FORM_ORDER_1:
-                    vf = np.zeros((out_xi.size, out_eta.size, 2), np.float64)
-                else:
-                    vf = np.zeros((out_xi.size, out_eta.size), np.float64)
-        else:
-            element_corners = element_fem_space.corners
-            x = bilinear_interpolate(element_corners[:, 0], out_xi, out_eta)
-            y = bilinear_interpolate(element_corners[:, 1], out_xi, out_eta)
-            vf = np.asarray(vec_fld(x, y), np.float64, copy=None)
-        vec_field_lists.append(vf)
-
-    return tuple(vec_field_lists)
 
 
 def rhs_2d_element_projection(

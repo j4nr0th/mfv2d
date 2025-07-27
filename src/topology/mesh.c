@@ -891,6 +891,68 @@ static PyObject *mesh_split_breath_first(const mesh_t *const this, PyObject *arg
     return (PyObject *)output_mesh;
 }
 
+static PyObject *mesh_uniform_p_change(const mesh_t *const this, PyObject *args)
+{
+    long dp1, dp2;
+    if (!PyArg_ParseTuple(args, "ll", &dp1, &dp2))
+    {
+        return NULL;
+    }
+    if (dp1 == 0 && dp2 == 0)
+    {
+        // Nothing to do
+        Py_RETURN_NONE;
+    }
+    unsigned i = 0, j;
+    if (dp1 < 0 || dp2 < 0)
+    {
+        // Only check for making order too low if either of the changes is negative.
+
+        for (i = this->element_mesh.count, j = 0; i > 0 && j < this->element_mesh.leaf_count; --i)
+        {
+            const element_t *const elem = &this->element_mesh.elements[i - 1];
+            if (elem->base.type != ELEMENT_TYPE_LEAF)
+                continue;
+            j += 1;
+            const element_leaf_t *const leaf = &elem->leaf;
+            if (leaf->data.orders.i + dp1 <= 0)
+            {
+                PyErr_Format(
+                    PyExc_ValueError,
+                    "Order change of first dimension of %li would cause order of element %u with orders (%u, %u) "
+                    "to become non-positive.",
+                    dp1, i - 1, leaf->data.orders.i, leaf->data.orders.j);
+                return NULL;
+            }
+            if (leaf->data.orders.j + dp2 <= 0)
+            {
+                PyErr_Format(
+                    PyExc_ValueError,
+                    "Order change of second dimension of %li would cause order of element %u with orders (%u, %u) "
+                    "to become non-positive.",
+                    dp2, i - 1, leaf->data.orders.i, leaf->data.orders.j);
+                return NULL;
+            }
+        }
+    }
+
+    // Saved the value of i so that it now points to the first leaf.
+    // Also, no need to check j, since the last element is always a leaf, so we have to
+    // go from i to the end.
+    for (; i < this->element_mesh.count; ++i)
+    {
+        element_t *const elem = &this->element_mesh.elements[i];
+        if (elem->base.type != ELEMENT_TYPE_LEAF)
+            continue;
+        j += 1;
+        element_leaf_t *const leaf = &elem->leaf;
+        leaf->data.orders.i += dp1;
+        leaf->data.orders.j += dp2;
+    }
+
+    Py_RETURN_NONE;
+}
+
 PyDoc_STRVAR(mesh_get_element_parent_docstr,
              "get_element_parent(idx: typing.SupportsIndex, /) -> int | None\n"
              "Get the index of the element's parent or ``None`` if it is a root element.\n"
@@ -1061,6 +1123,19 @@ PyDoc_STRVAR(mesh_split_breath_first_docstr,
              "Mesh\n"
              "    Mesh with refined elements.\n");
 
+PyDoc_STRVAR(mesh_uniform_p_change_docstr, "Change orders of all elements by specified amounts.\n"
+                                           "\n"
+                                           "Note that if the change would result in a negative order for any element,\n"
+                                           "an exception is raised.\n"
+                                           "\n"
+                                           "Parameters\n"
+                                           "----------\n"
+                                           "dp_1 : int\n"
+                                           "    Change in the orders of the first dimension.\n"
+                                           "\n"
+                                           "dp_2 : int\n"
+                                           "    Change in the orders of the second dimension.\n");
+
 static PyMethodDef mesh_methods[] = {
     {
         .ml_name = "get_element_parent",
@@ -1127,6 +1202,12 @@ static PyMethodDef mesh_methods[] = {
         .ml_meth = (void *)mesh_split_breath_first,
         .ml_flags = METH_KEYWORDS | METH_VARARGS,
         .ml_doc = mesh_split_breath_first_docstr,
+    },
+    {
+        .ml_name = "mesh_uniform_p_change",
+        .ml_meth = (void *)mesh_uniform_p_change,
+        .ml_flags = METH_VARARGS,
+        .ml_doc = mesh_uniform_p_change_docstr,
     },
     {},
 };

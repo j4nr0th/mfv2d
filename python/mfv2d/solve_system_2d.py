@@ -529,8 +529,7 @@ def update_system_for_time_march(
 #     symmetric_system: KFormSystem,
 #     antisymmetric_system: KFormSystem,
 #     coarse_forcing: npt.NDArray[np.float64],
-#     coarse_dof_offsets: npt.NDArray[np.uint32],
-#     coarse_element_offset: npt.NDArray[np.uint32],
+#     coarse_solutions: Sequence[npt.NDArray[np.float64]],
 #     coarse_lagrange_mat: None | sp.csr_array,
 # ):
 #     """Do the VMS here."""
@@ -576,23 +575,6 @@ def update_system_for_time_march(
 #         for element_space in fine_fem_spaces
 #     ]
 
-#     fine_antisym_matrices = [
-#         compute_element_matrix(
-#             unknown_ordering.form_orders,
-#             CompiledSystem(antisymmetric_system).
-#         )
-#     ]
-
-#     coarse_linear_matrices = [
-#         compute_element_matrix(
-#             unknown_ordering.form_orders,
-#             compiled_symmetric.linear_codes,
-#             tuple(),
-#             element_space,
-#         )
-#         for element_space in element_fem_spaces
-#     ]
-
 #     element_projectors = [
 #         compute_element_projector(
 #             unknown_ordering.form_orders,
@@ -606,6 +588,31 @@ def update_system_for_time_march(
 #     ]
 
 #     projection_matrix = cast(sp.csr_array, sp.block_diag(element_projectors, "csr"))
+
+#     compiled_antisymmetric = CompiledSystem(antisymmetric_system)
+#     fine_antisym_matrices = [
+#         compute_element_matrix(
+#             unknown_ordering.form_orders,
+#             compiled_antisymmetric.lhs_full,
+#             compiled_antisymmetric.vector_field_specs,
+#             element_space,
+#             proj @ sol,
+#         )
+#         for element_space, proj, sol in zip(
+#             fine_fem_spaces, element_projectors, coarse_solutions, strict=True
+#         )
+#     ]
+
+#     coarse_linear_matrices = [
+#         compute_element_matrix(
+#             unknown_ordering.form_orders,
+#             compiled_symmetric.linear_codes,
+#             tuple(),
+#             element_space,
+#         )
+#         for element_space in element_fem_spaces
+#     ]
+
 #     fine_forcing = np.concatenate(fine_linear_vectors)
 #     residual = fine_forcing - projection_matrix @ coarse_forcing
 #     # Assume Lagrange multipliers are satisfied.
@@ -628,6 +635,7 @@ def update_system_for_time_march(
 #             for element_space in fine_fem_spaces
 #         ]
 #     )
+#     fine_advection = sp.block_diag(fine_antisym_matrices)
 #     if fine_lagrange_mat is not None:
 #         n = fine_lagrange_mat.shape[0]
 #         residual = np.pad(residual, (0, n))
@@ -640,6 +648,7 @@ def update_system_for_time_march(
 #         fine_mass_inverse.resize(
 #             fine_mass_inverse.shape[0] + n, fine_mass_inverse.shape[1] + n
 #         )
+#         fine_advection.resize(fine_advection.shape[0] + n, fine_advection.shape[1] + n)
 
 #     fine_part = sla.spsolve(system_matrix_fine, fine_mass_inverse)
 
@@ -648,3 +657,6 @@ def update_system_for_time_march(
 #     )
 
 #     fine_scale_green = fine_part - coarse_part
+#     advected_green = fine_advection @ fine_scale_green
+#     return advected_green
+#     # sg_result = sla.spsolve(fine_mass_inverse)

@@ -1276,6 +1276,22 @@ class Mesh:
         """
         ...
 
+    def uniform_p_change(self, dp_1: int, dp_2: int, /) -> None:
+        """Change orders of all elements by specified amounts.
+
+        Note that if the change would result in a negative order for any element,
+        an exception is raised.
+
+        Parameters
+        ----------
+        dp_1 : int
+            Change in the orders of the first dimension.
+
+        dp_2 : int
+            Change in the orders of the second dimension.
+        """
+        ...
+
 # Element side enum values
 
 ELEMENT_SIDE_BOTTOM: int

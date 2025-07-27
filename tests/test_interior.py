@@ -608,5 +608,5 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
     assert np.max(np.abs(v1 - v2)) < 1e-13
 
 
-if __name__ == "__main__":
-    test_advect_non_linear_21_irregular_deformed(_CORNER_TEST_VALUES[0])
+# if __name__ == "__main__":
+#     test_advect_non_linear_21_irregular_deformed(_CORNER_TEST_VALUES[0])

@@ -123,7 +123,7 @@ print(system)
 #
 
 N = 6
-P = 3
+P = 4
 
 n1 = N
 n2 = N
@@ -152,9 +152,9 @@ mesh = mesh_create(
 # ------------------------
 #
 # With the mesh and system defined, the simulations can be run. The run is done for
-# 10, 20, 50, 100, and 200 time steps.
+# 10, 20, 50, and 100 time steps.
 
-nt_vals = np.array((10, 20, 50, 100, 200))
+nt_vals = np.array((10, 20, 50, 100))
 h1_err = np.zeros(nt_vals.size)
 l2_err = np.zeros(nt_vals.size)
 dt_vals = np.zeros(nt_vals.size)
@@ -170,7 +170,7 @@ for i_nt, nt in enumerate(nt_vals):
             maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
         ),
         time_settings=TimeSettings(dt=dt, nt=nt, time_march_relations={v: u}),
-        recon_order=25,
+        recon_order=10,
     )
 
     n_sol = len(solutions)

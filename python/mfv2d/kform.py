@@ -22,8 +22,6 @@ Function2D = TypeAliasType(
 )
 """Type of a function taking two inputs and returning an array-like."""
 
-_DIMENSION_COUNT = 2
-
 
 class UnknownFormOrder(IntEnum):
     """Orders of unknown differential forms.

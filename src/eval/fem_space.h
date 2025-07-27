@@ -229,4 +229,66 @@ MFV2D_INTERNAL
 mfv2d_result_t compute_mass_matrix_surf_double(const fem_space_2d_t *space_in, const fem_space_2d_t *space_out,
                                                matrix_full_t *p_out, const allocator_callbacks *allocator);
 
+MFV2D_INTERNAL
+unsigned fem_space_node_basis_cnt(const fem_space_2d_t *space);
+
+MFV2D_INTERNAL
+unsigned fem_space_edge_h_basis_cnt(const fem_space_2d_t *space);
+
+MFV2D_INTERNAL
+unsigned fem_space_edge_v_basis_cnt(const fem_space_2d_t *space);
+
+MFV2D_INTERNAL
+unsigned fem_space_surf_basis_cnt(const fem_space_2d_t *space);
+
+MFV2D_INTERNAL
+index_2d_t fem_space_integration_node_counts(const fem_space_2d_t *this);
+
+MFV2D_INTERNAL
+index_2d_t nodal_basis_index(const fem_space_2d_t *space, const unsigned flat_index);
+
+MFV2D_INTERNAL
+index_2d_t edge_h_basis_index(const fem_space_2d_t *space, const unsigned flat_index);
+
+MFV2D_INTERNAL
+index_2d_t edge_v_basis_index(const fem_space_2d_t *space, const unsigned flat_index);
+
+MFV2D_INTERNAL
+index_2d_t surf_basis_index(const fem_space_2d_t *space, const unsigned flat_index);
+
+MFV2D_INTERNAL
+double node_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                           const unsigned i_point, const unsigned j_point);
+
+MFV2D_INTERNAL
+double node_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                        const unsigned j_point);
+
+MFV2D_INTERNAL
+double edge_h_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                             const unsigned i_point, const unsigned j_point);
+
+MFV2D_INTERNAL
+double edge_h_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                          const unsigned j_point);
+
+MFV2D_INTERNAL
+double edge_v_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                             const unsigned i_point, const unsigned j_point);
+
+MFV2D_INTERNAL
+double edge_v_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                          const unsigned j_point);
+
+MFV2D_INTERNAL
+double surf_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                           const unsigned i_point, const unsigned j_point);
+
+MFV2D_INTERNAL
+double surf_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                        const unsigned j_point);
+
+MFV2D_INTERNAL
+double integration_weight_value(const fem_space_2d_t *space, const unsigned i_point, const unsigned j_point);
+
 #endif // FEM_SPACE_H

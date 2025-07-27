@@ -52,6 +52,40 @@ def test_reconstruction_nodal() -> None:
     assert pytest.approx(recon) == real
 
 
+def test_reconstruction_edge() -> None:
+    """Check edge reconstruction is exact at a high enough order."""
+    N = 6
+
+    def test_function(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]):
+        """Test function."""
+        return np.stack((x**3 + 2 * y - x * y, y**3 - 2 * x + 2 * x * y), axis=-1)
+
+    corners = np.array([(-2, -1.1), (+0.7, -1.5), (+1, +1), (-1.2, +1)], np.float64)
+
+    int_rule = IntegrationRule1D(N + 2)
+    basis_1d = Basis1D(N, int_rule)
+    basis_2d = Basis2D(basis_1d, basis_1d)
+    element_space = ElementFemSpace2D(basis_2d, corners)
+
+    dual = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, element_space, test_function
+    )
+    test_v = np.linspace(-1, +1, 21)
+    recon = reconstruct(
+        element_space,
+        UnknownFormOrder.FORM_ORDER_1,
+        dual,
+        test_v[None, :],
+        test_v[:, None],
+    )
+
+    real = test_function(
+        bilinear_interpolate(corners[:, 0], test_v[None, :], test_v[:, None]),
+        bilinear_interpolate(corners[:, 1], test_v[None, :], test_v[:, None]),
+    )
+    assert pytest.approx(recon) == real
+
+
 def test_reconstruction_surf() -> None:
     """Check nodal reconstruction is exact at a high enough order."""
     N = 6

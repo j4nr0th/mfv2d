@@ -10,8 +10,8 @@ from typing import Concatenate, ParamSpec, Self, SupportsIndex, final
 import numpy as np
 import numpy.typing as npt
 
-from mfv2d.eval import MatOpCode, _CompiledCodeMatrix
-from mfv2d.kform import UnknownFormOrder
+from mfv2d.eval import _TranslatedBlock, _TranslatedSystem2D
+from mfv2d.kform import Function2D, UnknownFormOrder
 
 def lagrange1d(
     roots: npt.ArrayLike, x: npt.ArrayLike, out: npt.NDArray[np.double] | None = None, /
@@ -693,7 +693,7 @@ class Manifold2D(Manifold):
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
-def check_bytecode(expression: list[MatOpCode | int | float], /) -> list[int | float]:
+def check_bytecode(expression: _TranslatedBlock, /) -> _TranslatedBlock:
     """Convert bytecode to C-values, then back to Python.
 
     This function is meant for testing.
@@ -893,9 +893,10 @@ class ElementFemSpace2D:
 
 def compute_element_matrix(
     form_orders: Sequence[UnknownFormOrder],
-    expressions: _CompiledCodeMatrix,
-    vector_fields: Sequence[npt.NDArray[np.float64]],
-    element_cache: ElementFemSpace2D,
+    expressions: _TranslatedSystem2D,
+    field_specifications: tuple[int | Function2D, ...],
+    element_fem_space: ElementFemSpace2D,
+    degrees_of_freedom: npt.NDArray[np.float64] | None = None,
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
     """Compute a single element matrix.
@@ -908,11 +909,14 @@ def compute_element_matrix(
     expressions
         Compiled bytecode to execute.
 
-    vector_fields : Sequence of arrays
-        Vector field arrays as required for interior product evaluations.
+    field_specifications : tuple of int or Function2D
+        Specification for fields used for interior products.
 
-    element_cache : ElementFemSpace2D
-        Cache of the element basis and mass matrices.
+    element_fem_space : ElementFemSpace2D
+        Element's FEM space.
+
+    degrees_of_freedom : array, optional
+        Array with degrees of freedom for the element.
 
     stack_memory : int, default: 1 << 24
         Amount of memory to use for the evaluation stack.
@@ -926,10 +930,10 @@ def compute_element_matrix(
 
 def compute_element_vector(
     form_orders: Sequence[UnknownFormOrder],
-    expressions: _CompiledCodeMatrix,
-    vector_fields: Sequence[npt.NDArray[np.float64]],
+    expressions: _TranslatedSystem2D,
+    field_specifications: tuple[int | Function2D, ...],
     element_cache: ElementFemSpace2D,
-    solution: npt.NDArray[np.float64],
+    degrees_of_freedom: npt.NDArray[np.float64],
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
     """Compute a single element forcing.
@@ -942,13 +946,13 @@ def compute_element_vector(
     expressions
         Compiled bytecode to execute.
 
-    vector_fields : Sequence of arrays
-        Vector field arrays as required for interior product evaluations.
+    field_specifications : tuple of int or Function2D
+        Specification for fields used for interior products.
 
-    element_cache : ElementFemSpace2D
-        Cache of the element basis and mass matrices.
+    element_fem_space : ElementFemSpace2D
+        Element's FEM space.
 
-    solution : array
+    degrees_of_freedom : array
         Array with degrees of freedom for the element.
 
     stack_memory : int, default: 1 << 24
@@ -1290,3 +1294,35 @@ MATOP_MATMUL: int
 MATOP_SCALE: int
 MATOP_SUM: int
 MATOP_INTERPROD: int
+
+def compute_integrating_fields(
+    fem_space: ElementFemSpace2D,
+    form_orders: tuple[UnknownFormOrder, ...],
+    field_information: tuple[int | Function2D, ...],
+    field_orders: tuple[UnknownFormOrder, ...],
+    degrees_of_freedom: npt.NDArray[np.float64],
+) -> tuple[npt.NDArray[np.double], ...]:
+    """Compute fields at integration points.
+
+    Parameters
+    ----------
+    fem_space : ElementFemSpace2D
+        Element FEM space to use for basis and integration rules.
+
+    form_orders : tuple of UnknownFormOrder
+        Orders of differential forms in the system.
+
+    field_information : tuple of int or Function2D
+        Information of how to compute the field - an integer indicates to use degrees of
+        freedom of that form, while a function indicates it should be called and
+        evaluated.
+
+    degrees_of_freedom : array
+        Array with degrees of freedom from which the fields may be computed.
+
+    Returns
+    -------
+    tuple of arrays
+        Fields reconstructed at the integration points.
+    """
+    ...

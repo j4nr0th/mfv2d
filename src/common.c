@@ -135,3 +135,40 @@ void check_memory_bounds(const size_t allocated_size, const size_t element_count
     (void)line;
     (void)func;
 }
+
+[[gnu::format(printf, 2, 3)]]
+void raise_exception_from_current(PyObject *exception, const char *format, ...)
+{
+    PyObject *const original = PyErr_GetRaisedException();
+    if (original)
+    {
+        va_list args;
+        va_start(args, format);
+        PyObject *const message = PyUnicode_FromFormatV(format, args);
+        va_end(args);
+        PyObject *new_exception = NULL;
+        if (message)
+        {
+            new_exception = PyObject_CallFunctionObjArgs(exception, message, NULL);
+            Py_DECREF(message);
+        }
+
+        if (new_exception && PyObject_SetAttrString(new_exception, "__cause__", original) == 0)
+        {
+            PyErr_SetObject(exception, new_exception);
+            new_exception = NULL;
+        }
+        else
+        {
+            PyErr_SetRaisedException(original);
+        }
+        Py_XDECREF(new_exception);
+    }
+    else
+    {
+        va_list args;
+        va_start(args, format);
+        PyErr_FormatV(exception, format, args);
+        va_end(args);
+    }
+}

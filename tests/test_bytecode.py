@@ -35,3 +35,7 @@ def test_bytecode():
 
         for b1, b2 in zip(bytecode_in, bytecode_out, strict=True):
             assert b1 == b2
+
+
+if __name__ == "__main__":
+    test_bytecode()

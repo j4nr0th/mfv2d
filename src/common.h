@@ -43,7 +43,16 @@ static inline void *allocate_track(const allocator_callbacks *allocator, const s
     return ptr;
 }
 
+static inline void *deallocate_track(const allocator_callbacks *allocator, void *ptr, const char *file, int line,
+                                     const char *func)
+{
+    deallocate(allocator, ptr);
+    fprintf(stderr, "Deallocating %p at %s:%d (%s)\n", ptr, file, line, func);
+    return ptr;
+}
+
 // #define allocate(allocator, sz) allocate_track((allocator), (sz), __FILE__, __LINE__, __func__)
+// #define deallocate(allocator, sz) deallocate_track((allocator), (sz), __FILE__, __LINE__, __func__)
 
 /**
  * @brief Validates a NumPy array based on the specified dimensions, data type, and flags.
@@ -73,6 +82,23 @@ MFV2D_INTERNAL int check_input_array(const PyArrayObject *const arr, const unsig
 
 MFV2D_INTERNAL void check_memory_bounds(size_t allocated_size, size_t element_count, size_t element_size,
                                         const char *file, int line, const char *func);
+
+/**
+ * @brief Raises a new Python exception, preserving the current exception context.
+ *
+ * This function raises a new Python exception of the specified type, while
+ * preserving the context of the current exception if one exists. It formats
+ * the error message using the provided format string and additional arguments.
+ * If an exception is already set, it will be attached as the cause of the new
+ * exception. If no exception is set, a new exception is generated with the
+ * specified type and formatted message.
+ *
+ * @param exception The Python exception type to raise (e.g., PyExc_RuntimeError).
+ * @param format The printf-style format string to create the exception message.
+ * @param ... Additional arguments to populate the format string.
+ */
+[[gnu::format(printf, 2, 3)]]
+MFV2D_INTERNAL void raise_exception_from_current(PyObject *exception, const char *format, ...);
 
 #define CHECK_MEMORY_BOUNDS(allocated_size, offset, size)                                                              \
     check_memory_bounds((allocated_size), (offset), (size), __FILE__, __LINE__, __func__)

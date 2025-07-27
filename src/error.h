@@ -27,7 +27,9 @@ typedef enum
     MFV2D_NOT_A_LEAF,              // Element is not a leaf
     MFV2D_FAILED_CALLBACK,         // An external callback failed.
     MFV2D_UNSPECIFIED_ERROR,       // Unspecified
-    EVAL_COUNT,                    // Used to check if out of range.
+    MFV2D_BAD_ARGUMENT,            // Bad user specified argument (do not use for internal functions!)
+    MFV2D_PYTHON_EXCEPTION,        // Python call raised an exception
+    MFV2D_RESULT_COUNT,            // Used to check if out of range.
 } mfv2d_result_t;
 
 MFV2D_INTERNAL

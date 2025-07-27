@@ -23,9 +23,7 @@ from mfv2d._mfv2d import (
     compute_element_matrix,
     compute_element_vector,
 )
-from mfv2d.boundary import (
-    BoundaryCondition2DSteady,
-)
+from mfv2d.boundary import BoundaryCondition2DSteady
 from mfv2d.continuity import _add_system_constraints
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import (
@@ -410,7 +408,6 @@ def compute_element_primal_to_dual(
 
 
 def non_linear_solve_run(
-    system: KFormSystem,
     max_iterations: int,
     relax: float,
     atol: float,
@@ -420,7 +417,6 @@ def non_linear_solve_run(
     element_fem_spaces: Sequence[ElementFemSpace2D],
     compiled_system: CompiledSystem,
     explicit_vec: npt.NDArray[np.float64],
-    dof_offsets: npt.NDArray[np.uint32],
     element_offsets: npt.NDArray[np.uint32],
     linear_element_matrices: Sequence[npt.NDArray[np.float64]],
     time_carry_index_array: npt.NDArray[np.uint32] | None,
@@ -428,7 +424,6 @@ def non_linear_solve_run(
     solution: npt.NDArray[np.float64],
     global_lagrange: npt.NDArray[np.float64],
     max_mag: float,
-    vector_fields: Sequence[Function2D | KFormUnknown],
     system_decomp: sla.SuperLU,
     lagrange_mat: sp.csr_array | None,
     return_all_residuals: bool = False,
@@ -460,26 +455,12 @@ def non_linear_solve_run(
         lhs_vectors: list[npt.NDArray[np.float64]] = list()
         lhs_matrices: list[npt.NDArray[np.float64]] = list()
         for ie, element_space in enumerate(element_fem_spaces):
-            basis = element_space.basis_2d
             element_solution = solution[element_offsets[ie] : element_offsets[ie + 1]]
-            if len(vector_fields):
-                # Recompute vector fields
-                # Compute vector fields at integration points for leaf elements
-                vec_flds = compute_element_vector_fields_nonlin(
-                    system.unknown_forms,
-                    element_space,
-                    basis,
-                    vector_fields,
-                    dof_offsets[ie],
-                    element_solution,
-                )
-            else:
-                vec_flds = tuple()
 
             lhs_vec = compute_element_vector(
                 unknown_ordering.form_orders,
                 compiled_system.lhs_full,
-                vec_flds,
+                compiled_system.vector_field_specs,
                 element_space,
                 element_solution,
             )
@@ -489,7 +470,7 @@ def non_linear_solve_run(
                 rhs_vec = compute_element_vector(
                     unknown_ordering.form_orders,
                     compiled_system.rhs_codes,
-                    vec_flds,
+                    compiled_system.vector_field_specs,
                     element_space,
                     element_solution,
                 )
@@ -501,8 +482,9 @@ def non_linear_solve_run(
                 mat = compute_element_matrix(
                     unknown_ordering.form_orders,
                     compiled_system.nonlin_codes,
-                    vec_flds,
+                    compiled_system.vector_field_specs,
                     element_space,
+                    element_solution,
                 )
                 lhs_matrices.append(linear_element_matrices[ie] + mat)
 
@@ -761,15 +743,9 @@ def _compute_linear_system(
             compute_element_matrix(
                 unknown_ordering.form_orders,
                 compiled.linear_codes,
-                compute_element_vector_fields_nonlin(
-                    system.unknown_forms,
-                    element_space,
-                    element_space.basis_2d,
-                    system.vector_fields,
-                    dof_offsets,
-                    element_solution,
-                ),
+                compiled.vector_field_specs,
                 element_space,
+                element_solution,
             )
             for element_space, element_solution in zip(
                 element_fem_spaces, initial_solution, strict=True
@@ -780,14 +756,7 @@ def _compute_linear_system(
             compute_element_matrix(
                 unknown_ordering.form_orders,
                 compiled.linear_codes,
-                compute_element_vector_fields_nonlin(
-                    system.unknown_forms,
-                    element_space,
-                    element_space.basis_2d,
-                    system.vector_fields,
-                    dof_offsets,
-                    None,
-                ),
+                compiled.vector_field_specs,
                 element_space,
             )
             for element_space in element_fem_spaces

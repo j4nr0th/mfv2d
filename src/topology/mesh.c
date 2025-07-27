@@ -705,43 +705,6 @@ static mfv2d_result_t refine_element_depth_first(element_mesh_t *mesh, unsigned 
     return res_children;
 }
 
-[[gnu::format(printf, 2, 3)]]
-static void raise_exception_from(PyObject *exception, const char *format, ...)
-{
-    PyObject *const original = PyErr_GetRaisedException();
-    if (original)
-    {
-        va_list args;
-        va_start(args, format);
-        PyObject *const message = PyUnicode_FromFormatV(format, args);
-        va_end(args);
-        PyObject *new_exception = NULL;
-        if (message)
-        {
-            new_exception = PyObject_CallFunctionObjArgs(exception, message, NULL);
-            Py_DECREF(message);
-        }
-
-        if (new_exception && PyObject_SetAttrString(new_exception, "__cause__", original) == 0)
-        {
-            PyErr_SetObject(exception, new_exception);
-            new_exception = NULL;
-        }
-        else
-        {
-            PyErr_SetRaisedException(original);
-        }
-        Py_XDECREF(new_exception);
-    }
-    else
-    {
-        va_list args;
-        va_start(args, format);
-        PyErr_FormatV(exception, format, args);
-        va_end(args);
-    }
-}
-
 static mesh_t *mesh_split_prepare_arguments(const mesh_t *const this, PyObject *args, PyObject **p_predicate,
                                             PyObject **p_forwarded_args, long *p_max_depth)
 {
@@ -818,8 +781,8 @@ static PyObject *mesh_split_depth_first(const mesh_t *const this, PyObject *args
                                                               predicate, forwarded_args, kwds);
         if (res != MFV2D_SUCCESS)
         {
-            raise_exception_from(PyExc_RuntimeError, "Could not split element %u, reason: %s", i,
-                                 mfv2d_result_str(res));
+            raise_exception_from_current(PyExc_RuntimeError, "Could not split element %u, reason: %s", i,
+                                         mfv2d_result_str(res));
             Py_DECREF(output_mesh);
             Py_DECREF(forwarded_args);
             return (PyObject *)output_mesh;
@@ -913,8 +876,8 @@ static PyObject *mesh_split_breath_first(const mesh_t *const this, PyObject *arg
                 refine_element_breath_first(&output_mesh->element_mesh, i, predicate, forwarded_args, kwds);
             if (res != MFV2D_SUCCESS)
             {
-                raise_exception_from(PyExc_RuntimeError, "Could not split element %u, reason: %s", i,
-                                     mfv2d_result_str(res));
+                raise_exception_from_current(PyExc_RuntimeError, "Could not split element %u, reason: %s", i,
+                                             mfv2d_result_str(res));
                 Py_DECREF(output_mesh);
                 Py_DECREF(forwarded_args);
                 return NULL;

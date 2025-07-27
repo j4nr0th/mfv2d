@@ -23,25 +23,15 @@
 #ifndef ASSERT
 #ifdef MFV2D_ASSERTS
 /**
- * @brief is a macro, which tests a condition and only evaluates it once. If it
- * is false, then it is reported to stderr. The macro returns !(condition), so
- * if condition holds it returns 0 and if it does not it returns 0. The
- * intended usage is as follows:
- *
- * if (ASSERT(cnd))
- * {
- *     return ERROR_CODE;
- * }
- *
- * @note ASSERT does all this only when building in Debug mode. For Release
- * configuration, the macro is replaced with compiler specific assume
+ * Macro used to check the condition holds at runtime for Debug builds. If the specified condition is false,
+ * the program will terminate. In Release configuration, the macro is replaced with a compiler-specific "assume"
  * directive, or a zero if that is not known for the specific compiler used.
  */
 #define ASSERT(condition, message, ...)                                                                                \
     ((condition) ? 0                                                                                                   \
                  : (fprintf(stderr, "%s:%d: %s: Assertion '%s' failed - " message "\n", __FILE__, __LINE__, __func__,  \
                             #condition __VA_OPT__(, ) __VA_ARGS__),                                                    \
-                    1))
+                    exit(EXIT_FAILURE), 1))
 #else
 #ifdef __GNUC__
 #define ASSUME(condition, message) __assume(condition)

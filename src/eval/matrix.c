@@ -305,6 +305,22 @@ void matrix_cleanup(matrix_t *this, const allocator_callbacks *allocator)
     *this = (matrix_t){};
 }
 
+static const char *const incidence_type_strings[INCIDENCE_TYPE_CNT] = {
+    [INCIDENCE_TYPE_10] = "INCIDENCE_TYPE_10",
+    [INCIDENCE_TYPE_21] = "INCIDENCE_TYPE_21",
+    [INCIDENCE_TYPE_10_T] = "INCIDENCE_TYPE_10_T",
+    [INCIDENCE_TYPE_21_T] = "INCIDENCE_TYPE_21_T",
+};
+
+const char *incidence_type_str(const incidence_type_t type)
+{
+    if (type < INCIDENCE_TYPE_10 || type > INCIDENCE_TYPE_21_T)
+        return "Invalid";
+
+    // vvv Glorious AI slop (yeah, let me just return a STACK ALLOCATED ARRAY, surely that works!)
+    // return (const char[]){type - INCIDENCE_TYPE_10 + '0', '\0'};
+    return incidence_type_strings[type];
+}
 void matrix_print(const matrix_t *mtx)
 {
     switch (mtx->type)

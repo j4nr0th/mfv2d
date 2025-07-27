@@ -5,66 +5,9 @@
 #include "element_fem_space.h"
 #include "fem_space.h"
 
+#include "integrating_fields.h"
 #include <numpy/ndarrayobject.h>
 
-static int extract_element_vector_fields(PyObject *vector_fields_obj, const element_fem_space_2d_t *const element_cache,
-                                         field_information_t *const out_field_information)
-{
-    // Validate vector_fields is a sequence
-    if (!PySequence_Check(vector_fields_obj))
-    {
-        PyErr_SetString(PyExc_TypeError, "vector_fields must be a sequence of np.ndarray");
-        return -1;
-    }
-
-    const unsigned n1 = element_cache->basis_xi->integration_rule->order + 1;
-    const unsigned n2 = element_cache->basis_eta->integration_rule->order + 1;
-
-    // Validate each element in vector_fields is a float64 ndarray
-    const Py_ssize_t n_vector_fields = PySequence_Size(vector_fields_obj);
-    if (n_vector_fields > VECTOR_FIELDS_MAX)
-    {
-        PyErr_Format(PyExc_ValueError, "Can not have more than %d vector fields (%d were given).", VECTOR_FIELDS_MAX,
-                     (int)n_vector_fields);
-        return -1;
-    }
-    field_information_t element_field_information = {.n_fields = n_vector_fields};
-    for (Py_ssize_t i = 0; i < n_vector_fields; ++i)
-    {
-        PyObject *item = PySequence_GetItem(vector_fields_obj, i);
-        if (check_input_array((PyArrayObject *)item, 0, (const npy_intp[0]){}, NPY_DOUBLE,
-                              NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "vector_fields element") < 0)
-        {
-            Py_DECREF(item);
-            return -1;
-        }
-        const PyArrayObject *array = (const PyArrayObject *)item;
-        const int dim = PyArray_NDIM(array);
-        const npy_intp *const dims = PyArray_DIMS(array);
-        if (dim == 2 && dims[0] == n1 && dims[1] == n2)
-        {
-            element_field_information.components[i] = 1;
-        }
-        else if (dim == 3 && dims[0] == n1 && dims[1] == n2 && dims[2] == 2)
-        {
-            element_field_information.components[i] = 2;
-        }
-        else
-        {
-            PyErr_Format(PyExc_ValueError, "Vector field %d must be a 2D or 3D array of shape (%d, %d) or (%d, %d, 2).",
-                         i, n1, n2, n1, n2);
-
-            Py_DECREF(item);
-            return -1;
-        }
-
-        element_field_information.fields[i] = PyArray_DATA(array);
-        Py_DECREF(item);
-    }
-
-    *out_field_information = element_field_information;
-    return 0;
-}
 MFV2D_INTERNAL
 PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwargs)
 {
@@ -72,25 +15,31 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     PyObject *form_orders_obj = NULL;
     PyObject *expressions = NULL;
     PyObject *vector_fields_obj = NULL;
-    element_fem_space_2d_t *element_cache = NULL;
+    element_fem_space_2d_t *element_fem_space = NULL;
+    PyArrayObject *py_degrees_of_freedom = NULL;
     Py_ssize_t stack_memory = 1 << 24;
 
-    static char *kwlist[7] = {"form_orders", "expressions", "vector_fields", "element_cache", " stack_memory ", NULL};
+    static char *kwlist[7] = {
+        "form_orders",  "expressions", "field_specifications", "element_fem_space", "degrees_of_freedom",
+        "stack_memory", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO!|n", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO!O!|O!n", kwlist,
                                      &form_orders_obj,           // Sequence[int]
                                      &expressions,               // _CompiledCodeMatrix (PyObject*)
-                                     &vector_fields_obj,         // Sequence[np.ndarray]
-                                     &element_fem_space_2d_type, // For type checking
-                                     &element_cache,             // element cache
+                                     &PyTuple_Type,              // for type checking
+                                     &vector_fields_obj,         // Sequence of int or Callable
+                                     &element_fem_space_2d_type, // for type checking
+                                     &element_fem_space,         // element cache
+                                     &PyArray_Type,              // for type checking
+                                     &py_degrees_of_freedom,     // array
                                      &stack_memory               // int
                                      ))
     {
         return NULL;
     }
 
-    const unsigned order_1 = element_cache->basis_xi->order;
-    const unsigned order_2 = element_cache->basis_eta->order;
+    const unsigned order_1 = element_fem_space->basis_xi->order;
+    const unsigned order_2 = element_fem_space->basis_eta->order;
     if (order_1 != order_2)
     {
         PyErr_Format(PyExc_NotImplementedError,
@@ -113,17 +62,20 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         return NULL;
     }
 
-    field_information_t element_field_information;
-    if (extract_element_vector_fields(vector_fields_obj, element_cache, &element_field_information) < 0)
-    {
-        return NULL;
-    }
-
     // Create the system template
     system_template_t system_template = {};
-    if (!system_template_create(&system_template, form_orders_obj, expressions, &element_field_information,
-                                &SYSTEM_ALLOCATOR))
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    const unsigned n_fields = PyTuple_GET_SIZE(vector_fields_obj);
+    if (n_fields >= INTEGRATING_FIELDS_MAX_COUNT)
     {
+        PyErr_Format(PyExc_ValueError, "Too many fields specified (max %u).", INTEGRATING_FIELDS_MAX_COUNT);
+        return NULL;
+    }
+    if ((res = system_template_create(&system_template, form_orders_obj, expressions, n_fields, &SYSTEM_ALLOCATOR)) !=
+        MFV2D_SUCCESS)
+    {
+        raise_exception_from_current(PyExc_RuntimeError, "Could not parse bytecode into system template, reason: %s",
+                                     mfv2d_result_str(res));
         return NULL;
     }
 
@@ -132,12 +84,50 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     {
         element_size += form_degrees_of_freedom_count(system_template.form_orders[j], order_1, order_2);
     }
+    if (py_degrees_of_freedom &&
+        check_input_array(py_degrees_of_freedom, 1, (const npy_intp[1]){(npy_intp)element_size}, NPY_DOUBLE,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, "degrees_of_freedom") < 0)
+    {
+        goto cleanup_template;
+    }
+
+    double *restrict degrees_of_freedom;
+    if (py_degrees_of_freedom)
+    {
+        degrees_of_freedom = PyArray_DATA(py_degrees_of_freedom);
+    }
+    else
+    {
+        degrees_of_freedom = allocate(&SYSTEM_ALLOCATOR, sizeof *degrees_of_freedom * element_size);
+        if (!degrees_of_freedom)
+        {
+            res = MFV2D_FAILED_ALLOC;
+            goto cleanup_template;
+        }
+        memset(degrees_of_freedom, 0, sizeof *degrees_of_freedom * element_size);
+    }
+
+    field_information_t field_info = {.buffer = NULL};
+    res = compute_fields(element_fem_space->fem_space, &element_fem_space->corners, &field_info, n_fields,
+                         system_template.field_orders, &SYSTEM_ALLOCATOR, system_template.n_forms,
+                         system_template.form_orders, degrees_of_freedom, vector_fields_obj);
+    if (!py_degrees_of_freedom)
+    {
+        deallocate(&SYSTEM_ALLOCATOR, degrees_of_freedom);
+    }
+    degrees_of_freedom = NULL;
+
+    if (res != MFV2D_SUCCESS)
+    {
+        goto cleanup_template;
+    }
+    // Compute vector fields
+
     const npy_intp output_dims[2] = {(npy_intp)element_size, (npy_intp)element_size};
     return_value = (PyArrayObject *)PyArray_SimpleNew(2, output_dims, NPY_FLOAT64);
     if (!return_value)
-        goto cleanup_template;
+        goto cleanup_fields;
 
-    mfv2d_result_t res = MFV2D_SUCCESS;
     error_stack_t *const err_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
     matrix_t *matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * system_template.max_stack);
     allocator_stack_t *const allocator_stack = allocator_stack_create((size_t)stack_memory, &SYSTEM_ALLOCATOR);
@@ -149,7 +139,9 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         if (allocator_stack)
             deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
         deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
-        goto cleanup_template;
+        Py_DECREF(return_value);
+        return_value = NULL;
+        goto cleanup_fields;
     }
     memset(matrix_stack, 0, sizeof *matrix_stack * system_template.max_stack);
 
@@ -172,9 +164,9 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
             }
 
             matrix_full_t mat;
-            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, element_cache,
-                                 &element_field_information, system_template.max_stack, matrix_stack,
-                                 &allocator_stack->base, &mat, NULL);
+            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, element_fem_space,
+                                 &field_info, system_template.max_stack, matrix_stack, &allocator_stack->base, &mat,
+                                 NULL);
             if (res != MFV2D_SUCCESS)
             {
                 MFV2D_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
@@ -224,11 +216,15 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
 
 cleanup_template:
     system_template_destroy(&system_template, &SYSTEM_ALLOCATOR);
+
+cleanup_fields:
+    deallocate(&SYSTEM_ALLOCATOR, field_info.buffer);
+
 end:
     if (res != MFV2D_SUCCESS)
     {
         Py_XDECREF(return_value);
-        PyErr_Format(PyExc_RuntimeError, "Runtime error %s was encountered.", mfv2d_result_str(res));
+        raise_exception_from_current(PyExc_RuntimeError, "Runtime error %s was encountered.", mfv2d_result_str(res));
         return NULL;
     }
     return (PyObject *)return_value;
@@ -241,19 +237,21 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     PyObject *form_orders_obj = NULL;
     PyObject *expressions = NULL;
     PyObject *vector_fields_obj = NULL;
-    element_fem_space_2d_t *element_cache = NULL;
+    element_fem_space_2d_t *element_fem_space = NULL;
     PyArrayObject *solution = NULL;
     Py_ssize_t stack_memory = 1 << 24;
 
-    static char *kwlist[8] = {"form_orders",    "expressions", "vector_fields", "element_cache", "solution",
-                              " stack_memory ", NULL};
+    static char *kwlist[7] = {
+        "form_orders",   "expressions", "field_specifications", "element_fem_space", "degrees_of_freedom",
+        "stack_memory ", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO!O|n", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO!O!|n", kwlist,
                                      &form_orders_obj,           // Sequence[int]
                                      &expressions,               // _CompiledCodeMatrix (PyObject*)
                                      &vector_fields_obj,         // Sequence[np.ndarray]
                                      &element_fem_space_2d_type, // For type checking
-                                     &element_cache,             // element cache
+                                     &element_fem_space,         // element cache
+                                     &PyArray_Type,              // For type checking
                                      &solution,                  // np.ndarray
                                      &stack_memory               // int
                                      ))
@@ -261,8 +259,8 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         return NULL;
     }
 
-    const unsigned order_1 = element_cache->basis_xi->order;
-    const unsigned order_2 = element_cache->basis_eta->order;
+    const unsigned order_1 = element_fem_space->basis_xi->order;
+    const unsigned order_2 = element_fem_space->basis_eta->order;
     if (order_1 != order_2)
     {
         PyErr_Format(PyExc_NotImplementedError,
@@ -285,17 +283,22 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         return NULL;
     }
 
-    field_information_t element_field_information;
-    if (extract_element_vector_fields(vector_fields_obj, element_cache, &element_field_information) < 0)
-    {
-        return NULL;
-    }
+    // Create the system template
 
     // Create the system template
     system_template_t system_template = {};
-    if (!system_template_create(&system_template, form_orders_obj, expressions, &element_field_information,
-                                &SYSTEM_ALLOCATOR))
+    mfv2d_result_t res = MFV2D_SUCCESS;
+    const unsigned n_fields = PyTuple_GET_SIZE(vector_fields_obj);
+    if (n_fields >= INTEGRATING_FIELDS_MAX_COUNT)
     {
+        PyErr_Format(PyExc_ValueError, "Too many fields specified (max %u).", INTEGRATING_FIELDS_MAX_COUNT);
+        return NULL;
+    }
+    if ((res = system_template_create(&system_template, form_orders_obj, expressions, n_fields, &SYSTEM_ALLOCATOR)) !=
+        MFV2D_SUCCESS)
+    {
+        raise_exception_from_current(PyExc_RuntimeError, "Could not parse bytecode into system template, reason: %s",
+                                     mfv2d_result_str(res));
         return NULL;
     }
 
@@ -311,12 +314,20 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
     }
     double *restrict const solution_vec = PyArray_DATA((PyArrayObject *)solution);
 
+    field_information_t field_info = {.buffer = NULL};
+    res = compute_fields(element_fem_space->fem_space, &element_fem_space->corners, &field_info, n_fields,
+                         system_template.field_orders, &SYSTEM_ALLOCATOR, system_template.n_forms,
+                         system_template.form_orders, solution_vec, vector_fields_obj);
+    if (res != MFV2D_SUCCESS)
+    {
+        goto cleanup_template;
+    }
+
     const npy_intp output_dims[1] = {(npy_intp)element_size};
     return_value = (PyArrayObject *)PyArray_SimpleNew(1, output_dims, NPY_DOUBLE);
     if (!return_value)
-        goto cleanup_template;
+        goto cleanup_fields;
 
-    mfv2d_result_t res = MFV2D_SUCCESS;
     error_stack_t *const err_stack = error_stack_create(32, &SYSTEM_ALLOCATOR);
     matrix_t *matrix_stack = allocate(&SYSTEM_ALLOCATOR, sizeof *matrix_stack * system_template.max_stack);
     allocator_stack_t *const allocator_stack = allocator_stack_create((size_t)stack_memory, &SYSTEM_ALLOCATOR);
@@ -328,7 +339,9 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
         if (allocator_stack)
             deallocate(&SYSTEM_ALLOCATOR, allocator_stack->memory);
         deallocate(&SYSTEM_ALLOCATOR, allocator_stack);
-        goto cleanup_template;
+        Py_DECREF(return_value);
+        return_value = NULL;
+        goto cleanup_fields;
     }
     memset(matrix_stack, 0, sizeof *matrix_stack * system_template.max_stack);
     double *restrict const output_mat = PyArray_DATA(return_value);
@@ -352,9 +365,9 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
             matrix_full_t mat;
             const matrix_full_t initial = {.base = {.type = MATRIX_TYPE_FULL, .rows = col_len, .cols = 1},
                                            .data = solution_vec + col_offset};
-            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, element_cache,
-                                 &element_field_information, system_template.max_stack, matrix_stack,
-                                 &allocator_stack->base, &mat, &initial);
+            res = evaluate_block(err_stack, system_template.form_orders[row], order_1, bytecode, element_fem_space,
+                                 &field_info, system_template.max_stack, matrix_stack, &allocator_stack->base, &mat,
+                                 &initial);
             if (res != MFV2D_SUCCESS)
             {
                 MFV2D_ERROR(err_stack, res, "Could not evaluate term for block (%u, %u).", row, col);
@@ -400,11 +413,14 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
 
 cleanup_template:
     system_template_destroy(&system_template, &SYSTEM_ALLOCATOR);
-end:
+
+cleanup_fields:
+    deallocate(&SYSTEM_ALLOCATOR, field_info.buffer);
+
     if (res != MFV2D_SUCCESS)
     {
         Py_XDECREF(return_value);
-        PyErr_Format(PyExc_RuntimeError, "Runtime error %s was encountered.", mfv2d_result_str(res));
+        raise_exception_from_current(PyExc_RuntimeError, "Runtime error %s was encountered.", mfv2d_result_str(res));
         return NULL;
     }
     return (PyObject *)return_value;

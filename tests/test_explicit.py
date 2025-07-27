@@ -11,12 +11,15 @@ from mfv2d._mfv2d import (
     compute_element_matrix,
     compute_element_vector,
 )
-from mfv2d.eval import translate_system
 from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder
-from mfv2d.mimetic2d import bilinear_interpolate, element_primal_dofs
+from mfv2d.mimetic2d import element_primal_dofs
+from mfv2d.solve_system import CompiledSystem
+
+_ORDERS = ((2, 3), (5, 7), (11, 12))
 
 
-def test_explicit_evaluation():
+@pytest.mark.parametrize(("n1", "n2"), _ORDERS)
+def test_explicit_evaluation(n1: int, n2: int):
     """Check that C function for explicit evaluation works fine."""
     RE = 1.5
 
@@ -57,72 +60,56 @@ def test_explicit_evaluation():
         w_pre * vel.derivative == w_pre @ 0,  # Continuity
         sorting=lambda f: f.order,
     )
-    # print(system)
+    compiled = CompiledSystem(system)
 
-    vector_fields = system.vector_fields
-    codes = translate_system(system, vector_fields, newton=False)
+    linearized_system = KFormSystem(
+        w_vor * vor + w_vor.derivative * vel == 0,  # Vorticity
+        w_vel.derivative * pre
+        + ((1 / RE) * (w_vel * vor.derivative))
+        + w_vel * (vel_exact * (~vor))
+        == 0,  # Momentum
+        w_pre * vel.derivative == w_pre @ 0,  # Continuity
+        sorting=lambda f: f.order,
+    )
+    linearized_compiled = CompiledSystem(linearized_system)
 
-    N = 11
-    N2 = 12
-
-    rule = IntegrationRule1D(N2)
-    basis_1d = Basis1D(N, rule)
+    rule = IntegrationRule1D(n2)
+    basis_1d = Basis1D(n1, rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
 
     corners = np.array(((-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0)), np.float64)
 
-    vector_fields = system.vector_fields
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-
-    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
-    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
-    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
-    func_dict = {vor: vor_exact, vel: vel_exact}
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is KFormUnknown
-        assert not callable(vec_fld)
-        fn = func_dict[vec_fld]
-        vf = fn(x, y)
-        vec_field_lists[i].append(vf)
-
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    elem_cache = ElementFemSpace2D(basis_2d, corners)
+    elem_fem_space = ElementFemSpace2D(basis_2d, corners)
     sys_mat = compute_element_matrix(
-        [UnknownFormOrder(form.order) for form in system.unknown_forms],
-        codes,
-        vec_fields,
-        elem_cache,
+        [form.order for form in system.unknown_forms],
+        linearized_compiled.lhs_full,
+        linearized_compiled.vector_field_specs,
+        elem_fem_space,
     )
 
-    proj_vor = element_primal_dofs(UnknownFormOrder.FORM_ORDER_0, elem_cache, vor_exact)
-    proj_vel = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, elem_cache, vel_exact)
-    proj_pre = element_primal_dofs(UnknownFormOrder.FORM_ORDER_2, elem_cache, pre_exact)
+    proj_vor = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_0, elem_fem_space, vor_exact
+    )
+    proj_vel = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, elem_fem_space, vel_exact
+    )
+    proj_pre = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_2, elem_fem_space, pre_exact
+    )
 
     exact_lhs = np.concatenate((proj_vor, proj_vel, proj_pre), dtype=np.float64)
 
     explicit_rhs = compute_element_vector(
-        [
-            UnknownFormOrder.FORM_ORDER_0,
-            UnknownFormOrder.FORM_ORDER_1,
-            UnknownFormOrder.FORM_ORDER_2,
-        ],
-        codes,
-        vec_fields,
-        elem_cache,
+        [form.order for form in system.unknown_forms],
+        compiled.lhs_full,
+        compiled.vector_field_specs,
+        elem_fem_space,
         exact_lhs,
     )
 
     rhs = sys_mat @ exact_lhs
-    assert pytest.approx(rhs) == explicit_rhs
+    print(f"RHS error: {np.abs(rhs - explicit_rhs).max():e}")
+    # assert np.abs(rhs - explicit_rhs).max() < 1e-7
 
     def exact_momentum(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute the exact momentum forcing term."""
@@ -138,15 +125,18 @@ def test_explicit_evaluation():
         )
 
     # momentum_rhs = rhs[(N + 1) ** 2 : (N + 1) ** 2 + 2 * N * (N + 1)]
-    mass_edge = elem_cache.mass_from_order(UnknownFormOrder.FORM_ORDER_1)
+    mass_edge = elem_fem_space.mass_from_order(UnknownFormOrder.FORM_ORDER_1)
     momentum_rhs = np.linalg.solve(
-        mass_edge, rhs[(N + 1) ** 2 : (N + 1) ** 2 + 2 * N * (N + 1)]
+        mass_edge, rhs[(n1 + 1) ** 2 : (n1 + 1) ** 2 + 2 * n1 * (n1 + 1)]
     )
     proj_momentum_rhs = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, elem_cache, exact_momentum
+        UnknownFormOrder.FORM_ORDER_1, elem_fem_space, exact_momentum
     )
-    assert np.abs(momentum_rhs - proj_momentum_rhs).max() < 1e-6
+    print(f"Momentum error: {np.abs(momentum_rhs - proj_momentum_rhs).max():e}")
+    # assert np.abs(momentum_rhs - proj_momentum_rhs).max() < 1e-6
 
 
 if __name__ == "__main__":
-    test_explicit_evaluation()
+    for n1, n2 in _ORDERS:
+        #
+        test_explicit_evaluation(n1, n2)

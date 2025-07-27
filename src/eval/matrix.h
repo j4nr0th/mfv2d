@@ -39,6 +39,9 @@ typedef enum
     INCIDENCE_TYPE_CNT,
 } incidence_type_t;
 
+MFV2D_INTERNAL
+const char *incidence_type_str(incidence_type_t type);
+
 typedef struct
 {
     matrix_base_t base;
@@ -62,18 +65,6 @@ typedef struct
     };
     double coefficient;
 } matrix_t;
-
-enum
-{
-    VECTOR_FIELDS_MAX = 16,
-};
-
-typedef struct
-{
-    unsigned n_fields;                       // Number of vector fields provided.
-    unsigned components[VECTOR_FIELDS_MAX];  // Pointer to an array containing arrays of vector fields.
-    const double *fields[VECTOR_FIELDS_MAX]; // Array of offsets for elements.
-} field_information_t;
 
 typedef struct
 {

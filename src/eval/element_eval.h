@@ -16,7 +16,7 @@
 
 MFV2D_INTERNAL
 mfv2d_result_t evaluate_block(error_stack_t *error_stack, form_order_t form, unsigned order, const bytecode_t *code,
-                              element_fem_space_2d_t *element_cache, const field_information_t *vector_fields,
+                              element_fem_space_2d_t *element_cache, const field_information_t *value_fields,
                               unsigned n_stack, matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
                               matrix_full_t *p_out, const matrix_full_t *initial);
 

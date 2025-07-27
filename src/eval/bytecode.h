@@ -6,7 +6,8 @@
 #define BYTECODE_H
 
 #include "../common.h"
-#include "matrix.h"
+#include "forms.h"
+#include "integrating_fields.h"
 
 typedef enum
 {
@@ -30,29 +31,96 @@ typedef enum
     MATOP_INTERPROD = 8,
     // Not an instruction, used to count how many instructions there are.
     MATOP_COUNT,
-} matrix_op_t;
+} matrix_op_type_t;
 
 MFV2D_INTERNAL
-const char *matrix_op_str(matrix_op_t op);
+const char *matrix_op_type_str(matrix_op_type_t op);
+
+typedef struct
+{
+    matrix_op_type_t op;
+} matrix_op_identity_t;
+
+typedef struct
+{
+    matrix_op_type_t op;
+    form_order_t order;
+    unsigned invert;
+} matrix_op_mass_t;
+
+typedef struct
+{
+    matrix_op_type_t op;
+    form_order_t order;
+    unsigned transpose;
+} matrix_op_incidence_t;
+
+typedef struct
+{
+    matrix_op_type_t op;
+} matrix_op_push_t;
+
+typedef struct
+{
+    matrix_op_type_t op;
+} matrix_op_matmul_t;
+
+typedef struct
+{
+    matrix_op_type_t op;
+    double k;
+} matrix_op_scale_t;
+
+typedef struct
+{
+    matrix_op_type_t op;
+    unsigned n;
+} matrix_op_sum_t;
+
+typedef struct
+{
+    matrix_op_type_t op;
+    form_order_t order;
+    unsigned field_index;
+    unsigned dual;
+    unsigned adjoint;
+} matrix_op_interprod_t;
 
 typedef union {
-    matrix_op_t op;
-    double f64;
-    unsigned u32;
+    matrix_op_type_t type;
+    matrix_op_identity_t identity;
+    matrix_op_mass_t mass;
+    matrix_op_incidence_t incidence;
+    matrix_op_push_t push;
+    matrix_op_matmul_t matmul;
+    matrix_op_scale_t scale;
+    matrix_op_sum_t sum;
+    matrix_op_interprod_t interprod;
+} matrix_op_t;
+
+typedef struct
+{
+    unsigned count;
+    matrix_op_t ops[];
 } bytecode_t;
 
 /**
  * Convert a Python sequence of MatOpCode, int, and float objects into the C-bytecode.
  *
  * @param n Number of elements in the sequence to convert.
- * @param bytecode Buffer to fill with bytecode.
+ * @param ops Array which is to be filled with translated instructions.
  * @param items Python objects which are to be converted to instructions.
  * @param p_max_stack Pointer which receives the maximum number of matrices on the argument stack.
- * @param n_vec_fields Number of vector fields that the system has.
- * @return Non-zero on success.
+ * @param p_field_cnt Pointer that receives the upper bound of fields present in the system.
+ * @param p_form_orders Orders of fields that were identified.
+ * @return MFV2D_SUCCESS if successful.
  */
 MFV2D_INTERNAL
-int convert_bytecode(const unsigned n, bytecode_t bytecode[restrict n + 1], PyObject *items[static n],
-                     unsigned *p_max_stack, const field_information_t *fields);
+mfv2d_result_t convert_bytecode(const unsigned n, matrix_op_t ops[restrict const n], PyObject *const items[static n],
+                                unsigned *const p_max_stack, unsigned field_cnt,
+                                form_order_t p_form_orders[INTEGRATING_FIELDS_MAX_COUNT]);
+
+MFV2D_INTERNAL
+int matrix_op_type_from_object(PyObject *o, matrix_op_type_t *out);
 
 #endif // BYTECODE_H

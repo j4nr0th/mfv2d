@@ -14,11 +14,7 @@ from mfv2d._mfv2d import (
 )
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder
-from mfv2d.mimetic2d import (
-    bilinear_interpolate,
-    element_dual_dofs,
-    element_primal_dofs,
-)
+from mfv2d.mimetic2d import element_dual_dofs, element_primal_dofs
 
 Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 
@@ -84,46 +80,16 @@ def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
 
 
 def compute_system_matrix_nonlin(
-    u_exact: Function2D,
-    omega_exact: Function2D,
-    omega: KFormUnknown,
-    u: KFormUnknown,
-    system: KFormSystem,
-    basis_2d: Basis2D,
-    corners: npt.NDArray[np.float64],
+    system: KFormSystem, basis_2d: Basis2D, corners: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
     """Compute system matrix."""
-    vector_fields = system.vector_fields
     compiled = CompiledSystem(system)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-
-    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
-    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
-    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
-    func_dict = {omega: omega_exact, u: u_exact}
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is KFormUnknown
-        assert not callable(vec_fld)
-        fn = func_dict[vec_fld]
-        vf = fn(x, y)
-        vec_field_lists[i].append(vf)
-
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
     assert compiled.nonlin_codes is not None
     elem_cache = ElementFemSpace2D(basis_2d, corners)
-
     emat = compute_element_matrix(
         [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.nonlin_codes,
-        vec_fields,
+        compiled.vector_field_specs,
         elem_cache,
     )
 
@@ -136,34 +102,12 @@ def compute_system_matrix_lin(
     corners: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.float64]:
     """Compute system matrix."""
-    vector_fields = system.vector_fields
     compiled = CompiledSystem(system)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-
-    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
-    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
-    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is not KFormUnknown
-        assert callable(vec_fld)
-
-        vf = np.asarray(vec_fld(x, y), np.float64)
-        vec_field_lists[i].append(vf)
-
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
     elem_cache = ElementFemSpace2D(basis_2d, corners)
     emat = compute_element_matrix(
         [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.lhs_full,
-        vec_fields,
+        compiled.vector_field_specs,
         elem_cache,
     )
 
@@ -176,38 +120,14 @@ def compute_system_matrix_adj(
     corners: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.float64]:
     """Compute system matrix."""
-    vector_fields = system.vector_fields
     compiled = CompiledSystem(system)
 
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-
-    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
-    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
-    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is not KFormUnknown
-        assert callable(vec_fld)
-
-        vf = np.asarray(vec_fld(x, y), np.float64)
-        if vf.shape[-1] != 2:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
-        vec_field_lists[i].append(vf)
-
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
     assert compiled.nonlin_codes is not None
     elem_cache = ElementFemSpace2D(basis_2d, corners)
     emat = compute_element_matrix(
         [UnknownFormOrder(form.order) for form in system.unknown_forms],
         compiled.nonlin_codes,
-        vec_fields,
+        compiled.vector_field_specs,
         elem_cache,
     )
 
@@ -389,9 +309,7 @@ def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> 
 
     corners = np.array(corner_vals, np.float64)
 
-    emat = compute_system_matrix_nonlin(
-        u_exact, omega_exact, omega, u, system, basis_2d, corners
-    )
+    emat = compute_system_matrix_nonlin(system, basis_2d, corners)
 
     fmat = emat[: (N + 1) * (N + 1), -2 * (N + 1) * N :]
     gmat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) : -2 * (N + 1) * N]
@@ -455,9 +373,7 @@ def test_advect_dual_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike
     basis_2d = Basis2D(basis_1d, basis_1d)
     corners = np.array(corner_vals, np.float64)
 
-    emat = compute_system_matrix_nonlin(
-        u_exact, omega_exact, omega, u, system, basis_2d, corners
-    )
+    emat = compute_system_matrix_nonlin(system, basis_2d, corners)
 
     fmat = emat[: N * N, -2 * (N + 1) * N :]
     gmat = emat[: N * N, N * N : -2 * (N + 1) * N]
@@ -618,9 +534,7 @@ def test_advect_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     basis_1d = Basis1D(N, int_rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
 
-    emat = compute_system_matrix_nonlin(
-        u_exact, omega_exact, omega, u, system, basis_2d, corners
-    )
+    emat = compute_system_matrix_nonlin(system, basis_2d, corners)
 
     fmat = emat[: N**2, : 2 * (N + 1) * N]
     gmat = emat[: N**2, 2 * (N + 1) * N :]
@@ -677,9 +591,7 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
 
     corners = np.array(corner_vals, np.float64)
 
-    emat = compute_system_matrix_nonlin(
-        u_exact, omega_exact, omega, u, system, basis_2d, corners
-    )
+    emat = compute_system_matrix_nonlin(system, basis_2d, corners)
 
     fmat = emat[(N + 1) ** 2 :, (N + 1) ** 2 :]
     gmat = emat[(N + 1) ** 2 :, : (N + 1) ** 2]

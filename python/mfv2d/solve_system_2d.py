@@ -24,10 +24,7 @@ from mfv2d._mfv2d import (
 # from mfv2d.boundary import BoundaryCondition2DSteady
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import KEquation, KFormSystem, UnknownOrderings  # ,  KFormUnknown
-from mfv2d.mimetic2d import (
-    FemCache,
-    compute_leaf_dof_counts,
-)
+from mfv2d.mimetic2d import FemCache, compute_leaf_dof_counts
 from mfv2d.progress import HistogramFormat
 from mfv2d.refinement import RefinementSettings, perform_mesh_refinement
 from mfv2d.solve_system import (
@@ -123,8 +120,6 @@ def solve_system_2d(
 
     # Make element matrices and vectors
     cache_2d = FemCache(order_difference=2)
-
-    vector_fields = system.vector_fields
 
     # Create modified system to make it work with time marching.
     if time_settings is not None:
@@ -297,7 +292,6 @@ def solve_system_2d(
             current_carry = 2 / dt * old_solution_carry + time_carry_term
 
             new_solution, global_lagrange, iter_cnt, max_residual = non_linear_solve_run(
-                system,
                 max_iterations,
                 relax,
                 atol,
@@ -307,7 +301,6 @@ def solve_system_2d(
                 element_fem_spaces,
                 compiled_system,
                 explicit_vec,
-                dof_offsets,
                 element_offset,
                 linear_element_matrices,
                 time_carry_index_array,
@@ -315,9 +308,9 @@ def solve_system_2d(
                 solution,
                 global_lagrange,
                 max_mag,
-                vector_fields,
                 system_decomp,
                 lagrange_mat,
+                False,
             )
 
             changes[time_index] = float(max_residual[()])
@@ -362,7 +355,6 @@ def solve_system_2d(
                 )
     else:
         new_solution, global_lagrange, iter_cnt, changes = non_linear_solve_run(
-            system,
             max_iterations,
             relax,
             atol,
@@ -372,7 +364,6 @@ def solve_system_2d(
             element_fem_spaces,
             compiled_system,
             explicit_vec,
-            dof_offsets,
             element_offset,
             linear_element_matrices,
             None,
@@ -380,7 +371,6 @@ def solve_system_2d(
             solution,
             global_lagrange,
             max_mag,
-            vector_fields,
             system_decomp,
             lagrange_mat,
             True,

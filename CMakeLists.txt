@@ -41,6 +41,8 @@ set(MFV2D_SOURCE_FILES
         src/eval/element_eval.c
         src/eval/basis.c
         src/eval/element_fem_space.c
+        src/eval/integrating_fields.c
+        src/eval/forms.c
 )
 set(MFV2D_HEADER_FILES
         # Common
@@ -69,6 +71,8 @@ set(MFV2D_HEADER_FILES
         src/eval/element_eval.h
         src/eval/basis.h
         src/eval/element_fem_space.h
+        src/eval/integrating_fields.h
+        src/eval/forms.h
 )
 
 Python_add_library(_mfv2d

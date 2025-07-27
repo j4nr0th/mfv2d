@@ -20,17 +20,17 @@
 #include "topology/surfaceobject.h"
 
 // Evaluation
-#include "eval/element_fem_space.h"
-#include "eval/element_system.h"
-#include "eval/incidence.h"
-
-// Basis
-
-#include "basis/gausslobatto.h"
-#include "basis/lagrange.h"
 #include "eval/basis.h"
 #include "eval/bytecode.h"
+#include "eval/element_fem_space.h"
+#include "eval/element_system.h"
 #include "eval/fem_space.h"
+#include "eval/incidence.h"
+#include "eval/integrating_fields.h"
+
+// Basis
+#include "basis/gausslobatto.h"
+#include "basis/lagrange.h"
 
 #define PRINT_EXPRESSION(expr, fmt) printf(#expr ": " fmt "\n", (expr))
 
@@ -449,8 +449,8 @@ PyDoc_STRVAR(interp_dlagrange_doc,
 static PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expression)
 {
     size_t n_expr;
-    bytecode_t *bytecode = NULL;
     // Convert into bytecode
+    bytecode_t *bytecode = NULL;
     {
         PyObject *const expression = PySequence_Fast(in_expression, "Can not convert expression to sequence.");
         if (!expression)
@@ -459,15 +459,23 @@ static PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expres
         n_expr = PySequence_Fast_GET_SIZE(expression);
         PyObject **const p_exp = PySequence_Fast_ITEMS(expression);
 
-        bytecode = PyMem_RawMalloc(sizeof(*bytecode) * (n_expr + 1));
+        unsigned unused;
+        unsigned unused2;
+        form_order_t unused3[INTEGRATING_FIELDS_MAX_COUNT];
+        bytecode = PyMem_RawMalloc(sizeof(bytecode_t) + sizeof(matrix_op_t) * n_expr);
         if (!bytecode)
         {
             Py_DECREF(expression);
+            PyErr_NoMemory();
             return NULL;
         }
-        unsigned unused;
-        if (!convert_bytecode(n_expr, bytecode, p_exp, &unused, 0))
+        const mfv2d_result_t result = convert_bytecode(n_expr, bytecode->ops, p_exp, &unused, 0, unused3);
+        bytecode->count = n_expr;
+
+        if (result != MFV2D_SUCCESS)
         {
+            raise_exception_from_current(PyExc_RuntimeError, "Could not convert expression to bytecode, reason: %s",
+                                         mfv2d_result_str(result));
             PyMem_RawFree(bytecode);
             Py_DECREF(expression);
             return NULL;
@@ -476,47 +484,59 @@ static PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expres
     }
 
     PyTupleObject *out_tuple = (PyTupleObject *)PyTuple_New((Py_ssize_t)n_expr);
-    for (unsigned i = 1; i <= n_expr; ++i)
+
+    for (unsigned i = 0; i < bytecode->count; ++i)
     {
-        switch (bytecode[i].op)
+        const matrix_op_t *const op = bytecode->ops + i;
+        PyObject *res = NULL;
+        switch (op->type)
         {
         case MATOP_IDENTITY:
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_IDENTITY));
+            res = Py_BuildValue("(I)", MATOP_IDENTITY);
             break;
+
         case MATOP_MATMUL:
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_MATMUL));
+            res = Py_BuildValue("(I)", MATOP_MATMUL);
             break;
+
         case MATOP_SCALE:
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_SCALE));
-            i += 1;
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyFloat_FromDouble(bytecode[i].f64));
+            res = Py_BuildValue("(Id)", MATOP_SCALE, op->scale.k);
             break;
+
         case MATOP_SUM:
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_SUM));
-            i += 1;
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyFloat_FromDouble(bytecode[i].u32));
+            res = Py_BuildValue("(II)", MATOP_SUM, op->sum.n);
             break;
+
         case MATOP_INCIDENCE:
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_INCIDENCE));
-            i += 1;
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromUnsignedLong(bytecode[i].u32));
-            i += 1;
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromUnsignedLong(bytecode[i].u32));
+            res = Py_BuildValue("(III)", MATOP_INCIDENCE, op->incidence.order, op->incidence.transpose);
             break;
+
         case MATOP_MASS:
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_MASS));
-            i += 1;
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromUnsignedLong(bytecode[i].u32));
-            i += 1;
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromUnsignedLong(bytecode[i].u32));
+            res = Py_BuildValue("(III)", MATOP_MASS, op->mass.order, op->mass.invert);
             break;
+
         case MATOP_PUSH:
-            PyTuple_SET_ITEM(out_tuple, i - 1, PyLong_FromLong(MATOP_PUSH));
+            res = Py_BuildValue("(I)", MATOP_PUSH);
             break;
+
+        case MATOP_INTERPROD:
+            res = Py_BuildValue("(IIIII)", MATOP_INTERPROD, op->interprod.order, op->interprod.field_index,
+                                op->interprod.dual, op->interprod.adjoint);
+            break;
+
         default:
-            ASSERT(0, "Invalid operation.");
-            break;
+            Py_DECREF(out_tuple);
+            PyMem_RawFree(bytecode);
+            PyErr_Format(PyExc_RuntimeError, "Unknown operation type %u.", op->type);
+            return NULL;
         }
+        if (res == NULL)
+        {
+            Py_DECREF(out_tuple);
+            PyMem_RawFree(bytecode);
+            return NULL;
+        }
+        PyTuple_SET_ITEM(out_tuple, i, res);
     }
 
     PyMem_RawFree(bytecode);
@@ -571,9 +591,18 @@ static PyObject *check_incidence(PyObject *Py_UNUSED(module), PyObject *args, Py
 }
 
 static PyMethodDef module_methods[] = {
-    {"check_bytecode", check_bytecode, METH_O, "Convert bytecode to C-values, then back to Python."},
-    {"check_incidence", (void *)check_incidence, METH_VARARGS | METH_KEYWORDS,
-     "Apply the incidence matrix to the input matrix."},
+    {
+        "check_bytecode",
+        check_bytecode,
+        METH_O,
+        "Convert bytecode to C-values, then back to Python.",
+    },
+    {
+        "check_incidence",
+        (void *)check_incidence,
+        METH_VARARGS | METH_KEYWORDS,
+        "Apply the incidence matrix to the input matrix.",
+    },
     {
         .ml_name = "lagrange1d",
         .ml_meth = interp_lagrange,
@@ -598,39 +627,40 @@ static PyMethodDef module_methods[] = {
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = compute_element_mass_matrices_docstr,
     },
-    {.ml_name = "compute_element_matrix",
-     .ml_meth = (void *)compute_element_matrix,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = "compute_element_matrix(form_orders: Sequence[int], expressions: _CompiledCodeMatrix, corners: NDArray, "
-               "vector_fields: Sequence[npt.NDArray[np.float64]], basis: Basis2D, stack_memory: int = 1 << 24,"
-               ") -> NDArray\n"
-               "Compute a single element matrix.\n"
-               "\n"
-               "Parameters\n"
-               "----------\n"
-               "form_orders : Sequence of int\n"
-               "    Orders of differential forms for the degrees of freedom. Must be between 0 and 2.\n"
-               "\n"
-               "expressions\n"
-               "    Compiled bytecode to execute.\n"
-               "\n"
-               "corners : (4, 2) array\n"
-               "    Array of corners of the element.\n"
-               "\n"
-               "vector_fields : Sequence of arrays\n"
-               "    Vector field arrays as required for interior product evaluations.\n"
-               "\n"
-               "basis : Basis2D\n"
-               "    Basis functions with integration rules to use.\n"
-               "\n"
-               "stack_memory : int, default: 1 << 24\n"
-               "    Amount of memory to use for the evaluation stack.\n"
-               "\n"
-               "Returns\n"
-               "-------\n"
-               "array\n"
-               "    Element matrix for the specified system.\n"
-
+    {
+        .ml_name = "compute_element_matrix",
+        .ml_meth = (void *)compute_element_matrix,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc =
+            "compute_element_matrix(form_orders: Sequence[int], expressions: _CompiledCodeMatrix, corners: NDArray, "
+            "vector_fields: Sequence[npt.NDArray[np.float64]], basis: Basis2D, stack_memory: int = 1 << 24,"
+            ") -> NDArray\n"
+            "Compute a single element matrix.\n"
+            "\n"
+            "Parameters\n"
+            "----------\n"
+            "form_orders : Sequence of int\n"
+            "    Orders of differential forms for the degrees of freedom. Must be between 0 and 2.\n"
+            "\n"
+            "expressions\n"
+            "    Compiled bytecode to execute.\n"
+            "\n"
+            "corners : (4, 2) array\n"
+            "    Array of corners of the element.\n"
+            "\n"
+            "vector_fields : Sequence of arrays\n"
+            "    Vector field arrays as required for interior product evaluations.\n"
+            "\n"
+            "basis : Basis2D\n"
+            "    Basis functions with integration rules to use.\n"
+            "\n"
+            "stack_memory : int, default: 1 << 24\n"
+            "    Amount of memory to use for the evaluation stack.\n"
+            "\n"
+            "Returns\n"
+            "-------\n"
+            "array\n"
+            "    Element matrix for the specified system.\n",
     },
     {
         .ml_name = "compute_element_projector",
@@ -644,42 +674,42 @@ static PyMethodDef module_methods[] = {
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = compute_element_mass_matrix_docstr,
     },
-    {.ml_name = "compute_element_vector",
-     .ml_meth = (void *)compute_element_vector,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc =
-         "compute_element_vector(form_orders: Sequence[int], expressions: _CompiledCodeMatrix, corners: array, "
-         "vector_fields: Sequence[array], basis: Basis2D, solution: array, stack_memory: int = 1 << 24) -> array\n"
-         "Compute a single element forcing.\n"
-         "\n"
-         "Parameters\n"
-         "----------\n"
-         "form_orders : Sequence of int\n"
-         "    Orders of differential forms for the degrees of freedom. Must be between 0 and 2.\n"
-         "\n"
-         "expressions\n"
-         "    Compiled bytecode to execute.\n"
-         "\n"
-         "corners : (4, 2) array\n"
-         "    Array of corners of the element.\n"
-         "\n"
-         "vector_fields : Sequence of arrays\n"
-         "    Vector field arrays as required for interior product evaluations.\n"
-         "\n"
-         "basis : Basis2D\n"
-         "    Basis functions with integration rules to use.\n"
-         "\n"
-         "solution : array\n"
-         "    Array with degrees of freedom for the element.\n"
-         "\n"
-         "stack_memory : int, default: 1 << 24\n"
-         "    Amount of memory to use for the evaluation stack.\n"
-         "\n"
-         "Returns\n"
-         "-------\n"
-         "array\n"
-         "    Element vector for the specified system.\n"
-
+    {
+        .ml_name = "compute_element_vector",
+        .ml_meth = (void *)compute_element_vector,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc =
+            "compute_element_vector(form_orders: Sequence[int], expressions: _CompiledCodeMatrix, corners: array, "
+            "vector_fields: Sequence[array], basis: Basis2D, solution: array, stack_memory: int = 1 << 24) -> array\n"
+            "Compute a single element forcing.\n"
+            "\n"
+            "Parameters\n"
+            "----------\n"
+            "form_orders : Sequence of int\n"
+            "    Orders of differential forms for the degrees of freedom. Must be between 0 and 2.\n"
+            "\n"
+            "expressions\n"
+            "    Compiled bytecode to execute.\n"
+            "\n"
+            "corners : (4, 2) array\n"
+            "    Array of corners of the element.\n"
+            "\n"
+            "vector_fields : Sequence of arrays\n"
+            "    Vector field arrays as required for interior product evaluations.\n"
+            "\n"
+            "basis : Basis2D\n"
+            "    Basis functions with integration rules to use.\n"
+            "\n"
+            "solution : array\n"
+            "    Array with degrees of freedom for the element.\n"
+            "\n"
+            "stack_memory : int, default: 1 << 24\n"
+            "    Amount of memory to use for the evaluation stack.\n"
+            "\n"
+            "Returns\n"
+            "-------\n"
+            "array\n"
+            "    Element vector for the specified system.\n",
     },
     {
         .ml_name = "compute_legendre",
@@ -692,6 +722,12 @@ static PyMethodDef module_methods[] = {
         .ml_meth = legendre_l2_to_h1_coefficients,
         .ml_flags = METH_O,
         .ml_doc = legendre_l2_to_h1_coefficients_docstring,
+    },
+    {
+        .ml_name = "compute_integrating_fields",
+        .ml_meth = (void *)compute_integrating_fields,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc = compute_integrating_fields_docstring,
     },
     {NULL, NULL, 0, NULL}, // sentinel
 };

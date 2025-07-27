@@ -18,8 +18,8 @@ MFV2D_INTERNAL mfv2d_result_t fem_space_2d_create(const fem_space_1d_t *space_h,
                                                   const allocator_callbacks *allocator)
 {
 
-    const unsigned rows = space_h->n_pts;
-    const unsigned cols = space_v->n_pts;
+    const unsigned rows = space_v->n_pts;
+    const unsigned cols = space_h->n_pts;
 
     fem_space_2d_t *const out = allocate(allocator, sizeof *out + sizeof *out->jacobian * rows * cols);
     if (!out)
@@ -55,177 +55,179 @@ MFV2D_INTERNAL mfv2d_result_t fem_space_2d_create(const fem_space_1d_t *space_h,
     *p_out = out;
     return MFV2D_SUCCESS;
 }
-
-static unsigned fem_space_node_basis_cnt(const fem_space_2d_t *space)
+MFV2D_INTERNAL
+unsigned fem_space_node_basis_cnt(const fem_space_2d_t *space)
 {
     return (space->space_1.order + 1) * (space->space_2.order + 1);
 }
 
-static unsigned fem_space_edge_h_basis_cnt(const fem_space_2d_t *space)
+MFV2D_INTERNAL
+unsigned fem_space_edge_h_basis_cnt(const fem_space_2d_t *space)
 {
     return space->space_1.order * (space->space_2.order + 1);
 }
 
-static unsigned fem_space_edge_v_basis_cnt(const fem_space_2d_t *space)
+MFV2D_INTERNAL
+unsigned fem_space_edge_v_basis_cnt(const fem_space_2d_t *space)
 {
     return (space->space_1.order + 1) * space->space_2.order;
 }
 
-static unsigned fem_space_surf_basis_cnt(const fem_space_2d_t *space)
+MFV2D_INTERNAL
+unsigned fem_space_surf_basis_cnt(const fem_space_2d_t *space)
 {
     return space->space_1.order * space->space_2.order;
 }
 
-static index_2d_t fem_space_integration_node_counts(const fem_space_2d_t *this)
+MFV2D_INTERNAL
+index_2d_t fem_space_integration_node_counts(const fem_space_2d_t *this)
 {
-    return (index_2d_t){this->space_1.n_pts, this->space_2.n_pts};
+    return (index_2d_t){this->space_2.n_pts, this->space_1.n_pts};
 }
 
-static index_2d_t nodal_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
-{
-    const unsigned i = flat_index / (space->space_1.order + 1);
-    const unsigned j = flat_index % (space->space_1.order + 1);
-    return (index_2d_t){i, j};
-}
-
-static index_2d_t edge_h_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
-{
-    const unsigned i = flat_index / space->space_1.order;
-    const unsigned j = flat_index % space->space_1.order;
-    return (index_2d_t){i, j};
-}
-
-static index_2d_t edge_v_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
+MFV2D_INTERNAL
+index_2d_t nodal_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
 {
     const unsigned i = flat_index / (space->space_1.order + 1);
     const unsigned j = flat_index % (space->space_1.order + 1);
     return (index_2d_t){i, j};
 }
 
-static index_2d_t surf_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
+MFV2D_INTERNAL
+index_2d_t edge_h_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
 {
     const unsigned i = flat_index / space->space_1.order;
     const unsigned j = flat_index % space->space_1.order;
     return (index_2d_t){i, j};
 }
 
-static double node_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
-                                  const unsigned i_point, const unsigned j_point)
+MFV2D_INTERNAL
+index_2d_t edge_v_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
 {
-    if (ASSERT(i_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", i_point,
-               space->space_1.n_pts) ||
-        ASSERT(j_point < space->space_2.n_pts, "Point %u is out of range for basis 2 with %u points", j_point,
-               space->space_2.n_pts) ||
-        ASSERT(i_basis <= space->space_1.order,
-               "Basis %u is out of range for nodal basis set 1 with %u basis functions", i_basis,
-               space->space_1.order + 1) ||
-        ASSERT(j_basis <= space->space_2.order,
-               "Basis %u is out of range for nodal basis set 2 with %u basis functions", j_basis,
-               space->space_2.order + 1))
-    {
-        // Shit
-        return 0;
-    }
-
-    const double *const basis_1 = space->space_1.node + i_basis * space->space_1.n_pts;
-    const double *const basis_2 = space->space_2.node + j_basis * space->space_2.n_pts;
-
-    return basis_1[i_point] * basis_2[j_point];
+    const unsigned i = flat_index / (space->space_1.order + 1);
+    const unsigned j = flat_index % (space->space_1.order + 1);
+    return (index_2d_t){i, j};
 }
 
-static double node_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
-                               const unsigned j_point)
+MFV2D_INTERNAL
+index_2d_t surf_basis_index(const fem_space_2d_t *space, const unsigned flat_index)
+{
+    const unsigned i = flat_index / space->space_1.order;
+    const unsigned j = flat_index % space->space_1.order;
+    return (index_2d_t){i, j};
+}
+
+MFV2D_INTERNAL
+double node_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                           const unsigned i_point, const unsigned j_point)
+{
+    ASSERT(j_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", j_point,
+           space->space_1.n_pts);
+    ASSERT(i_point < space->space_2.n_pts, "Point %u is out of range for basis 2 with %u points", i_point,
+           space->space_2.n_pts);
+    ASSERT(j_basis <= space->space_1.order, "Basis %u is out of range for nodal basis set 1 with %u basis functions",
+           j_basis, space->space_1.order + 1);
+    ASSERT(i_basis <= space->space_2.order, "Basis %u is out of range for nodal basis set 2 with %u basis functions",
+           i_basis, space->space_2.order + 1);
+
+    const double *const basis_1 = space->space_1.node + j_basis * space->space_1.n_pts;
+    const double *const basis_2 = space->space_2.node + i_basis * space->space_2.n_pts;
+
+    return basis_1[j_point] * basis_2[i_point];
+}
+
+MFV2D_INTERNAL
+double node_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point, const unsigned j_point)
 {
     const index_2d_t index = nodal_basis_index(space, idx);
     return node_basis_value_2d(space, index.i, index.j, i_point, j_point);
 }
 
-static double edge_h_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
-                                    const unsigned i_point, const unsigned j_point)
+MFV2D_INTERNAL
+double edge_h_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                             const unsigned i_point, const unsigned j_point)
 {
-    if (ASSERT(i_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", i_point,
-               space->space_1.n_pts) ||
-        ASSERT(j_point < space->space_2.n_pts, "Point %u is out of range for basis 2 with %u points", j_point,
-               space->space_2.n_pts) ||
-        ASSERT(i_basis <= space->space_1.order,
-               "Basis %u is out of range for nodal basis set 1 with %u basis functions", i_basis,
-               space->space_1.order + 1) ||
-        ASSERT(j_basis < space->space_2.order, "Basis %u is out of range for edge basis set 2 with %u basis functions",
-               j_basis, space->space_2.order))
-    {
-        // Shit
-        return 0;
-    }
+    ASSERT(j_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", j_point,
+           space->space_1.n_pts);
+    ASSERT(i_point < space->space_2.n_pts, "Point %u is out of range for basis 2 with %u points", i_point,
+           space->space_2.n_pts);
+    ASSERT(j_basis < space->space_1.order, "Basis %u is out of range for nodal basis set 1 with %u basis functions",
+           j_basis, space->space_1.order);
+    ASSERT(i_basis <= space->space_2.order, "Basis %u is out of range for edge basis set 2 with %u basis functions",
+           i_basis, space->space_2.order + 1);
 
-    const double *const basis_1 = space->space_1.node + i_basis * space->space_1.n_pts;
-    const double *const basis_2 = space->space_2.edge + j_basis * space->space_2.n_pts;
+    const double *const basis_1 = space->space_1.edge + j_basis * space->space_1.n_pts;
+    const double *const basis_2 = space->space_2.node + i_basis * space->space_2.n_pts;
 
-    return basis_1[i_point] * basis_2[j_point];
+    return basis_1[j_point] * basis_2[i_point];
 }
 
-static double edge_h_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
-                                 const unsigned j_point)
+MFV2D_INTERNAL
+double edge_h_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                          const unsigned j_point)
 {
     const index_2d_t index = edge_h_basis_index(space, idx);
     return edge_h_basis_value_2d(space, index.i, index.j, i_point, j_point);
 }
 
-static double edge_v_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
-                                    const unsigned i_point, const unsigned j_point)
+MFV2D_INTERNAL
+double edge_v_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                             const unsigned i_point, const unsigned j_point)
 {
-    if (ASSERT(i_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", i_point,
-               space->space_1.n_pts) ||
-        ASSERT(j_point < space->space_2.n_pts, "Point %u is out of range for basis 2 with %u points", j_point,
-               space->space_2.n_pts) ||
-        ASSERT(i_basis < space->space_1.order, "Basis %u is out of range for edge basis set 1 with %u basis functions",
-               i_basis, space->space_1.order) ||
-        ASSERT(j_basis <= space->space_2.order,
-               "Basis %u is out of range for nodal basis set 2 with %u basis functions", j_basis,
-               space->space_2.order + 1))
-    {
-        // Shit
-        return 0;
-    }
+    ASSERT(j_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", j_point,
+           space->space_1.n_pts);
+    ASSERT(i_point < space->space_2.n_pts, "Point %u is out of range for basis 2 with %u points", i_point,
+           space->space_2.n_pts);
+    ASSERT(j_basis <= space->space_1.order, "Basis %u is out of range for edge basis set 1 with %u basis functions",
+           j_basis, space->space_1.order + 1);
+    ASSERT(i_basis < space->space_2.order, "Basis %u is out of range for nodal basis set 2 with %u basis functions",
+           i_basis, space->space_2.order);
 
-    const double *const basis_1 = space->space_1.edge + i_basis * space->space_1.n_pts;
-    const double *const basis_2 = space->space_2.node + j_basis * space->space_2.n_pts;
+    const double *const basis_1 = space->space_1.node + j_basis * space->space_1.n_pts;
+    const double *const basis_2 = space->space_2.edge + i_basis * space->space_2.n_pts;
 
-    return basis_1[i_point] * basis_2[j_point];
+    return basis_1[j_point] * basis_2[i_point];
 }
 
-static double edge_v_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
-                                 const unsigned j_point)
+MFV2D_INTERNAL
+double edge_v_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
+                          const unsigned j_point)
 {
     const index_2d_t index = edge_v_basis_index(space, idx);
     return edge_v_basis_value_2d(space, index.i, index.j, i_point, j_point);
 }
 
-static double surf_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
-                                  const unsigned i_point, const unsigned j_point)
+MFV2D_INTERNAL
+double surf_basis_value_2d(const fem_space_2d_t *space, const unsigned i_basis, const unsigned j_basis,
+                           const unsigned i_point, const unsigned j_point)
 {
-    if (ASSERT(i_point < space->space_1.n_pts, "Point is out of range for basis 1") ||
-        ASSERT(j_point < space->space_2.n_pts, "Point is out of range for basis 2") ||
-        ASSERT(i_basis < space->space_1.order, "Basis is out of range for basis 1") ||
-        ASSERT(j_basis < space->space_2.order, "Basis is out of range for basis 2"))
-        return 0;
+    ASSERT(j_point < space->space_1.n_pts, "Point %u is out of range for basis 1 with %u points", j_point,
+           space->space_1.n_pts);
+    ASSERT(i_point < space->space_2.n_pts, "Point %u is out of range for basis 2 with %u points", i_point,
+           space->space_2.n_pts);
+    ASSERT(j_basis <= space->space_1.order, "Basis %u is out of range for surface basis set 1 with %u basis functions",
+           j_basis, space->space_1.order);
+    ASSERT(i_basis <= space->space_2.order, "Basis %u is out of range for surface basis set 2 with %u basis functions",
+           i_basis, space->space_2.order);
 
-    const double *const basis_1 = space->space_1.edge + i_basis * space->space_1.n_pts;
-    const double *const basis_2 = space->space_2.edge + j_basis * space->space_2.n_pts;
+    const double *const basis_1 = space->space_1.edge + j_basis * space->space_1.n_pts;
+    const double *const basis_2 = space->space_2.edge + i_basis * space->space_2.n_pts;
 
-    return basis_1[i_point] * basis_2[j_point];
+    return basis_1[j_point] * basis_2[i_point];
 }
 
-static double surf_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point,
-                               const unsigned j_point)
+MFV2D_INTERNAL
+double surf_basis_value(const fem_space_2d_t *space, const unsigned idx, const unsigned i_point, const unsigned j_point)
 {
     const index_2d_t index = surf_basis_index(space, idx);
     return surf_basis_value_2d(space, index.i, index.j, i_point, j_point);
 }
 
-static double integration_weight_value(const fem_space_2d_t *space, const unsigned i_point, const unsigned j_point)
+MFV2D_INTERNAL
+double integration_weight_value(const fem_space_2d_t *space, const unsigned i_point, const unsigned j_point)
 {
-    if (ASSERT(i_point < space->space_1.n_pts, "Point is out of range for basis 1") ||
-        ASSERT(j_point < space->space_2.n_pts, "Point is out of range for basis 2"))
+    if (ASSERT(j_point < space->space_1.n_pts, "Point %u is out of range for basis 1", j_point) ||
+        ASSERT(i_point < space->space_2.n_pts, "Point %u is out of range for basis 2", i_point))
         return 0;
     return space->space_1.wgts[j_point] * space->space_2.wgts[i_point];
 }
@@ -316,10 +318,10 @@ MFV2D_INTERNAL mfv2d_result_t compute_mass_matrix_edge(const fem_space_2d_t *spa
                 }
             }
             // Exploit the symmetry of the matrix.
-            CHECK_MEMORY_BOUNDS(mem_size, (idx_basis + n_v_basis) * rows + (idx_weight + n_v_basis), sizeof(double));
-            CHECK_MEMORY_BOUNDS(mem_size, (idx_weight + n_v_basis) * cols + (idx_basis + n_v_basis), sizeof(double));
+            CHECK_MEMORY_BOUNDS(mem_size, (idx_basis + n_h_basis) * rows + (idx_weight + n_h_basis), sizeof(double));
+            CHECK_MEMORY_BOUNDS(mem_size, (idx_weight + n_h_basis) * cols + (idx_basis + n_h_basis), sizeof(double));
             // out.data[(idx_basis + n_v_basis) * rows + (idx_weight + n_v_basis)] =
-            out.data[(idx_weight + n_v_basis) * cols + (idx_basis + n_v_basis)] = v;
+            out.data[(idx_weight + n_h_basis) * cols + (idx_basis + n_h_basis)] = v;
         }
 
     // Block 00
@@ -362,10 +364,10 @@ MFV2D_INTERNAL mfv2d_result_t compute_mass_matrix_edge(const fem_space_2d_t *spa
                 }
             }
             // Exploit the symmetry of the matrix.
-            CHECK_MEMORY_BOUNDS(mem_size, idx_weight * rows + (idx_basis + n_v_basis), sizeof(double));
-            CHECK_MEMORY_BOUNDS(mem_size, (idx_basis + n_v_basis) * cols + idx_weight, sizeof(double));
-            out.data[idx_weight * rows + (idx_basis + n_v_basis)] =
-                out.data[(idx_basis + n_v_basis) * cols + idx_weight] = v;
+            CHECK_MEMORY_BOUNDS(mem_size, idx_weight * rows + (idx_basis + n_h_basis), sizeof(double));
+            CHECK_MEMORY_BOUNDS(mem_size, (idx_basis + n_h_basis) * cols + idx_weight, sizeof(double));
+            out.data[idx_weight * rows + (idx_basis + n_h_basis)] =
+                out.data[(idx_basis + n_h_basis) * cols + idx_weight] = v;
         }
 
     *p_out = out;

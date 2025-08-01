@@ -203,7 +203,7 @@ static PyObject *manifold2d_get_surface(PyObject *self, PyObject *arg)
 
     if (id.reverse)
     {
-        for (unsigned i = 0; i < surf->n_lines; ++i)
+        for (unsigned i = 0; i < Py_SIZE(surf); ++i)
         {
             surf->lines[i].reverse = !surf->lines[i].reverse;
         }

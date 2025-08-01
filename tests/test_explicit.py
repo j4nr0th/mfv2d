@@ -10,9 +10,10 @@ from mfv2d._mfv2d import (
     compute_element_matrix,
     compute_element_vector,
 )
-from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder
+from mfv2d.kform import KFormUnknown, UnknownFormOrder
 from mfv2d.mimetic2d import element_primal_dofs
 from mfv2d.solve_system import CompiledSystem
+from mfv2d.system import KFormSystem
 
 
 def test_explicit_evaluation():

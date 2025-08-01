@@ -173,3 +173,7 @@ def test_double_subdivision():
 
     children2 = mesh.get_element_children(1)
     assert children2 == (3, 4, 5, 6)
+
+
+if __name__ == "__main__":
+    test_manual()

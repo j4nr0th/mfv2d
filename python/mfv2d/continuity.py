@@ -24,7 +24,7 @@ import scipy.sparse as sp
 
 from mfv2d._mfv2d import Mesh, compute_gll, lagrange1d
 from mfv2d.boundary import BoundaryCondition2DSteady, mesh_boundary_conditions
-from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder, UnknownOrderings
+from mfv2d.kform import KFormUnknown, UnknownFormOrder, UnknownOrderings
 from mfv2d.mimetic2d import (
     Constraint,
     ElementConstraint,
@@ -35,6 +35,7 @@ from mfv2d.mimetic2d import (
     find_surface_boundary_id_line,
     get_side_order,
 )
+from mfv2d.system import KFormSystem
 
 
 def _find_surface_boundary_id_node(

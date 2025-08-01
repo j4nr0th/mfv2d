@@ -4,7 +4,7 @@ This file contains functions signatures and *copies* of docstrings for the
 C-extension which implements all the required fast code.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from typing import Concatenate, ParamSpec, Self, SupportsIndex, final
 
 import numpy as np
@@ -1315,3 +1315,83 @@ def compute_integrating_fields(
         Fields reconstructed at the integration points.
     """
     ...
+
+class _ElementFormsSpecification:
+    """Specifications of forms defined on an element.
+
+    Parameters
+    ----------
+    *specs : tuple of (str, int)
+        Specifications for differential forms on the element. Each label must be
+        unique and order have a valid value which is in
+        :class:`mfv2d.kform.UnknownFormOrder`.
+    """
+
+    def __new__(cls, *specs: tuple[str, int]): ...
+    @property
+    def orders(self) -> tuple[int, ...]: ...
+    @property
+    def names(self) -> tuple[str, ...]: ...
+    def __iter__(self) -> Iterator[tuple[str, int]]: ...
+    def __getitem__(self, idx: SupportsIndex, /) -> tuple[str, int]: ...
+    def __len__(self) -> int: ...
+    def __contains__(self, item: tuple[str, int]) -> bool: ...
+    def form_offset(self, idx: SupportsIndex, /, order_1: int, order_2: int) -> int:
+        """Get the offset of the form in the element.
+
+        Parameters
+        ----------
+        idx : typing.SupportsIndex
+            Index of the form.
+
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        int
+            Offset of degrees of freedom of the differential form.
+        """
+        ...
+
+    def form_size(self, idx: SupportsIndex, /, order_1: int, order_2: int) -> int:
+        """Get the number of degrees of freedom of the form in the element.
+
+        Parameters
+        ----------
+        idx : typing.SupportsIndex
+            Index of the form.
+
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        int
+            Number of degrees of freedom of the differential form.
+        """
+        ...
+
+    def total_size(self, order_1: int, order_2: int) -> int:
+        """Get the total number of degrees of freedom of the forms.
+
+        Parameters
+        ----------
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        int
+            Total number of degrees of freedom of all differential forms.
+        """
+        ...

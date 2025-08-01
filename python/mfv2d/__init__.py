@@ -12,7 +12,6 @@ from mfv2d.boundary import BoundaryCondition2DSteady as BoundaryCondition2DStead
 
 # K-forms
 from mfv2d.kform import KEquation as KEquation
-from mfv2d.kform import KFormSystem as KFormSystem
 from mfv2d.kform import KFormUnknown as KFormUnknown
 from mfv2d.kform import KWeight as KWeight
 from mfv2d.kform import UnknownFormOrder as UnknownFormOrder
@@ -36,3 +35,6 @@ from mfv2d.solve_system import TimeSettings as TimeSettings
 
 # Actual solving
 from mfv2d.solve_system_2d import solve_system_2d as solve_system_2d
+
+# System
+from mfv2d.system import KFormSystem as KFormSystem

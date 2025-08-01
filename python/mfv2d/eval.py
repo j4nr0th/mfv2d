@@ -14,7 +14,6 @@ from enum import IntEnum
 from mfv2d.kform import (
     Function2D,
     KFormDerivative,
-    KFormSystem,
     KFormUnknown,
     KHodge,
     KInnerProduct,
@@ -25,6 +24,7 @@ from mfv2d.kform import (
     Term,
     UnknownFormOrder,
 )
+from mfv2d.system import KFormSystem
 
 
 @dataclass(frozen=True)

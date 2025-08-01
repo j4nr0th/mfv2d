@@ -2,6 +2,7 @@
 #define FORMS_H
 
 #include "../common/common.h"
+#include <Python.h>
 
 typedef enum
 {
@@ -31,5 +32,31 @@ static unsigned form_degrees_of_freedom_count(const form_order_t form, const uns
 
 MFV2D_INTERNAL
 form_order_t form_order_from_object(PyObject *object);
+
+enum
+{
+    MAXIMUM_FORM_NAME_LENGTH = 31
+};
+
+typedef struct
+{
+    char name[MAXIMUM_FORM_NAME_LENGTH + 1];
+    form_order_t order;
+} form_spec_t;
+
+typedef struct
+{
+    PyObject_VAR_HEAD;
+    form_spec_t forms[];
+} element_form_spec_t;
+
+MFV2D_INTERNAL
+extern PyTypeObject element_form_spec_type;
+
+MFV2D_INTERNAL
+extern PyTypeObject element_form_spec_iter_type;
+
+MFV2D_INTERNAL
+unsigned element_form_offset(const element_form_spec_t *const spec, unsigned index, unsigned order_1, unsigned order_2);
 
 #endif // FORMS_H

@@ -28,7 +28,6 @@ from mfv2d.eval import CompiledSystem
 from mfv2d.kform import (
     KElementProjection,
     KExplicit,
-    KFormSystem,
     KFormUnknown,
     KWeight,
     UnknownFormOrder,
@@ -42,6 +41,7 @@ from mfv2d.mimetic2d import (
     vtk_lagrange_ordering,
 )
 from mfv2d.progress import ProgressTracker
+from mfv2d.system import KFormSystem
 
 
 def rhs_2d_element_projection(

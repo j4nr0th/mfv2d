@@ -20,7 +20,7 @@ from mfv2d._mfv2d import (
 )
 from mfv2d.boundary import BoundaryCondition2DSteady, _element_weak_boundary_condition
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KBoundaryProjection, KFormSystem, KFormUnknown, UnknownFormOrder
+from mfv2d.kform import KBoundaryProjection, KFormUnknown, UnknownFormOrder
 from mfv2d.mimetic2d import (
     FemCache,
     bilinear_interpolate,
@@ -31,6 +31,7 @@ from mfv2d.mimetic2d import (
 )
 from mfv2d.progress import HistogramFormat
 from mfv2d.solve_system import compute_element_rhs
+from mfv2d.system import KFormSystem
 
 
 def compute_legendre_coefficients(

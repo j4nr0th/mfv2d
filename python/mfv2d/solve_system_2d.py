@@ -23,7 +23,7 @@ from mfv2d._mfv2d import (
 
 # from mfv2d.boundary import BoundaryCondition2DSteady
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KEquation, KFormSystem, UnknownOrderings  # ,  KFormUnknown
+from mfv2d.kform import KEquation, UnknownOrderings  # ,  KFormUnknown
 from mfv2d.mimetic2d import FemCache, compute_leaf_dof_counts
 from mfv2d.progress import HistogramFormat
 from mfv2d.refinement import RefinementSettings, perform_mesh_refinement
@@ -42,6 +42,7 @@ from mfv2d.solve_system import (
     non_linear_solve_run,
     reconstruct_mesh_from_solution,
 )
+from mfv2d.system import KFormSystem
 
 
 def solve_system_2d(

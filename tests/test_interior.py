@@ -13,8 +13,9 @@ from mfv2d._mfv2d import (
     compute_element_matrix,
 )
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder
+from mfv2d.kform import KFormUnknown, UnknownFormOrder
 from mfv2d.mimetic2d import element_dual_dofs, element_primal_dofs
+from mfv2d.system import KFormSystem
 
 Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 

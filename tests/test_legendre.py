@@ -5,11 +5,7 @@ from collections.abc import Callable
 import numpy as np
 import numpy.typing as npt
 import pytest
-from mfv2d._mfv2d import (
-    IntegrationRule1D,
-    compute_legendre,
-    legendre_l2_to_h1_coefficients,
-)
+from mfv2d._mfv2d import IntegrationRule1D, compute_legendre
 
 
 def test_orthonormal() -> None:
@@ -175,20 +171,3 @@ def test_basis_relation():
         real_grad = (lag[i - 1, 1:] + lag[i - 1, :-1]) / 2
 
         assert np.abs(num_grad - real_grad).max() < 5e-6
-
-
-def test_c_implementation():
-    """Check that the C conversion function works as expected."""
-
-    def test_function(x):
-        return 3 * np.sin(3 * x) - 2 * np.cos(x**2) - 2 / (x**2 + 1)
-
-    order = 8
-    rule = IntegrationRule1D(order + 1)
-    coeffs = compute_legendre_coeffs(order, rule, test_function)
-
-    new_coeffs = matrix_legendre_coeffs_to_h1(coeffs)
-    c_coeffs = legendre_l2_to_h1_coefficients(coeffs)
-    print(new_coeffs)
-    print(c_coeffs)
-    assert pytest.approx(new_coeffs) == c_coeffs

@@ -17,10 +17,10 @@ static PyObject *surface_object_repr(PyObject *self)
     if (!current_out)
         return NULL;
 
-    for (unsigned i = 0; i < this->n_lines; ++i)
+    for (unsigned i = 0; i < Py_SIZE(this); ++i)
     {
         const geo_id_t id = this->lines[i];
-        const char end = i + 1 == this->n_lines ? ')' : ' ';
+        const char end = i + 1 == Py_SIZE(this) ? ')' : ' ';
         PyObject *repr = PyUnicode_FromFormat("GeoID(%u, %u),%c", id.index, id.reverse, end);
         if (!repr)
         {
@@ -48,10 +48,10 @@ static PyObject *surface_object_str(PyObject *self)
     if (!current_out)
         return NULL;
 
-    for (unsigned i = 0; i < this->n_lines; ++i)
+    for (unsigned i = 0; i < Py_SIZE(this); ++i)
     {
         const geo_id_t id = this->lines[i];
-        const char end = i + 1 == this->n_lines ? ')' : ' ';
+        const char end = i + 1 == Py_SIZE(this) ? ')' : ' ';
         PyObject *repr = PyUnicode_FromFormat("%c%u ->%c", id.reverse ? '-' : '+', id.index, end);
         if (!repr)
         {
@@ -125,12 +125,12 @@ static PyObject *surface_object_rich_compare(PyObject *self, PyObject *other, co
     }
     const surface_object_t *const that = (surface_object_t *)other;
     int val = 1;
-    if (this->n_lines != that->n_lines)
+    if (Py_SIZE(this) != Py_SIZE(that))
     {
         val = 0;
         goto ret;
     }
-    for (unsigned i = 0; i < this->n_lines; ++i)
+    for (unsigned i = 0; i < Py_SIZE(this); ++i)
     {
         if (!geo_id_compare(this->lines[i], that->lines[i]))
         {
@@ -169,7 +169,7 @@ static PyObject *surface_object_new(PyTypeObject *type, PyObject *args, PyObject
         Py_DECREF(seq);
         return NULL;
     }
-    this->n_lines = n;
+    Py_SET_SIZE(this, n);
 
     for (unsigned i = 0; i < n; ++i)
     {
@@ -223,14 +223,14 @@ static PyObject *surface_object_as_array(PyObject *self, PyObject *args, PyObjec
     }
 
     const surface_object_t *this = (surface_object_t *)self;
-    const npy_intp size = (npy_intp)this->n_lines;
+    const npy_intp size = (npy_intp)Py_SIZE(this);
 
     PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(1, &size, NPY_INT);
     if (!out)
         return NULL;
 
     int *const ptr = PyArray_DATA(out);
-    for (unsigned i = 0; i < this->n_lines; ++i)
+    for (unsigned i = 0; i < Py_SIZE(this); ++i)
     {
         ptr[i] = geo_id_unpack(this->lines[i]);
     }
@@ -257,7 +257,7 @@ static PyMethodDef surface_methods[] = {
 static Py_ssize_t surface_sequence_length(PyObject *self)
 {
     const surface_object_t *this = (surface_object_t *)self;
-    return (Py_ssize_t)this->n_lines;
+    return (Py_ssize_t)Py_SIZE(this);
 }
 static PyObject *surface_sequence_item(PyObject *self, Py_ssize_t idx)
 {
@@ -265,9 +265,9 @@ static PyObject *surface_sequence_item(PyObject *self, Py_ssize_t idx)
     // Correction: Python don't give a fuck, it just keeps on chucking idx in here until index error.
     if (idx < 0)
     {
-        idx = (Py_ssize_t)(this->n_lines + 1) - idx;
+        idx = (Py_ssize_t)(Py_SIZE(this) + 1) - idx;
     }
-    if (idx >= this->n_lines)
+    if (idx >= Py_SIZE(this))
     {
         PyErr_SetString(PyExc_IndexError, "Index is out of bounds.");
         return NULL;

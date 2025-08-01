@@ -10,7 +10,7 @@
 
 typedef struct
 {
-    PyObject_HEAD size_t n_lines;
+    PyObject_VAR_HEAD;
     geo_id_t lines[];
 } surface_object_t;
 

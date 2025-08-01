@@ -110,10 +110,8 @@ def _element_weak_boundary_condition(
     mesh: Mesh,
     element_idx: int,
     side: ElementSide,
-    unknown_orders: UnknownOrderings,
+    unknown_orders: Sequence[UnknownFormOrder],
     unknown_index: int,
-    leaf_order_mapping: Mapping[int, int],
-    dof_offsets: npt.NDArray[np.uint32],
     weak_terms: Sequence[tuple[float, KBoundaryProjection]],
     basis_cache: FemCache,
 ) -> tuple[ElementConstraint, ...]:
@@ -160,8 +158,6 @@ def _element_weak_boundary_condition(
             side,
             unknown_orders,
             unknown_index,
-            leaf_order_mapping,
-            dof_offsets,
             weak_terms,
             basis_cache,
         ) + _element_weak_boundary_condition(
@@ -170,8 +166,6 @@ def _element_weak_boundary_condition(
             side,
             unknown_orders,
             unknown_index,
-            leaf_order_mapping,
-            dof_offsets,
             weak_terms,
             basis_cache,
         )
@@ -189,9 +183,13 @@ def _element_weak_boundary_condition(
     xv = (p1[0] + p0[0]) / 2 + dx * basis_1d.rule.nodes
     dy = (p1[1] - p0[1]) / 2
     yv = (p1[1] + p0[1]) / 2 + dy * basis_1d.rule.nodes
-    form_order = unknown_orders.form_orders[unknown_index]
-    dofs = element_boundary_dofs(side, form_order, *mesh.get_leaf_orders(element_idx))
-    dofs = dofs + dof_offsets[leaf_order_mapping[element_idx], unknown_index]
+    form_order = unknown_orders[unknown_index]
+    element_orders = mesh.get_leaf_orders(element_idx)
+    dofs = element_boundary_dofs(side, form_order, *element_orders)
+    dofs = dofs + sum(
+        order.full_unknown_count(*element_orders)
+        for order in unknown_orders[:unknown_index]
+    )  # dof_offsets[leaf_order_mapping[element_idx], unknown_index]
     vals = np.zeros_like(dofs, np.float64)
 
     for k, bp in weak_terms:
@@ -501,10 +499,8 @@ def mesh_boundary_conditions(
                         mesh,
                         id_surf.index,
                         i_side,
-                        unknown_order,
+                        unknown_order.form_orders,
                         idx,
-                        leaf_order_mapping,
-                        dof_offsets,
                         weak_term,
                         basis_cache,
                     )

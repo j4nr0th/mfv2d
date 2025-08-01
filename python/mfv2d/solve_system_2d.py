@@ -421,20 +421,15 @@ def solve_system_2d(
             solution,
             element_offset,
             dof_offsets,
-            [
-                system.unknown_forms.index(form)
-                for form in refinement_settings.required_forms
-            ],
-            system.unknown_forms,
-            refinement_settings.error_calculation_function,
+            system,
+            refinement_settings.error_estimate,
             refinement_settings.h_refinement_ratio,
             refinement_settings.refinement_limit,
-            unknown_ordering,
             refinement_settings.report_error_distribution,
             element_fem_spaces,
-            (None, None)
-            if refinement_settings.reconstruction_orders is None
-            else refinement_settings.reconstruction_orders,
+            system_settings.boundary_conditions,
+            cache_2d,
+            {int(idx_leaf): i for i, idx_leaf in enumerate(leaf_indices)},
         )
         if refinement_settings.report_order_distribution:
             assert order_hist is not None
@@ -461,7 +456,9 @@ def _compute_offsets_and_sizes(
     """Compute DoF offsets and sizes for the mesh and the system."""
     dof_sizes = np.array(
         [
-            compute_leaf_dof_counts(orders[0] + dp, orders[1] + dp, unknown_ordering)
+            compute_leaf_dof_counts(
+                orders[0] + dp, orders[1] + dp, unknown_ordering.form_orders
+            )
             for orders in (mesh.get_leaf_orders(leaf_idx) for leaf_idx in leaf_indices)
         ],
         np.uint32,

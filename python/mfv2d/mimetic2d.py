@@ -26,7 +26,7 @@ from mfv2d._mfv2d import (
     dlagrange1d,
     lagrange1d,
 )
-from mfv2d.kform import UnknownFormOrder, UnknownOrderings
+from mfv2d.kform import UnknownFormOrder
 
 
 # TODO: remake incidence into working for two different orders
@@ -874,7 +874,7 @@ class Constraint:
 
 
 def compute_leaf_dof_counts(
-    order_1: int, order_2: int, ordering: UnknownOrderings
+    order_1: int, order_2: int, forms: Sequence[UnknownFormOrder]
 ) -> npt.NDArray[np.uint32]:
     """Compute number of DoFs for each element.
 
@@ -896,7 +896,7 @@ def compute_leaf_dof_counts(
         for the element.
     """
     return np.array(
-        [form.full_unknown_count(order_1, order_2) for form in ordering.form_orders],
+        [form.full_unknown_count(order_1, order_2) for form in forms],
         np.uint32,
     )
 

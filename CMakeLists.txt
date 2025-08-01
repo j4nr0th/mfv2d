@@ -16,63 +16,66 @@ execute_process(
 )
 
 set(MFV2D_SOURCE_FILES
-        # Common
-        src/_module.c
-        src/common.c
-        src/error.c
-        # Basis
-        src/basis/lagrange.c
-        src/basis/gausslobatto.c
-        # Topology
-        src/topology/geoidobject.c
-        src/topology/lineobject.c
-        src/topology/surfaceobject.c
-        src/topology/manifold.c
-        src/topology/manifold2d.c
-        src/topology/mesh.c
-        # Evaluation
-        src/eval/allocator.c
-        src/eval/incidence.c
-        src/eval/bytecode.c
-        src/eval/matrix.c
-        src/eval/element_system.c
-        src/eval/system_template.c
-        src/eval/fem_space.c
-        src/eval/element_eval.c
-        src/eval/basis.c
-        src/eval/element_fem_space.c
-        src/eval/integrating_fields.c
-        src/eval/forms.c
+        src/module.c
+        # common
+        src/common/allocator.c
+        src/common/common.c
+        src/common/error.c
+        # evaluation
+        src/evaluation/bytecode.c
+        src/evaluation/element_eval.c
+        src/evaluation/element_system.c
+        src/evaluation/forms.c
+        src/evaluation/incidence.c
+        src/evaluation/integrating_fields.c
+        src/evaluation/matrix.c
+        src/evaluation/system_template.c
+        # fem_space
+        src/fem_space/basis.c
+        src/fem_space/element_fem_space.c
+        src/fem_space/fem_space.c
+        src/fem_space/integration_rule.c
+        # geometry
+        src/geometry/geoidobject.c
+        src/geometry/lineobject.c
+        src/geometry/manifold2d.c
+        src/geometry/mesh.c
+        src/geometry/surfaceobject.c
+        # polynomials
+        src/polynomials/gauss_lobatto.c
+        src/polynomials/lagrange.c
+        src/polynomials/legendre.c
 )
 set(MFV2D_HEADER_FILES
-        # Common
         src/module.h
-        src/common.h
-        src/common_defines.h
-        src/error.h
-        # Basis
-        src/basis/lagrange.h
-        src/basis/gausslobatto.h
-        # Topology
-        src/topology/geoidobject.h
-        src/topology/lineobject.h
-        src/topology/surfaceobject.h
-        src/topology/manifold.h
-        src/topology/manifold2d.h
-        src/topology/mesh.h
-        # Evaluation
-        src/eval/allocator.h
-        src/eval/incidence.h
-        src/eval/bytecode.h
-        src/eval/matrix.h
-        src/eval/element_system.h
-        src/eval/system_template.h
-        src/eval/fem_space.h
-        src/eval/element_eval.h
-        src/eval/basis.h
-        src/eval/element_fem_space.h
-        src/eval/integrating_fields.h
-        src/eval/forms.h
+        # common
+        src/common/allocator.h
+        src/common/common.h
+        src/common/error.h
+        # evaluation
+        src/evaluation/bytecode.h
+        src/evaluation/element_eval.h
+        src/evaluation/element_system.h
+        src/evaluation/forms.h
+        src/evaluation/incidence.h
+        src/evaluation/integrating_fields.h
+        src/evaluation/matrix.h
+        src/evaluation/system_template.h
+        # fem_space
+        src/fem_space/basis.h
+        src/fem_space/element_fem_space.h
+        src/fem_space/fem_space.h
+        src/fem_space/integration_rule.h
+        # geometry
+        src/geometry/geoidobject.h
+        src/geometry/lineobject.h
+        src/geometry/manifold2d.h
+        src/geometry/mesh.h
+        src/geometry/surfaceobject.h
+        # polynomials
+        src/polynomials/gauss_lobatto.h
+        src/polynomials/lagrange.h
+        src/polynomials/legendre.h
 )
 
 Python_add_library(_mfv2d

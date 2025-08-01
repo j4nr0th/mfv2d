@@ -123,4 +123,10 @@ mfv2d_result_t convert_bytecode(const unsigned n, matrix_op_t ops[restrict const
 MFV2D_INTERNAL
 int matrix_op_type_from_object(PyObject *o, matrix_op_type_t *out);
 
+MFV2D_INTERNAL
+PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expression);
+
+MFV2D_INTERNAL
+extern const char check_bytecode_docstr[];
+
 #endif // BYTECODE_H

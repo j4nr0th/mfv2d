@@ -52,4 +52,10 @@ MFV2D_INTERNAL
 mfv2d_result_t incidence_to_full(const incidence_type_t type, const unsigned order, matrix_full_t *p_out,
                                  const allocator_callbacks *allocator);
 
+MFV2D_INTERNAL
+PyObject *check_incidence(PyObject *Py_UNUSED(module), PyObject *args, PyObject *kwds);
+
+MFV2D_INTERNAL
+extern const char check_incidence_docstring[];
+
 #endif // INCIDENCE_H

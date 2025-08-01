@@ -318,3 +318,108 @@ int matrix_op_type_from_object(PyObject *const o, matrix_op_type_t *const out)
     *out = (matrix_op_type_t)val;
     return 1;
 }
+
+MFV2D_INTERNAL
+const char check_bytecode_docstr[] =
+    "check_bytecode(expression: mfv2d.eval._TranslatedBlock, /) -> mfv2d.eval._TranslatedBlock\n"
+    "Convert bytecode to C-values, then back to Python.\n"
+    "\n"
+    "This function is meant for testing.\n";
+
+PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expression)
+{
+    size_t n_expr;
+    // Convert into bytecode
+    bytecode_t *bytecode = NULL;
+    {
+        PyObject *const expression = PySequence_Fast(in_expression, "Can not convert expression to sequence.");
+        if (!expression)
+            return NULL;
+
+        n_expr = PySequence_Fast_GET_SIZE(expression);
+        PyObject **const p_exp = PySequence_Fast_ITEMS(expression);
+
+        unsigned unused;
+        unsigned unused2;
+        form_order_t unused3[INTEGRATING_FIELDS_MAX_COUNT];
+        bytecode = PyMem_RawMalloc(sizeof(bytecode_t) + sizeof(matrix_op_t) * n_expr);
+        if (!bytecode)
+        {
+            Py_DECREF(expression);
+            PyErr_NoMemory();
+            return NULL;
+        }
+        const mfv2d_result_t result = convert_bytecode(n_expr, bytecode->ops, p_exp, &unused, 0, unused3);
+        bytecode->count = n_expr;
+
+        if (result != MFV2D_SUCCESS)
+        {
+            raise_exception_from_current(PyExc_RuntimeError, "Could not convert expression to bytecode, reason: %s",
+                                         mfv2d_result_str(result));
+            PyMem_RawFree(bytecode);
+            Py_DECREF(expression);
+            return NULL;
+        }
+        Py_DECREF(expression);
+    }
+
+    PyTupleObject *out_tuple = (PyTupleObject *)PyTuple_New((Py_ssize_t)n_expr);
+
+    for (unsigned i = 0; i < bytecode->count; ++i)
+    {
+        const matrix_op_t *const op = bytecode->ops + i;
+        PyObject *res = NULL;
+        switch (op->type)
+        {
+        case MATOP_IDENTITY:
+            res = Py_BuildValue("(I)", MATOP_IDENTITY);
+            break;
+
+        case MATOP_MATMUL:
+            res = Py_BuildValue("(I)", MATOP_MATMUL);
+            break;
+
+        case MATOP_SCALE:
+            res = Py_BuildValue("(Id)", MATOP_SCALE, op->scale.k);
+            break;
+
+        case MATOP_SUM:
+            res = Py_BuildValue("(II)", MATOP_SUM, op->sum.n);
+            break;
+
+        case MATOP_INCIDENCE:
+            res = Py_BuildValue("(III)", MATOP_INCIDENCE, op->incidence.order, op->incidence.transpose);
+            break;
+
+        case MATOP_MASS:
+            res = Py_BuildValue("(III)", MATOP_MASS, op->mass.order, op->mass.invert);
+            break;
+
+        case MATOP_PUSH:
+            res = Py_BuildValue("(I)", MATOP_PUSH);
+            break;
+
+        case MATOP_INTERPROD:
+            res = Py_BuildValue("(IIIII)", MATOP_INTERPROD, op->interprod.order, op->interprod.field_index,
+                                op->interprod.dual, op->interprod.adjoint);
+            break;
+
+        default:
+            Py_DECREF(out_tuple);
+            PyMem_RawFree(bytecode);
+            PyErr_Format(PyExc_RuntimeError, "Unknown operation type %u.", op->type);
+            return NULL;
+        }
+        if (res == NULL)
+        {
+            Py_DECREF(out_tuple);
+            PyMem_RawFree(bytecode);
+            return NULL;
+        }
+        PyTuple_SET_ITEM(out_tuple, i, res);
+    }
+
+    PyMem_RawFree(bytecode);
+
+    return (PyObject *)out_tuple;
+}

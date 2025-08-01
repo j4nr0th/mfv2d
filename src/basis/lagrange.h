@@ -3,7 +3,7 @@
 
 #ifndef LAGRANGE_H
 #define LAGRANGE_H
-#include "../common_defines.h"
+#include "../common.h"
 
 /**
  * @brief Compute common denominators of Lagrange polynomials.
@@ -68,4 +68,15 @@ void lagrange_polynomial_first_derivative(unsigned n_in, const double MFV2D_ARRA
                                           double MFV2D_ARRAY_ARG(work1, restrict n_nodes),
                                           double MFV2D_ARRAY_ARG(work2, restrict n_nodes));
 
+MFV2D_INTERNAL
+PyObject *interp_lagrange(PyObject *Py_UNUSED(module), PyObject *args);
+
+MFV2D_INTERNAL
+extern const char interp_lagrange_doc[];
+
+MFV2D_INTERNAL
+PyObject *interp_dlagrange(PyObject *Py_UNUSED(module), PyObject *args);
+
+MFV2D_INTERNAL
+extern const char interp_dlagrange_doc[];
 #endif // LAGRANGE_H

@@ -231,6 +231,38 @@ end:
 }
 
 MFV2D_INTERNAL
+const char compute_element_matrix_docstr[] =
+    "compute_element_matrix(form_orders: Sequence[int], expressions: _CompiledCodeMatrix, corners: NDArray, "
+    "vector_fields: Sequence[npt.NDArray[np.float64]], basis: Basis2D, stack_memory: int = 1 << 24,"
+    ") -> NDArray\n"
+    "Compute a single element matrix.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "form_orders : Sequence of int\n"
+    "    Orders of differential forms for the degrees of freedom. Must be between 0 and 2.\n"
+    "\n"
+    "expressions\n"
+    "    Compiled bytecode to execute.\n"
+    "\n"
+    "corners : (4, 2) array\n"
+    "    Array of corners of the element.\n"
+    "\n"
+    "vector_fields : Sequence of arrays\n"
+    "    Vector field arrays as required for interior product evaluations.\n"
+    "\n"
+    "basis : Basis2D\n"
+    "    Basis functions with integration rules to use.\n"
+    "\n"
+    "stack_memory : int, default: 1 << 24\n"
+    "    Amount of memory to use for the evaluation stack.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "array\n"
+    "    Element matrix for the specified system.\n";
+
+MFV2D_INTERNAL
 PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwargs)
 {
     PyArrayObject *return_value = NULL;
@@ -425,6 +457,41 @@ cleanup_fields:
     }
     return (PyObject *)return_value;
 }
+
+MFV2D_INTERNAL
+const char compute_element_vector_docstr[] =
+    "compute_element_vector(form_orders: Sequence[int], expressions: _CompiledCodeMatrix, corners: array, "
+    "vector_fields: Sequence[array], basis: Basis2D, solution: array, stack_memory: int = 1 << 24) -> array\n"
+    "Compute a single element forcing.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "form_orders : Sequence of int\n"
+    "    Orders of differential forms for the degrees of freedom. Must be between 0 and 2.\n"
+    "\n"
+    "expressions\n"
+    "    Compiled bytecode to execute.\n"
+    "\n"
+    "corners : (4, 2) array\n"
+    "    Array of corners of the element.\n"
+    "\n"
+    "vector_fields : Sequence of arrays\n"
+    "    Vector field arrays as required for interior product evaluations.\n"
+    "\n"
+    "basis : Basis2D\n"
+    "    Basis functions with integration rules to use.\n"
+    "\n"
+    "solution : array\n"
+    "    Array with degrees of freedom for the element.\n"
+    "\n"
+    "stack_memory : int, default: 1 << 24\n"
+    "    Amount of memory to use for the evaluation stack.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "array\n"
+    "    Element vector for the specified system.\n";
+
 MFV2D_INTERNAL
 const char compute_element_projector_docstr[] =
     "compute_element_projector(form_orders: Sequence[UnknownFormOrders],  corners: array, basis_in: Basis2D, "

@@ -30,7 +30,7 @@ from mfv2d.mimetic2d import (
 )
 from mfv2d.progress import HistogramFormat
 from mfv2d.solve_system import compute_element_rhs
-from mfv2d.system import ElementFormsSpecification, KFormSystem
+from mfv2d.system import ElementFormSpecification, KFormSystem
 
 
 def compute_legendre_coefficients(
@@ -340,7 +340,7 @@ def refine_mesh_based_on_error(
     total_unknowns: int,
     h_refinement_ratio: float,
     refinement_limit: RefinementLimit,
-    form_specs: ElementFormsSpecification,
+    form_specs: ElementFormSpecification,
     leaf_indices: npt.NDArray[np.uint32],
     element_error: npt.NDArray[np.float64],
     href_cost: npt.NDArray[np.float64],
@@ -452,7 +452,7 @@ def error_estimate_with_custom_estimator(
     solution: npt.NDArray[np.float64],
     element_offsets: npt.NDArray[np.uint32],
     required_unknowns: Sequence[KFormUnknown],
-    form_specs: ElementFormsSpecification,
+    form_specs: ElementFormSpecification,
     error_calculation_function: CustomErrorFunction,
     element_fem_spaces: Sequence[ElementFemSpace2D],
     recon_order_1: int | None,

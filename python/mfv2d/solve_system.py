@@ -40,7 +40,7 @@ from mfv2d.mimetic2d import (
     vtk_lagrange_ordering,
 )
 from mfv2d.progress import ProgressTracker
-from mfv2d.system import ElementFormsSpecification, KFormSystem
+from mfv2d.system import ElementFormSpecification, KFormSystem
 
 
 def rhs_2d_element_projection(
@@ -158,7 +158,7 @@ def compute_element_rhs(
 
 
 def reconstruct_mesh_from_solution(
-    form_spec: ElementFormsSpecification,
+    form_spec: ElementFormSpecification,
     recon_order: int | None,
     fem_spaces: list[ElementFemSpace2D],
     solution: npt.NDArray[np.float64],
@@ -243,7 +243,7 @@ def reconstruct_mesh_from_solution(
 
 
 def compute_element_dual(
-    form_specs: ElementFormsSpecification,
+    form_specs: ElementFormSpecification,
     functions: Sequence[
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike] | None
     ],
@@ -271,7 +271,7 @@ def compute_element_dual(
 
 
 def compute_element_primal(
-    form_specs: ElementFormsSpecification,
+    form_specs: ElementFormSpecification,
     dual_dofs: npt.NDArray[np.float64],
     element_space: ElementFemSpace2D,
 ) -> npt.NDArray[np.float64]:
@@ -297,7 +297,7 @@ def compute_element_primal(
 
 
 def compute_element_primal_to_dual(
-    form_specs: ElementFormsSpecification,
+    form_specs: ElementFormSpecification,
     primal: npt.NDArray[np.float64],
     order_1: int,
     order_2: int,
@@ -330,7 +330,7 @@ def non_linear_solve_run(
     atol: float,
     rtol: float,
     print_residual: bool,
-    form_spec: ElementFormsSpecification,
+    form_spec: ElementFormSpecification,
     element_fem_spaces: Sequence[ElementFemSpace2D],
     compiled_system: CompiledSystem,
     explicit_vec: npt.NDArray[np.float64],
@@ -585,7 +585,7 @@ class SolverSettings:
 
 def find_time_carry_indices(
     unknowns: Sequence[int],
-    form_specs: ElementFormsSpecification,
+    form_specs: ElementFormSpecification,
     order_1: int,
     order_2: int,
 ) -> npt.NDArray[np.uint32]:

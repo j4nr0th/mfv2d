@@ -11,7 +11,7 @@ from mfv2d.mimetic2d import (
     element_primal_dofs,
     reconstruct,
 )
-from mfv2d.system import ElementFormsSpecification
+from mfv2d.system import ElementFormSpecification
 
 _ORDER_COMBINATIONS_HOMOGENUS = (
     (1, 1),
@@ -80,7 +80,7 @@ def test_explicit(n1: int, n2: int):
         (func_1_form_test, UnknownFormOrder.FORM_ORDER_1),
     ]
 
-    fake_specs = ElementFormsSpecification(
+    fake_specs = ElementFormSpecification(
         KFormUnknown("a", UnknownFormOrder.FORM_ORDER_0)
     )
     results = compute_integrating_fields(
@@ -165,7 +165,7 @@ def test_solution_based(n1: int, n2: int):
         axis=-1,
     )
 
-    form_specs = ElementFormsSpecification(
+    form_specs = ElementFormSpecification(
         *(KFormUnknown(f"form-{i}", order) for i, (_, order) in enumerate(rule_specs))
     )
 
@@ -253,7 +253,7 @@ def test_mixed(n1: int, n2: int):
             field_specs.append(function)
 
     merged_dofs = np.concatenate(dofs, axis=-1)
-    form_specs = ElementFormsSpecification(*unknowns)
+    form_specs = ElementFormSpecification(*unknowns)
     reversed_labels = [f.label for f in reversed(unknowns)]
 
     results = compute_integrating_fields(

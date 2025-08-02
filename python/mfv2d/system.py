@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterator
 from typing import Any, Self, SupportsIndex
 
-from mfv2d._mfv2d import _ElementFormsSpecification
+from mfv2d._mfv2d import _ElementFormSpecification
 from mfv2d.kform import (
     Function2D,
     KEquation,
@@ -22,7 +22,7 @@ from mfv2d.kform import (
 )
 
 
-class ElementFormsSpecification(_ElementFormsSpecification):
+class ElementFormSpecification(_ElementFormSpecification):
     """Specifications of element forms on an element.
 
     Parameters
@@ -242,7 +242,7 @@ class KFormSystem:
         corresponds to sorting the columns of the system matrix.
     """
 
-    unknown_forms: ElementFormsSpecification
+    unknown_forms: ElementFormSpecification
     equations: tuple[KEquation, ...]
     vector_fields: tuple[Function2D | KFormUnknown, ...]
 
@@ -272,7 +272,7 @@ class KFormSystem:
         else:
             self.weight_forms = tuple(weights)
 
-        self.unknown_forms = ElementFormsSpecification(
+        self.unknown_forms = ElementFormSpecification(
             *(w.base_form for w in self.weight_forms)
         )
 

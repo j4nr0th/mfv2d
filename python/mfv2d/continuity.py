@@ -35,7 +35,7 @@ from mfv2d.mimetic2d import (
     find_surface_boundary_id_line,
     get_side_order,
 )
-from mfv2d.system import ElementFormsSpecification, KFormSystem
+from mfv2d.system import ElementFormSpecification, KFormSystem
 
 
 def _find_surface_boundary_id_node(
@@ -598,13 +598,13 @@ def connect_element_inner(
 
 
 def connect_elements(
-    form_specs: ElementFormsSpecification, mesh: Mesh
+    form_specs: ElementFormSpecification, mesh: Mesh
 ) -> list[Constraint]:
     """Generate constraints for all elements and unknowns.
 
     Parameters
     ----------
-    form_specs : ElementFormsSpecification
+    form_specs : ElementFormSpecification
         Orders of unknown forms defined for all elements.
 
     mesh : Mesh

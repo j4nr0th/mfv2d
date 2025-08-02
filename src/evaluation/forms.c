@@ -84,7 +84,7 @@ static PyObject *element_form_spec_iter_next(element_form_spec_iter_t *it)
 
 MFV2D_INTERNAL
 PyTypeObject element_form_spec_iter_type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormsSpecificationIter",
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormSpecificationIter",
     .tp_basicsize = sizeof(element_form_spec_iter_t),
     .tp_dealloc = (destructor)element_form_spec_iter_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT,
@@ -116,7 +116,7 @@ static PyObject *element_form_spec_new(PyTypeObject *type, PyObject *args, PyObj
 
     if (kwds != NULL)
     {
-        PyErr_SetString(PyExc_TypeError, "_ElementFormsSpecification takes no keyword arguments");
+        PyErr_SetString(PyExc_TypeError, "_ElementFormSpecification takes no keyword arguments");
         return NULL;
     }
 
@@ -317,7 +317,7 @@ static PyGetSetDef element_form_spec_getset[] = {
 static PyObject *element_form_spec_repr(const element_form_spec_t *self)
 {
     const Py_ssize_t size = Py_SIZE(self);
-    PyObject *res = PyUnicode_FromString("_ElementFormsSpecification(");
+    PyObject *res = PyUnicode_FromString("_ElementFormSpecification(");
     if (!res)
         return NULL;
     for (Py_ssize_t i = 0; i < size; ++i)
@@ -673,7 +673,7 @@ static PyMethodDef element_form_spec_methods[] = {
     {},
 };
 
-PyDoc_STRVAR(element_form_spec_docstr, "_ElementFormsSpecification(*specs: tuple[str, int])\n"
+PyDoc_STRVAR(element_form_spec_docstr, "_ElementFormSpecification(*specs: tuple[str, int])\n"
                                        "Specifications of forms defined on an element.\n"
                                        "\n"
                                        "Parameters\n"
@@ -684,7 +684,7 @@ PyDoc_STRVAR(element_form_spec_docstr, "_ElementFormsSpecification(*specs: tuple
                                        "    :class:`mfv2d.kform.UnknownFormOrder`.\n");
 
 PyTypeObject element_form_spec_type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormsSpecification",
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormSpecification",
     .tp_basicsize = sizeof(element_form_spec_t),
     .tp_itemsize = sizeof(form_spec_t),
     .tp_dealloc = (destructor)element_form_spec_dealloc,

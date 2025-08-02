@@ -667,7 +667,7 @@ class Manifold2D:
     def __repr__(self) -> str: ...
 
 def check_bytecode(
-    form_specs: _ElementFormsSpecification, expression: _TranslatedBlock
+    form_specs: _ElementFormSpecification, expression: _TranslatedBlock
 ) -> _TranslatedBlock:
     """Convert bytecode to C-values, then back to Python.
 
@@ -895,7 +895,7 @@ class ElementFemSpace2D:
         ...
 
 def compute_element_matrix(
-    form_orders: _ElementFormsSpecification,
+    form_orders: _ElementFormSpecification,
     expressions: _TranslatedSystem2D,
     element_fem_space: ElementFemSpace2D,
     degrees_of_freedom: npt.NDArray[np.float64] | None = None,
@@ -931,7 +931,7 @@ def compute_element_matrix(
     ...
 
 def compute_element_vector(
-    form_orders: _ElementFormsSpecification,
+    form_orders: _ElementFormSpecification,
     expressions: _TranslatedSystem2D,
     element_cache: ElementFemSpace2D,
     degrees_of_freedom: npt.NDArray[np.float64],
@@ -967,7 +967,7 @@ def compute_element_vector(
     ...
 
 def compute_element_projector(
-    form_orders: _ElementFormsSpecification,
+    form_orders: _ElementFormSpecification,
     corners: npt.NDArray[np.float64],
     basis_in: Basis2D,
     basis_out: Basis2D,
@@ -1315,7 +1315,7 @@ MATOP_INTERPROD: int
 # fem_space", "form_specs", "field_orders", "field_information", "degrees_of_freedom
 def compute_integrating_fields(
     fem_space: ElementFemSpace2D,
-    form_specs: _ElementFormsSpecification,
+    form_specs: _ElementFormSpecification,
     field_orders: tuple[UnknownFormOrder, ...],
     field_information: tuple[Function2D | str, ...],
     degrees_of_freedom: npt.NDArray[np.float64],
@@ -1345,7 +1345,7 @@ def compute_integrating_fields(
     """
     ...
 
-class _ElementFormsSpecification:
+class _ElementFormSpecification:
     """Specifications of forms defined on an element.
 
     Parameters

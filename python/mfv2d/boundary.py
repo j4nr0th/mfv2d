@@ -37,7 +37,7 @@ from mfv2d.mimetic2d import (
     find_surface_boundary_id_line,
     get_side_order,
 )
-from mfv2d.system import ElementFormsSpecification
+from mfv2d.system import ElementFormSpecification
 
 
 @dataclass(frozen=True, init=False)
@@ -110,7 +110,7 @@ def _element_weak_boundary_condition(
     mesh: Mesh,
     element_idx: int,
     side: ElementSide,
-    form_specs: ElementFormsSpecification,
+    form_specs: ElementFormSpecification,
     unknown_index: int,
     weak_terms: Sequence[tuple[float, KBoundaryProjection]],
     basis_cache: FemCache,
@@ -218,7 +218,7 @@ def _element_strong_boundary_condition(
     mesh: Mesh,
     element_idx: int,
     side: ElementSide,
-    form_specs: ElementFormsSpecification,
+    form_specs: ElementFormSpecification,
     unknown_index: int,
     strong_bc: BoundaryCondition2DSteady,
     basis_cache: FemCache,
@@ -381,7 +381,7 @@ def _element_strong_boundary_condition(
 
 def mesh_boundary_conditions(
     evaluatable_terms: Sequence[KSum],
-    form_specs: ElementFormsSpecification,
+    form_specs: ElementFormSpecification,
     mesh: Mesh,
     strong_bcs: Sequence[Sequence[BoundaryCondition2DSteady]],
     basis_cache: FemCache,

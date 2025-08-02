@@ -873,32 +873,32 @@ class Constraint:
         object.__setattr__(self, "element_constraints", element_constraints)
 
 
-def compute_leaf_dof_counts(
-    order_1: int, order_2: int, forms: Sequence[UnknownFormOrder]
-) -> npt.NDArray[np.uint32]:
-    """Compute number of DoFs for each element.
+# def compute_leaf_dof_counts(
+#     order_1: int, order_2: int, forms: Sequence[UnknownFormOrder]
+# ) -> npt.NDArray[np.uint32]:
+#     """Compute number of DoFs for each element.
 
-    Parameters
-    ----------
-    order_1 : int
-        Order of the element in the first dimension.
+#     Parameters
+#     ----------
+#     order_1 : int
+#         Order of the element in the first dimension.
 
-    order_2 : int
-        Order of the element in the second dimension.
+#     order_2 : int
+#         Order of the element in the second dimension.
 
-    ordering : UnknownOrderings
-        Orders of differential forms in the system.
+#     ordering : UnknownOrderings
+#         Orders of differential forms in the system.
 
-    Returns
-    -------
-    array of int
-        Array with count of degrees of freedom for of each differential form
-        for the element.
-    """
-    return np.array(
-        [form.full_unknown_count(order_1, order_2) for form in forms],
-        np.uint32,
-    )
+#     Returns
+#     -------
+#     array of int
+#         Array with count of degrees of freedom for of each differential form
+#         for the element.
+#     """
+#     return np.array(
+#         [form.full_unknown_count(order_1, order_2) for form in forms],
+#         np.uint32,
+#     )
 
 
 def jacobian(
@@ -1199,7 +1199,7 @@ def element_primal_dofs(
 
 def reconstruct(
     fem_space: ElementFemSpace2D,
-    order: UnknownFormOrder,
+    form_order: UnknownFormOrder,
     dofs: npt.ArrayLike,
     xi: npt.ArrayLike,
     eta: npt.ArrayLike,
@@ -1231,19 +1231,19 @@ def reconstruct(
     array
         Array with the point values of the k-form at the specified coordinates.
     """
-    order = UnknownFormOrder(order)
+    form_order = UnknownFormOrder(form_order)
     c = np.asarray(dofs, dtype=np.float64, copy=None)
     if c.ndim != 1:
         raise ValueError("Coefficient array must be one dimensional.")
 
     basis = fem_space.basis_2d
-    ndofs = order.full_unknown_count(basis.basis_xi.order, basis.basis_eta.order)
+    ndofs = form_order.full_unknown_count(basis.basis_xi.order, basis.basis_eta.order)
     out = np.zeros_like(np.asarray(xi) + np.asarray(eta), np.float64)
 
     if c.size != ndofs:
         raise ValueError("The number of degrees of freedom is not correct.")
 
-    if order == UnknownFormOrder.FORM_ORDER_0:
+    if form_order == UnknownFormOrder.FORM_ORDER_0:
         assert c.size == (basis.basis_xi.order + 1) * (basis.basis_eta.order + 1)
         vals_xi = lagrange1d(basis.basis_xi.roots, xi)
         vals_eta = lagrange1d(basis.basis_eta.roots, eta)
@@ -1265,7 +1265,7 @@ def reconstruct(
         accumulate(-in_dvalues_eta[..., i] for i in range(basis.basis_eta.order))
     )
 
-    if order == UnknownFormOrder.FORM_ORDER_1:
+    if form_order == UnknownFormOrder.FORM_ORDER_1:
         values_xi = lagrange1d(basis.basis_xi.roots, xi)
         values_eta = lagrange1d(basis.basis_eta.roots, eta)
         out_xi = np.zeros_like(out)
@@ -1295,7 +1295,7 @@ def reconstruct(
         )
         return np.array(out / det[..., None], np.float64, copy=None)
 
-    if order == UnknownFormOrder.FORM_ORDER_2:
+    if form_order == UnknownFormOrder.FORM_ORDER_2:
         for i1 in range(basis.basis_eta.order):
             v1 = dvalues_eta[i1]
             for j1 in range(basis.basis_xi.order):
@@ -1304,4 +1304,4 @@ def reconstruct(
 
         return np.array(out / det, np.float64, copy=None)
 
-    raise ValueError(f"Order of the differential form {order} is not valid.")
+    raise ValueError(f"Order of the differential form {form_order} is not valid.")

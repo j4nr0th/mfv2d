@@ -35,70 +35,72 @@ mfv2d_result_t convert_system_forms(PyObject *orders, unsigned *p_n_forms, form_
     return MFV2D_SUCCESS;
 }
 MFV2D_INTERNAL
-mfv2d_result_t system_template_create(system_template_t *this, PyObject *orders, PyObject *expr_matrix,
-                                      const unsigned n_fields, const allocator_callbacks *allocator)
+mfv2d_result_t system_template_create(system_template_t *this, const element_form_spec_t *const form_specs,
+                                      const element_fem_space_2d_t *fem_space, PyObject *expr_matrix,
+                                      const allocator_callbacks *allocator, const double degrees_of_freedom[restrict])
 {
     mfv2d_result_t result;
-    // Find the number of forms
-    if ((result = convert_system_forms(orders, &this->n_forms, &this->form_orders, allocator)) != MFV2D_SUCCESS)
-        return result;
 
     // Now go through the rows
     const ssize_t row_count = PySequence_Size(expr_matrix);
     if (row_count < 0)
     {
-        deallocate(allocator, this->form_orders);
         return MFV2D_FAILED_ALLOC;
     }
 
-    if (row_count != this->n_forms)
+    const unsigned n_forms = Py_SIZE(form_specs);
+    if (row_count != n_forms)
     {
         PyErr_Format(PyExc_ValueError,
                      "Number of forms deduced from order array (%u) does not match the number of expression rows (%u).",
-                     this->n_forms, row_count);
-        deallocate(allocator, this->form_orders);
+                     n_forms, row_count);
         return MFV2D_BAD_ARGUMENT;
     }
+    this->n_forms = n_forms;
 
-    this->bytecodes = allocate(allocator, sizeof(*this->bytecodes) * this->n_forms * this->n_forms);
+    this->bytecodes = allocate(allocator, sizeof(*this->bytecodes) * n_forms * n_forms);
     if (!this->bytecodes)
     {
-        deallocate(allocator, this->form_orders);
         return MFV2D_FAILED_ALLOC;
     }
-    memset(this->bytecodes, 0, sizeof(*this->bytecodes) * this->n_forms * this->n_forms);
+    memset(this->bytecodes, 0, sizeof(*this->bytecodes) * n_forms * n_forms);
 
-    memset(this->field_orders, FORM_ORDER_UNKNOWN, sizeof(*this->field_orders) * INTEGRATING_FIELDS_MAX_COUNT);
+    field_spec_t field_specs[INTEGRATING_FIELDS_MAX_COUNT] = {};
 
     unsigned max_stack = 1;
-    for (unsigned row = 0; row < this->n_forms; ++row)
+    // Translate bytecode and grab field specifications
+    for (unsigned row = 0; row < n_forms; ++row)
     {
         PyObject *row_expr = PySequence_GetItem(expr_matrix, row);
         if (!row_expr)
         {
-            goto failed_row;
+            system_template_destroy(this, allocator);
+            return MFV2D_PYTHON_EXCEPTION;
         }
         const ssize_t column_count = PySequence_Size(row_expr);
         if (column_count < 0)
         {
-            goto failed_row;
+            system_template_destroy(this, allocator);
+            return MFV2D_PYTHON_EXCEPTION;
         }
-        if (column_count != this->n_forms)
+        if (column_count != n_forms)
         {
             PyErr_Format(
                 PyExc_ValueError,
                 "Number of forms deduced from order array (%u) does not match the number of expression in row %u (%u).",
-                this->n_forms, row, column_count);
-            goto failed_row;
+                n_forms, row, column_count);
+
+            system_template_destroy(this, allocator);
+            return MFV2D_BAD_ARGUMENT;
         }
 
-        for (unsigned col = 0; col < this->n_forms; ++col)
+        for (unsigned col = 0; col < n_forms; ++col)
         {
             PyObject *expr = PySequence_GetItem(row_expr, col);
             if (!expr)
             {
-                result = MFV2D_UNSPECIFIED_ERROR;
-                goto failed_row;
+                system_template_destroy(this, allocator);
+                return MFV2D_PYTHON_EXCEPTION;
             }
             if (Py_IsNone(expr))
             {
@@ -109,34 +111,31 @@ mfv2d_result_t system_template_create(system_template_t *this, PyObject *orders,
             if (!seq)
             {
                 Py_DECREF(expr);
-                result = MFV2D_UNSPECIFIED_ERROR;
-                goto failed_row;
+                system_template_destroy(this, allocator);
+                return MFV2D_PYTHON_EXCEPTION;
             }
-            const ssize_t expr_count = PySequence_Fast_GET_SIZE(seq);
-            if (expr_count < 0)
-            {
-                Py_DECREF(expr);
-                result = MFV2D_UNSPECIFIED_ERROR;
-                goto failed_row;
-            }
+            // No need to check, this does not fail
+            const Py_ssize_t expr_count = PySequence_Fast_GET_SIZE(seq);
 
             bytecode_t *const bc = allocate(allocator, sizeof(*bc) + sizeof(*bc->ops) * expr_count);
             if (!bc)
             {
                 Py_DECREF(seq);
                 Py_DECREF(expr);
-                result = MFV2D_FAILED_ALLOC;
-                goto failed_row;
+                system_template_destroy(this, allocator);
+                return MFV2D_FAILED_ALLOC;
             }
             bc->count = expr_count;
-            this->bytecodes[row * this->n_forms + col] = bc;
+            this->bytecodes[row * n_forms + col] = bc;
             unsigned stack;
-            if ((result = convert_bytecode(expr_count, bc->ops, PySequence_Fast_ITEMS(seq), &stack, n_fields,
-                                           this->field_orders)) != MFV2D_SUCCESS)
+            if ((result =
+                     convert_bytecode(expr_count, bc->ops, PySequence_Fast_ITEMS(seq), &stack, &this->fields.n_fields,
+                                      INTEGRATING_FIELDS_MAX_COUNT, field_specs, form_specs)) != MFV2D_SUCCESS)
             {
                 Py_DECREF(seq);
                 Py_DECREF(expr);
-                goto failed_row;
+                system_template_destroy(this, allocator);
+                return result;
             }
             if (stack > max_stack)
             {
@@ -145,37 +144,21 @@ mfv2d_result_t system_template_create(system_template_t *this, PyObject *orders,
             Py_DECREF(seq);
             Py_DECREF(expr);
         }
-
-        continue;
-
-    failed_row: {
-        Py_XDECREF(row_expr);
-        for (unsigned i = row; i > 0; --i)
-        {
-            for (unsigned j = this->n_forms; j > 0; --j)
-            {
-                deallocate(allocator, this->bytecodes[(i - 1) * this->n_forms + (j - 1)]);
-            }
-        }
-        deallocate(allocator, this->bytecodes);
-        deallocate(allocator, this->form_orders);
-        Py_DECREF(row_expr);
-        return result;
     }
+
+    // Now evaluate the field specifications
+
+    const mfv2d_result_t result_fields =
+        compute_fields(fem_space->fem_space, &fem_space->corners, &this->fields, this->fields.n_fields, field_specs,
+                       allocator, form_specs, degrees_of_freedom);
+
+    if (result_fields != MFV2D_SUCCESS)
+    {
+        system_template_destroy(this, allocator);
+        return result_fields;
     }
 
     this->max_stack = max_stack;
-
-    // for (unsigned i_field = 0; i_field < *p_field_cnt; ++i_field)
-    // {
-    //     if (field_orders[i_field] == FORM_ORDER_UNKNOWN)
-    //     {
-    //         PyErr_Format(PyExc_ValueError, "Field %u out of %u has no order specified.", i_field, *p_field_cnt);
-    //         deallocate(allocator, this->form_orders);
-    //         deallocate(allocator, this->bytecodes);
-    //         return MFV2D_BAD_ARGUMENT;
-    //     }
-    // }
 
     return MFV2D_SUCCESS;
 }
@@ -183,7 +166,6 @@ mfv2d_result_t system_template_create(system_template_t *this, PyObject *orders,
 MFV2D_INTERNAL
 void system_template_destroy(system_template_t *this, const allocator_callbacks *allocator)
 {
-    deallocate(allocator, this->form_orders);
     for (unsigned i = this->n_forms; this->bytecodes && i > 0; --i)
     {
         for (unsigned j = this->n_forms; j > 0; --j)
@@ -192,5 +174,6 @@ void system_template_destroy(system_template_t *this, const allocator_callbacks 
         }
     }
     deallocate(allocator, this->bytecodes);
+    deallocate(allocator, this->fields.buffer);
     *this = (system_template_t){};
 }

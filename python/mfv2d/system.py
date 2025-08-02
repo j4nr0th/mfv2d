@@ -1,6 +1,6 @@
 """Types for describint the system and differential forms and system."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any, Self, SupportsIndex
 
 from mfv2d._mfv2d import _ElementFormsSpecification
@@ -46,6 +46,41 @@ class ElementFormsSpecification(_ElementFormsSpecification):
         """Get the entry at the specified index, but converted to a form."""
         label, order = self[idx]
         return KFormUnknown(label, UnknownFormOrder(order))
+
+    def __iter__(self) -> Iterator[tuple[str, UnknownFormOrder]]:
+        """Iterate over labels and orders of forms specified."""
+        iterator = super().__iter__()
+        for label, order in iterator:
+            yield (label, UnknownFormOrder(order))
+
+    def iter_forms(self) -> Iterator[KFormUnknown]:
+        """Iterate over forms in the specifications."""
+        for label, order in self:
+            yield KFormUnknown(label, order)
+
+    def __contains__(self, item: tuple[str, int] | KFormUnknown) -> bool:
+        """Check if the item is contained in the specifications."""
+        if isinstance(item, KFormUnknown):
+            return super().__contains__((item.label, item.order.value))
+
+        return super().__contains__(item)
+
+    def index(self, value: tuple[str, int] | KFormUnknown) -> int:
+        """Return the index of the form with the given label and order in the specs.
+
+        Parameters
+        ----------
+        value : tuple of (str, int) or KFormUnknown
+            Label and index of the form, or the form itself.
+
+        Returns
+        -------
+        int
+            Index of the form in the specification.
+        """
+        if isinstance(value, KFormUnknown):
+            return super().index((value.label, value.order.value))
+        return super().index(value)
 
 
 def _form_as_string(form: Term) -> dict[Term, str | None]:
@@ -207,8 +242,7 @@ class KFormSystem:
         corresponds to sorting the columns of the system matrix.
     """
 
-    unknown_forms: tuple[KFormUnknown, ...]
-    weight_forms: tuple[KWeight, ...]
+    unknown_forms: ElementFormsSpecification
     equations: tuple[KEquation, ...]
     vector_fields: tuple[Function2D | KFormUnknown, ...]
 
@@ -238,7 +272,9 @@ class KFormSystem:
         else:
             self.weight_forms = tuple(weights)
 
-        self.unknown_forms = tuple(w.base_form for w in self.weight_forms)
+        self.unknown_forms = ElementFormsSpecification(
+            *(w.base_form for w in self.weight_forms)
+        )
 
         self.equations = tuple(equation_list[self.weight_forms.index(w)] for w in weights)
         self.vector_fields = tuple(vec_field for vec_field in vfs)
@@ -255,7 +291,7 @@ class KFormSystem:
             left_out_list: list[str] = []
             right_out_list: list[str] = []
 
-            for left_form in self.unknown_forms:
+            for left_form in self.unknown_forms.iter_forms():
                 if left_form in left_strings:
                     v = left_strings[left_form]
                     assert v is not None
@@ -263,7 +299,7 @@ class KFormSystem:
                 else:
                     left_out_list.append("0")
 
-            for right_form in self.unknown_forms:
+            for right_form in self.unknown_forms.iter_forms():
                 if right_form in right_strings:
                     v = right_strings[right_form]
                     assert v is not None

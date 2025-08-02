@@ -139,7 +139,7 @@ class InterProd(MatOp):
     starting_order : UnknownFormOrder
         Order of the k-form to which the interior product should be applied.
 
-    field_index : int
+    field : str or Function2D
         Index of the vector/scalar field from which the values of are taken.
 
     dual : bool
@@ -151,7 +151,7 @@ class InterProd(MatOp):
     """
 
     starting_order: UnknownFormOrder
-    field_index: int
+    field: str | Function2D
     dual: bool
     adjoint: bool
 
@@ -326,10 +326,7 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
 
 
 def translate_equation(
-    form: Term,
-    vec_fields: Sequence[Function2D | KFormUnknown],
-    newton: bool,
-    simplify: bool,
+    form: Term, newton: bool, simplify: bool
 ) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
@@ -337,9 +334,6 @@ def translate_equation(
     ---------
     form : Term
         Form to evaluate.
-    vec_fields : Sequence of Function2D or KFormUnknown
-        Sequence to use when determining the index of vector fields passed to evaluation
-        function.
     newton : bool
         When ``True``, non-linear terms will yield terms two terms used to determine the
         derivative. Otherwise, only the terms to evaluate the value are returned.
@@ -352,9 +346,7 @@ def translate_equation(
         Dictionary mapping forms to either a matrix that represents the operation to
         perform on them, or ``float``, if it should be multiplication with a constant.
     """
-    v = _translate_equation(
-        form=form, vec_fields=vec_fields, newton=newton, transpose=False
-    )
+    v = _translate_equation(form=form, newton=newton, transpose=False)
     if simplify:
         for k in v:
             v[k] = simplify_expression(*v[k])
@@ -364,10 +356,7 @@ def translate_equation(
 
 
 def _translate_equation(
-    form: Term,
-    vec_fields: Sequence[Function2D | KFormUnknown],
-    newton: bool,
-    transpose: bool,
+    form: Term, newton: bool, transpose: bool
 ) -> dict[Term, list[MatOp]]:
     """Compute the matrix operations on individual forms.
 
@@ -375,9 +364,6 @@ def _translate_equation(
     ---------
     form : Term
         Form to evaluate.
-    vec_fields : Sequence of Function2D or KFormUnknown
-        Sequence to use when determining the index of vector fields passed to evaluation
-        function.
     newton : bool
         When ``True``, non-linear terms will yield terms two terms used to determine the
         derivative. Otherwise, only the terms to evaluate the value are returned.
@@ -397,9 +383,7 @@ def _translate_equation(
             accum: dict[Term, list[MatOp]] = {}
             counts: dict[Term, int] = {}
             for c, ip in form.pairs:
-                right = _translate_equation(
-                    form=ip, vec_fields=vec_fields, newton=newton, transpose=transpose
-                )
+                right = _translate_equation(form=ip, newton=newton, transpose=transpose)
                 if c != 1.0:
                     for f in right:
                         right[f].append(Scale(c))
@@ -428,16 +412,10 @@ def _translate_equation(
             #     unknown = _translate_equation(form.function.base_form)
             # else:
             unknown = _translate_equation(
-                form=form.unknown_form,
-                vec_fields=vec_fields,
-                newton=newton,
-                transpose=False,
+                form=form.unknown_form, newton=newton, transpose=False
             )
             weight = _translate_equation(
-                form=form.weight_form,
-                vec_fields=vec_fields,
-                newton=newton,
-                transpose=True,
+                form=form.weight_form, newton=newton, transpose=True
             )
             assert len(weight) == 1
             dv = tuple(v for v in weight.keys())[0]
@@ -471,7 +449,7 @@ def _translate_equation(
             return unknown
 
         case KFormDerivative():
-            res = _translate_equation(form.form, vec_fields, newton, transpose=transpose)
+            res = _translate_equation(form.form, newton, transpose=transpose)
             for k in res:
                 vr = res[k]
 
@@ -487,10 +465,7 @@ def _translate_equation(
 
         case KHodge():
             unknown = _translate_equation(
-                form=form.base_form,
-                vec_fields=vec_fields,
-                newton=newton,
-                transpose=transpose,
+                form=form.base_form, newton=newton, transpose=transpose
             )
             prime_order = form.primal_order
             for k in unknown:
@@ -513,28 +488,21 @@ def _translate_equation(
             if transpose:
                 ValueError("Can not transpose interior product instructions (yet?).")
 
-            res = _translate_equation(
-                form=form.form, vec_fields=vec_fields, newton=newton, transpose=transpose
-            )
-
+            res = _translate_equation(form=form.form, newton=newton, transpose=transpose)
+            field: Function2D | str
             if type(form) is KInteriorProduct:
-                idx = vec_fields.index(form.vector_field)
+                field = form.vector_field
                 base_form = form.form
 
             elif type(form) is KInteriorProductNonlinear:
-                idx = vec_fields.index(form.form_field)
+                field = form.form_field.label
                 base_form = form.form
 
             else:
                 assert False, "Litterally can not happen."
 
             prod_instruct: list[MatOp] = [
-                InterProd(
-                    base_form.order,
-                    idx,
-                    not base_form.is_primal,
-                    False,
-                )
+                InterProd(base_form.order, field, not base_form.is_primal, False)
             ]
 
             if not base_form.is_primal:
@@ -559,9 +527,8 @@ def _translate_equation(
                 else:
                     base = form.form
 
-                qidx = vec_fields.index(base)
                 extra_op: list[MatOp] = [
-                    InterProd(form.form.order, qidx, not form.form.is_primal, True)
+                    InterProd(form.form.order, base.label, not form.form.is_primal, True)
                 ]
                 if not form.form.is_primal:
                     extra_op += [MassMat(form.primal_order, True)]
@@ -642,11 +609,9 @@ def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
 
         elif type(op) is InterProd:
             if not op.dual:
-                mat = f"M({op.starting_order}, {op.starting_order - 1}; {op.field_index})"
+                mat = f"M({op.starting_order}, {op.starting_order - 1}; {op.field})"
             else:
-                mat = (
-                    f"M*({op.starting_order}, {op.starting_order - 1}; {op.field_index})"
-                )
+                mat = f"M*({op.starting_order}, {op.starting_order - 1}; {op.field})"
             if val is None:
                 val = (1.0, mat)
             else:
@@ -684,7 +649,7 @@ class MatOpCode(IntEnum):
     INTERPROD = 8
 
 
-_TranslatedInstruction = tuple[MatOpCode | int | float, ...]
+_TranslatedInstruction = tuple[MatOpCode | int | float | Function2D | str, ...]
 _TranslatedBlock = Sequence[_TranslatedInstruction]
 _TranslatedRow = Sequence[_TranslatedBlock | None]
 _TranslatedSystem2D = Sequence[_TranslatedRow]
@@ -706,9 +671,9 @@ def translate_to_c_instructions(*ops: MatOp) -> _TranslatedBlock:
     list of MatOpCode | int | float
         List of translated operations.
     """
-    out: list[tuple[MatOpCode | int | float, ...]] = list()
+    out: list[_TranslatedInstruction] = list()
     for op in ops:
-        translated: tuple[MatOpCode | int | float, ...]
+        translated: _TranslatedInstruction
         match op:
             case Identity():
                 translated = (MatOpCode.IDENTITY,)
@@ -735,7 +700,7 @@ def translate_to_c_instructions(*ops: MatOp) -> _TranslatedBlock:
                 translated = (
                     MatOpCode.INTERPROD,
                     op.starting_order,
-                    op.field_index,
+                    op.field,
                     op.dual,
                     op.adjoint,
                 )
@@ -748,19 +713,17 @@ def translate_to_c_instructions(*ops: MatOp) -> _TranslatedBlock:
     return tuple(out)
 
 
-def translate_system(
-    system: KFormSystem, vector_fields: Sequence[Function2D | KFormUnknown], newton: bool
-) -> _TranslatedSystem2D:
+def translate_system(system: KFormSystem, newton: bool) -> _TranslatedSystem2D:
     """Create the two-dimensional instruction array for the C code to execute."""
     bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=newton, simplify=True)
+        translate_equation(eq.left, newton=newton, simplify=True)
         for eq in system.equations
     ]
 
     codes: list[_TranslatedRow] = list()
     for bite in bytecodes:
         row: list[_TranslatedBlock | None] = list()
-        for f in system.unknown_forms:
+        for f in system.unknown_forms.iter_forms():
             if f in bite:
                 row.append(translate_to_c_instructions(*bite[f]))
             else:
@@ -807,12 +770,10 @@ class CompiledSystem:
         if expr is None:
             return (None,) * len(system.unknown_forms)
 
-        bytecodes = translate_equation(
-            expr, system.vector_fields, newton=newton, simplify=True
-        )
+        bytecodes = translate_equation(expr, newton=newton, simplify=True)
 
         row: list[_TranslatedBlock | None] = list()
-        for f in system.unknown_forms:
+        for f in system.unknown_forms.iter_forms():
             if f in bytecodes:
                 row.append(translate_to_c_instructions(*bytecodes[f]))
             else:

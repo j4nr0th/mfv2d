@@ -93,10 +93,7 @@ def test_explicit_evaluation():
 
         elem_fem_space = ElementFemSpace2D(basis_2d, corners)
         sys_mat = compute_element_matrix(
-            [form.order for form in system.unknown_forms],
-            linearized_compiled.lhs_full,
-            linearized_compiled.vector_field_specs,
-            elem_fem_space,
+            system.unknown_forms, linearized_compiled.lhs_full, elem_fem_space
         )
 
         proj_vor = element_primal_dofs(
@@ -112,11 +109,7 @@ def test_explicit_evaluation():
         exact_lhs = np.concatenate((proj_vor, proj_vel, proj_pre), dtype=np.float64)
 
         explicit_rhs = compute_element_vector(
-            [form.order for form in system.unknown_forms],
-            compiled.lhs_full,
-            compiled.vector_field_specs,
-            elem_fem_space,
-            exact_lhs,
+            system.unknown_forms, compiled.lhs_full, elem_fem_space, exact_lhs
         )
 
         rhs = sys_mat @ exact_lhs
@@ -139,7 +132,7 @@ def test_explicit_evaluation():
     err_proj = np.zeros(n_vals.size, np.float64)
     err_mome = np.zeros(n_vals.size, np.float64)
     for i, n in enumerate(n_vals):
-        ep, em = compute_errors(n, n + 2)
+        ep, em = compute_errors(int(n), int(n) + 2)
         err_proj[i] = ep
         err_mome[i] = em
 

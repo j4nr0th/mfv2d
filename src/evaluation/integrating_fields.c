@@ -9,58 +9,12 @@
 #include "../fem_space/fem_space.h"
 #include "system_template.h"
 
-typedef enum
-{
-    FIELD_SPEC_UNKNOWN = 1,
-    FIELD_SPEC_CALLABLE = 2,
-    FIELD_SPEC_UNUSED = -1,
-} field_spec_type_t;
-
-typedef struct
-{
-    field_spec_type_t type;
-    unsigned index;
-    // form_order_t form_order;
-} field_spec_unknown_t;
-
-typedef struct
-{
-    field_spec_type_t type;
-    PyObject *callable;
-} field_spec_callable_t;
-
-typedef union {
-    field_spec_type_t type;
-    field_spec_unknown_t unknown;
-    field_spec_callable_t callable;
-} field_spec_t;
-
 MFV2D_INTERNAL
-mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t *quad, field_information_t *fields,
-                              const unsigned n_fields, const form_order_t field_orders[static n_fields],
-                              const allocator_callbacks *allocator, const unsigned n_unknowns,
-                              const form_order_t unknown_orders[static n_unknowns],
-                              const double degrees_of_freedom[restrict], PyObject *field_data)
+mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t *quad, field_values_t *fields,
+                              const unsigned n_fields, const field_spec_t field_specs[const static n_fields],
+                              const allocator_callbacks *allocator, const element_form_spec_t *form_spec,
+                              const double degrees_of_freedom[restrict])
 {
-    // Check if there's any need for this.
-    if (Py_IsNone(field_data))
-        return MFV2D_SUCCESS;
-
-    // Check type
-    if (!PyTuple_Check(field_data))
-    {
-        PyErr_Format(PyExc_TypeError, "Expected a tuple of field specifications, got %s", Py_TYPE(field_data)->tp_name);
-        return MFV2D_BAD_ARGUMENT;
-    }
-
-    // Get count
-    if (PyTuple_GET_SIZE(field_data) < n_fields)
-    {
-        PyErr_Format(PyExc_ValueError, "Expected at least %d field specifications, got %d", n_fields,
-                     PyTuple_GET_SIZE(field_data));
-        return MFV2D_BAD_ARGUMENT;
-    }
-
     if (n_fields == 0)
         // No work to do.
         return MFV2D_SUCCESS;
@@ -71,75 +25,34 @@ mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t
     if (n_fields > INTEGRATING_FIELDS_MAX_COUNT)
     {
         // Should not really happen, but let's have this here for the sake of safety.
-        PyErr_Format(PyExc_ValueError, "Too many fields specified, maximum is %d", INTEGRATING_FIELDS_MAX_COUNT);
+        PyErr_Format(PyExc_ValueError, "Too many fields specified, got %u but the maximum is %d", n_fields,
+                     INTEGRATING_FIELDS_MAX_COUNT);
         return MFV2D_BAD_ARGUMENT;
     }
 
-    field_spec_t field_specs[INTEGRATING_FIELDS_MAX_COUNT];
     unsigned n_unknown = 0;
     unsigned n_callable = 0;
+    unsigned n_field_components = 0;
 
     for (unsigned i = 0; i < n_fields; ++i)
     {
-        if (field_orders[i] == FORM_ORDER_UNKNOWN)
+        const field_spec_t *const spec = field_specs + i;
+        if (spec->type == FIELD_SPEC_UNKNOWN)
         {
-            // This is field is not present in the bytecode.
-            field_specs[i].type = FIELD_SPEC_UNUSED;
-            continue;
+            n_unknown += 1;
         }
-        if (field_orders[i] > FORM_ORDER_2 || field_orders[i] < FORM_ORDER_0)
-        {
-            PyErr_Format(PyExc_ValueError, "Field %u has invalid order %s", i, form_order_str(field_orders[i]));
-            return MFV2D_BAD_ARGUMENT;
-        }
-        PyObject *item = PyTuple_GET_ITEM(field_data, i);
-        if (PyCallable_Check(item))
+        else if (spec->type == FIELD_SPEC_CALLABLE)
         {
             n_callable += 1;
-            field_spec_callable_t *const this = &field_specs[i].callable;
-            this->type = FIELD_SPEC_CALLABLE;
-            this->callable = item;
         }
         else
         {
-            n_unknown += 1;
-            field_spec_unknown_t *const this = &field_specs[i].unknown;
-            this->type = FIELD_SPEC_UNKNOWN;
-            this->index = PyLong_AsLong(item);
-            if (PyErr_Occurred())
-                return MFV2D_BAD_ARGUMENT;
-            if (this->index >= n_unknowns)
-            {
-                PyErr_Format(PyExc_ValueError,
-                             "Field %u specifies to be based on unknown with index %u, but only %u "
-                             "unknowns are in the system.",
-                             i, this->index, n_unknowns);
-                return MFV2D_BAD_ARGUMENT;
-            }
-            if (unknown_orders[this->index] != field_orders[i])
-            {
-                PyErr_Format(PyExc_ValueError,
-                             "Field %u specifies to be based on unknown form with order %s, but the form has order %s "
-                             "in the system.",
-                             i, form_order_str(field_orders[i]), form_order_str(unknown_orders[this->index]));
-            }
-            // this->form_order = (form_order_t);
-            // if (this->form_order <= FORM_ORDER_UNKNOWN || this->form_order > FORM_ORDER_2)
-            // {
-            //     PyErr_Format(PyExc_ValueError, "Unknown form order %d", this->form_order);
-            //     return MFV2D_BAD_ARGUMENT;
-            // }
+            PyErr_Format(PyExc_ValueError, "Invalid field specification type %d", spec->type);
+            return MFV2D_BAD_ARGUMENT;
         }
-    }
 
-    unsigned n_field_components = 0;
-    // Count of field components before and including the current field.
-    unsigned field_cumulative_components[INTEGRATING_FIELDS_MAX_COUNT];
-
-    for (unsigned i = 0; i < n_fields; ++i)
-    {
-        const form_order_t order = field_orders[i];
-        if (order == FORM_ORDER_1)
+        // Count of field components before and including the current field.
+        if (spec->form_order == FORM_ORDER_1)
         {
             n_field_components += 2;
         }
@@ -147,12 +60,10 @@ mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t
         {
             n_field_components += 1;
         }
-        field_cumulative_components[i] = n_field_components;
     }
 
     const unsigned n_field_points = fem_space->space_1.n_pts * fem_space->space_2.n_pts;
-    double *const field_buffer =
-        (double *)allocate(allocator, sizeof(double) * n_field_points * field_cumulative_components[n_fields - 1]);
+    double *const field_buffer = (double *)allocate(allocator, sizeof(double) * n_field_points * n_field_components);
     if (field_buffer == NULL)
     {
         return MFV2D_FAILED_ALLOC;
@@ -162,6 +73,7 @@ mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t
 
     if (n_callable > 0)
     {
+        unsigned components_processed = 0;
         // Prepare coordinate arrays x and y
         const npy_intp dims[2] = {fem_space->space_2.n_pts, fem_space->space_1.n_pts};
         PyArrayObject *const coordinates_x = (PyArrayObject *)PyArray_SimpleNew(2, dims, NPY_DOUBLE);
@@ -202,8 +114,13 @@ mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t
         for (unsigned i = 0, j = 0; i < n_fields && j < n_callable; ++i)
         {
             const field_spec_callable_t *const this = &field_specs[i].callable;
+
+            const unsigned field_components = this->form_order == FORM_ORDER_1 ? 2 : 1;
             if (this->type != FIELD_SPEC_CALLABLE)
+            {
+                components_processed += field_components;
                 continue;
+            }
             j += 1;
 
             PyObject *const result = PyObject_CallFunctionObjArgs(this->callable, coordinates_x, coordinates_y, NULL);
@@ -224,7 +141,6 @@ mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t
                 return MFV2D_FAILED_CALLBACK;
             }
 
-            const form_order_t order = field_orders[i];
             PyArrayObject *const array =
                 (PyArrayObject *)PyArray_FROMANY(result, NPY_DOUBLE, 2, 3, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
             Py_DECREF(result);
@@ -238,10 +154,10 @@ mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t
             }
             const npy_intp res_dims[3] = {fem_space->space_2.n_pts, fem_space->space_1.n_pts, 2};
 
-            if ((order == FORM_ORDER_1 &&
+            if ((this->form_order == FORM_ORDER_1 &&
                  check_input_array(array, 3, res_dims, NPY_DOUBLE, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED,
                                    "field_data") < 0) ||
-                (order != FORM_ORDER_1 &&
+                (this->form_order != FORM_ORDER_1 &&
                  check_input_array(array, 2, res_dims, NPY_DOUBLE, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED,
                                    "field_data") < 0))
             {
@@ -255,11 +171,12 @@ mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t
             }
 
             const double *const res = (double *)PyArray_DATA(array);
-            double *const field_ptr = field_buffer + (i == 0 ? 0 : field_cumulative_components[i - 1] * n_field_points);
-            memcpy(field_ptr, res, sizeof(double) * n_field_points * (order == FORM_ORDER_1 ? 2 : 1));
+            double *const field_ptr = field_buffer + n_field_points * components_processed;
+            memcpy(field_ptr, res, sizeof(double) * n_field_points * field_components);
 
             fields->fields[i] = field_ptr;
             Py_DECREF(array);
+            components_processed += field_components;
         }
 
         Py_DECREF(coordinates_x);
@@ -268,22 +185,28 @@ mfv2d_result_t compute_fields(const fem_space_2d_t *fem_space, const quad_info_t
 
     if (n_unknown > 0)
     {
+        unsigned components_processed = 0;
         for (unsigned i = 0, j = 0; i < n_fields && j < n_unknown; ++i)
         {
             const field_spec_unknown_t *const this = &field_specs[i].unknown;
+            const unsigned field_components = this->form_order == FORM_ORDER_1 ? 2 : 1;
             if (this->type != FIELD_SPEC_UNKNOWN)
+            {
+                components_processed += field_components;
                 continue;
+            }
             j += 1;
             const unsigned index = this->index;
-            const form_order_t order = unknown_orders[index];
+            const form_order_t order = this->form_order;
             unsigned dof_offset = 0;
             for (unsigned k = 0; k < index; ++k)
             {
-                dof_offset += form_degrees_of_freedom_count(unknown_orders[k], fem_space->space_1.order,
+                dof_offset += form_degrees_of_freedom_count(form_spec->forms[k].order, fem_space->space_1.order,
                                                             fem_space->space_2.order);
             }
 
-            double *const field_ptr = field_buffer + (i == 0 ? 0 : field_cumulative_components[i - 1] * n_field_points);
+            double *const field_ptr = field_buffer + n_field_points * components_processed;
+            components_processed += field_components;
             switch (order)
             {
             case FORM_ORDER_0:
@@ -432,24 +355,22 @@ MFV2D_INTERNAL
 PyObject *compute_integrating_fields(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
 {
     element_fem_space_2d_t *element_space;
-    PyObject *py_form_orders;
-    PyObject *py_field_information;
+    element_form_spec_t *form_specs;
     PyObject *py_field_orders;
+    PyObject *field_information;
     PyArrayObject *degrees_of_freedom;
     if (!PyArg_ParseTupleAndKeywords(
             args, kwds, "O!O!O!O!O!",
-            (char *[6]){"fem_space", "form_orders", "field_information", "field_orders", "degrees_of_freedom", NULL},
-            &element_fem_space_2d_type, &element_space, &PyTuple_Type, &py_form_orders, &PyTuple_Type,
-            &py_field_information, &PyTuple_Type, &py_field_orders, &PyArray_Type, &degrees_of_freedom))
+            (char *[6]){"fem_space", "form_specs", "field_orders", "field_information", "degrees_of_freedom", NULL},
+            &element_fem_space_2d_type, &element_space, &element_form_spec_type, &form_specs, &PyTuple_Type,
+            &py_field_orders, &PyTuple_Type, &field_information, &PyArray_Type, &degrees_of_freedom))
     {
         return NULL;
     }
-    const unsigned n_fields = PyTuple_GET_SIZE(py_field_information);
-    if (PyTuple_GET_SIZE(py_field_orders) != n_fields)
+    const unsigned n_fields = PyTuple_GET_SIZE(field_information);
+    if (n_fields != PyTuple_GET_SIZE(py_field_orders))
     {
-        PyErr_Format(PyExc_ValueError,
-                     "Field orders and field information must have the same length (one was %u, other was %u).",
-                     (unsigned)PyTuple_GET_SIZE(py_field_orders), (unsigned)n_fields);
+        PyErr_Format(PyExc_ValueError, "Field orders and field information must have the same length.");
         return NULL;
     }
     if (n_fields >= INTEGRATING_FIELDS_MAX_COUNT)
@@ -459,47 +380,86 @@ PyObject *compute_integrating_fields(PyObject *Py_UNUSED(self), PyObject *args, 
         return NULL;
     }
 
-    mfv2d_result_t result;
+    const unsigned total_dof_count = element_form_specs_total_count(form_specs, element_space->fem_space->space_1.order,
+                                                                    element_space->fem_space->space_2.order);
+    if (check_input_array(degrees_of_freedom, 1, (const npy_intp[1]){total_dof_count}, NPY_DOUBLE,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, "degrees_of_freedom"))
+    {
+        return NULL;
+    }
 
     unsigned n_forms = 0;
-    form_order_t *form_orders;
-    if ((result = convert_system_forms(py_form_orders, &n_forms, &form_orders, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
+    form_order_t *required_orders = NULL;
+    mfv2d_result_t result = convert_system_forms(py_field_orders, &n_forms, &required_orders, &SYSTEM_ALLOCATOR);
+    if (result != MFV2D_SUCCESS)
     {
         raise_exception_from_current(PyExc_RuntimeError, "Failed to convert form orders, reason: %s",
                                      mfv2d_result_str(result));
         return NULL;
     }
 
-    unsigned total_dof_count = 0;
-    for (unsigned i = 0; i < n_forms; ++i)
-    {
-        total_dof_count += form_degrees_of_freedom_count(form_orders[i], element_space->basis_xi->order,
-                                                         element_space->basis_eta->order);
-    }
-    if (check_input_array(degrees_of_freedom, 1, (const npy_intp[1]){total_dof_count}, NPY_DOUBLE,
-                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, "degrees_of_freedom"))
-    {
-        deallocate(&SYSTEM_ALLOCATOR, form_orders);
-        return NULL;
-    }
-
-    form_order_t field_orders[INTEGRATING_FIELDS_MAX_COUNT];
+    field_spec_t field_specs[INTEGRATING_FIELDS_MAX_COUNT];
     for (unsigned i = 0; i < n_fields; ++i)
     {
-        const form_order_t order = PyLong_AsLong(PyTuple_GET_ITEM(py_field_orders, i));
-        if (PyErr_Occurred())
+        field_spec_t *const this = &field_specs[i];
+        PyObject *const field_information_item = PyTuple_GET_ITEM(field_information, i);
+
+        if (PyCallable_Check(field_information_item))
         {
-            deallocate(&SYSTEM_ALLOCATOR, form_orders);
-            return NULL;
+            this->callable = (field_spec_callable_t){
+                .type = FIELD_SPEC_CALLABLE, .form_order = required_orders[i], .callable = field_information_item};
         }
-        field_orders[i] = order;
+        else
+        {
+            Py_ssize_t name_length;
+            const char *unknown_name = PyUnicode_AsUTF8AndSize(field_information_item, &name_length);
+            if (!unknown_name)
+            {
+                raise_exception_from_current(
+                    PyExc_RuntimeError,
+                    "Field entry %u is not a callable, but could also not be converted into unknown name.", i);
+                deallocate(&SYSTEM_ALLOCATOR, required_orders);
+                return NULL;
+            }
+            if (name_length == 0 || name_length > MAXIMUM_FORM_NAME_LENGTH)
+            {
+                PyErr_Format(PyExc_ValueError, "Field name must be a non-empty string of length <= %u, but got '%s'.",
+                             MAXIMUM_FORM_NAME_LENGTH, unknown_name);
+                deallocate(&SYSTEM_ALLOCATOR, required_orders);
+                return NULL;
+            }
+
+            unsigned i_unknown;
+            for (i_unknown = 0; i_unknown < Py_SIZE(form_specs); ++i_unknown)
+            {
+                if (strcmp(unknown_name, form_specs->forms[i_unknown].name) == 0)
+                {
+                    if (required_orders[i] != form_specs->forms[i_unknown].order)
+                    {
+                        PyErr_Format(PyExc_ValueError, "Field \"%s\" is of order %s, but order %s was requested.",
+                                     unknown_name, form_order_str(form_specs->forms[i_unknown].order),
+                                     form_order_str(required_orders[i]));
+                        deallocate(&SYSTEM_ALLOCATOR, required_orders);
+                        return NULL;
+                    }
+
+                    break;
+                }
+            }
+            if (i_unknown == Py_SIZE(form_specs))
+            {
+                PyErr_Format(PyExc_ValueError, "Unknown field '%s'.", unknown_name);
+                deallocate(&SYSTEM_ALLOCATOR, required_orders);
+                return NULL;
+            }
+            this->unknown = (field_spec_unknown_t){
+                .type = FIELD_SPEC_UNKNOWN, .form_order = required_orders[i], .index = i_unknown};
+        }
     }
 
-    field_information_t fields;
-    result =
-        compute_fields(element_space->fem_space, &element_space->corners, &fields, n_fields, field_orders,
-                       &SYSTEM_ALLOCATOR, n_forms, form_orders, PyArray_DATA(degrees_of_freedom), py_field_information);
-    deallocate(&SYSTEM_ALLOCATOR, form_orders);
+    field_values_t fields;
+    result = compute_fields(element_space->fem_space, &element_space->corners, &fields, n_fields, field_specs,
+                            &SYSTEM_ALLOCATOR, form_specs, PyArray_DATA(degrees_of_freedom));
 
     if (result != MFV2D_SUCCESS)
     {
@@ -513,7 +473,7 @@ PyObject *compute_integrating_fields(PyObject *Py_UNUSED(self), PyObject *args, 
     for (unsigned i = 0; i < n_fields; ++i)
     {
         const npy_intp dims[3] = {element_space->fem_space->space_2.n_pts, element_space->fem_space->space_1.n_pts, 2};
-        const form_order_t order = field_orders[i];
+        const form_order_t order = field_specs[i].form_order;
         const unsigned n_components = order == FORM_ORDER_1 ? 2 : 1;
         PyArrayObject *const py_field = (PyArrayObject *)PyArray_SimpleNew(n_components + 1, dims, NPY_DOUBLE);
         if (!py_field)

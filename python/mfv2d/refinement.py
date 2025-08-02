@@ -20,18 +20,17 @@ from mfv2d._mfv2d import (
 )
 from mfv2d.boundary import BoundaryCondition2DSteady, _element_weak_boundary_condition
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KBoundaryProjection, KFormUnknown, UnknownFormOrder
+from mfv2d.kform import KBoundaryProjection, KFormUnknown
 from mfv2d.mimetic2d import (
     FemCache,
     bilinear_interpolate,
-    compute_leaf_dof_counts,
     find_surface_boundary_id_line,
     jacobian,
     reconstruct,
 )
 from mfv2d.progress import HistogramFormat
 from mfv2d.solve_system import compute_element_rhs
-from mfv2d.system import KFormSystem
+from mfv2d.system import ElementFormsSpecification, KFormSystem
 
 
 def compute_legendre_coefficients(
@@ -244,7 +243,6 @@ def perform_mesh_refinement(
     mesh: Mesh,
     solution: npt.NDArray[np.float64],
     element_offsets: npt.NDArray[np.uint32],
-    dof_offsets: npt.NDArray[np.uint32],
     system: KFormSystem,
     error_estimator: ErrorEstimate,
     h_refinement_ratio: float,
@@ -279,7 +277,6 @@ def perform_mesh_refinement(
                 len(indices),
                 solution,
                 element_offsets,
-                dof_offsets,
                 error_estimator.required_forms,
                 system.unknown_forms,
                 error_estimator.error_calculation_function,
@@ -303,7 +300,6 @@ def perform_mesh_refinement(
                 basis_cache,
                 system,
                 CompiledSystem(system),
-                [form.order for form in system.unknown_forms],
                 leaf_order_mapping,
                 error_estimator.target_form,
                 error_estimator.reconstruction_orders[0]
@@ -332,7 +328,7 @@ def perform_mesh_refinement(
         solution.size,
         h_refinement_ratio,
         refinement_limit,
-        [form.order for form in system.unknown_forms],
+        system.unknown_forms,
         indices,
         element_error,
         href_cost,
@@ -344,7 +340,7 @@ def refine_mesh_based_on_error(
     total_unknowns: int,
     h_refinement_ratio: float,
     refinement_limit: RefinementLimit,
-    unknown_form_orders: Sequence[UnknownFormOrder],
+    form_specs: ElementFormsSpecification,
     leaf_indices: npt.NDArray[np.uint32],
     element_error: npt.NDArray[np.float64],
     href_cost: npt.NDArray[np.float64],
@@ -394,33 +390,25 @@ def refine_mesh_based_on_error(
 
                 order_1, order_2 = mesh.get_leaf_orders(idx)
                 # original_unknowns = dof_offsets[i_leaf, -1]
-                original_unknowns = sum(
-                    order.full_unknown_count(order_1, order_2)
-                    for order in unknown_form_orders
-                )
+                original_unknowns = form_specs.total_size(order_1, order_2)
 
                 if (
                     cost_fraction[i_leaf] <= h_refinement_ratio
                     and (order_1 > 1)
                     and (order_2 > 1)
                 ):
-                    new_orders = (order_1 // 2, order_2 // 2)
+                    new_orders = ((order_1 + 1) // 2, (order_2 + 1) // 2)
                     mesh.split_element(
                         idx, new_orders, new_orders, new_orders, new_orders
                     )
-                    new_unknowns = (
-                        4
-                        * compute_leaf_dof_counts(*new_orders, unknown_form_orders).sum()
-                    )
+                    new_unknowns = form_specs.total_size(*new_orders)
 
                 else:
                     order_1 += 1
                     order_2 += 1
                     mesh.set_leaf_orders(idx, order_1, order_2)
 
-                    new_unknowns = compute_leaf_dof_counts(
-                        order_1, order_2, unknown_form_orders
-                    ).sum()
+                    new_unknowns = form_specs.total_size(order_1, order_2)
 
                 unknowns_added += new_unknowns - original_unknowns
 
@@ -463,9 +451,8 @@ def error_estimate_with_custom_estimator(
     leaf_count: int,
     solution: npt.NDArray[np.float64],
     element_offsets: npt.NDArray[np.uint32],
-    dof_offsets: npt.NDArray[np.uint32],
     required_unknowns: Sequence[KFormUnknown],
-    unknown_forms: Sequence[KFormUnknown],
+    form_specs: ElementFormsSpecification,
     error_calculation_function: CustomErrorFunction,
     element_fem_spaces: Sequence[ElementFemSpace2D],
     recon_order_1: int | None,
@@ -517,14 +504,13 @@ def error_estimate_with_custom_estimator(
         Array with estimates of increase in error due to h-refinement.
     """
     required_unknown_indices = [
-        unknown_forms.index(unknown) for unknown in required_unknowns
+        form_specs.index(unknown) for unknown in required_unknowns
     ]
     int_nodes: dict[int, npt.NDArray[np.double]] = dict()
     element_error = np.empty(leaf_count)
     href_cost = np.empty(leaf_count)
     for i_leaf in range(leaf_count):
         element_solution = solution[element_offsets[i_leaf] : element_offsets[i_leaf + 1]]
-        offsets = dof_offsets[i_leaf]
 
         element_space = element_fem_spaces[i_leaf]
         corners = element_space.corners
@@ -556,11 +542,13 @@ def error_estimate_with_custom_estimator(
         y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
         form_vals: dict[str, npt.NDArray[np.float64]] = dict()
         for form_idx in required_unknown_indices:
-            form = unknown_forms[form_idx]
-            form_vals[form.label] = reconstruct(
+            label, order = form_specs[form_idx]
+            offset = form_specs.form_offset(form_idx, order_1, order_2)
+            size = form_specs.form_size(form_idx, order_1, order_2)
+            form_vals[label] = reconstruct(
                 element_space,
-                form.order,
-                element_solution[offsets[form_idx] : offsets[form_idx + 1]],
+                order,
+                element_solution[offset : offset + size],
                 nodes_xi,
                 nodes_eta,
             )
@@ -597,7 +585,6 @@ def error_estimate_with_local_inversion(
     basis_cache: FemCache,
     system: KFormSystem,
     compiled: CompiledSystem,
-    unknown_ordering: Sequence[UnknownFormOrder],
     leaf_order_mapping: dict[int, int],
     unknown_target: KFormUnknown,
     recon_order_1: int | None,
@@ -640,22 +627,14 @@ def error_estimate_with_local_inversion(
 
         fine_rhs = compute_element_rhs(system, higher_space)
         coarse_forcing = compute_element_vector(
-            unknown_ordering,
-            compiled.lhs_full,
-            compiled.vector_field_specs,
-            element_space,
-            element_solution,
+            system.unknown_forms, compiled.lhs_full, element_space, element_solution
         )
         if compiled.rhs_codes:
             coarse_forcing -= compute_element_vector(
-                unknown_ordering,
-                compiled.rhs_codes,
-                compiled.vector_field_specs,
-                element_space,
-                element_solution,
+                system.unknown_forms, compiled.rhs_codes, element_space, element_solution
             )
         projector = compute_element_projector(
-            unknown_ordering,
+            system.unknown_forms,
             higher_space.corners,
             element_space.basis_2d,
             higher_space.basis_2d,
@@ -724,7 +703,7 @@ def error_estimate_with_local_inversion(
                 mesh,
                 surf_id.index,
                 side,
-                unknown_ordering,
+                system.unknown_forms,
                 form_index,
                 boundary_terms,
                 basis_cache,
@@ -747,23 +726,12 @@ def error_estimate_with_local_inversion(
         )
     ):
         local_lhs = compute_element_matrix(
-            unknown_ordering,
-            compiled.lhs_full,
-            compiled.vector_field_specs,
-            fem_space,
-            element_solution,
+            system.unknown_forms, compiled.lhs_full, fem_space, element_solution
         )
         local_error_dofs = np.linalg.solve(local_lhs, residual)
 
-        offset = sum(
-            form.order.full_unknown_count(
-                fem_space.basis_xi.order, fem_space.basis_eta.order
-            )
-            for form in system.unknown_forms[:unknown_index]
-        )
-        count = unknown_target.order.full_unknown_count(
-            fem_space.basis_xi.order, fem_space.basis_eta.order
-        )
+        offset = system.unknown_forms.form_offset(unknown_index, *fem_space.orders)
+        count = system.unknown_forms.form_size(unknown_index, *fem_space.orders)
         target_dofs = local_error_dofs[offset : offset + count]
 
         rule_1 = (

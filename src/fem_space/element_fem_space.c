@@ -148,31 +148,64 @@ static PyObject *element_fem_space_2d_get_surf_inv(element_fem_space_2d_t *self,
     return (PyObject *)matrix_full_to_array(out);
 }
 
+static PyObject *element_fem_space_2d_get_orders(const element_fem_space_2d_t *self, void *Py_UNUSED(closure))
+{
+    return Py_BuildValue("II", self->basis_xi->order, self->basis_eta->order);
+}
+
+static PyObject *element_fem_space_2d_get_integration_orders(const element_fem_space_2d_t *self,
+                                                             void *Py_UNUSED(closure))
+{
+    return Py_BuildValue("II", self->basis_xi->integration_rule->order, self->basis_eta->integration_rule->order);
+}
+
+static PyObject *element_fem_space_2d_get_order_1(const element_fem_space_2d_t *self, void *Py_UNUSED(closure))
+{
+    return PyLong_FromLong(self->basis_xi->order);
+}
+
+static PyObject *element_fem_space_2d_get_order_2(const element_fem_space_2d_t *self, void *Py_UNUSED(closure))
+{
+    return PyLong_FromLong(self->basis_eta->order);
+}
+
 static PyGetSetDef element_fem_space_2d_getsets[] = {
-    {.name = "mass_node",
-     .get = (getter)element_fem_space_2d_get_mass_node,
-     .doc = "array : Mass matrix for nodal basis.",
-     .set = NULL},
-    {.name = "mass_edge",
-     .get = (getter)element_fem_space_2d_get_mass_edge,
-     .doc = "array : Mass matrix for edge basis.",
-     .set = NULL},
-    {.name = "mass_surf",
-     .get = (getter)element_fem_space_2d_get_mass_surf,
-     .doc = "array : Mass matrix for surface basis.",
-     .set = NULL},
-    {.name = "mass_node_inv",
-     .get = (getter)element_fem_space_2d_get_node_inv,
-     .doc = "array : Inverse mass matrix for nodal basis.",
-     .set = NULL},
-    {.name = "mass_edge_inv",
-     .get = (getter)element_fem_space_2d_get_edge_inv,
-     .doc = "array : Inverse mass matrix for edge basis.",
-     .set = NULL},
-    {.name = "mass_surf_inv",
-     .get = (getter)element_fem_space_2d_get_surf_inv,
-     .doc = "array : Inverse mass matrix for surface basis.",
-     .set = NULL},
+    {
+        .name = "mass_node",
+        .get = (getter)element_fem_space_2d_get_mass_node,
+        .doc = "array : Mass matrix for nodal basis.",
+        .set = NULL,
+    },
+    {
+        .name = "mass_edge",
+        .get = (getter)element_fem_space_2d_get_mass_edge,
+        .doc = "array : Mass matrix for edge basis.",
+        .set = NULL,
+    },
+    {
+        .name = "mass_surf",
+        .get = (getter)element_fem_space_2d_get_mass_surf,
+        .doc = "array : Mass matrix for surface basis.",
+        .set = NULL,
+    },
+    {
+        .name = "mass_node_inv",
+        .get = (getter)element_fem_space_2d_get_node_inv,
+        .doc = "array : Inverse mass matrix for nodal basis.",
+        .set = NULL,
+    },
+    {
+        .name = "mass_edge_inv",
+        .get = (getter)element_fem_space_2d_get_edge_inv,
+        .doc = "array : Inverse mass matrix for edge basis.",
+        .set = NULL,
+    },
+    {
+        .name = "mass_surf_inv",
+        .get = (getter)element_fem_space_2d_get_surf_inv,
+        .doc = "array : Inverse mass matrix for surface basis.",
+        .set = NULL,
+    },
     {
         .name = "basis_2d",
         .get = (getter)element_fem_space_2d_get_basis_2d,
@@ -197,7 +230,34 @@ static PyGetSetDef element_fem_space_2d_getsets[] = {
         .doc = "array : Corners of the element.",
         .set = NULL,
     },
-
+    {
+        .name = "orders",
+        .get = (getter)element_fem_space_2d_get_orders,
+        .doc = "tuple[int, int] : Orders of the basis.",
+        .set = NULL,
+        .closure = NULL,
+    },
+    {
+        .name = "integration_orders",
+        .get = (getter)element_fem_space_2d_get_integration_orders,
+        .doc = "tuple[int, int] : Orders of integration rules used by the basis.",
+        .set = NULL,
+        .closure = NULL,
+    },
+    {
+        .name = "order_1",
+        .get = (getter)element_fem_space_2d_get_order_1,
+        .doc = "int : Order of the basis in the first dimension.",
+        .set = NULL,
+        .closure = NULL,
+    },
+    {
+        .name = "order_2",
+        .get = (getter)element_fem_space_2d_get_order_2,
+        .doc = "int : Order of the basis in the second dimension.",
+        .set = NULL,
+        .closure = NULL,
+    },
     {0}, // Sentilel
 };
 

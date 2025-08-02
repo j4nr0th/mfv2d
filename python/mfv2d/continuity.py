@@ -15,7 +15,7 @@ are also two different types:
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from itertools import accumulate
 
 import numpy as np
@@ -24,7 +24,7 @@ import scipy.sparse as sp
 
 from mfv2d._mfv2d import Mesh, compute_gll, lagrange1d
 from mfv2d.boundary import BoundaryCondition2DSteady, mesh_boundary_conditions
-from mfv2d.kform import KFormUnknown, UnknownFormOrder, UnknownOrderings
+from mfv2d.kform import KFormUnknown, UnknownFormOrder
 from mfv2d.mimetic2d import (
     Constraint,
     ElementConstraint,
@@ -35,7 +35,7 @@ from mfv2d.mimetic2d import (
     find_surface_boundary_id_line,
     get_side_order,
 )
-from mfv2d.system import KFormSystem
+from mfv2d.system import ElementFormsSpecification, KFormSystem
 
 
 def _find_surface_boundary_id_node(
@@ -598,23 +598,17 @@ def connect_element_inner(
 
 
 def connect_elements(
-    unknowns: UnknownOrderings,
-    mesh: Mesh,
-    leaf_index_mapping: Mapping[int, int],
-    dof_offsets: npt.NDArray[np.uint32],
+    form_specs: ElementFormsSpecification, mesh: Mesh
 ) -> list[Constraint]:
     """Generate constraints for all elements and unknowns.
 
     Parameters
     ----------
-    unknowns : UnknownOrderings
+    form_specs : ElementFormsSpecification
         Orders of unknown forms defined for all elements.
 
     mesh : Mesh
         Mesh with primal and dual topology of root elements.
-
-    dof_offsets : FixedElementArray[np.uint32]
-        Array of offsets for degrees of freedom in the elements.
 
     Returns
     -------
@@ -622,8 +616,8 @@ def connect_elements(
         List with constraints which enforce continuity between degrees of freedom
         for unknown forms defined between all elements.
     """
-    has_0 = any(form == UnknownFormOrder.FORM_ORDER_0 for form in unknowns.form_orders)
-    has_1 = any(form == UnknownFormOrder.FORM_ORDER_1 for form in unknowns.form_orders)
+    has_0 = any(form == UnknownFormOrder.FORM_ORDER_0 for form in form_specs.orders)
+    has_1 = any(form == UnknownFormOrder.FORM_ORDER_1 for form in form_specs.orders)
 
     intra_element_0: list[Constraint] = list()  # for 0-forms
     intra_element_1: list[Constraint] = list()  # for 1-forms
@@ -719,7 +713,7 @@ def connect_elements(
     real_constraints: list[Constraint] = list()
 
     # First does not need offsets, since there is nothing before it
-    for i_form, form in enumerate(unknowns.form_orders):
+    for i_form, form in enumerate(form_specs.orders):
         if form == UnknownFormOrder.FORM_ORDER_0:
             base = combined_0
         elif form == UnknownFormOrder.FORM_ORDER_1:
@@ -737,7 +731,10 @@ def connect_elements(
                     *(
                         ElementConstraint(
                             ec.i_e,
-                            ec.dofs + dof_offsets[leaf_index_mapping[ec.i_e], i_form],
+                            ec.dofs
+                            + form_specs.form_offset(
+                                i_form, *mesh.get_leaf_orders(ec.i_e)
+                            ),
                             ec.coeffs,
                         )
                         for ec in constraint.element_constraints
@@ -751,20 +748,19 @@ def connect_elements(
     return real_constraints
 
 
-def _add_system_constraints(
+def add_system_constraints(
     system: KFormSystem,
     mesh: Mesh,
     basis_cache: FemCache,
-    unknown_ordering: UnknownOrderings,
     constrained_forms: Sequence[tuple[float, KFormUnknown]],
     boundary_conditions: Sequence[BoundaryCondition2DSteady],
     leaf_indices: Sequence[int],
-    dof_offsets: npt.NDArray[np.uint32],
     element_offset: npt.NDArray[np.uint32],
     linear_vectors: Sequence[npt.NDArray[np.float64]],
 ) -> tuple[sp.csr_array | None, npt.NDArray[np.float64]]:
     """Compute constraints for the system and vectors with weak boundary conditions."""
     constrained_form_constaints: dict[KFormUnknown, Constraint] = dict()
+    form_specs = system.unknown_forms
     for k, form in constrained_forms:
         i_unknown = system.unknown_forms.index(form)
         constrained_form_constaints[form] = Constraint(
@@ -772,14 +768,17 @@ def _add_system_constraints(
             *(
                 ElementConstraint(
                     leaf_idx,
-                    np.arange(
-                        offsets[i_unknown],
-                        offsets[i_unknown + 1],
+                    form_specs.form_offset(i_unknown, *orders)
+                    + np.arange(
+                        form_specs.form_size(i_unknown, *orders),
                         dtype=np.uint32,
                     ),
-                    np.ones(offsets[i_unknown + 1] - offsets[i_unknown]),
+                    np.ones(form_specs.form_size(i_unknown, *orders)),
                 )
-                for leaf_idx, offsets in zip(leaf_indices, dof_offsets)
+                for (leaf_idx, orders) in (
+                    (leaf_idx, mesh.get_leaf_orders(leaf_idx))
+                    for leaf_idx in leaf_indices
+                )
             ),
         )
 
@@ -789,10 +788,8 @@ def _add_system_constraints(
 
     strong_bc_constraints, weak_bc_constraints = mesh_boundary_conditions(
         [eq.right for eq in system.equations],
-        unknown_ordering,
+        form_specs,
         mesh,
-        reverse_mapping,
-        dof_offsets,
         [
             [bc for bc in boundary_conditions if bc.form == eq.weight.base_form]
             for eq in system.equations
@@ -800,9 +797,7 @@ def _add_system_constraints(
         basis_cache,
     )
 
-    continuity_constraints = connect_elements(
-        unknown_ordering, mesh, reverse_mapping, dof_offsets
-    )
+    continuity_constraints = connect_elements(form_specs, mesh)
 
     constraint_rows: list[npt.NDArray[np.uint32]] = list()
     constraint_cols: list[npt.NDArray[np.uint32]] = list()

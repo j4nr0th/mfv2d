@@ -969,21 +969,3 @@ class KEquation:
     def weight(self) -> KWeight:
         """Return the weight used by both sides."""
         return self.left.weight
-
-
-@dataclass(frozen=True)
-class UnknownOrderings:
-    """Type for storing ordering of unknowns within an element.
-
-    It is intended to just be a sequence of the form orders.
-    """
-
-    form_orders: tuple[UnknownFormOrder, ...]
-
-    @property
-    def count(self) -> int:
-        """Count of forms."""
-        return len(self.form_orders)
-
-    def __init__(self, *orders: UnknownFormOrder) -> None:
-        object.__setattr__(self, "form_orders", orders)

@@ -666,7 +666,9 @@ class Manifold2D:
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
-def check_bytecode(expression: _TranslatedBlock, /) -> _TranslatedBlock:
+def check_bytecode(
+    form_specs: _ElementFormsSpecification, expression: _TranslatedBlock
+) -> _TranslatedBlock:
     """Convert bytecode to C-values, then back to Python.
 
     This function is meant for testing.
@@ -775,6 +777,24 @@ class Basis2D:
     def basis_xi(self) -> Basis1D: ...
     @property
     def basis_eta(self) -> Basis1D: ...
+    @property
+    def orders(self) -> tuple[int, int]:
+        """Orders of the basis."""
+        ...
+    @property
+    def integration_orders(self) -> tuple[int, int]:
+        """Orders of the integration rules."""
+        ...
+
+    @property
+    def order_1(self) -> int:
+        """Order of the basis in the first dimension."""
+        ...
+
+    @property
+    def order_2(self) -> int:
+        """Order of the basis in the second direction."""
+        ...
 
 @final
 class ElementFemSpace2D:
@@ -844,6 +864,16 @@ class ElementFemSpace2D:
         """Orders of integration rules used by the basis."""
         ...
 
+    @property
+    def order_1(self) -> int:
+        """Order of the basis in the first dimension."""
+        ...
+
+    @property
+    def order_2(self) -> int:
+        """Order of the basis in the second direction."""
+        ...
+
     def mass_from_order(
         self, order: UnknownFormOrder, inverse: bool = False
     ) -> npt.NDArray[np.float64]:
@@ -865,9 +895,8 @@ class ElementFemSpace2D:
         ...
 
 def compute_element_matrix(
-    form_orders: Sequence[UnknownFormOrder],
+    form_orders: _ElementFormsSpecification,
     expressions: _TranslatedSystem2D,
-    field_specifications: tuple[int | Function2D, ...],
     element_fem_space: ElementFemSpace2D,
     degrees_of_freedom: npt.NDArray[np.float64] | None = None,
     stack_memory: int = 1 << 24,
@@ -902,9 +931,8 @@ def compute_element_matrix(
     ...
 
 def compute_element_vector(
-    form_orders: Sequence[UnknownFormOrder],
+    form_orders: _ElementFormsSpecification,
     expressions: _TranslatedSystem2D,
-    field_specifications: tuple[int | Function2D, ...],
     element_cache: ElementFemSpace2D,
     degrees_of_freedom: npt.NDArray[np.float64],
     stack_memory: int = 1 << 24,
@@ -939,7 +967,7 @@ def compute_element_vector(
     ...
 
 def compute_element_projector(
-    form_orders: Sequence[UnknownFormOrder],
+    form_orders: _ElementFormsSpecification,
     corners: npt.NDArray[np.float64],
     basis_in: Basis2D,
     basis_out: Basis2D,
@@ -1284,11 +1312,12 @@ MATOP_SCALE: int
 MATOP_SUM: int
 MATOP_INTERPROD: int
 
+# fem_space", "form_specs", "field_orders", "field_information", "degrees_of_freedom
 def compute_integrating_fields(
     fem_space: ElementFemSpace2D,
-    form_orders: tuple[UnknownFormOrder, ...],
-    field_information: tuple[int | Function2D, ...],
+    form_specs: _ElementFormsSpecification,
     field_orders: tuple[UnknownFormOrder, ...],
+    field_information: tuple[Function2D | str, ...],
     degrees_of_freedom: npt.NDArray[np.float64],
 ) -> tuple[npt.NDArray[np.double], ...]:
     """Compute fields at integration points.
@@ -1357,6 +1386,25 @@ class _ElementFormsSpecification:
         """
         ...
 
+    def form_offsets(self, order_1: int, order_2: int) -> tuple[int, ...]:
+        """Get the offsets of all forms in the element.
+
+        Parameters
+        ----------
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        tuple of int
+            Offsets of degrees of freedom for all differential forms, with an extra
+            entry at the end, which is the count of all degrees of freedom.
+        """
+        ...
+
     def form_size(self, idx: SupportsIndex, /, order_1: int, order_2: int) -> int:
         """Get the number of degrees of freedom of the form in the element.
 
@@ -1378,6 +1426,24 @@ class _ElementFormsSpecification:
         """
         ...
 
+    def form_sizes(self, order_1: int, order_2: int) -> tuple[int, ...]:
+        """Get the number of degrees of freedom for each form in the element.
+
+        Parameters
+        ----------
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        tuple of int
+            Number of degrees of freedom for each differential form.
+        """
+        ...
+
     def total_size(self, order_1: int, order_2: int) -> int:
         """Get the total number of degrees of freedom of the forms.
 
@@ -1393,5 +1459,20 @@ class _ElementFormsSpecification:
         -------
         int
             Total number of degrees of freedom of all differential forms.
+        """
+        ...
+
+    def index(self, value: tuple[str, int], /) -> int:
+        """Return the index of the form with the given label and order in the specs.
+
+        Parameters
+        ----------
+        value : tuple of (str, int)
+            Label and index of the form.
+
+        Returns
+        -------
+        int
+            Index of the form in the specification.
         """
         ...

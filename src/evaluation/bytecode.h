@@ -116,15 +116,16 @@ typedef struct
  * @return MFV2D_SUCCESS if successful.
  */
 MFV2D_INTERNAL
-mfv2d_result_t convert_bytecode(const unsigned n, matrix_op_t ops[restrict const n], PyObject *const items[static n],
-                                unsigned *const p_max_stack, unsigned field_cnt,
-                                form_order_t p_form_orders[INTEGRATING_FIELDS_MAX_COUNT]);
+mfv2d_result_t convert_bytecode(unsigned n, matrix_op_t ops[restrict const n], PyObject *const items[static n],
+                                unsigned *p_max_stack, unsigned *p_field_cnt, unsigned max_fields,
+                                field_spec_t field_specs[restrict const max_fields],
+                                const element_form_spec_t *form_specs);
 
 MFV2D_INTERNAL
 int matrix_op_type_from_object(PyObject *o, matrix_op_type_t *out);
 
 MFV2D_INTERNAL
-PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expression);
+PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *args, PyObject *kwds);
 
 MFV2D_INTERNAL
 extern const char check_bytecode_docstr[];

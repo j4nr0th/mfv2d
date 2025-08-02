@@ -4,13 +4,14 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 from mfv2d._mfv2d import ElementFemSpace2D, compute_integrating_fields
-from mfv2d.kform import Function2D, UnknownFormOrder
+from mfv2d.kform import Function2D, KFormUnknown, UnknownFormOrder
 from mfv2d.mimetic2d import (
     FemCache,
     bilinear_interpolate,
     element_primal_dofs,
     reconstruct,
 )
+from mfv2d.system import ElementFormsSpecification
 
 _ORDER_COMBINATIONS_HOMOGENUS = (
     (1, 1),
@@ -79,12 +80,15 @@ def test_explicit(n1: int, n2: int):
         (func_1_form_test, UnknownFormOrder.FORM_ORDER_1),
     ]
 
+    fake_specs = ElementFormsSpecification(
+        KFormUnknown("a", UnknownFormOrder.FORM_ORDER_0)
+    )
     results = compute_integrating_fields(
         fem_space,
-        tuple(),
-        tuple(r[0] for r in rule_specs),
+        fake_specs,
         tuple(r[1] for r in rule_specs),
-        np.zeros(0, np.float64),
+        tuple(r[0] for r in rule_specs),
+        np.zeros(fake_specs.total_size(n1, n2), np.float64),
     )
     x = bilinear_interpolate(
         fem_space.corners[:, 0],
@@ -161,11 +165,15 @@ def test_solution_based(n1: int, n2: int):
         axis=-1,
     )
 
+    form_specs = ElementFormsSpecification(
+        *(KFormUnknown(f"form-{i}", order) for i, (_, order) in enumerate(rule_specs))
+    )
+
     results = compute_integrating_fields(
         fem_space,
+        form_specs,
         tuple(order for _, order in rule_specs),
-        tuple(range(len(rule_specs))),
-        tuple(order for _, order in rule_specs),
+        tuple(label for label, _ in form_specs),
         merged_dofs,
     )
 
@@ -234,21 +242,28 @@ def test_mixed(n1: int, n2: int):
 
     field_specs: list[int | Function2D] = []
     i = 0
+    unknowns: list[KFormUnknown] = list()
     for function, order, sol_based in rule_specs:
         if sol_based:
             field_specs.append(i)
             dofs.append(element_primal_dofs(order, fem_space, function))
+            unknowns.append(KFormUnknown(f"form-{i}", order))
             i += 1
         else:
             field_specs.append(function)
 
     merged_dofs = np.concatenate(dofs, axis=-1)
+    form_specs = ElementFormsSpecification(*unknowns)
+    reversed_labels = [f.label for f in reversed(unknowns)]
 
     results = compute_integrating_fields(
         fem_space,
-        tuple(order for _, order, sol_based in rule_specs if sol_based),
-        tuple(field_specs),
+        form_specs,
         tuple(order for _, order, _ in rule_specs),
+        tuple(
+            func if not sol_based else reversed_labels.pop()
+            for (func, _, sol_based) in rule_specs
+        ),
         merged_dofs,
     )
 

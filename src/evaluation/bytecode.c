@@ -141,33 +141,29 @@ static mfv2d_result_t convert_mass(PyObject *const o, matrix_op_mass_t *const ou
     return MFV2D_SUCCESS;
 }
 
-static mfv2d_result_t convert_interprod(PyObject *const o, matrix_op_interprod_t *const out, unsigned field_cnt,
-                                        form_order_t p_form_orders[INTEGRATING_FIELDS_MAX_COUNT])
+static mfv2d_result_t convert_interprod(PyObject *const o, matrix_op_interprod_t *const out,
+                                        unsigned *const p_field_cnt, const unsigned max_fields,
+                                        field_spec_t field_specs[restrict const max_fields],
+                                        const element_form_spec_t *const form_specs)
 {
-    matrix_op_type_t type;
-    form_order_t start_order;
-    unsigned field_index;
-    int dual;
-    int adjoint;
-    if (!PyArg_ParseTuple(o, "O&O&Ipp", matrix_op_type_from_object, &type, converter_form_order, &start_order,
-                          &field_index, &dual, &adjoint))
+    if (*p_field_cnt >= max_fields)
     {
+        PyErr_Format(PyExc_ValueError, "A total of %u fields were specified, but at most %u can be specified.",
+                     *p_field_cnt, max_fields);
         return MFV2D_BAD_ARGUMENT;
     }
-    if (field_index >= INTEGRATING_FIELDS_MAX_COUNT)
+    matrix_op_type_t type;
+    form_order_t start_order;
+    PyObject *field;
+    int dual;
+    int adjoint;
+    if (!PyArg_ParseTuple(o, "O&O&Opp", matrix_op_type_from_object, &type, converter_form_order, &start_order, &field,
+                          &dual, &adjoint))
     {
-        PyErr_Format(PyExc_ValueError, "Field index %u is out of bounds, maximum %u can be specified.", field_index,
-                     INTEGRATING_FIELDS_MAX_COUNT);
         return MFV2D_BAD_ARGUMENT;
     }
 
-    if (field_cnt <= field_index)
-    {
-        PyErr_Format(PyExc_ValueError,
-                     "Field index %u is out of bounds, as specifications for only %u fields were given.", field_index,
-                     field_cnt);
-        return MFV2D_BAD_ARGUMENT;
-    }
+    unsigned field_idx = *p_field_cnt;
     form_order_t required_order;
     // Determine the field's order based on what operation it is.
     if (adjoint)
@@ -199,28 +195,58 @@ static mfv2d_result_t convert_interprod(PyObject *const o, matrix_op_interprod_t
     {
         required_order = FORM_ORDER_1;
     }
-    if (p_form_orders[field_index] != required_order)
+
+    if (PyCallable_Check(field))
     {
-        if (p_form_orders[field_index] == FORM_ORDER_UNKNOWN)
+        // We're dealing with a callable field, we do no checks
+        field_specs[field_idx].callable =
+            (field_spec_callable_t){.type = FIELD_SPEC_CALLABLE, .callable = field, .form_order = required_order};
+    }
+    else
+    {
+        // We have to search for the correct field with the same name in the unknown specs
+        const char *const field_name = PyUnicode_AsUTF8(field);
+        if (!field_name)
         {
-            p_form_orders[field_index] = required_order;
-        }
-        else
-        {
-            PyErr_Format(PyExc_ValueError, "Field %u is of order %u, but the required order is %u.", field_index,
-                         required_order, p_form_orders[field_index]);
             return MFV2D_BAD_ARGUMENT;
         }
+        unsigned unknown_index;
+        for (unknown_index = 0; unknown_index < Py_SIZE(form_specs); ++unknown_index)
+        {
+            const form_spec_t *const form_spec = form_specs->forms + unknown_index;
+            if (strcmp(form_spec->name, field_name) == 0)
+            {
+                if (form_spec->order != required_order)
+                {
+                    PyErr_Format(PyExc_ValueError, "Field %s is of order %s, but the required order is %s.", field_name,
+                                 form_order_str(required_order), form_order_str(form_spec->order));
+                    return MFV2D_BAD_ARGUMENT;
+                }
+
+                break;
+            }
+        }
+        if (unknown_index == Py_SIZE(form_specs))
+        {
+            PyErr_Format(PyExc_ValueError,
+                         "Field based on unknown \"%s\" can not be used, since it is not in the system.", field_name);
+            return MFV2D_BAD_ARGUMENT;
+        }
+        field_specs[field_idx].unknown =
+            (field_spec_unknown_t){.type = FIELD_SPEC_UNKNOWN, .index = unknown_index, .form_order = required_order};
     }
+
     *out = (matrix_op_interprod_t){
-        .order = start_order, .field_index = field_index, .dual = dual, .adjoint = adjoint, .op = MATOP_INTERPROD};
+        .order = start_order, .field_index = field_idx, .dual = dual, .adjoint = adjoint, .op = MATOP_INTERPROD};
+    *p_field_cnt += 1;
     return MFV2D_SUCCESS;
 }
 
 MFV2D_INTERNAL
 mfv2d_result_t convert_bytecode(const unsigned n, matrix_op_t ops[restrict const n], PyObject *const items[static n],
-                                unsigned *const p_max_stack, unsigned field_cnt,
-                                form_order_t p_form_orders[INTEGRATING_FIELDS_MAX_COUNT])
+                                unsigned *const p_max_stack, unsigned *const p_field_cnt, const unsigned max_fields,
+                                field_spec_t field_specs[restrict const max_fields],
+                                const element_form_spec_t *const form_specs)
 {
     unsigned stack_load = 0, max_load = 0;
     for (unsigned i = 0; i < n; ++i)
@@ -285,7 +311,7 @@ mfv2d_result_t convert_bytecode(const unsigned n, matrix_op_t ops[restrict const
             break;
 
         case MATOP_INTERPROD:
-            res = convert_interprod(items[i], &op_ptr->interprod, field_cnt, p_form_orders);
+            res = convert_interprod(items[i], &op_ptr->interprod, p_field_cnt, max_fields, field_specs, form_specs);
             break;
 
         default:
@@ -320,36 +346,40 @@ int matrix_op_type_from_object(PyObject *const o, matrix_op_type_t *const out)
 }
 
 MFV2D_INTERNAL
-const char check_bytecode_docstr[] =
-    "check_bytecode(expression: mfv2d.eval._TranslatedBlock, /) -> mfv2d.eval._TranslatedBlock\n"
-    "Convert bytecode to C-values, then back to Python.\n"
-    "\n"
-    "This function is meant for testing.\n";
+const char check_bytecode_docstr[] = "check_bytecode(form_specs: _ElemenetFormsSpecs, expression: "
+                                     "mfv2d.eval._TranslatedBlock) -> mfv2d.eval._TranslatedBlock\n"
+                                     "Convert bytecode to C-values, then back to Python.\n"
+                                     "\n"
+                                     "This function is meant for testing.\n";
 
-PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expression)
+PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *args, PyObject *kwds)
 {
+    element_form_spec_t *form_specs;
+    PyObject *expression;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!", (char *const[3]){"form_specs", "expression", NULL},
+                                     &element_form_spec_type, &form_specs, &PyTuple_Type, &expression))
+    {
+        return NULL;
+    }
+
     size_t n_expr;
     // Convert into bytecode
     bytecode_t *bytecode = NULL;
     {
-        PyObject *const expression = PySequence_Fast(in_expression, "Can not convert expression to sequence.");
-        if (!expression)
-            return NULL;
-
-        n_expr = PySequence_Fast_GET_SIZE(expression);
+        n_expr = PyTuple_GET_SIZE(expression);
         PyObject **const p_exp = PySequence_Fast_ITEMS(expression);
 
         unsigned unused;
         unsigned unused2;
-        form_order_t unused3[INTEGRATING_FIELDS_MAX_COUNT];
+        field_spec_t unused3[INTEGRATING_FIELDS_MAX_COUNT];
         bytecode = PyMem_RawMalloc(sizeof(bytecode_t) + sizeof(matrix_op_t) * n_expr);
         if (!bytecode)
         {
-            Py_DECREF(expression);
             PyErr_NoMemory();
             return NULL;
         }
-        const mfv2d_result_t result = convert_bytecode(n_expr, bytecode->ops, p_exp, &unused, 0, unused3);
+        const mfv2d_result_t result = convert_bytecode(n_expr, bytecode->ops, p_exp, &unused, &unused2,
+                                                       INTEGRATING_FIELDS_MAX_COUNT, unused3, form_specs);
         bytecode->count = n_expr;
 
         if (result != MFV2D_SUCCESS)
@@ -357,10 +387,8 @@ PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *in_expression)
             raise_exception_from_current(PyExc_RuntimeError, "Could not convert expression to bytecode, reason: %s",
                                          mfv2d_result_str(result));
             PyMem_RawFree(bytecode);
-            Py_DECREF(expression);
             return NULL;
         }
-        Py_DECREF(expression);
     }
 
     PyTupleObject *out_tuple = (PyTupleObject *)PyTuple_New((Py_ssize_t)n_expr);

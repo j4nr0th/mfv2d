@@ -23,7 +23,7 @@ from mfv2d._mfv2d import (
     compute_element_vector,
 )
 from mfv2d.boundary import BoundaryCondition2DSteady
-from mfv2d.continuity import _add_system_constraints
+from mfv2d.continuity import add_system_constraints
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import (
     KElementProjection,
@@ -31,7 +31,6 @@ from mfv2d.kform import (
     KFormUnknown,
     KWeight,
     UnknownFormOrder,
-    UnknownOrderings,
 )
 from mfv2d.mimetic2d import (
     FemCache,
@@ -41,7 +40,7 @@ from mfv2d.mimetic2d import (
     vtk_lagrange_ordering,
 )
 from mfv2d.progress import ProgressTracker
-from mfv2d.system import KFormSystem
+from mfv2d.system import ElementFormsSpecification, KFormSystem
 
 
 def rhs_2d_element_projection(
@@ -69,11 +68,8 @@ def rhs_2d_element_projection(
 
     # If `fn` is `None`, it is equal to just zeros
     if fn is None:
-        basis = element_space.basis_2d
         return np.zeros(
-            right.weight.order.full_unknown_count(
-                basis.basis_xi.order, basis.basis_eta.order
-            ),
+            right.weight.order.full_unknown_count(*element_space.orders),
             np.float64,
         )
 
@@ -109,10 +105,8 @@ def _extract_rhs_2d(
         Array of the resulting projection degrees of freedom.
     """
     # Create empty vector into which to accumulate
-    basis = element_cache.basis_2d
-
     vec = np.zeros(
-        weight.order.full_unknown_count(basis.basis_xi.order, basis.basis_eta.order),
+        weight.order.full_unknown_count(*element_cache.orders),
         np.float64,
     )
 
@@ -164,15 +158,14 @@ def compute_element_rhs(
 
 
 def reconstruct_mesh_from_solution(
-    system: KFormSystem,
+    form_spec: ElementFormsSpecification,
     recon_order: int | None,
     fem_spaces: list[ElementFemSpace2D],
-    dof_offsets: npt.NDArray[np.uint32],
     solution: npt.NDArray[np.float64],
 ) -> pv.UnstructuredGrid:
     """Reconstruct the unknown differential forms."""
     build: dict[KFormUnknown, list[npt.NDArray[np.float64]]] = {
-        form: list() for form in system.unknown_forms
+        form: list() for form in form_spec.iter_forms()
     }
     xvals: list[npt.NDArray[np.float64]] = list()
     yvals: list[npt.NDArray[np.float64]] = list()
@@ -183,12 +176,13 @@ def reconstruct_mesh_from_solution(
     element_offset = 0
 
     used_nodes: dict[int, npt.NDArray[np.float64]] = dict()
-    for offsets, element_space in zip(dof_offsets, fem_spaces):
+    for element_space in fem_spaces:
         # Extract element DoFs
-        element_dofs = solution[element_offset : element_offset + offsets[-1]]
+        orders = element_space.orders
+        element_dof_count = form_spec.total_size(*orders)
+        element_dofs = solution[element_offset : element_offset + element_dof_count]
         corners = element_space.corners
 
-        orders = (element_space.basis_xi.order, element_space.basis_eta.order)
         order_list.append(orders)
         reconstruction_order = max(orders) if recon_order is None else recon_order
         if reconstruction_order not in used_nodes:
@@ -210,9 +204,9 @@ def reconstruct_mesh_from_solution(
         xvals.append(ex.flatten())
         yvals.append(ey.flatten())
         # Loop over each of the primal forms
-        for idx, form in enumerate(system.unknown_forms):
-            form_offset = int(offsets[idx])
-            form_offset_end = int(offsets[idx + 1])
+        for idx, form in enumerate(form_spec.iter_forms()):
+            form_offset = form_spec.form_offset(idx, *orders)
+            form_offset_end = form_offset + form_spec.form_size(idx, *orders)
             form_dofs = element_dofs[form_offset:form_offset_end]
             if not form.is_primal:
                 raise ValueError("Can not reconstruct a non-primal form.")
@@ -227,7 +221,7 @@ def reconstruct_mesh_from_solution(
             shape = (-1, 2) if form.order == UnknownFormOrder.FORM_ORDER_1 else (-1,)
             build[form].append(np.reshape(recon_v, shape))
 
-        element_offset += offsets[-1]
+        element_offset += element_dof_count
 
     grid = pv.UnstructuredGrid(
         np.concatenate(node_array),
@@ -249,7 +243,7 @@ def reconstruct_mesh_from_solution(
 
 
 def compute_element_dual(
-    ordering: UnknownOrderings,
+    form_specs: ElementFormsSpecification,
     functions: Sequence[
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike] | None
     ],
@@ -257,26 +251,27 @@ def compute_element_dual(
 ) -> npt.NDArray[np.float64]:
     """Compute element L2 projection."""
     vecs: list[npt.NDArray[np.float64]] = list()
-    for order, func in zip(ordering.form_orders, functions, strict=True):
+    for i_form, func in enumerate(functions):
         if func is None:
             vecs.append(
                 np.zeros(
-                    order.full_unknown_count(
-                        element_space.basis_xi.order, element_space.basis_eta.order
-                    ),
+                    form_specs.form_size(i_form, *element_space.orders),
                     np.float64,
                 )
             )
         else:
             vecs.append(
-                np.asarray(element_dual_dofs(order, element_space, func), np.float64)
+                np.asarray(
+                    element_dual_dofs(form_specs[i_form][1], element_space, func),
+                    np.float64,
+                )
             )
 
     return np.concatenate(vecs)
 
 
 def compute_element_primal(
-    ordering: UnknownOrderings,
+    form_specs: ElementFormsSpecification,
     dual_dofs: npt.NDArray[np.float64],
     element_space: ElementFemSpace2D,
 ) -> npt.NDArray[np.float64]:
@@ -284,16 +279,15 @@ def compute_element_primal(
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
     primal = np.empty_like(dual_dofs)
-    for form in ordering.form_orders:
-        cnt = form.full_unknown_count(
-            element_space.basis_xi.order, element_space.basis_eta.order
-        )
+    for i_form in range(len(form_specs)):
+        cnt = form_specs.form_size(i_form, *element_space.orders)
         v = dual_dofs[offset : offset + cnt]
-        if form in mats:
-            m = mats[form]
+        order = form_specs[i_form][1]
+        if order in mats:
+            m = mats[order]
         else:
-            m = element_space.mass_from_order(form, inverse=True)
-            mats[form] = m
+            m = element_space.mass_from_order(order, inverse=True)
+            mats[order] = m
 
         primal[offset : offset + cnt] = m @ v
 
@@ -303,7 +297,7 @@ def compute_element_primal(
 
 
 def compute_element_primal_to_dual(
-    ordering: UnknownOrderings,
+    form_specs: ElementFormsSpecification,
     primal: npt.NDArray[np.float64],
     order_1: int,
     order_2: int,
@@ -313,14 +307,15 @@ def compute_element_primal_to_dual(
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
     dual = np.empty_like(primal)
-    for form in ordering.form_orders:
-        cnt = form.full_unknown_count(order_1, order_2)
+    for i_form in range(len(form_specs)):
+        cnt = form_specs.form_size(i_form, order_1, order_2)
         v = primal[offset : offset + cnt]
-        if form in mats:
-            m = mats[form]
+        order = form_specs[i_form][1]
+        if order in mats:
+            m = mats[order]
         else:
-            m = element_cache.mass_from_order(form, inverse=False)
-            mats[form] = m
+            m = element_cache.mass_from_order(order, inverse=False)
+            mats[order] = m
 
         dual[offset : offset + cnt] = m @ v
 
@@ -335,7 +330,7 @@ def non_linear_solve_run(
     atol: float,
     rtol: float,
     print_residual: bool,
-    unknown_ordering: UnknownOrderings,
+    form_spec: ElementFormsSpecification,
     element_fem_spaces: Sequence[ElementFemSpace2D],
     compiled_system: CompiledSystem,
     explicit_vec: npt.NDArray[np.float64],
@@ -380,21 +375,13 @@ def non_linear_solve_run(
             element_solution = solution[element_offsets[ie] : element_offsets[ie + 1]]
 
             lhs_vec = compute_element_vector(
-                unknown_ordering.form_orders,
-                compiled_system.lhs_full,
-                compiled_system.vector_field_specs,
-                element_space,
-                element_solution,
+                form_spec, compiled_system.lhs_full, element_space, element_solution
             )
             lhs_vectors.append(lhs_vec)
 
             if compiled_system.rhs_codes is not None:
                 rhs_vec = compute_element_vector(
-                    unknown_ordering.form_orders,
-                    compiled_system.rhs_codes,
-                    compiled_system.vector_field_specs,
-                    element_space,
-                    element_solution,
+                    form_spec, compiled_system.rhs_codes, element_space, element_solution
                 )
 
                 main_vec[element_offsets[ie] : element_offsets[ie + 1]] += rhs_vec
@@ -402,9 +389,8 @@ def non_linear_solve_run(
 
             if compiled_system.nonlin_codes is not None:
                 mat = compute_element_matrix(
-                    unknown_ordering.form_orders,
+                    form_spec,
                     compiled_system.nonlin_codes,
-                    compiled_system.vector_field_specs,
                     element_space,
                     element_solution,
                 )
@@ -599,13 +585,17 @@ class SolverSettings:
 
 def find_time_carry_indices(
     unknowns: Sequence[int],
-    dof_offsets: npt.NDArray[np.uint32],
+    form_specs: ElementFormsSpecification,
+    order_1: int,
+    order_2: int,
 ) -> npt.NDArray[np.uint32]:
     """Find what are the indices of DoFs that should be carried for the time march."""
     output: list[npt.NDArray[np.uint32]] = list()
     for iu, u in enumerate(unknowns):
         assert iu == 0 or unknowns[iu] < u, "Unknowns must be sorted."
-        output.append(np.arange(dof_offsets[u], dof_offsets[u + 1], dtype=np.uint32))
+        offset = form_specs.form_offset(u, order_1, order_2)
+        size = form_specs.form_size(u, order_1, order_2)
+        output.append(offset + np.arange(size, dtype=np.uint32))
     return np.concatenate(output, dtype=np.uint32)
 
 
@@ -632,16 +622,14 @@ class VmsSettings:
     advection_part: KFormSystem
 
 
-def _compute_linear_system(
+def compute_linear_system(
     element_fem_spaces: Sequence[ElementFemSpace2D],
-    dof_offsets: npt.NDArray[np.uint32],
     element_offset: npt.NDArray[np.uint32],
     leaf_indices: Sequence[int],
     system: KFormSystem,
     compiled: CompiledSystem,
     mesh: Mesh,
     basis_cache: FemCache,
-    unknown_ordering: UnknownOrderings,
     constrained_forms: Sequence[tuple[float, KFormUnknown]],
     boundary_conditions: Sequence[BoundaryCondition2DSteady],
     initial_solution: list[npt.NDArray[np.float64]],
@@ -663,9 +651,8 @@ def _compute_linear_system(
     if initial_solution:
         linear_matrices = [
             compute_element_matrix(
-                unknown_ordering.form_orders,
+                system.unknown_forms,
                 compiled.linear_codes,
-                compiled.vector_field_specs,
                 element_space,
                 element_solution,
             )
@@ -676,25 +663,20 @@ def _compute_linear_system(
     else:
         linear_matrices = [
             compute_element_matrix(
-                unknown_ordering.form_orders,
-                compiled.linear_codes,
-                compiled.vector_field_specs,
-                element_space,
+                system.unknown_forms, compiled.linear_codes, element_space
             )
             for element_space in element_fem_spaces
         ]
 
     # Generate constraints that force the specified for to have the (child element) sum
     # equal to a prescribed value.
-    lagrange_mat, lagrange_vec = _add_system_constraints(
+    lagrange_mat, lagrange_vec = add_system_constraints(
         system,
         mesh,
         basis_cache,
-        unknown_ordering,
         constrained_forms,
         boundary_conditions,
         leaf_indices,
-        dof_offsets,
         element_offset,
         linear_vectors,
     )

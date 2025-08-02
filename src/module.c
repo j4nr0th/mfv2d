@@ -41,8 +41,8 @@
 static PyMethodDef module_methods[] = {
     {
         "check_bytecode",
-        check_bytecode,
-        METH_O,
+        (void *)check_bytecode,
+        METH_VARARGS | METH_KEYWORDS,
         check_bytecode_docstr,
     },
     {

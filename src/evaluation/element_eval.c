@@ -335,7 +335,7 @@ static mfv2d_result_t operation_sum(matrix_t *current, const matrix_op_t *operat
 
 static mfv2d_result_t operation_interprod(matrix_t *current, const matrix_op_t *operation,
                                           const element_fem_space_2d_t *element_fem_space,
-                                          const field_information_t *integration_fields,
+                                          const field_values_t *integration_fields,
                                           const allocator_callbacks *allocator, error_stack_t *error_stack)
 {
     const matrix_op_interprod_t *const interprod = (const matrix_op_interprod_t *)operation;
@@ -480,7 +480,7 @@ static mfv2d_result_t operation_interprod(matrix_t *current, const matrix_op_t *
 MFV2D_INTERNAL
 mfv2d_result_t evaluate_block(error_stack_t *error_stack, const form_order_t form, const unsigned order,
                               const bytecode_t *code, element_fem_space_2d_t *element_fem_space,
-                              const field_information_t *value_fields, const unsigned n_stack,
+                              const field_values_t *value_fields, const unsigned n_stack,
                               matrix_t stack[restrict n_stack], const allocator_callbacks *allocator,
                               matrix_full_t *p_out, const matrix_full_t *initial)
 {

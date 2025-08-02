@@ -23,8 +23,8 @@ from mfv2d._mfv2d import (
 
 # from mfv2d.boundary import BoundaryCondition2DSteady
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KEquation, UnknownOrderings  # ,  KFormUnknown
-from mfv2d.mimetic2d import FemCache, compute_leaf_dof_counts
+from mfv2d.kform import KEquation  # ,  KFormUnknown
+from mfv2d.mimetic2d import FemCache
 from mfv2d.progress import HistogramFormat
 from mfv2d.refinement import RefinementSettings, perform_mesh_refinement
 from mfv2d.solve_system import (
@@ -32,11 +32,11 @@ from mfv2d.solve_system import (
     SolverSettings,
     SystemSettings,
     TimeSettings,
-    # _add_system_constraints,
-    _compute_linear_system,
     compute_element_dual,
     compute_element_primal,
     compute_element_primal_to_dual,
+    # _add_system_constraints,
+    compute_linear_system,
     # compute_element_rhs,
     find_time_carry_indices,
     non_linear_solve_run,
@@ -144,12 +144,9 @@ def solve_system_2d(
             if base_form not in system_settings.initial_conditions
             else system_settings.initial_conditions[base_form]
         )
-    unknown_ordering = UnknownOrderings(*(form.order for form in system.unknown_forms))
-    leaf_indices = tuple(int(val) for val in mesh.get_leaf_indices())
 
-    dof_offsets, element_total_dof_counts, element_offset = _compute_offsets_and_sizes(
-        mesh, unknown_ordering, leaf_indices, 0
-    )
+    leaf_indices = tuple(int(val) for val in mesh.get_leaf_indices())
+    element_sizes: list[int] = list()
 
     # Explicit right side
     element_fem_spaces: list[ElementFemSpace2D] = list()
@@ -162,6 +159,9 @@ def solve_system_2d(
         )
 
         element_fem_spaces.append(element_cache)
+        element_sizes.append(system.unknown_forms.total_size(order_1, order_2))
+
+    _element_offsets = np.pad(np.cumsum(element_sizes), (1, 0))
 
     # Prepare for evaluation of matrices/vectors
 
@@ -170,18 +170,18 @@ def solve_system_2d(
     if system_settings.initial_conditions:
         for element_space in element_fem_spaces:
             dual_dofs = compute_element_dual(
-                unknown_ordering, initial_funcs, element_space
+                system.unknown_forms, initial_funcs, element_space
             )
 
             initial_vectors.append(dual_dofs)
             initial_solution.append(
-                compute_element_primal(unknown_ordering, dual_dofs, element_space)
+                compute_element_primal(system.unknown_forms, dual_dofs, element_space)
             )
 
     if initial_solution:
         solution = np.concatenate(initial_solution)
     else:
-        solution = np.zeros(element_offset[-1])
+        solution = np.zeros(_element_offsets[-1])
 
     time_carry_index_array: npt.NDArray[np.uint32] | None = None
     if time_settings is not None:
@@ -194,10 +194,11 @@ def solve_system_2d(
                             for form in time_settings.time_march_relations
                         )
                     ),
-                    dof_offsets[i],
+                    system.unknown_forms,
+                    *space.orders,
                 )
-                + element_offset[i]
-                for i in range(mesh.leaf_count)
+                + _element_offsets[i]
+                for i, space in enumerate(element_fem_spaces)
             ]
         )
 
@@ -212,16 +213,14 @@ def solve_system_2d(
         old_solution_carry = None
 
     linear_vectors, linear_element_matrices, lagrange_mat, lagrange_vec = (
-        _compute_linear_system(
+        compute_linear_system(
             element_fem_spaces,
-            dof_offsets,
-            element_offset,
+            _element_offsets,
             leaf_indices,
             system,
             compiled_system,
             mesh,
             cache_2d,
-            unknown_ordering,
             constrained_forms,
             boundary_conditions if boundary_conditions is not None else list(),
             initial_solution,
@@ -265,7 +264,7 @@ def solve_system_2d(
     resulting_grids: list[pv.UnstructuredGrid] = list()
 
     grid = reconstruct_mesh_from_solution(
-        system, recon_order, element_fem_spaces, dof_offsets, solution
+        system.unknown_forms, recon_order, element_fem_spaces, solution
     )
     grid.field_data["time"] = (0.0,)
     resulting_grids.append(grid)
@@ -298,11 +297,11 @@ def solve_system_2d(
                 atol,
                 rtol,
                 print_residual,
-                unknown_ordering,
+                system.unknown_forms,
                 element_fem_spaces,
                 compiled_system,
                 explicit_vec,
-                element_offset,
+                _element_offsets,
                 linear_element_matrices,
                 time_carry_index_array,
                 current_carry,
@@ -319,8 +318,8 @@ def solve_system_2d(
             projected_solution = np.concatenate(
                 [
                     compute_element_primal_to_dual(
-                        unknown_ordering,
-                        new_solution[element_offset[ie] : element_offset[ie + 1]],
+                        system.unknown_forms,
+                        new_solution[_element_offsets[ie] : _element_offsets[ie + 1]],
                         *mesh.get_leaf_orders(leaf_idx),
                         element_fem_spaces[ie],
                     )
@@ -344,7 +343,7 @@ def solve_system_2d(
                 # Prepare to build up the 1D Splines
 
                 grid = reconstruct_mesh_from_solution(
-                    system, recon_order, element_fem_spaces, dof_offsets, solution
+                    system.unknown_forms, recon_order, element_fem_spaces, solution
                 )
                 grid.field_data["time"] = (float((time_index + 1) * dt),)
                 resulting_grids.append(grid)
@@ -361,11 +360,11 @@ def solve_system_2d(
             atol,
             rtol,
             print_residual,
-            unknown_ordering,
+            system.unknown_forms,
             element_fem_spaces,
             compiled_system,
             explicit_vec,
-            element_offset,
+            _element_offsets,
             linear_element_matrices,
             None,
             None,
@@ -386,7 +385,7 @@ def solve_system_2d(
         # Prepare to build up the 1D Splines
 
         grid = reconstruct_mesh_from_solution(
-            system, recon_order, element_fem_spaces, dof_offsets, solution
+            system.unknown_forms, recon_order, element_fem_spaces, solution
         )
 
         resulting_grids.append(grid)
@@ -402,7 +401,7 @@ def solve_system_2d(
         n_lagrange=int(lagrange_vec.size),
         n_elems=mesh.element_count,
         n_leaves=mesh.leaf_count,
-        n_leaf_dofs=element_total_dof_counts.sum(),
+        n_leaf_dofs=_element_offsets[-1],
         iter_history=iters,
         residual_history=np.asarray(changes, np.float64),
     )
@@ -420,8 +419,7 @@ def solve_system_2d(
         output_mesh = perform_mesh_refinement(
             mesh,
             solution,
-            element_offset,
-            dof_offsets,
+            _element_offsets,
             system,
             refinement_settings.error_estimate,
             refinement_settings.h_refinement_ratio,
@@ -449,28 +447,6 @@ def solve_system_2d(
         output_mesh = mesh
 
     return tuple(resulting_grids), stats, output_mesh
-
-
-def _compute_offsets_and_sizes(
-    mesh: Mesh, unknown_ordering: UnknownOrderings, leaf_indices: Sequence[int], dp: int
-) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.uint32], npt.NDArray[np.uint32]]:
-    """Compute DoF offsets and sizes for the mesh and the system."""
-    dof_sizes = np.array(
-        [
-            compute_leaf_dof_counts(
-                orders[0] + dp, orders[1] + dp, unknown_ordering.form_orders
-            )
-            for orders in (mesh.get_leaf_orders(leaf_idx) for leaf_idx in leaf_indices)
-        ],
-        np.uint32,
-    )
-    dof_offsets = np.pad(np.cumsum(dof_sizes, axis=1), ((0, 0), (1, 0)))
-    element_total_dof_counts = dof_offsets[:, -1]
-    element_offset = np.astype(
-        np.pad(element_total_dof_counts.cumsum(), (1, 0)), np.uint32, copy=False
-    )
-
-    return dof_offsets, element_total_dof_counts, element_offset
 
 
 def update_system_for_time_march(
@@ -507,7 +483,7 @@ def update_system_for_time_march(
                 eq.left
                 + 2
                 / time_settings.dt
-                * (system.weight_forms[m_idx] * system.unknown_forms[m_idx])
+                * (system.weight_forms[m_idx] * system.unknown_forms.get_form(m_idx))
                 == eq.right
             )
 

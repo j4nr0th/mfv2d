@@ -45,6 +45,18 @@ unsigned element_form_offset(const element_form_spec_t *const spec, const unsign
     return offset;
 }
 
+unsigned element_form_specs_total_count(const element_form_spec_t *const spec, const unsigned order_1,
+                                        const unsigned order_2)
+{
+    ASSERT(order_1 > 0 && order_2 > 0, "Orders must be positive, but (%u, %u) were given", order_1, order_2);
+    unsigned count = 0;
+    for (unsigned i = 0; i < Py_SIZE(spec); ++i)
+    {
+        count += form_degrees_of_freedom_count(spec->forms[i].order, order_1, order_2);
+    }
+    return count;
+}
+
 typedef struct
 {
     PyObject_HEAD;
@@ -443,12 +455,13 @@ static PyObject *element_form_spec_form_total_size(const element_form_spec_t *co
         PyErr_Format(PyExc_ValueError, "Orders must be positive, but (%ld, %ld) were given", order_1, order_2);
         return NULL;
     }
-    unsigned size = 0;
-    for (unsigned i = 0; i < Py_SIZE(self); ++i)
-    {
-        size += form_degrees_of_freedom_count(self->forms[i].order, order_1, order_2);
-    }
-    return PyLong_FromLong(size);
+    // unsigned size = 0;
+    // for (unsigned i = 0; i < Py_SIZE(self); ++i)
+    // {
+    //     size += form_degrees_of_freedom_count(self->forms[i].order, order_1, order_2);
+    // }
+
+    return PyLong_FromLong(element_form_specs_total_count(self, order_1, order_2));
 }
 
 PyDoc_STRVAR(element_form_spec_size_total_docstr,
@@ -470,6 +483,156 @@ PyDoc_STRVAR(element_form_spec_size_total_docstr,
              "-------\n"
              "int\n"
              "    Total number of degrees of freedom of all differential forms.\n");
+
+static PyObject *element_form_spec_form_orders(const element_form_spec_t *self, PyObject *args, PyObject *kwds)
+{
+    long order_1, order_2;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ll", (char *[3]){"order_1", "order_2", NULL}, &order_1, &order_2))
+        return NULL;
+    if (order_1 <= 0 || order_2 <= 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Orders must be positive, but (%ld, %ld) were given", order_1, order_2);
+        return NULL;
+    }
+    PyObject *res = PyTuple_New(Py_SIZE(self) + 1);
+    if (!res)
+        return NULL;
+    unsigned offsets = 0;
+    for (unsigned i = 0; i < Py_SIZE(self); ++i)
+    {
+        const unsigned size = form_degrees_of_freedom_count(self->forms[i].order, order_1, order_2);
+        PyObject *const v = PyLong_FromLong(offsets);
+        if (!v)
+        {
+            Py_DECREF(res);
+            return NULL;
+        }
+        PyTuple_SET_ITEM(res, i, v);
+        offsets += size;
+    }
+    PyObject *const v = PyLong_FromLong(offsets);
+    if (!v)
+    {
+        Py_DECREF(res);
+        return NULL;
+    }
+    PyTuple_SET_ITEM(res, Py_SIZE(self), v);
+    return res;
+}
+
+PyDoc_STRVAR(element_form_spec_form_orders_docstr,
+             "form_offsets(order_1: int, order_2: int) -> tuple[int, ...]\n"
+             "Get the offsets of all forms in the element.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "order_1 : int\n"
+             "    Order of the element in the first dimension.\n"
+             "\n"
+             "order_2 : int\n"
+             "    Order of the element in the second dimension.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "tuple of int\n"
+             "    Offsets of degrees of freedom for all differential forms, with an extra\n"
+             "    entry at the end, which is the count of all degrees of freedom.\n");
+
+static PyObject *element_form_spec_form_sizes(const element_form_spec_t *this, PyObject *args, PyObject *kwds)
+{
+    long order_1, order_2;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ll", (char *[3]){"order_1", "order_2", NULL}, &order_1, &order_2))
+        return NULL;
+    if (order_1 <= 0 || order_2 <= 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Orders must be positive, but (%ld, %ld) were given", order_1, order_2);
+        return NULL;
+    }
+    PyObject *res = PyTuple_New(Py_SIZE(this));
+    if (!res)
+        return NULL;
+
+    for (Py_ssize_t i = 0; i < Py_SIZE(this); ++i)
+    {
+        PyObject *val = PyLong_FromLong(form_degrees_of_freedom_count(this->forms[i].order, order_1, order_2));
+        if (!val)
+        {
+            Py_DECREF(res);
+            return NULL;
+        }
+        PyTuple_SET_ITEM(res, i, val);
+    }
+    return res;
+}
+
+PyDoc_STRVAR(element_form_spec_form_sizes_docstr, "form_sizes(order_1: int, order_2: int) -> tuple[int, ...]\n"
+                                                  "Get the number of degrees of freedom for each form in the element.\n"
+                                                  "\n"
+                                                  "Parameters\n"
+                                                  "----------\n"
+                                                  "order_1 : int\n"
+                                                  "    Order of the element in the first dimension.\n"
+                                                  "\n"
+                                                  "order_2 : int\n"
+                                                  "    Order of the element in the second dimension.\n"
+                                                  "\n"
+                                                  "Returns\n"
+                                                  "-------\n"
+                                                  "tuple of int\n"
+                                                  "    Number of degrees of freedom for each differential form.\n");
+
+static PyObject *element_form_spec_get_index(const element_form_spec_t *this, PyObject *arg)
+{
+    if (!PyTuple_Check(arg) || PyTuple_GET_SIZE(arg) != 2)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a tuple of (name, order) but got %R", arg);
+        return NULL;
+    }
+
+    const char *name_cstr = PyUnicode_AsUTF8(PyTuple_GET_ITEM(arg, 0));
+    if (!name_cstr)
+    {
+        PyErr_SetString(PyExc_TypeError, "Expected a string for the form name");
+        return NULL;
+    }
+    if (strlen(name_cstr) > MAXIMUM_FORM_NAME_LENGTH)
+    {
+        PyErr_Format(PyExc_ValueError, "Form name longer than %d characters", MAXIMUM_FORM_NAME_LENGTH);
+        return NULL;
+    }
+    const form_order_t order_val = form_order_from_object(PyTuple_GET_ITEM(arg, 1));
+    if (order_val == FORM_ORDER_UNKNOWN)
+    {
+        raise_exception_from_current(PyExc_ValueError, "Failed converting form order to a number.");
+        return NULL;
+    }
+    for (unsigned i = 0; i < Py_SIZE(this); ++i)
+    {
+        const form_spec_t *const spec = this->forms + i;
+        if (spec->order == order_val && strcmp(spec->name, name_cstr) == 0)
+        {
+            return PyLong_FromLong(i);
+        }
+    }
+
+    PyErr_Format(PyExc_ValueError, "Form with name %s and order %u not found", name_cstr, order_val);
+    return NULL;
+}
+
+PyDoc_STRVAR(element_form_spec_get_index_docstr,
+             "index(value: tuple[str, int], /) -> int\n"
+             "Return the index of the form with the given label and order in the specs.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "value : tuple of (str, int)\n"
+             "    Label and index of the form.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "int\n"
+             "    Index of the form in the specification.\n");
+
 static PyMethodDef element_form_spec_methods[] = {
     {
         .ml_name = "form_offset",
@@ -488,6 +651,24 @@ static PyMethodDef element_form_spec_methods[] = {
         .ml_meth = (PyCFunction)element_form_spec_form_total_size,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = element_form_spec_size_total_docstr,
+    },
+    {
+        .ml_name = "form_offsets",
+        .ml_meth = (PyCFunction)element_form_spec_form_orders,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc = element_form_spec_form_orders_docstr,
+    },
+    {
+        .ml_name = "form_sizes",
+        .ml_meth = (PyCFunction)element_form_spec_form_sizes,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc = element_form_spec_form_sizes_docstr,
+    },
+    {
+        .ml_name = "index",
+        .ml_meth = (PyCFunction)element_form_spec_get_index,
+        .ml_flags = METH_O,
+        .ml_doc = element_form_spec_get_index_docstr,
     },
     {},
 };

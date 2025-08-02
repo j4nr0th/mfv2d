@@ -357,12 +357,59 @@ static PyObject *basis_2d_get_integration_orders(const basis_2d_t *self, void *P
     return Py_BuildValue("II", self->basis_xi->integration_rule->order, self->basis_eta->integration_rule->order);
 }
 
+static PyObject *basis_2d_get_order_1(const basis_2d_t *self, void *Py_UNUSED(closure))
+{
+    return PyLong_FromLong(self->basis_xi->order);
+}
+
+static PyObject *basis_2d_get_order_2(const basis_2d_t *self, void *Py_UNUSED(closure))
+{
+    return PyLong_FromLong(self->basis_eta->order);
+}
+
 static PyGetSetDef Basis2D_getset[] = {
-    {"basis_xi", (getter)basis_2d_get_basis_xi, NULL, "Basis1D : Basis used for the Xi direction.", NULL},
-    {"basis_eta", (getter)basis_2d_get_basis_eta, NULL, "Basis1D : Basis used for the Eta direction.", NULL},
-    {"orders", (getter)basis_2d_get_orders, NULL, "(int, int) : Order of the basis."},
-    {"integration_orders", (getter)basis_2d_get_integration_orders, NULL,
-     "(int, int) : Order of the integration rules."},
+    {
+        "basis_xi",
+        (getter)basis_2d_get_basis_xi,
+        NULL,
+        "Basis1D : Basis used for the Xi direction.",
+        NULL,
+    },
+    {
+        "basis_eta",
+        (getter)basis_2d_get_basis_eta,
+        NULL,
+        "Basis1D : Basis used for the Eta direction.",
+        NULL,
+    },
+    {
+        "orders",
+        (getter)basis_2d_get_orders,
+        NULL,
+        "(int, int) : Order of the basis.",
+        NULL,
+    },
+    {
+        "integration_orders",
+        (getter)basis_2d_get_integration_orders,
+        NULL,
+        "(int, int) : Order of the integration rules.",
+        NULL,
+    },
+    {
+        .name = "order_1",
+        .get = (void *)basis_2d_get_order_1,
+        .set = NULL,
+        .doc = "int : Order of the basis in the first dimension.",
+        .closure = NULL,
+    },
+    {
+        .name = "order_2",
+        .get = (void *)basis_2d_get_order_2,
+        .set = NULL,
+        .doc = "int : Order of the basis in the second dimension.",
+        .closure = NULL,
+    },
     {NULL} // Sentinel
 };
 

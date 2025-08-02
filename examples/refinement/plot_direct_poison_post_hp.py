@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt
 from matplotlib.collections import PolyCollection
 from mfv2d import (
     BoundaryCondition2DSteady,
+    ErrorEstimateCustom,
     KFormSystem,
     KFormUnknown,
     Mesh,
@@ -277,10 +278,13 @@ def run_refinement_strategy(h_ratio: float, max_elements: int, mesh: Mesh):
     for i_round in range(N_ROUNDS):
         mesh = new_mesh
         refinement_settings = RefinementSettings(
-            # Required by the error function
-            required_forms=[u],
-            # The error (estimation) function
-            error_calculation_function=error_calc_function,
+            # Specify how the error is estimated
+            error_estimate=ErrorEstimateCustom(
+                # Required by the error function
+                required_forms=[u],
+                # The error (estimation) function
+                error_calculation_function=error_calc_function,
+            ),
             # H-refinement when ratio of h-cost and error less than this
             h_refinement_ratio=h_ratio,
             # When to stop refining

@@ -21,6 +21,7 @@ from matplotlib import pyplot as plt
 from matplotlib.collections import PolyCollection
 from mfv2d import (
     BoundaryCondition2DSteady,
+    ErrorEstimateCustom,
     KFormSystem,
     KFormUnknown,
     Mesh,
@@ -208,12 +209,21 @@ def error_calc_function(
 
 
 refinement_settings = RefinementSettings(
-    required_forms=[u],  # Required by the error function
-    error_calculation_function=error_calc_function,  # The error function
-    h_refinement_ratio=0,  # H-refinement when ratio of h-cost and error less than this
-    refinement_limit=RefinementLimitElementCount(1.0, 10),  # When to stop refining
-    report_error_distribution=True,  # Print error distribution to terminal
-    report_order_distribution=True,  # Print element order distribution to terminal
+    # Specify how the error is computed
+    error_estimate=ErrorEstimateCustom(
+        # Required by the error function
+        required_forms=[u],
+        # The error function
+        error_calculation_function=error_calc_function,
+    ),
+    # H-refinement when ratio of h-cost and error less than this
+    h_refinement_ratio=0,
+    # When to stop refining
+    refinement_limit=RefinementLimitElementCount(1.0, 10),
+    # Print error distribution to terminal
+    report_error_distribution=True,
+    # Print element order distribution to terminal
+    report_order_distribution=True,
 )
 
 # %%

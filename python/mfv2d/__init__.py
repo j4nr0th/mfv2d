@@ -20,6 +20,8 @@ from mfv2d.kform import UnknownFormOrder as UnknownFormOrder
 from mfv2d.mimetic2d import mesh_create as mesh_create
 
 # Refinement settings
+from mfv2d.refinement import ErrorEstimateCustom as ErrorEstimateCustom
+from mfv2d.refinement import ErrorEstimateLocalInverse as ErrorEstimateLocalInverse
 from mfv2d.refinement import RefinementLimitElementCount as RefinementLimitElementCount
 from mfv2d.refinement import RefinementLimitErrorValue as RefinementLimitErrorValue
 from mfv2d.refinement import RefinementLimitUnknownCount as RefinementLimitUnknownCount

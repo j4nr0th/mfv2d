@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**04:39.301** total execution time for 15 files **from all galleries**:
+**05:19.856** total execution time for 15 files **from all galleries**:
 
 .. container::
 
@@ -33,13 +33,13 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_refinement_plot_advdif_post_hp_projection.py` (``../examples/refinement/plot_advdif_post_hp_projection.py``)
-     - 04:39.301
+     - 04:23.739
      - 0.0
    * - :ref:`sphx_glr_auto_examples_refinement_plot_direct_poison_post_hp.py` (``../examples/refinement/plot_direct_poison_post_hp.py``)
-     - 00:00.000
+     - 00:39.949
      - 0.0
    * - :ref:`sphx_glr_auto_examples_refinement_plot_direct_poisson_refined_post_p.py` (``../examples/refinement/plot_direct_poisson_refined_post_p.py``)
-     - 00:00.000
+     - 00:16.168
      - 0.0
    * - :ref:`sphx_glr_auto_examples_refinement_plot_direct_poisson_refined_pre.py` (``../examples/refinement/plot_direct_poisson_refined_pre.py``)
      - 00:00.000

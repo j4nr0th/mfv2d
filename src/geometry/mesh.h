@@ -27,6 +27,7 @@ typedef struct
 {
     element_base_t base;
     leaf_data data;
+    unsigned leaf_index;
 } element_leaf_t;
 
 typedef struct
@@ -56,6 +57,7 @@ typedef struct
     unsigned count;
     unsigned capacity;
     unsigned leaf_count;
+    unsigned leaves_at_last_indexing;
     element_t *elements;
 } element_mesh_t;
 

@@ -18,6 +18,10 @@ static mfv2d_result_t element_mesh_create(element_mesh_t *this, const allocator_
     {
         return MFV2D_FAILED_ALLOC;
     }
+    // This should never be a bad value, right?
+    // Who in their right mind would create 2^{32} - 1 elements
+    // from the start, right?
+    this->leaves_at_last_indexing = ~0u;
 
     for (unsigned i = 0; i < n_elements; ++i)
     {
@@ -207,6 +211,34 @@ static mfv2d_result_t element_mesh_copy_element(const element_mesh_t *const src,
     *dst = *src;
     dst->elements = elements;
     return MFV2D_SUCCESS;
+}
+
+/**
+ * Ensures that all leaf elements in the mesh have their `leaf_index` correctly assigned
+ * based on the current ordering. This method updates the leaf index for elements that
+ * are of type `ELEMENT_TYPE_LEAF`.
+ *
+ * If the leave count did not change from the last indexing, this function immediately
+ * returns.
+ *
+ * @param this Pointer to the element_mesh_t structure. This represents the mesh object,
+ *             containing elements and associated metadata.
+ */
+static void element_mesh_ensure_leaves_indexed(element_mesh_t *const this)
+{
+    if (this->leaves_at_last_indexing == this->leaf_count)
+        return;
+
+    for (unsigned i = this->count, j = this->leaf_count; i > 0; --i)
+    {
+        element_t *const elem = &this->elements[i - 1];
+        if (elem->base.type != ELEMENT_TYPE_LEAF)
+            continue;
+        element_leaf_t *const leaf = &elem->leaf;
+        leaf->leaf_index = j - 1;
+        j -= 1;
+    }
+    this->leaves_at_last_indexing = this->leaf_count;
 }
 
 static PyObject *mesh_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -953,6 +985,127 @@ static PyObject *mesh_uniform_p_change(const mesh_t *const this, PyObject *args)
     Py_RETURN_NONE;
 }
 
+static PyObject *mesh_get_leaf_index(mesh_t *const this, PyObject *arg)
+{
+    const long index_long = PyLong_AsLong(arg);
+    if (PyErr_Occurred())
+        return NULL;
+
+    if (index_long < 0 || index_long >= this->element_mesh.count)
+    {
+        PyErr_Format(PyExc_ValueError, "Index out of bounds (got %ld).", index_long);
+        return NULL;
+    }
+
+    const element_t *const elem = &this->element_mesh.elements[index_long];
+    if (elem->base.type != ELEMENT_TYPE_LEAF)
+    {
+        PyErr_Format(PyExc_ValueError, "Element at index %ld is not a leaf.", index_long);
+        return NULL;
+    }
+    element_mesh_ensure_leaves_indexed(&this->element_mesh);
+    const element_leaf_t *const leaf = &elem->leaf;
+    return PyLong_FromLong(leaf->leaf_index);
+}
+
+static PyObject *mesh_find_leaf_by_index(mesh_t *const this, PyObject *arg)
+{
+    const long index = PyLong_AsLong(arg);
+    if (PyErr_Occurred())
+        return NULL;
+
+    if (index < 0 || index >= this->element_mesh.leaf_count)
+    {
+        PyErr_Format(PyExc_ValueError, "Index out of bounds (got %ld, but there are only %u leaves).", index,
+                     this->element_mesh.leaf_count);
+        return NULL;
+    }
+
+    // quick checks before trying anything
+    if (index == this->element_mesh.leaf_count - 1)
+    {
+        // last element
+        return PyLong_FromLong(this->element_mesh.count - 1);
+    }
+
+    // Make sure the leaves have up-to-date indices
+    element_mesh_ensure_leaves_indexed(&this->element_mesh);
+
+    // Use (kinda) binary search to find the leaf element, which has the correct index
+    unsigned low = 0;
+    unsigned len = this->element_mesh.count;
+    while (len > 3)
+    {
+        unsigned pivot = low + len / 2;
+        const element_t *elem = &this->element_mesh.elements[pivot];
+        // First search for the first leaf upwards
+        while (elem->base.type != ELEMENT_TYPE_LEAF)
+        {
+            pivot += 1;
+            if (pivot >= len + low)
+            {
+                // Search for the first leaf downwards
+                pivot = low + len / 2 - 1; // Reset the pivot
+                elem = &this->element_mesh.elements[pivot];
+                while (elem->base.type != ELEMENT_TYPE_LEAF)
+                {
+                    pivot -= 1;
+                    if (pivot < low)
+                    {
+                        // Could not find a single leaf in [low, low + len), so I clearly
+                        // did something very wrong.
+                        PyErr_SetString(PyExc_RuntimeError, "Fuck my chungus life.");
+                        return NULL;
+                    }
+                    elem = &this->element_mesh.elements[pivot];
+                }
+                break;
+            }
+            elem = &this->element_mesh.elements[pivot];
+        }
+        const element_leaf_t *const leaf = &this->element_mesh.elements[pivot].leaf;
+
+        if (leaf->leaf_index == index)
+        {
+            return PyLong_FromLong(pivot);
+        }
+        // printf("Pivot at %u, leaf has index %u, searching for %u in segment [%u, %u).\n", pivot, leaf->leaf_index,
+        //        (unsigned)index, low, low + len);
+
+        if (leaf->leaf_index < index)
+        {
+            const unsigned old_low = low;
+            low = pivot + 1;
+            len -= low - old_low;
+        }
+        else
+        {
+            len = pivot - low;
+        }
+        // printf("New low: %u, new len: %u\n", low, len);
+    }
+    // We do a linear search, now that the bounds are small enough!
+    // printf("Linear searching segment [%u, %u) for index %u\n", low, low + len, (unsigned)index);
+    for (unsigned i = 0; i < len; ++i)
+    {
+        const unsigned idx = low + i;
+        const element_t *const element = this->element_mesh.elements + idx;
+        if (element->base.type != ELEMENT_TYPE_LEAF)
+            continue;
+        const element_leaf_t *const leaf = &element->leaf;
+        if (leaf->leaf_index == index)
+        {
+            return PyLong_FromLong(idx);
+        }
+        // printf("Element %u has index %u, searching for %u\n", idx, leaf->leaf_index, (unsigned)index);
+    }
+    PyErr_Format(
+        PyExc_RuntimeError,
+        "Could not find leaf with index %ld in array of %u elements (%u leaves). My search implementation sucks!!!",
+        index, this->element_mesh.count, this->element_mesh.leaf_count);
+    return NULL;
+}
+
 PyDoc_STRVAR(mesh_get_element_parent_docstr,
              "get_element_parent(idx: typing.SupportsIndex, /) -> int | None\n"
              "Get the index of the element's parent or ``None`` if it is a root element.\n"
@@ -1135,6 +1288,34 @@ PyDoc_STRVAR(mesh_uniform_p_change_docstr, "Change orders of all elements by spe
                                            "\n"
                                            "dp_2 : int\n"
                                            "    Change in the orders of the second dimension.\n");
+PyDoc_STRVAR(mesh_get_leaf_index_docstr,
+             "get_leaf_index(idx: SupportsIndex, /) -> int\n"
+             "Get the index of the leaf at which it appears relative to all leaf elements.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "idx : int\n"
+             "    Index of the leaf element relative to all elements.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "int\n"
+             "    Index of the leaf element relative to all leaves.\n");
+PyDoc_STRVAR(mesh_find_leaf_by_index_docstr, "find_leaf_by_index(idx: SupportsIndex, /) -> int\n"
+                                             "Find the leaf with the specified index relative to all leaves.\n"
+                                             "\n"
+                                             "Assuming that ``i`` is a valid leaf element index, then\n"
+                                             "``i == mesh.find_leaf_by_index(mesh.get_leaf_index(i))``.\n"
+                                             "\n"
+                                             "Parameters\n"
+                                             "----------\n"
+                                             "idx : int\n"
+                                             "    Index of the leaf element relative to all leaves.\n"
+                                             "\n"
+                                             "Returns\n"
+                                             "-------\n"
+                                             "int\n"
+                                             "    Index of the leaf element relative to all element\n");
 
 static PyMethodDef mesh_methods[] = {
     {
@@ -1208,6 +1389,18 @@ static PyMethodDef mesh_methods[] = {
         .ml_meth = (void *)mesh_uniform_p_change,
         .ml_flags = METH_VARARGS,
         .ml_doc = mesh_uniform_p_change_docstr,
+    },
+    {
+        .ml_name = "get_leaf_index",
+        .ml_meth = (void *)mesh_get_leaf_index,
+        .ml_flags = METH_O,
+        .ml_doc = mesh_get_leaf_index_docstr,
+    },
+    {
+        .ml_name = "find_leaf_by_index",
+        .ml_meth = (void *)mesh_find_leaf_by_index,
+        .ml_flags = METH_O,
+        .ml_doc = mesh_find_leaf_by_index_docstr,
     },
     {},
 };

@@ -1293,6 +1293,42 @@ class Mesh:
         """
         ...
 
+    def get_leaf_index(self, idx: SupportsIndex, /) -> int:
+        """Get the index of the leaf at which it appears relative to all leaves.
+
+        Assuming that ``i`` is a valid leaf element index, then
+        ``i == mesh.find_leaf_by_index(mesh.get_leaf_index(i))``.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the leaf element relative to all elements.
+
+        Returns
+        -------
+        int
+            Index of the leaf element relative to all leaves.
+        """
+        ...
+
+    def find_leaf_by_index(self, idx: SupportsIndex, /) -> int:  # TODO: TEST!!!
+        """Find the leaf with the specified index relative to all leaves.
+
+        Assuming that ``i`` is a valid leaf element index, then
+        ``i == mesh.find_leaf_by_index(mesh.get_leaf_index(i))``.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the leaf element relative to all leaves.
+
+        Returns
+        -------
+        int
+            Index of the leaf element relative to all element
+        """
+        ...
+
 # Element side enum values
 
 ELEMENT_SIDE_BOTTOM: int
@@ -1312,7 +1348,6 @@ MATOP_SCALE: int
 MATOP_SUM: int
 MATOP_INTERPROD: int
 
-# fem_space", "form_specs", "field_orders", "field_information", "degrees_of_freedom
 def compute_integrating_fields(
     fem_space: ElementFemSpace2D,
     form_specs: _ElementFormSpecification,

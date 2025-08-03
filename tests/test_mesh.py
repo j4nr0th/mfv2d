@@ -175,5 +175,31 @@ def test_double_subdivision():
     assert children2 == (3, 4, 5, 6)
 
 
-if __name__ == "__main__":
-    test_manual()
+def test_leaf_index_search():
+    """Check that search through leaf indices works correcty."""
+    np.random.seed(0)
+    N_ROUNDS = 10
+    mesh = mesh_create(
+        1,
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)),
+        ((1, 2), (2, 3), (3, 4), (4, 1)),
+        ((1, 2, 3, 4),),
+    )
+    for i_round in range(N_ROUNDS):
+        for i_leaf in range(mesh.leaf_count):
+            j_leaf = mesh.find_leaf_by_index(i_leaf)
+            assert i_leaf == mesh.get_leaf_index(j_leaf)
+
+        for j_leaf in mesh.get_leaf_indices():
+            i_leaf = mesh.get_leaf_index(j_leaf)
+            assert j_leaf == mesh.find_leaf_by_index(i_leaf)
+
+        if i_round < 1:
+            for j_leaf in mesh.get_leaf_indices():
+                mesh.split_element(j_leaf, (1, 1), (1, 1), (1, 1), (1, 1))
+
+        elif i_round + 1 != N_ROUNDS:
+            for j_leaf in mesh.get_leaf_indices():
+                p = np.random.random_sample(1)
+                if p < 0.75:
+                    mesh.split_element(j_leaf, (1, 1), (1, 1), (1, 1), (1, 1))

@@ -8,6 +8,7 @@ from typing import Protocol
 
 import numpy as np
 import numpy.typing as npt
+import scipy.sparse as sp
 
 from mfv2d._mfv2d import (
     ElementFemSpace2D,
@@ -238,6 +239,9 @@ class RefinementSettings:
     report_order_distribution: bool = False
     """Should the order distribution be reported."""
 
+    upper_order_limit: int | None = None
+    """Elements which reach this can only be h-refined."""
+
 
 def perform_mesh_refinement(
     mesh: Mesh,
@@ -251,8 +255,8 @@ def perform_mesh_refinement(
     element_fem_spaces: Sequence[ElementFemSpace2D],
     boundary_conditions: Sequence[BoundaryCondition2DSteady],
     basis_cache: FemCache,
-    leaf_order_mapping: dict[int, int],
-) -> Mesh:
+    order_limit: int | None,
+) -> tuple[Mesh, npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Perform a round of mesh refinement.
 
     Parameters
@@ -260,14 +264,51 @@ def perform_mesh_refinement(
     mesh : Mesh
         Mesh on which to perform refinement on.
 
-    settings : RefinementSettings
-        Specifications of how the refinement shoud be performed.
-
     solution : array
         Solution for degrees of freedom.
 
     element_offsets : array
-        Array with offsets for the beginning of
+        Array of offsets of degrees of freedom.
+
+    system : KFormSystem
+        System that is being solved.
+
+    error_estimator : ErrorEstimate
+        Error estimator for the system.
+
+    h_refinement_ratio : float
+        Ratio of h-refinement error estimate to total element error estimate,
+        at which h-refinement should occur.
+
+    refinemenet_limit : RefinementLimit
+        When should the refinement stop.
+
+    report_error_distribution : bool
+        Should the error distribution be reported to the terminal.
+
+    element_fem_spaces : Sequence of ElementFemSpace2D
+        FEM spaces of the elements.
+
+    boundary_conditions : Sequence of BoundaryCondition2DSteady
+        Sequence of boundary conditions.
+
+    basis_cache : FemCache
+        Cache of basis.
+
+    leaf_order_mapping : dict of int -> int
+        Dictionary that maps leaf element indices to their order in
+        the system.
+
+    Returns
+    -------
+    Mesh
+        Newly created refined mesh.
+
+    array
+        Array of error estimates for each element.
+
+    array
+        Array of h-refinement error estimates for each element.
     """
     indices = mesh.get_leaf_indices()
 
@@ -300,7 +341,6 @@ def perform_mesh_refinement(
                 basis_cache,
                 system,
                 CompiledSystem(system),
-                leaf_order_mapping,
                 error_estimator.target_form,
                 error_estimator.reconstruction_orders[0]
                 if error_estimator.reconstruction_orders is not None
@@ -323,13 +363,18 @@ def perform_mesh_refinement(
         print("=" * 60)
         del error_log, hist
 
-    return refine_mesh_based_on_error(
-        mesh,
-        solution.size,
-        h_refinement_ratio,
-        refinement_limit,
-        system.unknown_forms,
-        indices,
+    return (
+        refine_mesh_based_on_error(
+            mesh,
+            solution.size,
+            h_refinement_ratio,
+            refinement_limit,
+            system.unknown_forms,
+            indices,
+            element_error,
+            href_cost,
+            order_limit,
+        ),
         element_error,
         href_cost,
     )
@@ -344,6 +389,7 @@ def refine_mesh_based_on_error(
     leaf_indices: npt.NDArray[np.uint32],
     element_error: npt.NDArray[np.float64],
     href_cost: npt.NDArray[np.float64],
+    order_limit: int | None,
 ) -> Mesh:
     """Refine the given mesh based on given element error and h-refinement cost."""
     error_order = np.flip(np.argsort(element_error))
@@ -367,6 +413,9 @@ def refine_mesh_based_on_error(
                     cost_fraction[i_leaf] <= h_refinement_ratio
                     and (order_1 > 1)
                     and (order_2 > 1)
+                ) or (
+                    order_limit is not None
+                    and (order_1 >= order_limit or order_2 >= order_limit)
                 ):
                     new_orders = (order_1 // 2, order_2 // 2)
                     mesh.split_element(
@@ -396,6 +445,9 @@ def refine_mesh_based_on_error(
                     cost_fraction[i_leaf] <= h_refinement_ratio
                     and (order_1 > 1)
                     and (order_2 > 1)
+                ) or (
+                    order_limit is not None
+                    and (order_1 >= order_limit or order_2 >= order_limit)
                 ):
                     new_orders = ((order_1 + 1) // 2, (order_2 + 1) // 2)
                     mesh.split_element(
@@ -428,6 +480,9 @@ def refine_mesh_based_on_error(
                     cost_fraction[i_leaf] <= h_refinement_ratio
                     and (order_1 > 1)
                     and (order_2 > 1)
+                ) or (
+                    order_limit is not None
+                    and (order_1 >= order_limit or order_2 >= order_limit)
                 ):
                     new_orders = (order_1 // 2, order_2 // 2)
                     mesh.split_element(
@@ -585,7 +640,6 @@ def error_estimate_with_local_inversion(
     basis_cache: FemCache,
     system: KFormSystem,
     compiled: CompiledSystem,
-    leaf_order_mapping: dict[int, int],
     unknown_target: KFormUnknown,
     recon_order_1: int | None,
     recon_order_2: int | None,
@@ -619,7 +673,7 @@ def error_estimate_with_local_inversion(
         order_1 = basis.basis_xi.order
         order_2 = basis.basis_eta.order
         higher_basis = basis_cache.get_basis2d(
-            order_1 + recon_order, order_2 + recon_order
+            order_1 + recon_order, order_2 + recon_order, *basis.integration_orders
         )
 
         higher_space = ElementFemSpace2D(higher_basis, corners)
@@ -633,11 +687,13 @@ def error_estimate_with_local_inversion(
             coarse_forcing -= compute_element_vector(
                 system.unknown_forms, compiled.rhs_codes, element_space, element_solution
             )
-        projector = compute_element_projector(
-            system.unknown_forms,
-            higher_space.corners,
-            element_space.basis_2d,
-            higher_space.basis_2d,
+        projector = sp.block_diag(
+            compute_element_projector(
+                system.unknown_forms,
+                higher_space.corners,
+                element_space.basis_2d,
+                higher_space.basis_2d,
+            )
         )
 
         projected_solution.append(projector @ element_solution)
@@ -647,9 +703,6 @@ def error_estimate_with_local_inversion(
 
         residuals.append(fine_rhs - fine_forcing)
         del fine_forcing, fine_rhs
-
-        # compute_element_matrix, compute_element_vector, compute_element_projector
-        # element_error[i_leaf], href_cost[i_leaf] = elem_vals
 
     # Right sides are still missing natural BC contributions
     # without these, there will be way to much residuals on the
@@ -709,7 +762,7 @@ def error_estimate_with_local_inversion(
                 basis_cache,
             )
             for bc in bc_data:
-                i_element = leaf_order_mapping[bc.i_e]
+                i_element = mesh.get_leaf_index(bc.i_e)
                 residuals[i_element][bc.dofs] += bc.coeffs
 
     # Residual is now complete. Now error can be estimated based on the local
@@ -788,17 +841,17 @@ def error_estimate_with_local_inversion(
             form_coefficients * (form_coefficients + 2 * error_coefficients) / norm_2d
         )
 
-        limit_1 = (coarse_space.basis_xi.order + 1) // 2
-        limit_2 = (coarse_space.basis_eta.order + 1) // 2
+        limit_1 = (coarse_space.basis_xi.order) // 2
+        limit_2 = (coarse_space.basis_eta.order) // 2
 
-        h_cost = np.sum(
-            measure[limit_2:, limit_1:]
-            + measure[:limit_2, limit_1:]
-            + measure[limit_2:, :limit_1]
+        h_cost = (
+            np.sum(measure[limit_2:, limit_1:])
+            + np.sum(measure[:limit_2, limit_1:])
+            + np.sum(measure[limit_2:, :limit_1])
         )
         error_l2 = np.sum(weighted_error * reconstructed_error)
 
-        href_cost[idx_leaf] = h_cost
+        href_cost[idx_leaf] = np.abs(h_cost)
         element_error[idx_leaf] = error_l2
 
     return element_error, href_cost

@@ -971,6 +971,7 @@ def compute_element_projector(
     corners: npt.NDArray[np.float64],
     basis_in: Basis2D,
     basis_out: Basis2D,
+    dual: bool = False,
 ) -> tuple[npt.NDArray[np.float64]]:
     """Compute :math:`L^2` projection from one space to another.
 
@@ -979,8 +980,8 @@ def compute_element_projector(
 
     Parameters
     ----------
-    form_orders : Sequence of UnknownFormOrder
-        Sequence of orders of forms which are to be projected.
+    form_orders : _ElementFormSpecification
+        Specification of forms in the element.
 
     corners : (4, 2) array
         Array of corner points of the element.
@@ -990,6 +991,10 @@ def compute_element_projector(
 
     basis_out : Basis2D
         Basis to which the DoFs are taken.
+
+    dual : bool
+        Should the projection be to dual space of the output space instead
+        of the primal space.
 
     Returns
     -------

@@ -416,7 +416,7 @@ def solve_system_2d(
         else:
             order_hist = None
 
-        output_mesh = perform_mesh_refinement(
+        output_mesh, error_estimates, h_ref_cost_estimate = perform_mesh_refinement(
             mesh,
             solution,
             _element_offsets,
@@ -428,8 +428,10 @@ def solve_system_2d(
             element_fem_spaces,
             system_settings.boundary_conditions,
             cache_2d,
-            {int(idx_leaf): i for i, idx_leaf in enumerate(leaf_indices)},
+            refinement_settings.upper_order_limit,
         )
+        resulting_grids[-1].cell_data["error_estimate"] = error_estimates
+        resulting_grids[-1].cell_data["h_ref_cost_estimate"] = h_ref_cost_estimate
         if refinement_settings.report_order_distribution:
             assert order_hist is not None
             geo_order = np.linalg.norm(

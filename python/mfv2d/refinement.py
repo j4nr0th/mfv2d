@@ -23,8 +23,10 @@ from mfv2d.boundary import BoundaryCondition2DSteady, _element_weak_boundary_con
 from mfv2d.eval import CompiledSystem
 from mfv2d.kform import KBoundaryProjection, KFormUnknown
 from mfv2d.mimetic2d import (
+    ElementSide,
     FemCache,
     bilinear_interpolate,
+    element_boundary_dofs,
     find_surface_boundary_id_line,
     jacobian,
     reconstruct,
@@ -203,15 +205,15 @@ class ErrorEstimateCustom:
 class ErrorEstimateLocalInverse:
     """Settings for refinement that is based on local inverse."""
 
-    strong_forms: Sequence[KFormUnknown]
-    """Forms for which the boundary conditions on each element must be
-    given strongly."""
+    target_form: KFormUnknown
+    """Error of this form is used as a guid for refinement."""
 
     order_increase: int
     """Order at which residual should be reconstructed prior to inversion."""
 
-    target_form: KFormUnknown
-    """Error of this form is used as a guid for refinement."""
+    strong_forms: Sequence[KFormUnknown] = tuple()
+    """Forms for which the boundary conditions on each element must be
+    given strongly."""
 
     reconstruction_orders: tuple[int, int] | None = None
     """Order at which error should be reconstructed."""
@@ -348,6 +350,7 @@ def perform_mesh_refinement(
                 error_estimator.reconstruction_orders[1]
                 if error_estimator.reconstruction_orders is not None
                 else None,
+                error_estimator.strong_forms,
             )
 
         case _:
@@ -643,6 +646,7 @@ def error_estimate_with_local_inversion(
     unknown_target: KFormUnknown,
     recon_order_1: int | None,
     recon_order_2: int | None,
+    strongly_zeroed: Sequence[KFormUnknown],
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Compute element error estimates using a local inversion.
 
@@ -687,7 +691,7 @@ def error_estimate_with_local_inversion(
             coarse_forcing -= compute_element_vector(
                 system.unknown_forms, compiled.rhs_codes, element_space, element_solution
             )
-        projector = sp.block_diag(
+        projector_primal = sp.block_diag(
             compute_element_projector(
                 system.unknown_forms,
                 higher_space.corners,
@@ -696,10 +700,19 @@ def error_estimate_with_local_inversion(
             )
         )
 
-        projected_solution.append(projector @ element_solution)
+        projected_solution.append(projector_primal @ element_solution)
+        del projector_primal
 
-        fine_forcing = projector @ coarse_forcing
-        del projector
+        projector_dual = sp.block_diag(
+            compute_element_projector(
+                system.unknown_forms,
+                higher_space.corners,
+                higher_space.basis_2d,
+                element_space.basis_2d,
+            )
+        ).T
+        fine_forcing = projector_dual @ coarse_forcing
+        del projector_dual
 
         residuals.append(fine_rhs - fine_forcing)
         del fine_forcing, fine_rhs
@@ -768,6 +781,13 @@ def error_estimate_with_local_inversion(
     # Residual is now complete. Now error can be estimated based on the local
     # inverse of the residual
 
+    # Check indices of zeroed forms
+    zeroed_forms = tuple(
+        i_form
+        for i_form, form in enumerate(system.unknown_forms.iter_forms())
+        if form in strongly_zeroed
+    )
+
     unknown_index = system.unknown_forms.index(unknown_target)
     for idx_leaf, (fem_space, residual, element_solution, coarse_space) in enumerate(
         zip(
@@ -781,10 +801,37 @@ def error_estimate_with_local_inversion(
         local_lhs = compute_element_matrix(
             system.unknown_forms, compiled.lhs_full, fem_space, element_solution
         )
-        local_error_dofs = np.linalg.solve(local_lhs, residual)
+        element_orders = fem_space.orders
+        # Use lagrange multipliers to force boundary DoFs to zero if needed
+        if zeroed_forms:
+            zero_indices: list[npt.NDArray[np.integer]] = list()
+            for form_idx in zeroed_forms:
+                zero_indices.extend(
+                    system.unknown_forms.form_offset(form_idx, *element_orders)
+                    + element_boundary_dofs(
+                        side,
+                        system.unknown_forms.get_form(unknown_index).order,
+                        *element_orders,
+                    )
+                    for side in ElementSide
+                )
+            indices = np.concatenate(zero_indices)
+            del zero_indices
 
-        offset = system.unknown_forms.form_offset(unknown_index, *fem_space.orders)
-        count = system.unknown_forms.form_size(unknown_index, *fem_space.orders)
+            lagrange_mat = sp.csr_array(
+                (np.ones_like(indices), (np.arange(indices.size), indices)),
+                shape=(indices.size, system.unknown_forms.total_size(*element_orders)),
+            )
+            local_mat = sp.block_array(
+                [[local_lhs, lagrange_mat.T], [lagrange_mat, None]]
+            )
+            local_error_dofs = np.linalg.solve(local_mat.toarray(), residual)
+
+        else:
+            local_error_dofs = np.linalg.solve(local_lhs, residual)
+
+        offset = system.unknown_forms.form_offset(unknown_index, *element_orders)
+        count = system.unknown_forms.form_size(unknown_index, *element_orders)
         target_dofs = local_error_dofs[offset : offset + count]
 
         rule_1 = (

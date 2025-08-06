@@ -78,6 +78,63 @@ def compute_legendre_coefficients(
     return rleg
 
 
+def compute_legendre_error_estimates(
+    order_1: int,
+    order_2: int,
+    xi: npt.NDArray[np.float64],
+    eta: npt.NDArray[np.float64],
+    w: npt.NDArray[np.float64],
+    u: npt.NDArray[np.float64],
+    err: npt.NDArray[np.float64],
+) -> tuple[float, float]:
+    """Compute error estimates based on Legendre coefficients.
+
+    Parameters
+    ----------
+    order_1 : int
+        Order of the element in the first direction.
+
+    order_2 : int
+        Order of the element in the second direction.
+
+    xi : array
+        Positions of integration nodes in the first direction.
+
+    eta : array
+        Positions of integration nodes in the second direction.
+
+    w : array
+        Values of integration weights pre-scaled by the Jacobian determinant.
+
+    u : array
+        Solution values at the integration nodes.
+
+    err : array
+        Error estimate values at the integration nodes.
+
+    Returns
+    -------
+    l2_error_square : float
+        Square of the error estimate in the L2 norm.
+
+    h_ref_cost : float
+        Estimate of the cost for h-refinemnt.
+    """
+    coeffs_err = compute_legendre_coefficients(order_1, order_2, xi, eta, err * w)
+    coeffs_u = compute_legendre_coefficients(order_1, order_2, xi, eta, u * w)
+    norm = 4 / (
+        (2 * np.arange(order_1 + 1) + 1)[None, :]
+        * (2 * np.arange(order_2 + 1) + 1)[:, None]
+    )
+    measure = coeffs_u * (coeffs_u + 2 * coeffs_err) / norm
+    estimate = (
+        np.sum(measure[order_1 // 2 :, order_2 // 2 :])
+        + np.sum(measure[order_1 // 2 :, : order_2 // 2])
+        + np.sum(measure[: order_1 // 2, order_2 // 2 :])
+    )
+    return np.sum(err**2 * w), np.abs(estimate)
+
+
 class ErrorCalculationFunctionFull(Protocol):
     """Type that can compute error."""
 
@@ -469,13 +526,15 @@ def refine_mesh_based_on_error(
 
         case RefinementLimitErrorValue() as eval_limit:
             total_error = np.sum(element_error)
-            minimum_error_required = min(
+            minimum_error_required = max(
                 total_error * eval_limit.minimum_fraction, eval_limit.minimum_value
             )
+            error_reduced = 0
 
             for i_leaf, idx in zip(error_order, ordered_indices):
-                if element_error[i_leaf] < minimum_error_required:
+                if error_reduced >= minimum_error_required:
                     break
+                error_reduced += np.abs(element_error[i_leaf])
 
                 order_1, order_2 = mesh.get_leaf_orders(idx)
 
@@ -789,7 +848,7 @@ def error_estimate_with_local_inversion(
     )
 
     unknown_index = system.unknown_forms.index(unknown_target)
-    for idx_leaf, (fem_space, residual, element_solution, coarse_space) in enumerate(
+    for idx_leaf, (high_space, residual, element_solution, coarse_space) in enumerate(
         zip(
             higher_order_spaces,
             residuals,
@@ -799,9 +858,9 @@ def error_estimate_with_local_inversion(
         )
     ):
         local_lhs = compute_element_matrix(
-            system.unknown_forms, compiled.lhs_full, fem_space, element_solution
+            system.unknown_forms, compiled.lhs_full, high_space, element_solution
         )
-        element_orders = fem_space.orders
+        element_orders = high_space.orders
         # Use lagrange multipliers to force boundary DoFs to zero if needed
         if zeroed_forms:
             zero_indices: list[npt.NDArray[np.integer]] = list()
@@ -835,68 +894,80 @@ def error_estimate_with_local_inversion(
         target_dofs = local_error_dofs[offset : offset + count]
 
         rule_1 = (
-            fem_space.basis_xi.rule
+            high_space.basis_xi.rule
             if recon_order_1 is None
             else basis_cache.get_integration_rule(recon_order_1)
         )
         rule_2 = (
-            fem_space.basis_eta.rule
+            high_space.basis_eta.rule
             if recon_order_2 is None
             else basis_cache.get_integration_rule(recon_order_2)
         )
 
         reconstructed_error = reconstruct(
-            fem_space,
+            high_space,
             unknown_target.order,
             target_dofs,
             rule_1.nodes[None, :],
             rule_2.nodes[:, None],
         )
 
-        jac = jacobian(fem_space.corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
+        jac = jacobian(high_space.corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
         det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
         weights = rule_1.weights[None, :] * rule_2.weights[:, None] * det
-        weighted_error = reconstructed_error * weights
-        error_coefficients = compute_legendre_coefficients(
-            fem_space.basis_xi.order,
-            fem_space.basis_eta.order,
-            np.astype(rule_1.nodes, np.float64, copy=False),
-            np.astype(rule_2.nodes, np.float64, copy=False),
-            weighted_error,
-        )
+        # weighted_error = reconstructed_error * weights
+        # error_coefficients = compute_legendre_coefficients(
+        #     fem_space.basis_xi.order,
+        #     fem_space.basis_eta.order,
+        #     np.astype(rule_1.nodes, np.float64, copy=False),
+        #     np.astype(rule_2.nodes, np.float64, copy=False),
+        #     weighted_error,
+        # )
 
+        element_orders = coarse_space.orders
+        offset = system.unknown_forms.form_offset(unknown_index, *element_orders)
+        count = system.unknown_forms.form_size(unknown_index, *element_orders)
         reconstructed_form = reconstruct(
-            fem_space,
+            coarse_space,
             unknown_target.order,
             element_solution[offset : offset + count],
             rule_1.nodes[None, :],
             rule_2.nodes[:, None],
         )
-        form_coefficients = compute_legendre_coefficients(
-            fem_space.basis_xi.order,
-            fem_space.basis_eta.order,
+        # form_coefficients = compute_legendre_coefficients(
+        #     fem_space.basis_xi.order,
+        #     fem_space.basis_eta.order,
+        #     np.astype(rule_1.nodes, np.float64, copy=False),
+        #     np.astype(rule_2.nodes, np.float64, copy=False),
+        #     reconstructed_form * weights,
+        # )
+
+        # norm_1 = 2 / (2 * np.arange(fem_space.basis_xi.order + 1) + 1)
+        # norm_2 = 2 / (2 * np.arange(fem_space.basis_eta.order + 1) + 1)
+        # norm_2d = norm_1[None, :] * norm_2[:, None]
+
+        # measure = (
+        #     form_coefficients * (form_coefficients + 2 * error_coefficients) / norm_2d
+        # )
+
+        # limit_1 = (coarse_space.basis_xi.order) // 2
+        # limit_2 = (coarse_space.basis_eta.order) // 2
+
+        # h_cost = (
+        #     np.sum(measure[limit_2:, limit_1:])
+        #     + np.sum(measure[:limit_2, limit_1:])
+        #     + np.sum(measure[limit_2:, :limit_1])
+        # )
+        # error_l2 = np.sum(weighted_error**2 * reconstructed_error)
+
+        error_l2, h_cost = compute_legendre_error_estimates(
+            *element_orders,
             np.astype(rule_1.nodes, np.float64, copy=False),
             np.astype(rule_2.nodes, np.float64, copy=False),
-            reconstructed_form * weights,
+            weights,
+            reconstructed_form,
+            reconstructed_error,
         )
-
-        norm_1 = 2 / (2 * np.arange(fem_space.basis_xi.order + 1) + 1)
-        norm_2 = 2 / (2 * np.arange(fem_space.basis_eta.order + 1) + 1)
-        norm_2d = norm_1[None, :] * norm_2[:, None]
-
-        measure = (
-            form_coefficients * (form_coefficients + 2 * error_coefficients) / norm_2d
-        )
-
-        limit_1 = (coarse_space.basis_xi.order) // 2
-        limit_2 = (coarse_space.basis_eta.order) // 2
-
-        h_cost = (
-            np.sum(measure[limit_2:, limit_1:])
-            + np.sum(measure[:limit_2, limit_1:])
-            + np.sum(measure[limit_2:, :limit_1])
-        )
-        error_l2 = np.sum(weighted_error * reconstructed_error)
 
         href_cost[idx_leaf] = np.abs(h_cost)
         element_error[idx_leaf] = error_l2

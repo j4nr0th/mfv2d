@@ -29,8 +29,12 @@ from mfv2d.refinement import RefinementSettings as RefinementSettings
 from mfv2d.refinement import (
     compute_legendre_coefficients as compute_legendre_coefficients,
 )
+from mfv2d.refinement import (
+    compute_legendre_error_estimates as compute_legendre_error_estimates,
+)
 
 # Solve system
+from mfv2d.solve_system import SolutionStatistics as SolutionStatistics
 from mfv2d.solve_system import SolverSettings as SolverSettings
 from mfv2d.solve_system import SystemSettings as SystemSettings
 from mfv2d.solve_system import TimeSettings as TimeSettings

@@ -13,18 +13,20 @@ static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule,
     double *weights = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (order + 1) * (rule->order + 1));
     if (!weights)
     {
-        PyMem_RawFree(roots);
+        deallocate(&SYSTEM_ALLOCATOR, roots);
         return MFV2D_FAILED_ALLOC;
     }
+
+    // weights array here is used only as scratch, since they're the side product.
     const int non_converged = gauss_lobatto_nodes_weights(order + 1, 1e-15, 10, roots, weights);
     if (non_converged)
     {
-        PyMem_RawFree(roots);
-        PyMem_RawFree(weights);
+        deallocate(&SYSTEM_ALLOCATOR, roots);
+        deallocate(&SYSTEM_ALLOCATOR, weights);
         return MFV2D_NOT_CONVERGED;
     }
 
-    double *const work = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (rule->order + 1));
+    double *const work = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (order + 1));
     if (!work)
     {
         deallocate(&SYSTEM_ALLOCATOR, roots);
@@ -50,7 +52,7 @@ static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule,
             (*nodal_vals)[i * (rule->order + 1) + j] = weights[j * (order + 1) + i];
         }
     }
-    double *work2 = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (rule->order + 1));
+    double *work2 = allocate(&SYSTEM_ALLOCATOR, sizeof(double) * (order + 1));
     if (!work2)
     {
         deallocate(&SYSTEM_ALLOCATOR, *nodal_vals);
@@ -104,7 +106,9 @@ static PyObject *basis_1d_new(PyTypeObject *type, PyObject *args, PyObject *kwds
         return NULL;
     }
 
-    double *nodal_vals, *edge_vals, *root_vals;
+    double *nodal_vals = NULL;
+    double *edge_vals = NULL;
+    double *root_vals = NULL;
     mfv2d_result_t computed = 0;
     Py_BEGIN_ALLOW_THREADS;
     computed = compute_nodal_and_edge_values(rule, order, &nodal_vals, &edge_vals, &root_vals);

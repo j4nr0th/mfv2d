@@ -272,9 +272,6 @@ class ErrorEstimateLocalInverse:
     """Forms for which the boundary conditions on each element must be
     given strongly."""
 
-    reconstruction_orders: tuple[int, int] | None = None
-    """Order at which error should be reconstructed."""
-
 
 ErrorEstimate = ErrorEstimateCustom | ErrorEstimateLocalInverse
 
@@ -301,6 +298,9 @@ class RefinementSettings:
     upper_order_limit: int | None = None
     """Elements which reach this can only be h-refined."""
 
+    lower_order_limit: int | None = None
+    """Elements bellow this order can not be h-refined."""
+
 
 def perform_mesh_refinement(
     mesh: Mesh,
@@ -315,6 +315,7 @@ def perform_mesh_refinement(
     boundary_conditions: Sequence[BoundaryCondition2DSteady],
     basis_cache: FemCache,
     order_limit: int | None,
+    lower_order_limit: int | None,
 ) -> tuple[Mesh, npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Perform a round of mesh refinement.
 
@@ -401,12 +402,6 @@ def perform_mesh_refinement(
                 system,
                 CompiledSystem(system),
                 error_estimator.target_form,
-                error_estimator.reconstruction_orders[0]
-                if error_estimator.reconstruction_orders is not None
-                else None,
-                error_estimator.reconstruction_orders[1]
-                if error_estimator.reconstruction_orders is not None
-                else None,
                 error_estimator.strong_forms,
             )
 
@@ -434,6 +429,7 @@ def perform_mesh_refinement(
             element_error,
             href_cost,
             order_limit,
+            lower_order_limit,
         ),
         element_error,
         href_cost,
@@ -450,12 +446,15 @@ def refine_mesh_based_on_error(
     element_error: npt.NDArray[np.float64],
     href_cost: npt.NDArray[np.float64],
     order_limit: int | None,
+    lower_order_limit: int | None,
 ) -> Mesh:
     """Refine the given mesh based on given element error and h-refinement cost."""
     error_order = np.flip(np.argsort(element_error))
     ordered_indices = leaf_indices[error_order]
     cost_fraction = href_cost / element_error
     mesh = mesh.copy()
+    if lower_order_limit is None:
+        lower_order_limit = 1
 
     match refinement_limit:
         case RefinementLimitElementCount() as ecnt_limit:
@@ -471,8 +470,8 @@ def refine_mesh_based_on_error(
 
                 if (
                     cost_fraction[i_leaf] <= h_refinement_ratio
-                    and (order_1 > 1)
-                    and (order_2 > 1)
+                    and (order_1 > lower_order_limit)
+                    and (order_2 > lower_order_limit)
                 ) or (
                     order_limit is not None
                     and (order_1 >= order_limit or order_2 >= order_limit)
@@ -503,8 +502,8 @@ def refine_mesh_based_on_error(
 
                 if (
                     cost_fraction[i_leaf] <= h_refinement_ratio
-                    and (order_1 > 1)
-                    and (order_2 > 1)
+                    and (order_1 > lower_order_limit)
+                    and (order_2 > lower_order_limit)
                 ) or (
                     order_limit is not None
                     and (order_1 >= order_limit or order_2 >= order_limit)
@@ -529,19 +528,14 @@ def refine_mesh_based_on_error(
             minimum_error_required = max(
                 total_error * eval_limit.minimum_fraction, eval_limit.minimum_value
             )
-            error_reduced = 0
 
             for i_leaf, idx in zip(error_order, ordered_indices):
-                if error_reduced >= minimum_error_required:
-                    break
-                error_reduced += np.abs(element_error[i_leaf])
-
                 order_1, order_2 = mesh.get_leaf_orders(idx)
 
                 if (
                     cost_fraction[i_leaf] <= h_refinement_ratio
-                    and (order_1 > 1)
-                    and (order_2 > 1)
+                    and (order_1 > lower_order_limit)
+                    and (order_2 > lower_order_limit)
                 ) or (
                     order_limit is not None
                     and (order_1 >= order_limit or order_2 >= order_limit)
@@ -555,6 +549,9 @@ def refine_mesh_based_on_error(
                     order_1 += 1
                     order_2 += 1
                     mesh.set_leaf_orders(idx, order_1, order_2)
+
+                if np.abs(element_error[i_leaf]) < minimum_error_required:
+                    break
 
         case _:
             raise TypeError(
@@ -703,8 +700,6 @@ def error_estimate_with_local_inversion(
     system: KFormSystem,
     compiled: CompiledSystem,
     unknown_target: KFormUnknown,
-    recon_order_1: int | None,
-    recon_order_2: int | None,
     strongly_zeroed: Sequence[KFormUnknown],
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Compute element error estimates using a local inversion.
@@ -848,7 +843,7 @@ def error_estimate_with_local_inversion(
     )
 
     unknown_index = system.unknown_forms.index(unknown_target)
-    for idx_leaf, (high_space, residual, element_solution, coarse_space) in enumerate(
+    for idx_leaf, (fine_space, residual, element_solution, coarse_space) in enumerate(
         zip(
             higher_order_spaces,
             residuals,
@@ -858,9 +853,9 @@ def error_estimate_with_local_inversion(
         )
     ):
         local_lhs = compute_element_matrix(
-            system.unknown_forms, compiled.lhs_full, high_space, element_solution
+            system.unknown_forms, compiled.lhs_full, fine_space, element_solution
         )
-        element_orders = high_space.orders
+        element_orders = fine_space.orders
         # Use lagrange multipliers to force boundary DoFs to zero if needed
         if zeroed_forms:
             zero_indices: list[npt.NDArray[np.integer]] = list()
@@ -893,75 +888,31 @@ def error_estimate_with_local_inversion(
         count = system.unknown_forms.form_size(unknown_index, *element_orders)
         target_dofs = local_error_dofs[offset : offset + count]
 
-        rule_1 = (
-            high_space.basis_xi.rule
-            if recon_order_1 is None
-            else basis_cache.get_integration_rule(recon_order_1)
-        )
-        rule_2 = (
-            high_space.basis_eta.rule
-            if recon_order_2 is None
-            else basis_cache.get_integration_rule(recon_order_2)
-        )
+        rule_1 = fine_space.basis_xi.rule
+        rule_2 = fine_space.basis_eta.rule
 
         reconstructed_error = reconstruct(
-            high_space,
+            fine_space,
             unknown_target.order,
             target_dofs,
             rule_1.nodes[None, :],
             rule_2.nodes[:, None],
         )
 
-        jac = jacobian(high_space.corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
+        jac = jacobian(fine_space.corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
         det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
         weights = rule_1.weights[None, :] * rule_2.weights[:, None] * det
-        # weighted_error = reconstructed_error * weights
-        # error_coefficients = compute_legendre_coefficients(
-        #     fem_space.basis_xi.order,
-        #     fem_space.basis_eta.order,
-        #     np.astype(rule_1.nodes, np.float64, copy=False),
-        #     np.astype(rule_2.nodes, np.float64, copy=False),
-        #     weighted_error,
-        # )
 
-        element_orders = coarse_space.orders
-        offset = system.unknown_forms.form_offset(unknown_index, *element_orders)
-        count = system.unknown_forms.form_size(unknown_index, *element_orders)
         reconstructed_form = reconstruct(
-            coarse_space,
+            fine_space,
             unknown_target.order,
             element_solution[offset : offset + count],
             rule_1.nodes[None, :],
             rule_2.nodes[:, None],
         )
-        # form_coefficients = compute_legendre_coefficients(
-        #     fem_space.basis_xi.order,
-        #     fem_space.basis_eta.order,
-        #     np.astype(rule_1.nodes, np.float64, copy=False),
-        #     np.astype(rule_2.nodes, np.float64, copy=False),
-        #     reconstructed_form * weights,
-        # )
-
-        # norm_1 = 2 / (2 * np.arange(fem_space.basis_xi.order + 1) + 1)
-        # norm_2 = 2 / (2 * np.arange(fem_space.basis_eta.order + 1) + 1)
-        # norm_2d = norm_1[None, :] * norm_2[:, None]
-
-        # measure = (
-        #     form_coefficients * (form_coefficients + 2 * error_coefficients) / norm_2d
-        # )
-
-        # limit_1 = (coarse_space.basis_xi.order) // 2
-        # limit_2 = (coarse_space.basis_eta.order) // 2
-
-        # h_cost = (
-        #     np.sum(measure[limit_2:, limit_1:])
-        #     + np.sum(measure[:limit_2, limit_1:])
-        #     + np.sum(measure[limit_2:, :limit_1])
-        # )
-        # error_l2 = np.sum(weighted_error**2 * reconstructed_error)
 
         error_l2, h_cost = compute_legendre_error_estimates(
-            *element_orders,
+            *coarse_space.orders,
             np.astype(rule_1.nodes, np.float64, copy=False),
             np.astype(rule_2.nodes, np.float64, copy=False),
             weights,

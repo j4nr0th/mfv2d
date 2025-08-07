@@ -21,7 +21,9 @@ static const char *eval_result_strings[MFV2D_RESULT_COUNT] = {
 const char *mfv2d_result_str(mfv2d_result_t e)
 {
     if (e < MFV2D_SUCCESS || e >= MFV2D_RESULT_COUNT)
+    {
         return "UNKNOWN";
+    }
     return eval_result_strings[e];
 }
 
@@ -29,7 +31,9 @@ error_stack_t *error_stack_create(unsigned capacity, const allocator_callbacks *
 {
     error_stack_t *const this = allocate(allocator, sizeof(*this) * capacity * sizeof(error_message_t));
     if (!this)
+    {
         return this;
+    }
     this->capacity = capacity;
     this->position = 0;
     this->allocator = allocator;
@@ -41,10 +45,13 @@ void error_message_submit(error_stack_t *stack, const char *file, int line, cons
                           const char *msg, ...)
 {
     if (stack->position == stack->capacity)
+    {
         return;
+    }
 
-    va_list args, cpy;
+    va_list args;
     va_start(args, msg);
+    va_list cpy;
     va_copy(cpy, args);
     const int len = vsnprintf(NULL, 0, msg, cpy);
     va_end(cpy);

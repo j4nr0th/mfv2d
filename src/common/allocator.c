@@ -54,7 +54,9 @@ allocator_stack_t *allocator_stack_create(size_t size, const allocator_callbacks
 {
     allocator_stack_t *const this = allocate(base, sizeof *this);
     if (!this)
+    {
         return NULL;
+    }
 
     void *const memory = allocate(base, size);
     if (!memory)

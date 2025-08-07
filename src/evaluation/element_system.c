@@ -479,7 +479,7 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
     basis_2d_t *basis_out;
     int dual = 0;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!O!O!|p",
-                                     (char *const[6]){"form_orders", "corners", "basis_in", "basis_out", "dual", NULL},
+                                     (char *const[]){"form_orders", "corners", "basis_in", "basis_out", "dual", NULL},
                                      &element_form_spec_type, &form_specs, &PyArray_Type, &corners, &basis_2d_type,
                                      &basis_in, &basis_2d_type, &basis_out, &dual))
     {
@@ -488,12 +488,15 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
 
     if (check_input_array(corners, 2, (const npy_intp[2]){4, 2}, NPY_DOUBLE, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS,
                           "corners") < 0)
+    {
         return NULL;
+    }
 
     const unsigned n_forms = Py_SIZE(form_specs);
 
-    const quad_info_t *const quad = PyArray_DATA((PyArrayObject *)corners);
-    fem_space_2d_t *fem_space_in = NULL, *fem_space_out = NULL;
+    const quad_info_t *const quad = PyArray_DATA(corners);
+    fem_space_2d_t *fem_space_in = NULL;
+    fem_space_2d_t *fem_space_out = NULL;
     {
         const fem_space_1d_t space_xi = basis_1d_as_fem_space(basis_in->basis_xi);
         const fem_space_1d_t space_eta = basis_1d_as_fem_space(basis_in->basis_eta);

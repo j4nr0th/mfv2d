@@ -429,6 +429,7 @@ def solve_system_2d(
             system_settings.boundary_conditions,
             cache_2d,
             refinement_settings.upper_order_limit,
+            refinement_settings.lower_order_limit,
         )
         resulting_grids[-1].cell_data["error_estimate"] = error_estimates
         resulting_grids[-1].cell_data["h_ref_cost_estimate"] = h_ref_cost_estimate

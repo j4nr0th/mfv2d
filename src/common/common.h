@@ -76,9 +76,8 @@ static inline void *deallocate_track(const allocator_callbacks *allocator, void 
  *         In the event of failure, a Python exception is set with an appropriate error message.
  */
 
-MFV2D_INTERNAL int check_input_array(const PyArrayObject *const arr, const unsigned n_dim,
-                                     const npy_intp dims[static n_dim], const int dtype, const int flags,
-                                     const char *name);
+MFV2D_INTERNAL int check_input_array(const PyArrayObject *arr, unsigned n_dim, const npy_intp dims[static n_dim],
+                                     int dtype, int flags, const char *name);
 
 MFV2D_INTERNAL void check_memory_bounds(size_t allocated_size, size_t element_count, size_t element_size,
                                         const char *file, int line, const char *func);
@@ -86,7 +85,7 @@ MFV2D_INTERNAL void check_memory_bounds(size_t allocated_size, size_t element_co
 /**
  * @brief Raises a new Python exception, preserving the current exception context.
  *
- * This function raises a new Python exception of the specified type, while
+ * This function raises a new Python exception with the specified type while
  * preserving the context of the current exception if one exists. It formats
  * the error message using the provided format string and additional arguments.
  * If an exception is already set, it will be attached as the cause of the new

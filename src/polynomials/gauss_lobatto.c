@@ -11,8 +11,8 @@
  * @param n The degree of the Legendre polynomial. Must be greater than or equal to 2.
  * @param x The point at which the Legendre polynomial is evaluated.
  * @param out A two-element array where the result is stored.
- *            out[0] receives the value of the Legendre polynomial of degree n-1.
- *            out[1] receives the value of the Legendre polynomial of degree n.
+ *            `out[0]` receives the value of the Legendre polynomial with degree n-1.
+ *            `out[1]` receives the value of the Legendre polynomial with degree n.
  */
 MFV2D_INTERNAL
 void legendre_eval_bonnet_two(const unsigned n, const double x, double MFV2D_ARRAY_ARG(out, 2))
@@ -23,8 +23,8 @@ void legendre_eval_bonnet_two(const unsigned n, const double x, double MFV2D_ARR
     for (unsigned i = 2; i < n + 1; ++i)
     {
         const double k1 = (2 * i - 1) * x;
-        const double k2 = (i - 1);
-        const double new = (k1 * v2 - k2 * v1) / (double)(i);
+        const double k2 = i - 1;
+        const double new = (k1 * v2 - k2 * v1) / (double)i;
         v1 = v2;
         v2 = new;
     }
@@ -57,7 +57,7 @@ int gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsign
     x[0] = -1.0;
     x[n - 1] = +1.0;
     w[n - 1] = w[0] = 2.0 / (double)(n * (n - 1));
-    const double kx_1 = (1.0 - 3.0 * (n - 2) / (double)(8.0 * (n - 1) * (n - 1) * (n - 1)));
+    const double kx_1 = 1.0 - 3.0 * (n - 2) / (8.0 * (n - 1) * (n - 1) * (n - 1));
     const double kx_2 = M_PI / (4.0 * (n - 1) + 1);
     for (unsigned i = 2; i < n; ++i)
     {
@@ -137,7 +137,8 @@ const char compute_gll_docstring[] =
 MFV2D_INTERNAL
 PyObject *compute_gauss_lobatto_nodes(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
 {
-    int order, max_iter = 10;
+    int order;
+    int max_iter = 10;
     double tol = 1e-15;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "i|id", (char *[4]){"", "max_iter", "tol", NULL}, &order, &max_iter,
                                      &tol))

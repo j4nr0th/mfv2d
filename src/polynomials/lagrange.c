@@ -4,6 +4,8 @@
 
 #include "lagrange.h"
 
+#include <stddef.h>
+
 MFV2D_INTERNAL
 void lagrange_polynomial_denominators(unsigned n, const double MFV2D_ARRAY_ARG(nodes, restrict static n),
                                       double MFV2D_ARRAY_ARG(denominators, restrict n))
@@ -30,7 +32,8 @@ void lagrange_polynomial_denominators(unsigned n, const double MFV2D_ARRAY_ARG(n
 }
 
 MFV2D_INTERNAL
-void lagrange_polynomial_coefficients(unsigned n, unsigned j, const double MFV2D_ARRAY_ARG(nodes, restrict static n),
+void lagrange_polynomial_coefficients(const unsigned n, const unsigned j,
+                                      const double MFV2D_ARRAY_ARG(nodes, restrict static n),
                                       double MFV2D_ARRAY_ARG(coefficients, restrict n))
 {
     coefficients[0] = 1.0;
@@ -57,8 +60,8 @@ void lagrange_polynomial_coefficients(unsigned n, unsigned j, const double MFV2D
 }
 
 MFV2D_INTERNAL
-void lagrange_polynomial_values(unsigned n_in, const double MFV2D_ARRAY_ARG(pos, static n_in), unsigned n_nodes,
-                                const double MFV2D_ARRAY_ARG(x, static n_nodes),
+void lagrange_polynomial_values(const unsigned n_in, const double MFV2D_ARRAY_ARG(pos, static n_in),
+                                const unsigned n_nodes, const double MFV2D_ARRAY_ARG(x, static n_nodes),
                                 double MFV2D_ARRAY_ARG(weights, restrict n_nodes *n_in),
                                 double MFV2D_ARRAY_ARG(work, restrict n_nodes))
 {
@@ -73,8 +76,8 @@ void lagrange_polynomial_values(unsigned n_in, const double MFV2D_ARRAY_ARG(pos,
     //  Compute the numerator now
     for (unsigned k = 0; k < n_in; ++k)
     {
-        double *const row = weights + n_nodes * k;
-        //  First loop can be used to initialize the row
+        double *const row = weights + (size_t)(n_nodes * k);
+        //  The first loop can be used to initialize the row
         {
             const double dif = pos[k] - x[0];
             row[0] = 1.0;

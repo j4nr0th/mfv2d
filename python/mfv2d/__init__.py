@@ -21,6 +21,10 @@ from mfv2d.mimetic2d import mesh_create as mesh_create
 
 # Refinement settings
 from mfv2d.refinement import ErrorEstimateCustom as ErrorEstimateCustom
+from mfv2d.refinement import ErrorEstimateExplicit as ErrorEstimateExplicit
+from mfv2d.refinement import (
+    ErrorEstimateL2OrderReduction as ErrorEstimateL2OrderReduction,
+)
 from mfv2d.refinement import ErrorEstimateLocalInverse as ErrorEstimateLocalInverse
 from mfv2d.refinement import RefinementLimitElementCount as RefinementLimitElementCount
 from mfv2d.refinement import RefinementLimitErrorValue as RefinementLimitErrorValue

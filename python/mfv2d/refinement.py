@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 
 import numpy as np
 import numpy.typing as npt
 import scipy.sparse as sp
+from scipy.sparse import linalg as sla
 
 from mfv2d._mfv2d import (
     ElementFemSpace2D,
@@ -21,7 +22,7 @@ from mfv2d._mfv2d import (
 )
 from mfv2d.boundary import BoundaryCondition2DSteady, _element_weak_boundary_condition
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KBoundaryProjection, KFormUnknown
+from mfv2d.kform import Function2D, KBoundaryProjection, KFormUnknown
 from mfv2d.mimetic2d import (
     ElementSide,
     FemCache,
@@ -120,6 +121,10 @@ def compute_legendre_error_estimates(
     h_ref_cost : float
         Estimate of the cost for h-refinemnt.
     """
+    assert err.shape == u.shape
+    if err.ndim == 3:
+        err = np.linalg.norm(err, axis=-1)
+        u = np.linalg.norm(u, axis=-1)
     coeffs_err = compute_legendre_coefficients(order_1, order_2, xi, eta, err * w)
     coeffs_u = compute_legendre_coefficients(order_1, order_2, xi, eta, u * w)
     norm = 4 / (
@@ -273,7 +278,46 @@ class ErrorEstimateLocalInverse:
     given strongly."""
 
 
-ErrorEstimate = ErrorEstimateCustom | ErrorEstimateLocalInverse
+@dataclass(frozen=True)
+class ErrorEstimateL2OrderReduction:
+    """Reduces order of solution in order to estimate error."""
+
+    target_form: KFormUnknown
+    """Error of this form is used as a guid for refinement."""
+
+    order_drop: int
+    """Order of an element is dropped by this much."""
+
+    alternative: Literal["ignore", "prioritize"] = "prioritize"
+    """Alternative measure to use whenever the current measure can not be applied
+    due to insufficient element order.
+
+    - "ignore" means that elements with order less than ``order_drop`` will be skipped,
+    - "prioritize" meanst that elements with order less than ``order_drop`` will receive
+      an infinite error estimate.
+    """
+
+
+@dataclass(frozen=True)
+class ErrorEstimateExplicit:
+    """Estimate error based on an explicit function."""
+
+    target_form: KFormUnknown
+    """Form for which the error is being computed."""
+
+    solution_estimate: Function2D
+    """Function of poistion, which is used to estimate the exact solution from."""
+
+    reconstruction_orders: tuple[int, int] | None = None
+    """Order at which error should be reconstructed."""
+
+
+ErrorEstimate = (
+    ErrorEstimateCustom
+    | ErrorEstimateLocalInverse
+    | ErrorEstimateL2OrderReduction
+    | ErrorEstimateExplicit
+)
 
 
 @dataclass(frozen=True)
@@ -316,6 +360,7 @@ def perform_mesh_refinement(
     basis_cache: FemCache,
     order_limit: int | None,
     lower_order_limit: int | None,
+    constrained: Sequence[KFormUnknown],
 ) -> tuple[Mesh, npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Perform a round of mesh refinement.
 
@@ -403,6 +448,36 @@ def perform_mesh_refinement(
                 CompiledSystem(system),
                 error_estimator.target_form,
                 error_estimator.strong_forms,
+                constrained,
+            )
+
+        case ErrorEstimateL2OrderReduction():
+            element_error, href_cost = error_estimate_with_order_reduction(
+                solution,
+                element_offsets,
+                element_fem_spaces,
+                error_estimator.order_drop,
+                basis_cache,
+                system.unknown_forms,
+                error_estimator.target_form,
+                error_estimator.alternative,
+            )
+
+        case ErrorEstimateExplicit():
+            element_error, href_cost = error_estimate_with_explicit_solution(
+                solution,
+                element_offsets,
+                error_estimator.target_form,
+                system.unknown_forms,
+                error_estimator.solution_estimate,
+                element_fem_spaces,
+                error_estimator.reconstruction_orders[0]
+                if error_estimator.reconstruction_orders is not None
+                else None,
+                error_estimator.reconstruction_orders[1]
+                if error_estimator.reconstruction_orders is not None
+                else None,
+                basis_cache,
             )
 
         case _:
@@ -410,13 +485,15 @@ def perform_mesh_refinement(
                 f"Invalid type for error estimator {type(error_estimator).__name__}"
             )
 
-    if report_error_distribution:
+    if report_error_distribution and np.all(np.isfinite(element_error)):
         error_log = np.log10(element_error)
-        hist = HistogramFormat(5, 60, 5, label_format=lambda x: f"10^({x:.2g})")
-        print("Error estimate distribution\n" + "=" * 60)
-        print(hist.format(error_log))
-        print("=" * 60)
-        del error_log, hist
+        if np.all(np.isfinite(error_log)):
+            hist = HistogramFormat(5, 60, 5, label_format=lambda x: f"10^({x:.2g})")
+            print("Error estimate distribution\n" + "=" * 60)
+            print(hist.format(error_log))
+            print("=" * 60)
+            del hist
+        del error_log
 
     return (
         refine_mesh_based_on_error(
@@ -701,6 +778,7 @@ def error_estimate_with_local_inversion(
     compiled: CompiledSystem,
     unknown_target: KFormUnknown,
     strongly_zeroed: Sequence[KFormUnknown],
+    constrained: Sequence[KFormUnknown],
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Compute element error estimates using a local inversion.
 
@@ -841,6 +919,11 @@ def error_estimate_with_local_inversion(
         for i_form, form in enumerate(system.unknown_forms.iter_forms())
         if form in strongly_zeroed
     )
+    constrained_forms = tuple(
+        i_form
+        for i_form, form in enumerate(system.unknown_forms.iter_forms())
+        if form in constrained
+    )
 
     unknown_index = system.unknown_forms.index(unknown_target)
     for idx_leaf, (fine_space, residual, element_solution, coarse_space) in enumerate(
@@ -857,29 +940,60 @@ def error_estimate_with_local_inversion(
         )
         element_orders = fine_space.orders
         # Use lagrange multipliers to force boundary DoFs to zero if needed
-        if zeroed_forms:
-            zero_indices: list[npt.NDArray[np.integer]] = list()
-            for form_idx in zeroed_forms:
-                zero_indices.extend(
-                    system.unknown_forms.form_offset(form_idx, *element_orders)
-                    + element_boundary_dofs(
-                        side,
-                        system.unknown_forms.get_form(unknown_index).order,
-                        *element_orders,
+        if zeroed_forms or constrained_forms:
+            padding = 0
+            local_mat = local_lhs
+            if zeroed_forms:
+                col_indices: list[npt.NDArray[np.integer]] = list()
+                for form_idx in zeroed_forms:
+                    col_indices.extend(
+                        system.unknown_forms.form_offset(form_idx, *element_orders)
+                        + element_boundary_dofs(
+                            side,
+                            system.unknown_forms.get_form(unknown_index).order,
+                            *element_orders,
+                        )
+                        for side in ElementSide
                     )
-                    for side in ElementSide
-                )
-            indices = np.concatenate(zero_indices)
-            del zero_indices
+                indices = np.unique(col_indices)
+                del col_indices
 
-            lagrange_mat = sp.csr_array(
-                (np.ones_like(indices), (np.arange(indices.size), indices)),
-                shape=(indices.size, system.unknown_forms.total_size(*element_orders)),
+                lagrange_mat = sp.csr_array(
+                    (np.ones_like(indices), (np.arange(indices.size), indices)),
+                    shape=(indices.size, local_mat.shape[1]),
+                )
+                local_mat = sp.block_array(
+                    [[local_mat, lagrange_mat.T], [lagrange_mat, None]]
+                )
+                padding = indices.size
+            if constrained_forms:
+                col_indices = list()
+                row_indices: list[npt.NDArray[np.uint32]] = list()
+                for i_row, form_idx in enumerate(constrained_forms):
+                    dofs = system.unknown_forms.form_offset(
+                        form_idx, *element_orders
+                    ) + np.arange(
+                        system.unknown_forms.form_size(form_idx, *element_orders)
+                    )
+
+                    col_indices.append(dofs)
+                    row_indices.append(np.full_like(dofs, i_row, dtype=np.uint32))
+
+                rows = np.concatenate(row_indices)
+                lagrange_mat = sp.csr_array(
+                    (
+                        np.ones(rows.size),
+                        (rows, np.concatenate(col_indices)),
+                    ),
+                    shape=(len(row_indices), local_mat.shape[1]),
+                )
+                local_mat = sp.block_array(
+                    [[local_mat, lagrange_mat.T], [lagrange_mat, None]]
+                )
+                padding += len(row_indices)
+            local_error_dofs = sla.spsolve(
+                sp.csc_array(local_mat), np.pad(residual, (0, padding))
             )
-            local_mat = sp.block_array(
-                [[local_lhs, lagrange_mat.T], [lagrange_mat, None]]
-            )
-            local_error_dofs = np.linalg.solve(local_mat.toarray(), residual)
 
         else:
             local_error_dofs = np.linalg.solve(local_lhs, residual)
@@ -922,5 +1036,232 @@ def error_estimate_with_local_inversion(
 
         href_cost[idx_leaf] = np.abs(h_cost)
         element_error[idx_leaf] = error_l2
+
+    return element_error, href_cost
+
+
+def error_estimate_with_order_reduction(
+    solution: npt.NDArray[np.float64],
+    element_offsets: npt.NDArray[np.uint32],
+    element_fem_spaces: Sequence[ElementFemSpace2D],
+    reduction_order: int,
+    basis_cache: FemCache,
+    unknown_forms: ElementFormSpecification,
+    unknown_target: KFormUnknown,
+    alternative: Literal["ignore", "prioritize"],
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute element error estimates using a local inversion.
+
+    Returns
+    -------
+    element_error : array
+        Array with error estimates for each element.
+
+    href_cost : array
+        Array with estimates of increase in error due to h-refinement.
+    """
+    leaf_count = len(element_fem_spaces)
+    element_error = np.empty(leaf_count)
+    href_cost = np.empty(leaf_count)
+    form_index = unknown_forms.index(unknown_target)
+    single_spec = ElementFormSpecification(unknown_target)
+
+    # Compute the residual
+    for i_leaf, element_space in enumerate(element_fem_spaces):
+        basis = element_space.basis_2d
+        order_1 = basis.basis_xi.order
+        order_2 = basis.basis_eta.order
+
+        if order_1 <= reduction_order or order_2 <= reduction_order:
+            if alternative == "ignore":
+                href_cost[i_leaf] = 0
+                element_error[i_leaf] = 0
+            elif alternative == "prioritize":
+                href_cost[i_leaf] = np.inf
+                element_error[i_leaf] = np.inf
+            else:
+                raise ValueError(f"Invalid alternative strategy specified {alternative}")
+            continue
+
+        corners = element_space.corners
+
+        element_solution = solution[element_offsets[i_leaf] : element_offsets[i_leaf + 1]]
+        target_dofs = element_solution[
+            unknown_forms.form_offset(
+                form_index, order_1, order_2
+            ) : unknown_forms.form_offset(form_index, order_1, order_2)
+            + unknown_forms.form_size(form_index, order_1, order_2)
+        ]
+
+        lower_basis = basis_cache.get_basis2d(
+            order_1 - reduction_order,
+            order_2 - reduction_order,
+            *basis.integration_orders,
+        )
+
+        lower_space = ElementFemSpace2D(lower_basis, corners)
+
+        projector_forward = sp.block_diag(
+            compute_element_projector(
+                single_spec,
+                lower_space.corners,
+                element_space.basis_2d,
+                lower_space.basis_2d,
+            )
+        )
+
+        projector_backward = sp.block_diag(
+            compute_element_projector(
+                single_spec,
+                lower_space.corners,
+                lower_space.basis_2d,
+                element_space.basis_2d,
+            )
+        )
+
+        rule_1 = element_space.basis_xi.rule
+        rule_2 = element_space.basis_eta.rule
+
+        error_dofs = target_dofs - projector_backward @ projector_forward @ target_dofs
+
+        reconstructed_error = reconstruct(
+            element_space,
+            unknown_target.order,
+            error_dofs,
+            rule_1.nodes[None, :],
+            rule_2.nodes[:, None],
+        )
+
+        jac = jacobian(corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
+        det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
+        weights = rule_1.weights[None, :] * rule_2.weights[:, None] * det
+
+        reconstructed_form = reconstruct(
+            element_space,
+            unknown_target.order,
+            target_dofs,
+            rule_1.nodes[None, :],
+            rule_2.nodes[:, None],
+        )
+
+        error_l2, h_cost = compute_legendre_error_estimates(
+            order_1,
+            order_2,
+            np.astype(rule_1.nodes, np.float64, copy=False),
+            np.astype(rule_2.nodes, np.float64, copy=False),
+            weights,
+            reconstructed_form,
+            reconstructed_error,
+        )
+
+        href_cost[i_leaf] = np.abs(h_cost)
+        element_error[i_leaf] = error_l2
+
+    return element_error, href_cost
+
+
+def error_estimate_with_explicit_solution(
+    solution: npt.NDArray[np.float64],
+    element_offsets: npt.NDArray[np.uint32],
+    required_unknown: KFormUnknown,
+    form_specs: ElementFormSpecification,
+    soulution_calculation_function: Function2D,
+    element_fem_spaces: Sequence[ElementFemSpace2D],
+    recon_order_1: int | None,
+    recon_order_2: int | None,
+    basis_cache: FemCache,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute element error estimates using a custom, user-supplied function.
+
+    Parameters
+    ----------
+    leaf_count : int
+        Number of leaves in the mesh.
+
+    solution : array
+        Full solution vector.
+
+    element_offsets : array
+        Array of offsets to the beginning of each element for the solution vector.
+
+    dof_offsets : array
+        Offsets of each unknown within each element.
+
+    required_unknowns : Sequence of KFormUnknown
+        Unknowns which are needed by the user function.
+
+    unknown_forms : Sequence of KFormUnknown
+        Unknown forms in the order they appear in the system.
+
+    error_calculation_function : CustomErrorFunction
+        Error function that is used to compute the error estimates.
+
+    elemenebt_fem_spaces : Sequence of ElementFemSpace2D
+        Element FEM spaces.
+
+    recon_order_1 : int or None
+        Order at which all element should be reconstructed. If not present, the element
+        integration order is used.
+
+
+    recon_order_2 : int or None
+        Order at which all element should be reconstructed. If not present, the element
+        integration order is used.
+
+    Returns
+    -------
+    element_error : array
+        Array with error estimates for each element.
+
+    href_cost : array
+        Array with estimates of increase in error due to h-refinement.
+    """
+    required_unknown_index = form_specs.index(required_unknown)
+    leaf_count = len(element_fem_spaces)
+    element_error = np.empty(leaf_count)
+    href_cost = np.empty(leaf_count)
+    for i_leaf, element_space in enumerate(element_fem_spaces):
+        element_solution = solution[element_offsets[i_leaf] : element_offsets[i_leaf + 1]]
+
+        corners = element_space.corners
+        basis = element_space.basis_2d
+        order_1 = basis.basis_xi.order
+        order_2 = basis.basis_eta.order
+
+        rule_1 = basis_cache.get_integration_rule(
+            recon_order_1 if recon_order_1 is not None else order_1
+        )
+        rule_2 = basis_cache.get_integration_rule(
+            recon_order_2 if recon_order_2 is not None else order_2
+        )
+
+        x = bilinear_interpolate(
+            corners[:, 0], rule_1.nodes[None, :], rule_2.nodes[:, None]
+        )
+        y = bilinear_interpolate(
+            corners[:, 1], rule_1.nodes[None, :], rule_2.nodes[:, None]
+        )
+        offset = form_specs.form_offset(required_unknown_index, order_1, order_2)
+        size = form_specs.form_size(required_unknown_index, order_1, order_2)
+        reconstructed_solution = reconstruct(
+            element_space,
+            required_unknown.order,
+            element_solution[offset : offset + size],
+            rule_1.nodes[None, :],
+            rule_2.nodes[:, None],
+        )
+        jac = jacobian(corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
+        det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
+        exact_solution = soulution_calculation_function(x, y)
+
+        element_error[i_leaf], href_cost[i_leaf] = compute_legendre_error_estimates(
+            order_1,
+            order_2,
+            np.astype(rule_1.nodes[None, :], np.float64, copy=False),
+            np.astype(rule_2.nodes[:, None], np.float64, copy=False),
+            det * rule_1.weights[None, :] * rule_2.weights[:, None],
+            reconstructed_solution,
+            np.asarray(exact_solution) - reconstructed_solution,
+        )
 
     return element_error, href_cost

@@ -5,7 +5,7 @@ C-extension which implements all the required fast code.
 """
 
 from collections.abc import Callable, Iterator, Sequence
-from typing import Concatenate, ParamSpec, Self, SupportsIndex, final
+from typing import Concatenate, ParamSpec, Self, SupportsIndex, final, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -1515,4 +1515,255 @@ class _ElementFormSpecification:
         int
             Index of the form in the specification.
         """
+        ...
+
+class SparseVector:
+    """Vector which stores only the non-zero components."""
+
+    @classmethod
+    def from_entries(cls, n: int, indices: npt.ArrayLike, values: npt.ArrayLike) -> Self:
+        """Create sparse vector from an array of indices and values.
+
+        Parameters
+        ----------
+        n : int
+            Dimension of the vector.
+
+        indices : array_like
+            Indices of the entries. Must be sorted.
+
+        values : array_like
+            Values of the entries.
+
+        Returns
+        -------
+        SparseVector
+            New vector with indices and values as given.
+        """
+        ...
+
+    @classmethod
+    def from_pairs(cls, n: int, *pairs: tuple[int, float]) -> Self:
+        """Create sparse vector from an index-coefficient pairs.
+
+        Parameters
+        ----------
+        n : int
+            Dimension of the vector.
+
+        *pairs : tuple[int, float]
+            Pairs of values and indices for the vector.
+
+        Returns
+        -------
+        SparseVector
+            New vector with indices and values as given.
+        """
+        ...
+
+    @property
+    def n(self) -> int:
+        """Dimension of the vector."""
+        ...
+
+    @n.setter
+    def n(self, v: int, /) -> None: ...
+    @property
+    def values(self) -> npt.NDArray[np.float64]:
+        """Values of non-zero entries of the vector."""
+        ...
+
+    @property
+    def indices(self) -> npt.NDArray[np.uint64]:
+        """Indices of non-zero entries of the vector."""
+        ...
+
+    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
+        """Convert the vector to a full array."""
+        ...
+
+    @overload
+    def __getitem__(self, idx: int, /) -> float: ...
+    @overload
+    def __getitem__(self, idx: slice, /) -> SparseVector: ...
+    @classmethod
+    def concatenate(cls, *vectors: SparseVector) -> Self:
+        """Merge sparse vectors together into a single vector.
+
+        Parameters
+        ----------
+        *vectors : SparseVector
+            Sparse vectors that should be concatenated.
+
+        Returns
+        -------
+        Self
+            Newly created sparse vector.
+        """
+        ...
+
+    @property
+    def count(self) -> int:
+        """Number of entries in the vector."""
+        ...
+
+@final
+class MatrixCRS:
+    """Compressed-row sparse matrix.
+
+    Type used to store sparse matrices and allow for building them in
+    an efficient way.
+    """
+
+    def __new__(cls, rows: int, cols: int) -> Self: ...
+
+    # Operators
+
+    @overload
+    def __getitem__(self, idx: tuple[int, int], /) -> float: ...
+    @overload
+    def __getitem__(self, idx: int, /) -> SparseVector: ...
+    @overload
+    def __matmul__(self, other: MatrixCRS, /) -> MatrixCRS: ...
+    @overload
+    def __matmul__(self, other: SparseVector, /) -> SparseVector: ...
+    @overload
+    def __matmul__(
+        self, other: npt.ArrayLike, /
+    ) -> SparseVector | npt.NDArray[np.double]: ...
+    @overload
+    def __rmatmul__(self, other: SparseVector, /) -> SparseVector: ...
+    @overload
+    def __rmatmul__(
+        self, other: npt.ArrayLike, /
+    ) -> SparseVector | npt.NDArray[np.double]: ...
+    @overload
+    def __rmatmul__(self, other: MatrixCRS, /) -> MatrixCRS: ...
+
+    # Named methods
+
+    def build_row(self, row: int, entries: SparseVector | None = None) -> None:
+        """Build a row of the matrix.
+
+        This should be called for each row in order as the matrix is constructed,
+        since this updates the end or row offset values. It allows for very quick
+        matrix construction.
+
+        Parameters
+        ----------
+        row : int
+            Index of the row that is being set.
+
+        entries : SparseVector, optional
+            Entries of the row that is to be set. If not given, the row is set to empty.
+        """
+        ...
+    def toarray(self) -> npt.NDArray[np.double]: ...
+    def set_from_data(
+        self,
+        values: npt.ArrayLike,
+        column_indices: npt.ArrayLike,
+        row_lengths: npt.ArrayLike,
+    ) -> None:
+        """Populate the matrix with data.
+
+        Parameters
+        ----------
+        values : array
+            Array of values of entries in the matrix.
+
+        column_indices : array
+            Indices of the column indices of the matrix. Must have the exact same lenght
+            as ``values``. For each row, this should also be sorted and not exceed the
+            column count of the matrix.
+
+        row_lengths : array
+            Length for each row in the matrix.
+
+        Examples
+        --------
+        This method is primarely intended to allow for conversion to and from
+        :mod:`scipy.sparse.csr_array`, which stores data based on these values.
+
+        >>> from scipy import sparse as sp
+        >>> from mfv2d._mfv2d import MatrixCRS
+        >>> import numpy as np
+        >>>
+        >>> np.random.seed(0) # Consistant seed for the test
+        >>> np.set_printoptions(precision=2)
+        >>>
+        >>> m = np.random.random_sample(6, 6)
+        >>> mask = m < 0.5
+        >>> m[mask] = 0
+        >>> m[~mask] = 2 * m[~mask] - 1.5
+        >>> m
+        array([[-0.4 , -0.07, -0.29, -0.41,  0.  , -0.21],
+               [ 0.  ,  0.28,  0.43,  0.  ,  0.08, -0.44],
+               [-0.36,  0.35,  0.  ,  0.  ,  0.  ,  0.17],
+               [ 0.06,  0.24,  0.46,  0.1 ,  0.  ,  0.06],
+               [ 0.  , -0.22,  0.  ,  0.39, -0.46,  0.  ],
+               [ 0.  ,  0.05,  0.  , -0.36,  0.  , -0.26]])
+
+        If this array is now converted into a scipy CRS array, it
+
+        >>> m1 = sp.csr_array(m)
+        >>> m2 = MatrixCRS(*m1.shape)
+        >>> m2.set_from_data(
+        ...     m1.data, np.astype(m1.indices, np.uint32), m1.indptr[1:] - m1.indptr[:-1]
+        ... )
+        >>> m2.toarray() == m1.toarray()
+        array([[ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True]])
+        """
+        ...
+
+    def transpose(self) -> MatrixCRS:
+        """Transpose of the matrix.
+
+        Returns
+        -------
+        MatrixCRS
+            Transposed matrix, where entry :math:`(i, j)` in the original is equal
+            to entriy :math:`(j, i)` in the transpose.
+        """
+        ...
+
+    # Properties
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Shape of the matrix."""
+        ...
+
+    @property
+    def column_indices(self) -> npt.NDArray[np.uint32]:
+        """Column indices of non-zero values."""
+        ...
+
+    @property
+    def row_indices(self) -> npt.NDArray[np.uint32]:
+        """Row indices of non-zero values."""
+        ...
+
+    @property
+    def values(self) -> npt.NDArray[np.uint32]:
+        """Values of non-zero values."""
+        ...
+
+    @property
+    def position_pairs(self) -> npt.NDArray[np.uint32]:
+        """Array of position pairs of non-zero values."""
+        ...
+
+    @property
+    def row_offsets(self) -> npt.NDArray[np.uint32]:
+        """Array with number of elements before each row begins."""
+        ...
+
+    @property
+    def built_rows(self) -> int:
+        """Number of rows that have been built."""
         ...

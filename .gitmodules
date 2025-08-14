@@ -1,0 +1,3 @@
+[submodule "jmtx"]
+	path = jmtx
+	url = https://github.com/j4nr0th/jmtx.git

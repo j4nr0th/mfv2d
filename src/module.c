@@ -11,6 +11,10 @@
 #include <numpy/ndarrayobject.h>
 #include <numpy/npy_no_deprecated_api.h>
 
+// Algebra
+#include "algebra/crs_matrix.h"
+#include "algebra/svector.h"
+
 //  Geometry
 #include "geometry/geoidobject.h"
 #include "geometry/lineobject.h"
@@ -139,6 +143,7 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
         PyModule_AddType(mod, &basis_1d_type) < 0 || PyModule_AddType(mod, &basis_2d_type) < 0 ||
         PyModule_AddType(mod, &element_fem_space_2d_type) < 0 || PyModule_AddType(mod, &mesh_type_object) < 0 ||
         PyModule_AddType(mod, &element_form_spec_type) < 0 || PyModule_AddType(mod, &element_form_spec_iter_type) < 0 ||
+        PyModule_AddType(mod, &svec_type_object) < 0 || PyModule_AddType(mod, &crs_matrix_type_object) < 0 ||
         PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_RIGHT) < 0 ||
         PyModule_AddIntMacro(mod, ELEMENT_SIDE_TOP) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_LEFT) < 0 ||
         PyModule_AddIntMacro(mod, MATOP_INVALID) < 0 || PyModule_AddIntMacro(mod, MATOP_IDENTITY) < 0 ||

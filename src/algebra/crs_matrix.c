@@ -206,14 +206,14 @@ static PyObject *crs_matrix_matmul_left_svec(const crs_matrix_t *this, const sve
         }
         if (v != 0.0 && sparse_vector_append(&svec, (entry_t){.index = r, .value = v}, &SYSTEM_ALLOCATOR))
         {
-            sparse_vec_del(&svec, &SYSTEM_ALLOCATOR);
+            sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
             raise_exception_from_current(PyExc_RuntimeError, "Failed to append to sparse vector");
             return NULL;
         }
     }
 
-    svec_object_t *out = sparse_vec_to_python(&svec);
-    sparse_vec_del(&svec, &SYSTEM_ALLOCATOR);
+    svec_object_t *out = sparse_vector_to_python(&svec);
+    sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
     return (PyObject *)out;
 }
 
@@ -237,7 +237,7 @@ static PyObject *crs_matrix_matmul_right_svec(const crs_matrix_t *this, const sv
     }
     if (sparse_vector_new(&temporary, cols, other->count > cols ? cols : other->count, &SYSTEM_ALLOCATOR))
     {
-        sparse_vec_del(&svec, &SYSTEM_ALLOCATOR);
+        sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
         return NULL;
     }
 
@@ -256,8 +256,8 @@ static PyObject *crs_matrix_matmul_right_svec(const crs_matrix_t *this, const sv
             if (v != 0.0 &&
                 sparse_vector_append(&temporary, (entry_t){.index = indices[j], .value = v}, &SYSTEM_ALLOCATOR))
             {
-                sparse_vec_del(&svec, &SYSTEM_ALLOCATOR);
-                sparse_vec_del(&temporary, &SYSTEM_ALLOCATOR);
+                sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
+                sparse_vector_del(&temporary, &SYSTEM_ALLOCATOR);
                 raise_exception_from_current(PyExc_RuntimeError, "Failed to append to sparse vector");
                 return NULL;
             }
@@ -265,17 +265,17 @@ static PyObject *crs_matrix_matmul_right_svec(const crs_matrix_t *this, const sv
 
         if (temporary.count > 0 && sparse_vector_add_inplace(&svec, &temporary, &SYSTEM_ALLOCATOR))
         {
-            sparse_vec_del(&svec, &SYSTEM_ALLOCATOR);
-            sparse_vec_del(&temporary, &SYSTEM_ALLOCATOR);
+            sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
+            sparse_vector_del(&temporary, &SYSTEM_ALLOCATOR);
             raise_exception_from_current(PyExc_RuntimeError, "Failed to add sparse vectors");
             return NULL;
         }
     }
 
-    sparse_vec_del(&temporary, &SYSTEM_ALLOCATOR);
+    sparse_vector_del(&temporary, &SYSTEM_ALLOCATOR);
 
-    svec_object_t *out = sparse_vec_to_python(&svec);
-    sparse_vec_del(&svec, &SYSTEM_ALLOCATOR);
+    svec_object_t *out = sparse_vector_to_python(&svec);
+    sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
     return (PyObject *)out;
 }
 
@@ -326,8 +326,8 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
     if (sparse_vector_new(&row_built, out_cols, out_buffer_capacity, &SYSTEM_ALLOCATOR) ||
         sparse_vector_new(&temp, out_cols, out_buffer_capacity, &SYSTEM_ALLOCATOR))
     {
-        sparse_vec_del(&temp, &SYSTEM_ALLOCATOR);
-        sparse_vec_del(&row_built, &SYSTEM_ALLOCATOR);
+        sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
+        sparse_vector_del(&row_built, &SYSTEM_ALLOCATOR);
         deallocate(&SYSTEM_ALLOCATOR, out_indices);
         deallocate(&SYSTEM_ALLOCATOR, out_values);
         Py_DECREF(new);
@@ -357,8 +357,8 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
                     sparse_vector_append(&temp, (entry_t){.index = indices_1[j], .value = v}, &SYSTEM_ALLOCATOR))
                 {
                     PyErr_Format(PyExc_RuntimeError, "Failed to append to sparse vector.");
-                    sparse_vec_del(&temp, &SYSTEM_ALLOCATOR);
-                    sparse_vec_del(&row_built, &SYSTEM_ALLOCATOR);
+                    sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
+                    sparse_vector_del(&row_built, &SYSTEM_ALLOCATOR);
                     deallocate(&SYSTEM_ALLOCATOR, out_indices);
                     deallocate(&SYSTEM_ALLOCATOR, out_values);
                     Py_DECREF(new);
@@ -369,8 +369,8 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
             if (sparse_vector_add_inplace(&row_built, &temp, &SYSTEM_ALLOCATOR))
             {
                 PyErr_Format(PyExc_RuntimeError, "Failed to add sparse vectors.");
-                sparse_vec_del(&temp, &SYSTEM_ALLOCATOR);
-                sparse_vec_del(&row_built, &SYSTEM_ALLOCATOR);
+                sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
+                sparse_vector_del(&row_built, &SYSTEM_ALLOCATOR);
                 deallocate(&SYSTEM_ALLOCATOR, out_indices);
                 deallocate(&SYSTEM_ALLOCATOR, out_values);
                 Py_DECREF(new);
@@ -385,8 +385,8 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
                 reallocate(&SYSTEM_ALLOCATOR, out_indices, out_buffer_capacity * sizeof(*out_indices));
             if (!new_indices)
             {
-                sparse_vec_del(&temp, &SYSTEM_ALLOCATOR);
-                sparse_vec_del(&row_built, &SYSTEM_ALLOCATOR);
+                sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
+                sparse_vector_del(&row_built, &SYSTEM_ALLOCATOR);
                 deallocate(&SYSTEM_ALLOCATOR, out_indices);
                 deallocate(&SYSTEM_ALLOCATOR, out_values);
                 Py_DECREF(new);
@@ -397,8 +397,8 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
                 reallocate(&SYSTEM_ALLOCATOR, out_values, out_buffer_capacity * sizeof(*out_values));
             if (!new_values)
             {
-                sparse_vec_del(&temp, &SYSTEM_ALLOCATOR);
-                sparse_vec_del(&row_built, &SYSTEM_ALLOCATOR);
+                sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
+                sparse_vector_del(&row_built, &SYSTEM_ALLOCATOR);
                 deallocate(&SYSTEM_ALLOCATOR, out_indices);
                 deallocate(&SYSTEM_ALLOCATOR, out_values);
                 Py_DECREF(new);
@@ -415,8 +415,8 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
 
         if (!JMTX_SUCCEEDED(jmtxd_matrix_crs_build_row(new->matrix, r, row_built.count, out_indices, out_values)))
         {
-            sparse_vec_del(&temp, &SYSTEM_ALLOCATOR);
-            sparse_vec_del(&row_built, &SYSTEM_ALLOCATOR);
+            sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
+            sparse_vector_del(&row_built, &SYSTEM_ALLOCATOR);
             deallocate(&SYSTEM_ALLOCATOR, out_indices);
             deallocate(&SYSTEM_ALLOCATOR, out_values);
             Py_DECREF(new);
@@ -425,8 +425,8 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
     }
 
     new->built_rows = out_rows;
-    sparse_vec_del(&temp, &SYSTEM_ALLOCATOR);
-    sparse_vec_del(&row_built, &SYSTEM_ALLOCATOR);
+    sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
+    sparse_vector_del(&row_built, &SYSTEM_ALLOCATOR);
     deallocate(&SYSTEM_ALLOCATOR, out_indices);
     deallocate(&SYSTEM_ALLOCATOR, out_values);
     return new;
@@ -779,6 +779,38 @@ static PyObject *crs_matrix_transpose(const crs_matrix_t *this, PyObject *Py_UNU
     return (PyObject *)new;
 }
 
+static PyObject *crs_matrix_shrink(const crs_matrix_t *this, PyObject *Py_UNUSED(args))
+{
+    if (!crs_matrix_check_build(this))
+        return NULL;
+    if (!JMTX_SUCCEEDED(jmtxd_matrix_crs_shrink(this->matrix)))
+    {
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *crs_matrix_remove_entries_bellow(const crs_matrix_t *this, PyObject *arg)
+{
+    if (!crs_matrix_check_build(this))
+        return NULL;
+    const double v = PyFloat_AsDouble(arg);
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
+    if (v < 0)
+    {
+        PyErr_Format(PyExc_ValueError, "Value must be non-negative, got %f.", v);
+        return NULL;
+    }
+    const unsigned initial = this->matrix->n_entries;
+    jmtxd_matrix_crs_remove_bellow_magnitude(this->matrix, v);
+
+    return PyLong_FromUnsignedLong(initial - this->matrix->n_entries);
+}
+
 PyDoc_STRVAR(crs_matrix_to_array_docstring, "toarray() -> array\n"
                                             "Convert the sparse matrix to a dense NumPy array.\n"
                                             "\n"
@@ -870,6 +902,24 @@ PyDoc_STRVAR(crs_matrix_transpose_docstring,
              "    Transposed matrix, where entry :math:`(i, j)` in the original is equal\n"
              "    to entriy :math:`(j, i)` in the transpose.\n");
 
+PyDoc_STRVAR(crs_matrix_shrink_docstring, "shrink()\n"
+                                          "Shrink the matrix to the minimum size.\n");
+
+PyDoc_STRVAR(crs_matrix_remove_entries_bellow_docstring,
+             "remove_entries_bellow(v: float = 0.0, /)\n"
+             "Remove entries with the magnitude bellow specified value.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "v : float, default: 0.0\n"
+             "    Magnitude bellow which values should be removed. Can not be\n"
+             "    negative.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "int\n"
+             "    Number of entries that have been removed.\n");
+
 static PyMethodDef crs_matrix_methods[] = {
     {
         .ml_name = "toarray",
@@ -900,6 +950,18 @@ static PyMethodDef crs_matrix_methods[] = {
         .ml_meth = (void *)crs_matrix_transpose,
         .ml_flags = METH_NOARGS,
         .ml_doc = crs_matrix_transpose_docstring,
+    },
+    {
+        .ml_name = "shrink",
+        .ml_meth = (void *)crs_matrix_shrink,
+        .ml_flags = METH_NOARGS,
+        .ml_doc = crs_matrix_shrink_docstring,
+    },
+    {
+        .ml_name = "remove_entries_bellow",
+        .ml_meth = (void *)crs_matrix_remove_entries_bellow,
+        .ml_flags = METH_O,
+        .ml_doc = crs_matrix_remove_entries_bellow_docstring,
     },
     {},
 };
@@ -950,8 +1012,8 @@ static PyObject *crs_matrix_get_row(const crs_matrix_t *this, PyObject *key)
         svec.entries[i] = (entry_t){.index = indices[i], .value = values[i]};
     }
     svec.count = n;
-    svec_object_t *const out = sparse_vec_to_python(&svec);
-    sparse_vec_del(&svec, &SYSTEM_ALLOCATOR);
+    svec_object_t *const out = sparse_vector_to_python(&svec);
+    sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
 
     return (PyObject *)out;
 }
@@ -1062,6 +1124,35 @@ static PyObject *crs_matrix_get_shape(const crs_matrix_t *this, PyObject *Py_UNU
                         PyLong_FromUnsignedLong(this->matrix->base.cols));
 }
 
+static PyObject *crs_matrix_get_nonempty_rows(const crs_matrix_t *this, PyObject *Py_UNUSED(ignored))
+{
+    unsigned offset = 0;
+    npy_intp n = 0;
+    for (unsigned r = 0; r < this->matrix->base.rows; ++r)
+    {
+        if (this->matrix->end_of_row_offsets[r] > offset)
+        {
+            n += 1;
+        }
+        offset = this->matrix->end_of_row_offsets[r];
+    }
+    PyArrayObject *const array = (PyArrayObject *)PyArray_SimpleNew(1, &n, NPY_UINT32);
+    if (!array)
+        return NULL;
+
+    npy_uint32 *const ptr = PyArray_DATA(array);
+    for (unsigned r = 0, i = 0; i < n; ++r)
+    {
+        if (this->matrix->end_of_row_offsets[r] > offset)
+        {
+            ptr[i] = r;
+            i += 1;
+        }
+    }
+
+    return (PyObject *)array;
+}
+
 PyDoc_STRVAR(crs_matrix_docstring, "MatrixCRS(rows: int, cols: int)\n"
                                    "Compressed-row sparse matrix.\n"
                                    "\n"
@@ -1124,6 +1215,13 @@ static PyGetSetDef crs_matrix_getset[] = {
         .get = (getter)crs_matrix_get_shape,
         .set = NULL,
         .doc = "(int, int) : Shape of the matrix.",
+        .closure = NULL,
+    },
+    {
+        .name = "nonempty_rows",
+        .get = (getter)crs_matrix_get_nonempty_rows,
+        .set = NULL,
+        .doc = "array : Indices of rows with at least one entry.",
         .closure = NULL,
     },
     {},

@@ -49,7 +49,7 @@ int sparse_vector_new(svector_t *this, uint64_t n, uint64_t capacity, const allo
  * @param allocator Allocator to release the memory with.
  */
 MFV2D_INTERNAL
-void sparse_vec_del(svector_t *this, const allocator_callbacks *allocator);
+void sparse_vector_del(svector_t *this, const allocator_callbacks *allocator);
 
 /**
  * Increase the size of the vector if too small.
@@ -80,7 +80,7 @@ int sparse_vector_append(svector_t *this, entry_t e, const allocator_callbacks *
  * @return Pointer to the object or NULL on allocation failure.
  */
 MFV2D_INTERNAL
-svec_object_t *sparse_vec_to_python(const svector_t *this);
+svec_object_t *sparse_vector_to_python(const svector_t *this);
 
 /**
  * Performs a deep copy of a vector to another memory location.

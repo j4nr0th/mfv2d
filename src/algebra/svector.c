@@ -21,7 +21,7 @@ int sparse_vector_new(svector_t *this, uint64_t n, uint64_t capacity, const allo
     return 0;
 }
 
-void sparse_vec_del(svector_t *this, const allocator_callbacks *allocator)
+void sparse_vector_del(svector_t *this, const allocator_callbacks *allocator)
 {
     deallocate(allocator, this->entries);
     *this = (svector_t){};
@@ -61,7 +61,7 @@ int sparse_vector_append(svector_t *this, const entry_t e, const allocator_callb
     return 0;
 }
 
-svec_object_t *sparse_vec_to_python(const svector_t *this)
+svec_object_t *sparse_vector_to_python(const svector_t *this)
 {
     svec_object_t *const self = (svec_object_t *)svec_type_object.tp_alloc(&svec_type_object, (Py_ssize_t)this->count);
     if (!self)
@@ -412,7 +412,7 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
         if (this->count == 0)
         {
             const svector_t v = {.n = this->n, .count = 0, .capacity = 0, .entries = NULL};
-            return (PyObject *)sparse_vec_to_python(&v);
+            return (PyObject *)sparse_vector_to_python(&v);
         }
         Py_ssize_t start, stop, step;
         // Slice
@@ -435,12 +435,12 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
         {
             // Nothing in the range
             fake = (svector_t){.n = stop - start, .count = 0, .capacity = 0, .entries = NULL};
-            return (PyObject *)sparse_vec_to_python(&fake);
+            return (PyObject *)sparse_vector_to_python(&fake);
         }
         const uint64_t end = sparse_vector_find_first_geq(&self, stop, begin);
         fake = (svector_t){
             .n = seq_len, .count = end - begin, .capacity = 0, .entries = (entry_t *)(this->entries + begin)};
-        svec_object_t *const vec = sparse_vec_to_python(&fake);
+        svec_object_t *const vec = sparse_vector_to_python(&fake);
         for (uint64_t i = 0; i < vec->count; ++i)
         {
             vec->entries[i].index -= start;
@@ -600,66 +600,334 @@ static PyObject *svec_from_pairs(PyTypeObject *type, PyObject *args, PyObject *k
     return (PyObject *)self;
 }
 
+static PyObject *svec_dot(const svec_object_t *this, const svec_object_t *that)
+{
+    if (!PyObject_TypeCheck(that, &svec_type_object) || !PyObject_TypeCheck(this, &svec_type_object))
+    {
+        PyErr_Format(PyExc_TypeError, "Method requires two sparse vectors, but got a %R and %R.", Py_TYPE(this),
+                     Py_TYPE(that));
+        return NULL;
+    }
+    if (this->n != that->n)
+    {
+        PyErr_Format(PyExc_ValueError, "Can not compute dot product of vectors of different dimensions (%u and %u).",
+                     (unsigned)this->n, (unsigned)that->n);
+        return NULL;
+    }
+
+    double dot_product = 0.0;
+    unsigned p1 = 0, p2 = 0;
+    while (p1 < this->count && p2 < that->count)
+    {
+        if (this->entries[p1].index < that->entries[p2].index)
+        {
+            p1 += 1;
+        }
+        else if (this->entries[p1].index > that->entries[p2].index)
+        {
+            p2 += 1;
+        }
+        else // (this->entries[p1].index == that->entries[p2].index)
+        {
+            dot_product += this->entries[p1].value * that->entries[p2].value;
+            p1 += 1;
+            p2 += 1;
+        }
+    }
+
+    return PyFloat_FromDouble(dot_product);
+}
+
+typedef enum
+{
+    MERGE_MODE_FIRST,
+    MERGE_MODE_LAST,
+    MERGE_MODE_SUM,
+    MERGE_MODE_ERROR,
+} svec_merge_mode_t;
+
+static int svec_parse_merge_mode(const char name[], svec_merge_mode_t *out)
+{
+    if (strcmp(name, "first") == 0)
+    {
+        *out = MERGE_MODE_FIRST;
+        return 0;
+    }
+    if (strcmp(name, "last") == 0)
+    {
+        *out = MERGE_MODE_LAST;
+        return 0;
+    }
+    if (strcmp(name, "sum") == 0)
+    {
+        *out = MERGE_MODE_SUM;
+        return 0;
+    }
+    if (strcmp(name, "error") == 0)
+    {
+        *out = MERGE_MODE_ERROR;
+        return 0;
+    }
+    PyErr_Format(PyExc_ValueError, "Invalid merge mode '%s'.", name);
+    return -1;
+}
+
+static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(self), PyObject *const args[], Py_ssize_t nargs,
+                                     PyObject *kwnames)
+{
+    svec_merge_mode_t merge_mode = MERGE_MODE_LAST;
+    if (kwnames != NULL)
+    {
+        const Py_ssize_t kwnames_len = PyTuple_GET_SIZE(kwnames);
+        if (kwnames_len != 1)
+        {
+            PyErr_Format(PyExc_TypeError, "Expected exactly one keyword argument, got %u.", kwnames_len);
+            return NULL;
+        }
+        PyObject *const kwarg = PyTuple_GET_ITEM(kwnames, 0);
+        if (!PyUnicode_Check(kwarg))
+        {
+            PyErr_Format(PyExc_TypeError, "Expected keyword argument to be a string, got %R.", kwarg);
+            return NULL;
+        }
+        const char *const kwarg_str = PyUnicode_AsUTF8(kwarg);
+        if (!kwarg_str)
+            return NULL;
+        if (strcmp(kwarg_str, "duplicates") != 0)
+        {
+            PyErr_Format(PyExc_TypeError, "Only valid keyword is \"duplicates\", but \"%s\" was given.", kwarg_str);
+            return NULL;
+        }
+
+        const char *const kwarg_value = PyUnicode_AsUTF8(args[nargs - 1]);
+        if (!kwarg_value)
+            return NULL;
+        if (svec_parse_merge_mode(kwarg_value, &merge_mode) < 0)
+        {
+            PyErr_Format(PyExc_ValueError, "Invalid merge mode '%s'.", kwarg_value);
+            return NULL;
+        }
+        nargs -= 1;
+    }
+
+    if (nargs == 0)
+    {
+        PyErr_SetString(PyExc_TypeError, "Expected at least one sparse vector.");
+        return NULL;
+    }
+
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        if (!PyObject_TypeCheck(args[i], &svec_type_object))
+        {
+            PyErr_Format(PyExc_TypeError, "Argument %u was not a sparse vector but was instead %R.", i,
+                         Py_TYPE(args[i]));
+            return NULL;
+        }
+    }
+    const svec_object_t *const *vecs = (const svec_object_t *const *)args;
+    const unsigned n = vecs[0]->n;
+    for (unsigned i = 1; i < nargs; ++i)
+    {
+        if (vecs[i]->n != n)
+        {
+            PyErr_Format(
+                PyExc_ValueError,
+                "All sparse vectors must have the same shape (first had %u), but vector %u did not match (had %u).", n,
+                i, (unsigned)vecs[i]->n);
+            return NULL;
+        }
+    }
+
+    if (nargs == 1)
+    {
+        return PyObject_CallMethod(args[0], "__array__", NULL);
+    }
+
+    const npy_intp size = (npy_intp)n;
+    PyArrayObject *const array = (PyArrayObject *)PyArray_SimpleNew(1, &size, NPY_FLOAT64);
+
+    if (!array)
+        return NULL;
+
+    npy_float64 *const ptr = PyArray_DATA(array);
+    memset(ptr, 0, size * sizeof(npy_float64));
+    switch (merge_mode)
+    {
+    case MERGE_MODE_LAST:
+        for (unsigned i = 0; i < nargs; ++i)
+        {
+            const svec_object_t *const v = vecs[i];
+            for (unsigned j = 0; j < v->count; ++j)
+            {
+                if (v->entries[j].value == 0.0)
+                    continue;
+
+                ptr[v->entries[j].index] = v->entries[j].value;
+            }
+        }
+        break;
+
+    case MERGE_MODE_FIRST:
+        for (unsigned i = nargs; i > 0; --i)
+        {
+            const svec_object_t *const v = vecs[i - 1];
+            for (unsigned j = 0; j < v->count; ++j)
+            {
+                if (v->entries[j].value == 0.0)
+                    continue;
+
+                ptr[v->entries[j].index] = v->entries[j].value;
+            }
+        }
+        break;
+
+    case MERGE_MODE_SUM:
+        for (unsigned i = 0; i < nargs; ++i)
+        {
+            const svec_object_t *const v = vecs[i];
+            for (unsigned j = 0; j < v->count; ++j)
+            {
+                if (v->entries[j].value == 0.0)
+                    continue;
+
+                ptr[v->entries[j].index] += v->entries[j].value;
+            }
+        }
+        break;
+
+    case MERGE_MODE_ERROR:
+        for (unsigned i = 0; i < nargs; ++i)
+        {
+            const svec_object_t *const v = vecs[i];
+            for (unsigned j = 0; j < v->count; ++j)
+            {
+                if (v->entries[j].value == 0.0)
+                    continue;
+                if (ptr[v->entries[j].index] != 0.0)
+                {
+                    PyErr_Format(PyExc_ValueError, "Duplicate entry at index %u for vector %u", j, i);
+                    Py_DECREF(array);
+                    return NULL;
+                }
+                ptr[v->entries[j].index] += v->entries[j].value;
+            }
+        }
+        break;
+    }
+
+    return (PyObject *)array;
+}
+
 static PyMethodDef svec_methods[] = {
-    {.ml_name = "__array__",
-     .ml_meth = (void *)svec_array,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray[int]\n"
-               "Convert to numpy array.\n"},
-    {.ml_name = "from_entries",
-     .ml_meth = (void *)svec_from_entries,
-     .ml_flags = METH_CLASS | METH_KEYWORDS | METH_VARARGS,
-     .ml_doc = "from_entries(n: int, indices: array_like, values: array_like) -> SparseVector:\n"
-               "Create sparse vector from an array of indices and values.\n"
-               "\n"
-               "Parameters\n"
-               "----------\n"
-               "n : int\n"
-               "    Dimension of the vector.\n"
-               "\n"
-               "indices : array_like\n"
-               "    Indices of the entries. Must be sorted.\n"
-               "\n"
-               "values : array_like\n"
-               "    Values of the entries.\n"
-               "\n"
-               "Returns\n"
-               "-------\n"
-               "SparseVector\n"
-               "    New vector with indices and values as given.\n"},
-    {.ml_name = "from_pairs",
-     .ml_meth = (void *)svec_from_pairs,
-     .ml_flags = METH_CLASS | METH_KEYWORDS | METH_VARARGS,
-     .ml_doc = "from_pairs(n: int, *pairs: tuple[int, float], /) -> SparseVector:\n"
-               "Create sparse vector from an index-coefficient pairs.\n"
-               "\n"
-               "Parameters\n"
-               "----------\n"
-               "n : int\n"
-               "    Dimension of the vector.\n"
-               "\n"
-               "*pairs : tuple[int, float]\n"
-               "    Pairs of values and indices for the vector.\n"
-               "\n"
-               "Returns\n"
-               "-------\n"
-               "SparseVector\n"
-               "    New vector with indices and values as given.\n"},
-    {.ml_name = "concatenate",
-     .ml_meth = (void *)svec_concatenate,
-     .ml_flags = METH_FASTCALL | METH_CLASS,
-     .ml_doc = "concatenate(*vectors: SparseVector) -> SparseVector:\n"
-               "Merge sparse vectors together into a single vector.\n"
-               "\n"
-               "Parameters\n"
-               "----------\n"
-               "*vectors : SparseVector\n"
-               "    Sparse vectors that should be concatenated.\n"
-               "\n"
-               "Returns\n"
-               "-------\n"
-               "Self\n"
-               "    Newly created sparse vector.\n"},
+    {
+        .ml_name = "__array__",
+        .ml_meth = (void *)svec_array,
+        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray[int]\n"
+                  "Convert to numpy array.\n",
+    },
+    {
+        .ml_name = "from_entries",
+        .ml_meth = (void *)svec_from_entries,
+        .ml_flags = METH_CLASS | METH_KEYWORDS | METH_VARARGS,
+        .ml_doc = "from_entries(n: int, indices: array_like, values: array_like) -> SparseVector:\n"
+                  "Create sparse vector from an array of indices and values.\n"
+                  "\n"
+                  "Parameters\n"
+                  "----------\n"
+                  "n : int\n"
+                  "    Dimension of the vector.\n"
+                  "\n"
+                  "indices : array_like\n"
+                  "    Indices of the entries. Must be sorted.\n"
+                  "\n"
+                  "values : array_like\n"
+                  "    Values of the entries.\n"
+                  "\n"
+                  "Returns\n"
+                  "-------\n"
+                  "SparseVector\n"
+                  "    New vector with indices and values as given.\n",
+    },
+    {
+        .ml_name = "from_pairs",
+        .ml_meth = (void *)svec_from_pairs,
+        .ml_flags = METH_CLASS | METH_KEYWORDS | METH_VARARGS,
+        .ml_doc = "from_pairs(n: int, *pairs: tuple[int, float], /) -> SparseVector:\n"
+                  "Create sparse vector from an index-coefficient pairs.\n"
+                  "\n"
+                  "Parameters\n"
+                  "----------\n"
+                  "n : int\n"
+                  "    Dimension of the vector.\n"
+                  "\n"
+                  "*pairs : tuple[int, float]\n"
+                  "    Pairs of values and indices for the vector.\n"
+                  "\n"
+                  "Returns\n"
+                  "-------\n"
+                  "SparseVector\n"
+                  "    New vector with indices and values as given.\n",
+    },
+    {
+        .ml_name = "concatenate",
+        .ml_meth = (void *)svec_concatenate,
+        .ml_flags = METH_FASTCALL | METH_CLASS,
+        .ml_doc = "concatenate(*vectors: SparseVector) -> SparseVector:\n"
+                  "Merge sparse vectors together into a single vector.\n"
+                  "\n"
+                  "Parameters\n"
+                  "----------\n"
+                  "*vectors : SparseVector\n"
+                  "    Sparse vectors that should be concatenated.\n"
+                  "\n"
+                  "Returns\n"
+                  "-------\n"
+                  "Self\n"
+                  "    Newly created sparse vector.\n",
+    },
+    {
+        .ml_name = "dot",
+        .ml_meth = (void *)svec_dot,
+        .ml_flags = METH_O,
+        .ml_doc = "dot(other: SparseVector) -> float\n"
+                  "Compute dot product of two sparse vectors.\n"
+                  "\n"
+                  "Parameters\n"
+                  "----------\n"
+                  "other : SparseVector\n"
+                  "    The sparse vector with which to take the dot product with. Its dimension\n"
+                  "    must match exactly.\n"
+                  "\n"
+                  "Returns\n"
+                  "-------\n"
+                  "float\n"
+                  "    Dot product of the two sparse vectors.\n",
+    },
+    {
+        .ml_name = "merge_to_dense",
+        .ml_meth = (void *)svec_merge_to_dense,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_STATIC,
+        .ml_doc =
+            "merge_to_dense(*args: SparseVector, duplicates: typing.Literal[\"first\", \"last\", \"sum\", \"error\"] = "
+            "\"first\")\n"
+            "Merge sparse vectors into a single dense vector.\n"
+            "\n"
+            "Parameters\n"
+            "----------\n"
+            "vecs : SparseVector\n"
+            "    Sparse vectors that should be merged together. All must have the exact same\n"
+            "    size.\n"
+            "\n"
+            "duplicates : \"first\", \"last\", \"sum\", or \"error\", default: \"last\"\n"
+            "    What value to use when encountering duplicates.\n"
+            "\n"
+            "Returns\n"
+            "-------\n"
+            "array\n"
+            "    Full array with all the entries of vectors combined.\n",
+    },
     {}, // Sentinel
 };
 
@@ -721,27 +989,52 @@ static int svec_set_n(svec_object_t *this, PyObject *val, void *Py_UNUSED(closur
     return 0;
 }
 
+static PyObject *svec_l2norm2(const svec_object_t *this, void *Py_UNUSED(closure))
+{
+    double norm = 0.0;
+    for (uint64_t i = 0; i < this->count; ++i)
+    {
+        norm += this->entries[i].value * this->entries[i].value;
+    }
+    return PyFloat_FromDouble(norm);
+}
+
 static PyGetSetDef svec_get_set[] = {
-    {.name = "n",
-     .get = (getter)svec_get_n,
-     .set = (setter)svec_set_n,
-     .doc = "int : Dimension of the vector.",
-     .closure = NULL},
-    {.name = "values",
-     .get = (getter)svec_get_values,
-     .set = NULL,
-     .doc = "array : Values of non-zero entries of the vector.",
-     .closure = NULL},
-    {.name = "indices",
-     .get = (getter)svec_get_indices,
-     .set = NULL,
-     .doc = "array : Indices of non-zero entries of the vector.",
-     .closure = NULL},
-    {.name = "count",
-     .get = (getter)svec_get_count,
-     .set = NULL,
-     .doc = "int : Number of entries in the vector.",
-     .closure = NULL},
+    {
+        .name = "n",
+        .get = (getter)svec_get_n,
+        .set = (setter)svec_set_n,
+        .doc = "int : Dimension of the vector.",
+        .closure = NULL,
+    },
+    {
+        .name = "values",
+        .get = (getter)svec_get_values,
+        .set = NULL,
+        .doc = "array : Values of non-zero entries of the vector.",
+        .closure = NULL,
+    },
+    {
+        .name = "indices",
+        .get = (getter)svec_get_indices,
+        .set = NULL,
+        .doc = "array : Indices of non-zero entries of the vector.",
+        .closure = NULL,
+    },
+    {
+        .name = "count",
+        .get = (getter)svec_get_count,
+        .set = NULL,
+        .doc = "int : Number of entries in the vector.",
+        .closure = NULL,
+    },
+    {
+        .name = "norm2",
+        .get = (getter)svec_l2norm2,
+        .set = NULL,
+        .doc = "float : Square of the L2 norm.",
+        .closure = NULL,
+    },
     {}, // Sentinel
 };
 
@@ -887,6 +1180,62 @@ static PyMappingMethods svec_mapping = {
     .mp_subscript = (binaryfunc)svec_get,
 };
 
+static PyObject *svec_add(const svec_object_t *self, const svec_object_t *other)
+{
+    if (!PyObject_TypeCheck(self, &svec_type_object) || !PyObject_TypeCheck(other, &svec_type_object))
+    {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    const svector_t this_vector = {.n = self->n, .entries = (entry_t *)self->entries, .count = self->count};
+    const svector_t that_vector = {.n = other->n, .entries = (entry_t *)other->entries, .count = other->count};
+
+    svector_t sum_vector;
+    if (sparse_vector_copy(&this_vector, &sum_vector, &SYSTEM_ALLOCATOR))
+        return NULL;
+
+    svec_object_t *out = NULL;
+    if (sparse_vector_add_inplace(&sum_vector, &that_vector, &SYSTEM_ALLOCATOR) == 0)
+    {
+        out = sparse_vector_to_python(&sum_vector);
+    }
+    sparse_vector_del(&sum_vector, &SYSTEM_ALLOCATOR);
+    return (PyObject *)out;
+}
+
+static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
+{
+    if (!PyObject_TypeCheck(self, &svec_type_object) || !PyObject_TypeCheck(other, &svec_type_object))
+    {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    const svector_t this_vector = {.n = self->n, .entries = (entry_t *)self->entries, .count = self->count};
+    const svector_t that_vector = {.n = other->n, .entries = (entry_t *)other->entries, .count = other->count};
+
+    svector_t sum_vector;
+    if (sparse_vector_copy(&this_vector, &sum_vector, &SYSTEM_ALLOCATOR))
+        return NULL;
+
+    for (unsigned i = 0; i < sum_vector.count; ++i)
+    {
+        sum_vector.entries[i].value *= -sum_vector.entries[i].value;
+    }
+
+    svec_object_t *out = NULL;
+    if (sparse_vector_add_inplace(&sum_vector, &that_vector, &SYSTEM_ALLOCATOR) == 0)
+    {
+        out = sparse_vector_to_python(&sum_vector);
+    }
+    sparse_vector_del(&sum_vector, &SYSTEM_ALLOCATOR);
+    return (PyObject *)out;
+}
+
+static PyNumberMethods svec_as_number = {
+    .nb_add = (binaryfunc)svec_add,
+    .nb_subtract = (binaryfunc)svec_sub,
+};
+
 PyTypeObject svec_type_object = {
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.SparseVector",
     .tp_basicsize = sizeof(svec_object_t),
@@ -902,4 +1251,5 @@ PyTypeObject svec_type_object = {
     // .tp_iternext = ,
     .tp_methods = svec_methods,
     .tp_getset = svec_get_set,
+    .tp_as_number = &svec_as_number,
 };

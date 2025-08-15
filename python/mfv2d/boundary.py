@@ -211,7 +211,7 @@ def _element_weak_boundary_condition(
 
         vals[:] += np.sum(f_vals[None, ...] * basis, axis=1) * k
 
-    return (ElementConstraint(element_idx, dofs, vals),)
+    return (ElementConstraint(mesh.get_leaf_index(element_idx), dofs, vals),)
 
 
 def _element_strong_boundary_condition(
@@ -376,7 +376,7 @@ def _element_strong_boundary_condition(
 
     assert vals.size == dofs.size
     # assert np.allclose(vals, new_vals)
-    return (ElementConstraint(element_idx, dofs, vals),)
+    return (ElementConstraint(mesh.get_leaf_index(element_idx), dofs, vals),)
 
 
 def mesh_boundary_conditions(

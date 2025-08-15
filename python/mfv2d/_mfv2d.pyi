@@ -5,7 +5,7 @@ C-extension which implements all the required fast code.
 """
 
 from collections.abc import Callable, Iterator, Sequence
-from typing import Concatenate, ParamSpec, Self, SupportsIndex, final, overload
+from typing import Concatenate, Literal, ParamSpec, Self, SupportsIndex, final, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -1607,6 +1607,53 @@ class SparseVector:
         """Number of entries in the vector."""
         ...
 
+    def __add__(self, other: SparseVector) -> SparseVector: ...
+    def __radd__(self, other: SparseVector) -> SparseVector: ...
+    def __sub__(self, other: SparseVector) -> SparseVector: ...
+    def __rsub__(self, other: SparseVector) -> SparseVector: ...
+    def dot(self, other: SparseVector, /) -> float:
+        """Compute dot product of two sparse vectors.
+
+        Parameters
+        ----------
+        other : SparseVector
+            The sparse vector with which to take the dot product with. Its dimension
+            must match exactly.
+
+        Returns
+        -------
+        float
+            Dot product of the two sparse vectors.
+        """
+        ...
+
+    @property
+    def norm2(self) -> float:
+        """Square of the L2 norm."""
+        ...
+
+    @staticmethod
+    def merge_to_dense(
+        *vecs: SparseVector, duplicates: Literal["first", "last", "sum", "error"] = "last"
+    ) -> npt.NDArray[np.float64]:
+        """Merge sparse vectors into a single dense vector.
+
+        Parameters
+        ----------
+        vecs : SparseVector
+            Sparse vectors that should be merged together. All must have the exact same
+            size.
+
+        duplicates : "first", "last", "sum", or "error", default: "last"
+            What value to use when encountering duplicates.
+
+        Returns
+        -------
+        array
+            Full array with all the entries of vectors combined.
+        """
+        ...
+
 @final
 class MatrixCRS:
     """Compressed-row sparse matrix.
@@ -1732,6 +1779,26 @@ class MatrixCRS:
         """
         ...
 
+    def shrink(self) -> None:
+        """Reduce memory usage to the lowest possible amount."""
+        ...
+
+    def remove_entries_bellow(self, v: float = 0.0, /) -> int:
+        """Remove entries with the magnitude bellow specified value.
+
+        Parameters
+        ----------
+        v : float, default: 0.0
+            Magnitude bellow which values should be removed. Can not be
+            negative.
+
+        Returns
+        -------
+        int
+            Number of entries that have been removed.
+        """
+        ...
+
     # Properties
     @property
     def shape(self) -> tuple[int, int]:
@@ -1766,4 +1833,9 @@ class MatrixCRS:
     @property
     def built_rows(self) -> int:
         """Number of rows that have been built."""
+        ...
+
+    @property
+    def non_empty_rows(self) -> npt.NDArray[np.uintc]:
+        """Indices of rows with at least one entry."""
         ...

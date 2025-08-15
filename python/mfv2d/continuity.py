@@ -182,7 +182,11 @@ def _get_side_dof_nodes(
     side_orders = mesh.get_leaf_orders(element)
     side_order = side_orders[(side.value - 1) & 1]
 
-    return [ElementConstraint(element, indices, compute_gll(side_order)[0])]
+    return [
+        ElementConstraint(
+            mesh.get_leaf_index(element), indices, compute_gll(side_order)[0]
+        )
+    ]
 
 
 def _get_side_dofs(
@@ -231,7 +235,9 @@ def _get_side_dofs(
             Constraint(
                 0.0,
                 ElementConstraint(
-                    element, np.array([idx], np.uint32), np.ones(1, np.float64)
+                    mesh.get_leaf_index(element),
+                    np.array([idx], np.uint32),
+                    np.ones(1, np.float64),
                 ),
             )
             for idx in indices
@@ -345,10 +351,14 @@ def connect_corner_based(
             Constraint(
                 0.0,
                 ElementConstraint(
-                    l1, np.array([d1], np.uint32), np.array([+1], np.float64)
+                    mesh.get_leaf_index(l1),
+                    np.array([d1], np.uint32),
+                    np.array([+1], np.float64),
                 ),
                 ElementConstraint(
-                    l2, np.array([d2], np.uint32), np.array([-1], np.float64)
+                    mesh.get_leaf_index(l2),
+                    np.array([d2], np.uint32),
+                    np.array([-1], np.float64),
                 ),
             )
         )
@@ -767,7 +777,7 @@ def add_system_constraints(
             k,
             *(
                 ElementConstraint(
-                    leaf_idx,
+                    i,
                     form_specs.form_offset(i_unknown, *orders)
                     + np.arange(
                         form_specs.form_size(i_unknown, *orders),
@@ -775,14 +785,13 @@ def add_system_constraints(
                     ),
                     np.ones(form_specs.form_size(i_unknown, *orders)),
                 )
-                for (leaf_idx, orders) in (
-                    (leaf_idx, mesh.get_leaf_orders(leaf_idx))
-                    for leaf_idx in leaf_indices
+                for (i, orders) in (
+                    (i, mesh.get_leaf_orders(leaf_idx))
+                    for i, leaf_idx in enumerate(leaf_indices)
                 )
             ),
         )
 
-    reverse_mapping = {leaf_idx: i for i, leaf_idx in enumerate(leaf_indices)}
     if boundary_conditions is None:
         boundary_conditions = list()
 
@@ -809,7 +818,7 @@ def add_system_constraints(
         constraint_vals.append(constraint.rhs)
         # print(f"Continuity constraint {ic=}:")
         for ec in constraint.element_constraints:
-            offset = int(element_offset[reverse_mapping[ec.i_e]])
+            offset = int(element_offset[ec.i_e])
             constraint_cols.append(ec.dofs + offset)
             constraint_rows.append(np.full_like(ec.dofs, ic))
             constraint_coef.append(ec.coeffs)
@@ -822,7 +831,7 @@ def add_system_constraints(
         constraint = constrained_form_constaints[form]
         constraint_vals.append(constraint.rhs)
         for ec in constraint.element_constraints:
-            offset = int(element_offset[reverse_mapping[ec.i_e]])
+            offset = int(element_offset[ec.i_e])
             constraint_cols.append(ec.dofs + offset)
             constraint_rows.append(np.full_like(ec.dofs, ic))
             constraint_coef.append(ec.coeffs)
@@ -830,7 +839,7 @@ def add_system_constraints(
 
     # Strong BC constraints
     for ec in strong_bc_constraints:
-        offset = int(element_offset[reverse_mapping[ec.i_e]])
+        offset = int(element_offset[ec.i_e])
         for ci, cv in zip(ec.dofs, ec.coeffs, strict=True):
             constraint_rows.append(np.array([ic]))
             constraint_cols.append(np.array([ci + offset]))
@@ -841,8 +850,7 @@ def add_system_constraints(
 
     # Weak BC constraints/additions
     for ec in weak_bc_constraints:
-        ie = reverse_mapping[ec.i_e]
-        linear_vectors[ie][ec.dofs] += ec.coeffs
+        linear_vectors[ec.i_e][ec.dofs] += ec.coeffs
 
     if constraint_coef:
         lagrange_mat = sp.csr_array(

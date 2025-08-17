@@ -1799,6 +1799,52 @@ class MatrixCRS:
         """
         ...
 
+    def add_to_dense(self, out: npt.NDArray[np.float64], /) -> None:
+        """Add nonzero entries of the matrix to the NumPy array.
+
+        This is useful when trying to merge multiple sparse arrays
+        into a single dense NumPy array.
+
+        Parameters
+        ----------
+        out : array
+            Array to which the output is written. The shape must match
+            exactly, and the type must also be exactly the same.
+        """
+        ...
+
+    @classmethod
+    def from_dense(cls, x: npt.ArrayLike, /) -> Self:
+        """Create a new sparse matrix from a dense array.
+
+        Parameters
+        ----------
+        x : array_like
+            Dense array the matrix is created from. Must be
+            two dimensional.
+
+        Returns
+        -------
+        MatrixCRS
+            Matrix that is initialized from the data of the full
+            matrix. This includes zeros.
+        """
+        ...
+
+    def multiply_to_sparse(self, x: npt.ArrayLike, /) -> SparseVector:
+        """Multiply with a dense array, but return the result as a sparse vector.
+
+        This is useful when the sparse matrix has many empty rows, which is common
+        for element constraint matrices.
+
+        Returns
+        -------
+        SparseVector
+            Result of multiplying the dense vector by the sparse matrix as a
+            sparse vector.
+        """
+        ...
+
     # Properties
     @property
     def shape(self) -> tuple[int, int]:
@@ -1836,6 +1882,6 @@ class MatrixCRS:
         ...
 
     @property
-    def non_empty_rows(self) -> npt.NDArray[np.uintc]:
+    def nonempty_rows(self) -> npt.NDArray[np.uintc]:
         """Indices of rows with at least one entry."""
         ...

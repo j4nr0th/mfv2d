@@ -4,6 +4,9 @@ This file includes re-exports types and functions that are expected to be used
 by users, either for directly creating them, or to just use them for type-hinting.
 """
 
+# Examples
+from mfv2d import examples as examples
+
 # _mfv2d
 from mfv2d._mfv2d import Mesh as Mesh
 

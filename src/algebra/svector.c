@@ -325,7 +325,7 @@ static PyObject *svec_from_entries(PyTypeObject *type, PyObject *args, PyObject 
     {
         if (pi[i - 1] >= pi[i])
         {
-            PyErr_Format(PyExc_ValueError, "Entry indices %" PRIu64 " and %" PRIu64 " are not sorted.", i, i + 1);
+            PyErr_Format(PyExc_ValueError, "Entry indices at %" PRIu64 " and at %" PRIu64 " are not sorted.", i, i + 1);
             Py_DECREF(array_values);
             Py_DECREF(array_indices);
             return NULL;
@@ -335,8 +335,10 @@ static PyObject *svec_from_entries(PyTypeObject *type, PyObject *args, PyObject 
     {
         if (pi[i] >= n)
         {
-            PyErr_Format(PyExc_ValueError, "Entry index %" PRIu64 " is outside the allowed range [0, %" PRIu64 ").", i,
-                         pi[i], (uint64_t)n);
+            PyErr_Format(PyExc_ValueError,
+                         "Entry index at %" PRIu64 " with value %" PRIu64 " is outside the allowed range [0, %" PRIu64
+                         ").",
+                         i, pi[i], (uint64_t)n);
             Py_DECREF(array_values);
             Py_DECREF(array_indices);
             return NULL;
@@ -684,30 +686,42 @@ static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(self), PyObject *const 
             PyErr_Format(PyExc_TypeError, "Expected exactly one keyword argument, got %u.", kwnames_len);
             return NULL;
         }
+
         PyObject *const kwarg = PyTuple_GET_ITEM(kwnames, 0);
         if (!PyUnicode_Check(kwarg))
         {
             PyErr_Format(PyExc_TypeError, "Expected keyword argument to be a string, got %R.", kwarg);
             return NULL;
         }
+
         const char *const kwarg_str = PyUnicode_AsUTF8(kwarg);
         if (!kwarg_str)
+        {
             return NULL;
+        }
         if (strcmp(kwarg_str, "duplicates") != 0)
         {
             PyErr_Format(PyExc_TypeError, "Only valid keyword is \"duplicates\", but \"%s\" was given.", kwarg_str);
             return NULL;
         }
 
-        const char *const kwarg_value = PyUnicode_AsUTF8(args[nargs - 1]);
-        if (!kwarg_value)
+        if (!PyUnicode_Check(args[nargs]))
+        {
+            PyErr_Format(PyExc_TypeError, "Expected keyword value string, got %R.", args[nargs]);
             return NULL;
+        }
+
+        const char *const kwarg_value = PyUnicode_AsUTF8(args[nargs]);
+        if (!kwarg_value)
+        {
+            return NULL;
+        }
         if (svec_parse_merge_mode(kwarg_value, &merge_mode) < 0)
         {
+            printf("On line %u\n", __LINE__);
             PyErr_Format(PyExc_ValueError, "Invalid merge mode '%s'.", kwarg_value);
             return NULL;
         }
-        nargs -= 1;
     }
 
     if (nargs == 0)
@@ -741,6 +755,7 @@ static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(self), PyObject *const 
 
     if (nargs == 1)
     {
+        printf("On line %u\n", __LINE__);
         return PyObject_CallMethod(args[0], "__array__", NULL);
     }
 

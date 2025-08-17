@@ -285,12 +285,12 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
         return NULL;
     if (!crs_matrix_check_build(that))
         return NULL;
-    if (this->matrix->base.rows != that->matrix->base.cols)
+    if (this->matrix->base.cols != that->matrix->base.rows)
     {
         PyErr_Format(PyExc_ValueError,
-                     "Matrix multiplication requires that the number of rows of the left matrix "
-                     "(%u) is equal to the number of columns of the right matrix (%u).",
-                     this->matrix->base.rows, that->matrix->base.cols);
+                     "Matrix multiplication requires that the number of columns of the left matrix "
+                     "(%u) is equal to the number of rows of the right matrix (%u).",
+                     this->matrix->base.cols, that->matrix->base.rows);
         return NULL;
     }
 
@@ -811,6 +811,130 @@ static PyObject *crs_matrix_remove_entries_bellow(const crs_matrix_t *this, PyOb
     return PyLong_FromUnsignedLong(initial - this->matrix->n_entries);
 }
 
+static PyObject *crs_matrix_add_to_dense(const crs_matrix_t *this, PyObject *arg)
+{
+    if (!crs_matrix_check_build(this))
+        return NULL;
+
+    const PyArrayObject *const array = (PyArrayObject *)arg;
+    if (check_input_array(array, 2, (const npy_intp[2]){this->matrix->base.rows, this->matrix->base.cols}, NPY_DOUBLE,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED | NPY_ARRAY_WRITEABLE, "out") < 0)
+        return NULL;
+
+    npy_double *const in_ptr = PyArray_DATA(array);
+    for (unsigned ie = 0, row = 0; ie < this->matrix->n_entries; ++ie)
+    {
+        while (ie >= this->matrix->end_of_row_offsets[row])
+        {
+            row += 1;
+            ASSERT(row < this->matrix->base.rows, "Internal error - matrix rows could not be deduced for entry %u", ie);
+        }
+        in_ptr[this->matrix->base.cols * row + this->matrix->indices[ie]] += this->matrix->values[ie];
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *crs_matrix_from_dense(PyTypeObject *type, PyObject *arg)
+{
+    PyArrayObject *const array =
+        (PyArrayObject *)PyArray_FROMANY(arg, NPY_DOUBLE, 2, 2, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
+    if (!array)
+        return NULL;
+    const npy_intp *dims = PyArray_DIMS(array);
+    crs_matrix_t *const this = (crs_matrix_t *)type->tp_alloc(type, 0);
+    if (!this)
+    {
+        Py_DECREF(array);
+        return NULL;
+    }
+
+    if (!JMTX_SUCCEEDED(jmtxd_matrix_crs_new(&this->matrix, dims[0], dims[1], dims[0] * dims[1], &JMTX_ALLOCATOR)))
+    {
+        Py_DECREF(this);
+        Py_DECREF(array);
+        return NULL;
+    }
+    this->built_rows = this->matrix->base.rows;
+    this->matrix->n_entries = dims[0] * dims[1];
+    const npy_double *const in_ptr = PyArray_DATA(array);
+    memcpy(this->matrix->values, in_ptr, sizeof *this->matrix->values * this->matrix->n_entries);
+    for (unsigned i = 0; i < this->matrix->base.rows; ++i)
+    {
+        this->matrix->end_of_row_offsets[i] = (i + 1) * dims[1];
+        for (unsigned j = 0; j < this->matrix->base.cols; ++j)
+        {
+            this->matrix->indices[i * dims[1] + j] = j;
+        }
+    }
+    Py_DECREF(array);
+    return (PyObject *)this;
+}
+
+static unsigned count_non_empty_rows(const crs_matrix_t *this)
+{
+    unsigned n = 0;
+    for (unsigned r = 0, offset = 0; r < this->matrix->base.rows; ++r)
+    {
+        if (this->matrix->end_of_row_offsets[r] > offset)
+        {
+            n += 1;
+        }
+        offset = this->matrix->end_of_row_offsets[r];
+    }
+    return n;
+}
+
+static PyObject *crs_matrix_multiply_to_sparse(const crs_matrix_t *this, PyObject *arg)
+{
+    if (!crs_matrix_check_build(this))
+        return NULL;
+    const PyArrayObject *const array =
+        (PyArrayObject *)PyArray_FROMANY(arg, NPY_DOUBLE, 1, 1, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
+
+    if (!array)
+        return NULL;
+
+    const unsigned v_size = PyArray_DIM(array, 0);
+    if (v_size != this->matrix->base.cols)
+    {
+        PyErr_Format(
+            PyExc_ValueError,
+            "Number of columns of the right vector (%u) does not match the number of columns in the matrix (%u).",
+            v_size, this->matrix->base.cols);
+        Py_DECREF(array);
+        return NULL;
+    }
+    svector_t svector;
+    if (sparse_vector_new(&svector, this->matrix->base.rows, this->matrix->base.rows, &SYSTEM_ALLOCATOR))
+    {
+        Py_DECREF(array);
+        return NULL;
+    }
+
+    const npy_double *const in_ptr = PyArray_DATA(array);
+    for (unsigned r = 0; r < this->matrix->base.rows; ++r)
+    {
+        uint32_t *indices = NULL;
+        double *values = NULL;
+        const unsigned n = jmtxd_matrix_crs_get_row(this->matrix, r, &indices, &values);
+        double v = 0.0;
+        for (unsigned i = 0; i < n; ++i)
+        {
+            v += in_ptr[indices[i]] * values[i];
+        }
+        if (v != 0.0)
+        {
+            // Memory was pre-allocated for enough entries, so no need to check this.
+            (void)sparse_vector_append(&svector, (entry_t){.index = r, .value = v}, &SYSTEM_ALLOCATOR);
+        }
+    }
+    Py_DECREF(array);
+    svec_object_t *const out = sparse_vector_to_python(&svector);
+    sparse_vector_del(&svector, &SYSTEM_ALLOCATOR);
+    return (PyObject *)out;
+}
+
 PyDoc_STRVAR(crs_matrix_to_array_docstring, "toarray() -> array\n"
                                             "Convert the sparse matrix to a dense NumPy array.\n"
                                             "\n"
@@ -920,6 +1044,46 @@ PyDoc_STRVAR(crs_matrix_remove_entries_bellow_docstring,
              "int\n"
              "    Number of entries that have been removed.\n");
 
+PyDoc_STRVAR(crs_matrix_add_to_dense_docstring, "add_to_dense(out: numpy.typing.NDArray[numpy.float64], /) -> None\n"
+                                                "Add nonzero entries of the matrix to the NumPy array.\n"
+                                                "\n"
+                                                "This is useful when trying to merge multiple sparse arrays\n"
+                                                "into a single dense NumPy array.\n"
+                                                "\n"
+                                                "Parameters\n"
+                                                "----------\n"
+                                                "out : array\n"
+                                                "    Array to which the output is written. The shape must match\n"
+                                                "    exactly, and the type must also be exactly the same.\n");
+
+PyDoc_STRVAR(crs_matrix_from_dense_docstring, "from_dense(x: numpy.typing.ArrayLike, /) -> typing.Self\n"
+                                              "Create a new sparse matrix from a dense array.\n"
+                                              "\n"
+                                              "Parameters\n"
+                                              "----------\n"
+                                              "x : array_like\n"
+                                              "    Dense array the matrix is created from. Must be\n"
+                                              "    two dimensional.\n"
+                                              "\n"
+                                              "Returns\n"
+                                              "-------\n"
+                                              "MatrixCRS\n"
+                                              "    Matrix that is initialized from the data of the full\n"
+                                              "    matrix. This includes zeros.\n");
+
+PyDoc_STRVAR(crs_matrix_multiply_to_sparse_docstring,
+             "multiply_to_sparse(x: numpy.typing.ArrayLike, /) -> SparseVector\n"
+             "Multiply with a dense array, but return the result as a sparse vector.\n"
+             "\n"
+             "This is useful when the sparse matrix has many empty rows, which is common\n"
+             "for element constraint matrices.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "SparseVector\n"
+             "    Result of multiplying the dense vector by the sparse matrix as a\n"
+             "    sparse vector.\n");
+
 static PyMethodDef crs_matrix_methods[] = {
     {
         .ml_name = "toarray",
@@ -962,6 +1126,24 @@ static PyMethodDef crs_matrix_methods[] = {
         .ml_meth = (void *)crs_matrix_remove_entries_bellow,
         .ml_flags = METH_O,
         .ml_doc = crs_matrix_remove_entries_bellow_docstring,
+    },
+    {
+        .ml_name = "add_to_dense",
+        .ml_meth = (void *)crs_matrix_add_to_dense,
+        .ml_flags = METH_O,
+        .ml_doc = crs_matrix_add_to_dense_docstring,
+    },
+    {
+        .ml_name = "from_dense",
+        .ml_meth = (void *)crs_matrix_from_dense,
+        .ml_flags = METH_O | METH_CLASS,
+        .ml_doc = crs_matrix_from_dense_docstring,
+    },
+    {
+        .ml_name = "multiply_to_sparse",
+        .ml_meth = (void *)crs_matrix_multiply_to_sparse,
+        .ml_flags = METH_O,
+        .ml_doc = crs_matrix_multiply_to_sparse_docstring,
     },
     {},
 };
@@ -1047,7 +1229,7 @@ static PyObject *crs_matrix_get_row_indices(const crs_matrix_t *this, PyObject *
     npy_uint32 *const ptr = PyArray_DATA(array);
     for (unsigned i = 0, r = 0; i < this->matrix->n_entries; ++i)
     {
-        if (r < this->matrix->base.rows && i >= this->matrix->end_of_row_offsets[r])
+        while (r < this->matrix->base.rows && i >= this->matrix->end_of_row_offsets[r])
         {
             r += 1;
         }
@@ -1126,28 +1308,23 @@ static PyObject *crs_matrix_get_shape(const crs_matrix_t *this, PyObject *Py_UNU
 
 static PyObject *crs_matrix_get_nonempty_rows(const crs_matrix_t *this, PyObject *Py_UNUSED(ignored))
 {
-    unsigned offset = 0;
-    npy_intp n = 0;
-    for (unsigned r = 0; r < this->matrix->base.rows; ++r)
-    {
-        if (this->matrix->end_of_row_offsets[r] > offset)
-        {
-            n += 1;
-        }
-        offset = this->matrix->end_of_row_offsets[r];
-    }
+    if (!crs_matrix_check_build(this))
+        return NULL;
+
+    const npy_intp n = count_non_empty_rows(this);
     PyArrayObject *const array = (PyArrayObject *)PyArray_SimpleNew(1, &n, NPY_UINT32);
     if (!array)
         return NULL;
 
     npy_uint32 *const ptr = PyArray_DATA(array);
-    for (unsigned r = 0, i = 0; i < n; ++r)
+    for (unsigned r = 0, i = 0, offset = 0; i < n; ++r)
     {
         if (this->matrix->end_of_row_offsets[r] > offset)
         {
             ptr[i] = r;
             i += 1;
         }
+        offset = this->matrix->end_of_row_offsets[r];
     }
 
     return (PyObject *)array;

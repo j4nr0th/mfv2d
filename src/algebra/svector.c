@@ -450,20 +450,9 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
         return (PyObject *)vec;
     }
 
-    const Py_ssize_t idx = PyLong_AsSsize_t(py_idx);
+    const Py_ssize_t idx = PyNumber_AsSsize_t(py_idx, PyExc_IndexError);
     if (PyErr_Occurred())
         return NULL;
-
-    if (idx >= this->n || idx < -this->n)
-    {
-        PyErr_Format(PyExc_KeyError,
-                     "Index %" PRIi64 " is outside the allowed range for a vector of dimension %" PRIu64 ".",
-                     (int64_t)idx, this->n);
-        return NULL;
-    }
-    // Quick check for an empty vector
-    if (this->count == 0)
-        return PyLong_FromDouble(0.0);
 
     uint64_t adjusted_idx;
     if (idx < 0)
@@ -474,6 +463,18 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
     {
         adjusted_idx = (uint64_t)idx;
     }
+
+    if (adjusted_idx >= this->n)
+    {
+        PyErr_Format(PyExc_KeyError,
+                     "Index %" PRIi64 " is outside the allowed range for a vector of dimension %" PRIu64 ".",
+                     (int64_t)idx, this->n);
+        return NULL;
+    }
+
+    // Quick check for an empty vector
+    if (this->count == 0)
+        return PyLong_FromDouble(0.0);
 
     const svector_t self = {.n = this->n, .count = this->count, .capacity = 0, .entries = (entry_t *)this->entries};
     const uint64_t pos = sparse_vector_find_first_geq(&self, adjusted_idx, 0);

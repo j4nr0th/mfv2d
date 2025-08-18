@@ -12,24 +12,20 @@ from mfv2d.examples import unit_square_mesh
 from mfv2d.kform import KFormUnknown, UnknownFormOrder
 from mfv2d.mimetic2d import FemCache
 from mfv2d.solve_system import compute_element_rhs
-from mfv2d.solving import LinearSystem, solve_schur
+from mfv2d.solving import LinearSystem, LinearVector, solve_schur
 from mfv2d.system import KFormSystem
 from scipy.sparse import linalg as sla
 
 
-@pytest.mark.parametrize(("nh", "nv", "order"), ((10, 10, 3), (3, 4, 4), (5, 2, 5)))
-def test_schur(nh: int, nv: int, order: int):
-    """Check that Schur's compliment solver computes the same solution as SciPy."""
-    # Problem to be solved is based on mixed Laplace
+def laplace_sample_system(
+    nh: int, nv: int, order: int
+) -> tuple[LinearSystem, LinearVector]:
+    """Create the test Laplace system."""
     u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_2)
     q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
 
     v = u.weight
     p = q.weight
-
-    def u_exact(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]):
-        """Exact solution used."""
-        return np.cos(np.pi * x) * np.cos(np.pi * y)
 
     def f_exact(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]):
         """Exact source used."""
@@ -79,6 +75,46 @@ def test_schur(nh: int, nv: int, order: int):
         vectors, [con.rhs for con in continuity_constraints]
     )
 
+    return linear_system, forcing_vec
+
+
+@pytest.mark.parametrize(("nh", "nv", "order"), ((10, 10, 3), (3, 4, 4), (5, 2, 5)))
+def test_multiplication(nh: int, nv: int, order: int):
+    """Check that system matrix computes the same solution as SciPy."""
+    # Problem to be solved is based on mixed Laplace
+    linear_system, forcing_vec = laplace_sample_system(nh, nv, order)
+
+    combined_matrix = linear_system.combined_system_matrix()
+    combined_vec = forcing_vec.combinded_system_vector()
+
+    tsc0 = perf_counter()
+    pv = linear_system @ forcing_vec
+    tsc1 = perf_counter()
+
+    tsp0 = perf_counter()
+    u = combined_matrix @ combined_vec
+    tsp1 = perf_counter()
+
+    print(
+        f"Time taken for Python multiply for {combined_matrix.shape} system is "
+        f"{tsc1 - tsc0:g} seconds."
+    )
+
+    print(
+        f"Time taken by Scipy multiply for {combined_matrix.shape} system is"
+        f" {tsp1 - tsp0:g} seconds."
+    )
+
+    cpv = pv.combinded_system_vector()
+    assert pytest.approx(u) == cpv
+
+
+@pytest.mark.parametrize(("nh", "nv", "order"), ((10, 10, 3), (3, 4, 4), (5, 2, 5)))
+def test_schur(nh: int, nv: int, order: int):
+    """Check that Schur's compliment solver computes the same solution as SciPy."""
+    # Problem to be solved is based on mixed Laplace
+    linear_system, forcing_vec = laplace_sample_system(nh, nv, order)
+
     combined_matrix = linear_system.combined_system_matrix()
     combined_vec = forcing_vec.combinded_system_vector()
 
@@ -105,3 +141,4 @@ def test_schur(nh: int, nv: int, order: int):
 
 if __name__ == "__main__":
     test_schur(10, 10, 3)
+    test_multiplication(10, 10, 3)

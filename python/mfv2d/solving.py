@@ -22,6 +22,18 @@ class SystemBlock:
 
     diagonal_block: npt.NDArray[np.float64]
     constraint_matrix: MatrixCRS
+    _inverse_diagonal: tuple | None = None
+
+    def apply_diag_inverse(self, x: npt.ArrayLike, /) -> npt.NDArray[np.float64]:
+        """Apply inverse of the diagonal block."""
+        if self._inverse_diagonal is None:
+            object.__setattr__(
+                self,
+                "_inverse_diagonal",
+                la.lu_factor(self.diagonal_block, check_finite=False),
+            )
+
+        return np.asarray(la.lu_solve(self._inverse_diagonal, x), np.float64, copy=False)
 
 
 @dataclass(frozen=True)
@@ -348,23 +360,25 @@ class LinearSystem:
 
             dense_result = (
                 sys.diagonal_block @ val.main_values  # Element system part
-                + val.trace_values @ sys.constraint_matrix  # Element constraints
+                + np.array(
+                    val.trace_values @ sys.constraint_matrix
+                )  # Element constraints
             )
+            element_vecs.append(dense_result)
+
             # NOTE: if this always returned a sparse vector, it would be more efficient
-            trace_result = sys.constraint_matrix @ val.main_values
-            assert type(trace_result) is np.ndarray
-            nonzero = np.flatnonzero(trace_result != 0.0)
-            sparse_trace = SparseVector.from_entries(
-                trace_result.size, nonzero, trace_result[nonzero]
-            )
-            for idx in sparse_trace.indices:
+            trace_result = sys.constraint_matrix.multiply_to_sparse(val.main_values)
+            for idx, sv in zip(trace_result.indices, trace_result.values):
                 elements = self.constraints.get_value_associated_elements(idx)
                 for ie in elements:
-                    element_cons[ie] += SparseVector.from_pairs(
-                        self.constraints.count, (idx, sparse_trace[idx])
+                    addition = SparseVector.from_pairs(
+                        self.constraints.count, (int(idx), float(sv))
                     )
+                    new = addition + element_cons[ie]
+                    element_cons[ie] = new
 
-            element_vecs.append(dense_result)
+        # for trace, block in zip(element_cons, other.blocks):
+        #     assert np.all(trace.indices == block.trace_values.indices)
 
         return LinearVector(
             self,
@@ -386,88 +400,30 @@ class LinearSystem:
             block.diagonal_block.shape[0] for block in self.blocks
         )
 
+    def precondition(self, other: LinearVector) -> LinearVector:
+        """Apply the preconditioner to the vector."""
+        if other.parent is not self:
+            raise ValueError(
+                "Can only multiply a vector with a system that's its parent."
+            )
 
-@dataclass(frozen=True)
-class LinearSolverSettings:
-    """Settings for the linear solver."""
+        return LinearVector(
+            self,
+            tuple(
+                VectorBlock(sb.apply_diag_inverse(vb.main_values), vb.trace_values)
+                for sb, vb in zip(self.blocks, other.blocks, strict=True)
+            ),
+        )
 
-    atol: float
-    rtol: float
-    aiter: int
-    riter: float
+    def reverse_precondition(self, other: LinearVector) -> None:
+        """Apply the inverse of the preconditioner to the vector."""
+        if other.parent is not self:
+            raise ValueError(
+                "Can only multiply a vector with a system that's its parent."
+            )
 
-
-@dataclass(frozen=True)
-class LinearSolverOutput:
-    """Output of running a linear solver."""
-
-    solution: LinearVector
-    residual_estimate: float
-    iterations_taken: int
-    error_history: npt.NDArray[np.float64]
-
-
-def solve_bicgstab(
-    system: LinearSystem,
-    rhs: LinearVector,
-    lhs: LinearVector | None = None,
-    settings: LinearSolverSettings = LinearSolverSettings(
-        atol=1e-10, rtol=1e-9, aiter=1000, riter=0.1
-    ),
-) -> LinearSolverOutput:
-    """Adjust the left vector such that applying the system on it results in the right."""
-    if lhs is None:
-        lhs = system.create_vector()
-
-    residual = rhs - system @ lhs
-    ymag = np.sqrt(rhs.norm2)
-    tol = min(settings.atol, settings.rtol * ymag)
-    iters = min(settings.aiter, int(settings.riter * system.total_size))
-
-    rho = 1.0
-    alpha = 1.0
-    omega = 1.0
-
-    rQ = residual
-    p = residual
-    r = residual
-
-    errors = np.empty(iters)
-
-    iter_cnt = 0
-    for iter_cnt in range(iters):
-        Ap = system @ p
-        rQAp = rQ @ Ap
-        alpha = rho / rQAp
-
-        lhs += alpha * p
-
-        s = r - alpha * Ap
-        sksk_dp = s.norm2
-        err = np.sqrt(sksk_dp)
-        if err < tol:
-            errors[iter_cnt] = err
-            break
-
-        As = system @ s
-        sAAs_dp = As.norm2
-        sAs_dp = s @ As
-
-        omega = sAs_dp / sAAs_dp
-
-        lhs += omega * s
-        r = s - omega * As
-        rkrk_dp = r.norm2
-        err = np.sqrt(rkrk_dp)
-        errors[iter_cnt] = err
-        if err < tol:
-            break
-        rQrk_dp = rQ @ r
-        beta = rQrk_dp / rho * alpha / omega
-        rho = rQrk_dp
-        p = r + beta * (p - omega * Ap)
-
-    return LinearSolverOutput(lhs, errors[iter_cnt], iter_cnt, errors[:iter_cnt])
+        for sb, vb in zip(self.blocks, other.blocks, strict=True):
+            vb.main_values[:] = sb.diagonal_block @ vb.main_values
 
 
 def solve_schur(system: LinearSystem, rhs: LinearVector) -> LinearVector:

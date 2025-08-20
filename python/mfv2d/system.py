@@ -82,6 +82,20 @@ class ElementFormSpecification(_ElementFormSpecification):
             return super().index((value.label, value.order.value))
         return super().index(value)
 
+    def __eq__(self, other) -> bool:
+        """Check if the other is identical to itself."""
+        if not isinstance(other, ElementFormSpecification):
+            return NotImplemented
+
+        if len(self) != len(other):
+            return False
+
+        for i in range(len(self)):
+            if self[i] != other[i]:
+                return False
+
+        return True
+
 
 def _form_as_string(form: Term) -> dict[Term, str | None]:
     """Extract the string representations of the forms, as well as their dual weight.

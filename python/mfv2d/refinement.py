@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -33,7 +33,7 @@ from mfv2d.mimetic2d import (
     reconstruct,
 )
 from mfv2d.progress import HistogramFormat
-from mfv2d.solve_system import compute_element_rhs
+from mfv2d.solve_system import add_system_constraints, compute_element_rhs
 from mfv2d.system import ElementFormSpecification, KFormSystem
 
 
@@ -312,11 +312,41 @@ class ErrorEstimateExplicit:
     """Order at which error should be reconstructed."""
 
 
+@dataclass(frozen=True)
+class ErrorEstimateVMS:
+    """Estimate error based on variational multi-scale approach."""
+
+    target_form: KFormUnknown
+    """Form for which the error is being computed."""
+
+    symmetric_system: KFormSystem
+    """Symmetric system based on which the Green's function is computed."""
+
+    antisymmetric_system: KFormSystem
+    """Antisymmetric system based on which the fine-scale function is computed."""
+
+    order_increase: int
+    """Order increase for the Green's function and residual."""
+
+    max_iters: int
+    """Number of iterations to improve the guess of fine scales."""
+
+    atol: float
+    """When the largest update in the fine scales drops bellow this value,
+    consider it converged."""
+
+    rtol: float
+    """When the largest update in the fine scalse drops bellow the largest
+    value of fine scale degrees of freedom scaled by this value, consider
+    it converged."""
+
+
 ErrorEstimate = (
     ErrorEstimateCustom
     | ErrorEstimateLocalInverse
     | ErrorEstimateL2OrderReduction
     | ErrorEstimateExplicit
+    | ErrorEstimateVMS
 )
 
 
@@ -360,7 +390,7 @@ def perform_mesh_refinement(
     basis_cache: FemCache,
     order_limit: int | None,
     lower_order_limit: int | None,
-    constrained: Sequence[KFormUnknown],
+    constrained: Sequence[tuple[float, KFormUnknown]],
 ) -> tuple[Mesh, npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Perform a round of mesh refinement.
 
@@ -448,7 +478,7 @@ def perform_mesh_refinement(
                 CompiledSystem(system),
                 error_estimator.target_form,
                 error_estimator.strong_forms,
-                constrained,
+                [form for _, form in constrained],
             )
 
         case ErrorEstimateL2OrderReduction():
@@ -478,6 +508,27 @@ def perform_mesh_refinement(
                 if error_estimator.reconstruction_orders is not None
                 else None,
                 basis_cache,
+            )
+
+        case ErrorEstimateVMS():
+            element_error, href_cost = error_estimate_with_vms(
+                mesh,
+                [int(idx) for idx in mesh.get_leaf_indices()],
+                solution,
+                element_offsets,
+                boundary_conditions,
+                element_fem_spaces,
+                error_estimator.order_increase,
+                basis_cache,
+                system,
+                CompiledSystem(system),
+                error_estimator.symmetric_system,
+                error_estimator.antisymmetric_system,
+                error_estimator.target_form,
+                constrained,
+                error_estimator.atol,
+                error_estimator.rtol,
+                error_estimator.max_iters,
             )
 
         case _:
@@ -1263,5 +1314,337 @@ def error_estimate_with_explicit_solution(
             reconstructed_solution,
             np.asarray(exact_solution) - reconstructed_solution,
         )
+
+    return element_error, href_cost
+
+
+def _compute_fine_scale_dofs(
+    advection_operator: sp.csr_array,
+    projector: sp.csr_array,
+    fine_sym_decomp: sla.SuperLU,
+    coarse_sym_decomp: sla.SuperLU,
+    residual: npt.NDArray[np.float64],
+    fine_padding: int,
+    coarse_padding: int,
+    max_iters: int,
+    atol: float,
+    rtol: float,
+) -> npt.NDArray[np.float64]:
+    """Compute the unresolved scales by solving the SG operator."""
+    agr = advection_operator @ _fine_scale_greens_function(
+        projector,
+        fine_sym_decomp,
+        coarse_sym_decomp,
+        residual,
+        fine_padding,
+        coarse_padding,
+    )
+    u = residual
+    for _iter_cnt in range(max_iters):
+        u_new = agr - advection_operator @ _fine_scale_greens_function(
+            projector,
+            fine_sym_decomp,
+            coarse_sym_decomp,
+            u,
+            fine_padding,
+            coarse_padding,
+        )
+        max_du = np.abs(u - u_new).max()
+        max_u = np.abs(u_new).max()
+        u = u_new
+        if max_du < max_u * rtol or max_du < atol:
+            break
+
+    return u
+
+
+def _fine_scale_greens_function(
+    projector: sp.csr_array,
+    fine_sym_decomp: sla.SuperLU,
+    coarse_sym_decomp: sla.SuperLU,
+    x: npt.NDArray[np.float64],
+    fine_padding: int,
+    coarse_padding: int,
+) -> npt.NDArray[np.float64]:
+    """Apply the fine-scale Green's function to the vector."""
+    result_fine = fine_sym_decomp.solve(np.pad(x, (0, fine_padding)))[:-fine_padding]
+    result_coarse = (
+        coarse_sym_decomp.solve(np.pad(projector @ x, (0, coarse_padding)))[
+            :-coarse_padding
+        ]
+        @ projector
+    )
+    result = result_fine - result_coarse
+    return result
+
+
+def error_estimate_with_vms(
+    mesh: Mesh,
+    leaf_indices: Sequence[int],
+    solution: npt.NDArray[np.float64],
+    element_offsets: npt.NDArray[np.uint32],
+    boundary_conditions: Sequence[BoundaryCondition2DSteady],
+    element_fem_spaces: Sequence[ElementFemSpace2D],
+    recon_order: int,
+    basis_cache: FemCache,
+    system: KFormSystem,
+    compiled: CompiledSystem,
+    symmetric: KFormSystem,
+    antisymmetric: KFormSystem,
+    unknown_target: KFormUnknown,
+    constrained_forms: Sequence[tuple[float, KFormUnknown]],
+    atol: float,
+    rtol: float,
+    max_iters: int,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute element error estimates using a local inversion.
+
+    Returns
+    -------
+    element_error : array
+        Array with error estimates for each element.
+
+    href_cost : array
+        Array with estimates of increase in error due to h-refinement.
+    """
+    if unknown_target not in system.unknown_forms:
+        raise ValueError(
+            f"Target unknown form {unknown_target} is not present in the system."
+        )
+
+    if symmetric.unknown_forms != system.unknown_forms:
+        raise ValueError(
+            "Unknown forms of symmetric system do not match the full system."
+        )
+
+    if antisymmetric.unknown_forms != system.unknown_forms:
+        raise ValueError(
+            "Unknown forms of antisymmetric system do not match the full system."
+        )
+
+    element_error = np.empty(mesh.leaf_count)
+    href_cost = np.empty(mesh.leaf_count)
+    residuals: list[npt.NDArray[np.float64]] = list()
+    projected_solution: list[npt.NDArray[np.float64]] = list()
+    higher_order_spaces: list[ElementFemSpace2D] = list()
+    projectors: list[sp.csr_array] = list()
+    symmetric_matrices_coarse: list[npt.NDArray[np.float64]] = list()
+    symmetric_matrices_fine: list[npt.NDArray[np.float64]] = list()
+    antisymmetric_matrices_fine: list[npt.NDArray[np.float64]] = list()
+
+    compiled_symmetric = CompiledSystem(symmetric)
+    compiled_antisymmetric = CompiledSystem(antisymmetric)
+
+    # Compute the residual
+    for i_leaf in range(mesh.leaf_count):
+        element_solution = solution[element_offsets[i_leaf] : element_offsets[i_leaf + 1]]
+        element_space = element_fem_spaces[i_leaf]
+
+        corners = element_space.corners
+
+        basis = element_space.basis_2d
+        order_1 = basis.basis_xi.order
+        order_2 = basis.basis_eta.order
+        higher_basis = basis_cache.get_basis2d(
+            order_1 + recon_order, order_2 + recon_order, *basis.integration_orders
+        )
+
+        higher_space = ElementFemSpace2D(higher_basis, corners)
+        higher_order_spaces.append(higher_space)
+
+        fine_rhs = compute_element_rhs(system, higher_space)
+        coarse_forcing = compute_element_vector(
+            system.unknown_forms, compiled.lhs_full, element_space, element_solution
+        )
+        if compiled.rhs_codes:
+            coarse_forcing -= compute_element_vector(
+                system.unknown_forms, compiled.rhs_codes, element_space, element_solution
+            )
+        projector_primal = sp.block_diag(
+            compute_element_projector(
+                system.unknown_forms,
+                higher_space.corners,
+                element_space.basis_2d,
+                higher_space.basis_2d,
+            ),
+            format="csr",
+        )
+        projectors.append(cast(sp.csr_array, projector_primal))
+
+        projected_solution.append(projector_primal @ element_solution)
+        del projector_primal
+
+        projector_dual = sp.block_diag(
+            compute_element_projector(
+                system.unknown_forms,
+                higher_space.corners,
+                higher_space.basis_2d,
+                element_space.basis_2d,
+            )
+        ).T
+        fine_forcing = projector_dual @ coarse_forcing
+        del projector_dual
+
+        residuals.append(fine_rhs - fine_forcing)
+        del fine_forcing, fine_rhs
+
+        symmetric_matrices_coarse.append(
+            compute_element_matrix(
+                symmetric.unknown_forms, compiled_symmetric.lhs_full, element_space
+            )
+        )
+        symmetric_matrices_fine.append(
+            compute_element_matrix(
+                symmetric.unknown_forms, compiled_symmetric.lhs_full, higher_space
+            )
+        )
+        antisymmetric_matrices_fine.append(
+            compute_element_matrix(
+                antisymmetric.unknown_forms, compiled_antisymmetric.lhs_full, higher_space
+            )
+        )
+
+    fine_offsets = np.cumsum(
+        [
+            0,
+            *(
+                system.unknown_forms.total_size(*mesh.get_leaf_orders(i_leaf))
+                for i_leaf in leaf_indices
+            ),
+        ]
+    )
+    coarse_offsets = np.cumsum(
+        [
+            0,
+            *(
+                system.unknown_forms.total_size(*mesh.get_leaf_orders(i_leaf))
+                for i_leaf in leaf_indices
+            ),
+        ]
+    )
+    mesh.uniform_p_change(recon_order, recon_order)
+    fine_lagrange_mat, fine_lagrange_vec = add_system_constraints(
+        system,
+        mesh,
+        basis_cache,
+        constrained_forms,
+        boundary_conditions,
+        leaf_indices,
+        fine_offsets,
+        residuals,
+    )
+    mesh.uniform_p_change(-recon_order, -recon_order)
+    residual = np.concatenate(residuals)
+    del residuals
+
+    if fine_lagrange_mat is not None:
+        fine_sym_matrix = sp.block_array(
+            [
+                [sp.block_diag(symmetric_matrices_fine), fine_lagrange_mat.T],
+                [fine_lagrange_mat, None],
+            ],
+            format="csr",
+        )
+    else:
+        fine_sym_matrix = sp.block_diag(symmetric_matrices_fine, format="csr")
+    fine_decomp = sla.splu(fine_sym_matrix)
+    n_lag_fine = fine_lagrange_vec.size
+    del (fine_sym_matrix, fine_lagrange_vec, fine_lagrange_mat, symmetric_matrices_fine)
+
+    coarse_lagrange_mat, coarse_lagrange_vec = add_system_constraints(
+        system,
+        mesh,
+        basis_cache,
+        constrained_forms,
+        boundary_conditions,
+        leaf_indices,
+        coarse_offsets,
+        None,
+    )
+    if coarse_lagrange_mat is not None:
+        coarse_sym_matrix = sp.block_array(
+            [
+                [sp.block_diag(symmetric_matrices_coarse), coarse_lagrange_mat.T],
+                [coarse_lagrange_mat, None],
+            ],
+            format="csr",
+        )
+    else:
+        coarse_sym_matrix = sp.block_diag(symmetric_matrices_coarse, format="csr")
+    n_lag_coarse = coarse_lagrange_vec.size
+    coarse_decomp = sla.splu(coarse_sym_matrix)
+    del (
+        coarse_sym_matrix,
+        coarse_lagrange_vec,
+        coarse_lagrange_mat,
+        symmetric_matrices_coarse,
+    )
+
+    antisymmetric_operator = cast(
+        sp.csr_array, sp.block_diag(antisymmetric_matrices_fine, format="csr")
+    )
+    del antisymmetric_matrices_fine
+
+    projector = cast(sp.csr_array, sp.block_diag(projectors, format="csr"))
+    del projectors
+
+    fine_scale_dofs = _compute_fine_scale_dofs(
+        antisymmetric_operator,
+        projector,
+        fine_decomp,
+        coarse_decomp,
+        residual,
+        n_lag_fine,
+        n_lag_coarse,
+        max_iters,
+        atol,
+        rtol,
+    )
+
+    unknown_index = system.unknown_forms.index(unknown_target)
+    for idx_leaf, (fine_space, element_solution, coarse_space) in enumerate(
+        zip(higher_order_spaces, projected_solution, element_fem_spaces, strict=True)
+    ):
+        local_dofs = fine_scale_dofs[fine_offsets[idx_leaf : idx_leaf + 1]]
+        element_orders = coarse_space.orders
+
+        offset = system.unknown_forms.form_offset(unknown_index, *element_orders)
+        count = system.unknown_forms.form_size(unknown_index, *element_orders)
+        target_dofs = local_dofs[offset : offset + count]
+
+        rule_1 = fine_space.basis_xi.rule
+        rule_2 = fine_space.basis_eta.rule
+
+        reconstructed_error = reconstruct(
+            fine_space,
+            unknown_target.order,
+            target_dofs,
+            rule_1.nodes[None, :],
+            rule_2.nodes[:, None],
+        )
+
+        jac = jacobian(fine_space.corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
+        det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
+        weights = rule_1.weights[None, :] * rule_2.weights[:, None] * det
+
+        reconstructed_form = reconstruct(
+            fine_space,
+            unknown_target.order,
+            element_solution[offset : offset + count],
+            rule_1.nodes[None, :],
+            rule_2.nodes[:, None],
+        )
+
+        error_l2, h_cost = compute_legendre_error_estimates(
+            *coarse_space.orders,
+            np.astype(rule_1.nodes, np.float64, copy=False),
+            np.astype(rule_2.nodes, np.float64, copy=False),
+            weights,
+            reconstructed_form,
+            reconstructed_error,
+        )
+
+        href_cost[idx_leaf] = np.abs(h_cost)
+        element_error[idx_leaf] = error_l2
 
     return element_error, href_cost

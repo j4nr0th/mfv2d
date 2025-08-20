@@ -766,7 +766,7 @@ def add_system_constraints(
     boundary_conditions: Sequence[BoundaryCondition2DSteady],
     leaf_indices: Sequence[int],
     element_offset: npt.NDArray[np.uint32],
-    linear_vectors: Sequence[npt.NDArray[np.float64]],
+    linear_vectors: Sequence[npt.NDArray[np.float64]] | None,
 ) -> tuple[sp.csr_array | None, npt.NDArray[np.float64]]:
     """Compute constraints for the system and vectors with weak boundary conditions."""
     constrained_form_constaints: dict[KFormUnknown, Constraint] = dict()
@@ -849,8 +849,9 @@ def add_system_constraints(
             ic += 1
 
     # Weak BC constraints/additions
-    for ec in weak_bc_constraints:
-        linear_vectors[ec.i_e][ec.dofs] += ec.coeffs
+    if linear_vectors is not None:
+        for ec in weak_bc_constraints:
+            linear_vectors[ec.i_e][ec.dofs] += ec.coeffs
 
     if constraint_coef:
         lagrange_mat = sp.csr_array(

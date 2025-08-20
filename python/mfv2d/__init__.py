@@ -29,6 +29,7 @@ from mfv2d.refinement import (
     ErrorEstimateL2OrderReduction as ErrorEstimateL2OrderReduction,
 )
 from mfv2d.refinement import ErrorEstimateLocalInverse as ErrorEstimateLocalInverse
+from mfv2d.refinement import ErrorEstimateVMS as ErrorEstimateVMS
 from mfv2d.refinement import RefinementLimitElementCount as RefinementLimitElementCount
 from mfv2d.refinement import RefinementLimitErrorValue as RefinementLimitErrorValue
 from mfv2d.refinement import RefinementLimitUnknownCount as RefinementLimitUnknownCount

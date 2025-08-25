@@ -110,7 +110,7 @@ MFV2D_INTERNAL
 void matrix_add_diagonal_inplace(const matrix_full_t *this, const double k);
 
 MFV2D_INTERNAL
-void invert_matrix(unsigned n, const double mat[static n * n], double buffer[restrict n * n], double out[n * n]);
+void invert_matrix(size_t n, const double mat[static n * n], double buffer[restrict n * n], double out[n * n]);
 
 /**
  * Computes the inverse of a square matrix and stores the result in a provided output matrix.
@@ -124,4 +124,11 @@ void invert_matrix(unsigned n, const double mat[static n * n], double buffer[res
 MFV2D_INTERNAL
 mfv2d_result_t matrix_full_invert(const matrix_full_t *this, matrix_full_t *p_out,
                                   const allocator_callbacks *allocator);
+
+MFV2D_INTERNAL
+PyObject *python_compute_matrix_inverse(PyObject *self, PyObject *arg);
+
+MFV2D_INTERNAL
+extern const char compute_matrix_inverse_docstr[];
+
 #endif // MATRIX_H

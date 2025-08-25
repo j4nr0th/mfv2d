@@ -894,6 +894,24 @@ class ElementFemSpace2D:
         """
         ...
 
+    @property
+    def jacobian(self) -> npt.NDArray[np.float64]:
+        r"""Jacobian components for the element at integration points.
+
+        These are returned as 2 by 2 matrices, with the elements in the following order:
+
+        - :math:`\mathbf{J}_{0, 0} = \frac{\mathrm{d} x}{\mathrm{d} \xi}`
+        - :math:`\mathbf{J}_{0, 1} = \frac{\mathrm{d} y}{\mathrm{d} \xi}`
+        - :math:`\mathbf{J}_{1, 0} = \frac{\mathrm{d} x}{\mathrm{d} \eta}`
+        - :math:`\mathbf{J}_{1, 1} = \frac{\mathrm{d} y}{\mathrm{d} \eta}`
+        """
+        ...
+
+    @property
+    def jacobian_determinant(self) -> npt.NDArray[np.float64]:
+        """Determinant of the Jacobian at the integration points."""
+        ...
+
 def compute_element_matrix(
     form_orders: _ElementFormSpecification,
     expressions: _TranslatedSystem2D,
@@ -972,7 +990,7 @@ def compute_element_projector(
     basis_in: Basis2D,
     basis_out: Basis2D,
     dual: bool = False,
-) -> tuple[npt.NDArray[np.float64]]:
+) -> tuple[npt.NDArray[np.float64], ...]:
     """Compute :math:`L^2` projection from one space to another.
 
     Projection takes DoFs from primal space of the first and takes
@@ -1000,6 +1018,23 @@ def compute_element_projector(
     -------
     tuple of square arrays
         Tuple where each entry is the respective projection matrix for that form.
+    """
+    ...
+
+def _compute_matrix_inverse(x: npt.ArrayLike, /) -> npt.NDArray[np.double]:
+    """Compute inverse of a matrix.
+
+    Parameters
+    ----------
+    x : array_like
+        Matrix to invert.
+
+    Returns
+    -------
+    array
+        Inverse of the matrix, which when multiplied with ``x`` should return
+        the identity matrix (or when accounting for numerical/rounding errors, be very
+        close to it).
     """
     ...
 

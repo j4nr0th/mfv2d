@@ -575,33 +575,49 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
             goto end;
         }
 
-        matrix_full_t mass;
-        switch (order)
-        {
-        case FORM_ORDER_0:
-            res = compute_mass_matrix_node_double(fem_space_out, fem_space_out, &mass, &SYSTEM_ALLOCATOR);
-            break;
-
-        case FORM_ORDER_1:
-            res = compute_mass_matrix_edge_double(fem_space_out, fem_space_out, &mass, &SYSTEM_ALLOCATOR);
-            break;
-
-        case FORM_ORDER_2:
-            res = compute_mass_matrix_surf_double(fem_space_out, fem_space_out, &mass, &SYSTEM_ALLOCATOR);
-            break;
-        }
-
-        if (res != MFV2D_SUCCESS)
-        {
-            PyErr_Format(PyExc_RuntimeError, "Could not compute mass matrix for order %d, error code %s.", order,
-                         mfv2d_result_str(res));
-            deallocate(&SYSTEM_ALLOCATOR, mat.data);
-            goto end;
-        }
-
         matrix_full_t out_mat;
         if (!dual)
         {
+
+            matrix_full_t mass;
+            switch (order)
+            {
+            case FORM_ORDER_0:
+                res = compute_mass_matrix_node(fem_space_out, &mass, &SYSTEM_ALLOCATOR);
+                break;
+
+            case FORM_ORDER_1:
+                res = compute_mass_matrix_edge(fem_space_out, &mass, &SYSTEM_ALLOCATOR);
+                break;
+
+            case FORM_ORDER_2:
+                res = compute_mass_matrix_surf(fem_space_out, &mass, &SYSTEM_ALLOCATOR);
+                break;
+            }
+
+            if (res != MFV2D_SUCCESS)
+            {
+                PyErr_Format(PyExc_RuntimeError, "Could not compute mass matrix for order %d, error code %s.", order,
+                             mfv2d_result_str(res));
+                deallocate(&SYSTEM_ALLOCATOR, mat.data);
+                goto end;
+            }
+
+            if (order == FORM_ORDER_1)
+            {
+                printf("Mass matrix for form %s:\n[", form_order_str(order));
+                for (unsigned i = 0; i < mass.base.rows; ++i)
+                {
+                    printf("[");
+                    for (unsigned j = 0; j < mass.base.cols; ++j)
+                    {
+                        const double v = mass.data[i * mass.base.cols + j];
+                        printf(" %.15f,", v);
+                    }
+                    printf("],\n ");
+                }
+                printf("\r]\n");
+            }
 
             matrix_full_t inv_mat;
             res = matrix_full_invert(&mass, &inv_mat, &SYSTEM_ALLOCATOR);

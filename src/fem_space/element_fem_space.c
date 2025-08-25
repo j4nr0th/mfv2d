@@ -169,6 +169,48 @@ static PyObject *element_fem_space_2d_get_order_2(const element_fem_space_2d_t *
     return PyLong_FromLong(self->basis_eta->order);
 }
 
+static PyObject *element_fem_space_2d_get_jacobian(const element_fem_space_2d_t *self, void *Py_UNUSED(closure))
+{
+    const npy_intp dims[4] = {self->basis_eta->integration_rule->order + 1, self->basis_xi->integration_rule->order + 1,
+                              2, 2};
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(4, dims, NPY_DOUBLE);
+    if (out == NULL)
+        return NULL;
+    double *const out_data = (double *)PyArray_DATA(out);
+    for (npy_intp i = 0; i < dims[0]; ++i)
+    {
+        for (npy_intp j = 0; j < dims[1]; ++j)
+        {
+            out_data[4 * (i * dims[0] + j) + 0] = self->fem_space->jacobian[i * dims[0] + j].j00;
+            out_data[4 * (i * dims[0] + j) + 1] = self->fem_space->jacobian[i * dims[0] + j].j01;
+            out_data[4 * (i * dims[0] + j) + 2] = self->fem_space->jacobian[i * dims[0] + j].j10;
+            out_data[4 * (i * dims[0] + j) + 3] = self->fem_space->jacobian[i * dims[0] + j].j11;
+        }
+    }
+
+    return (PyObject *)out;
+}
+
+static PyObject *element_fem_space_2d_get_jacobian_determinant(const element_fem_space_2d_t *self,
+                                                               void *Py_UNUSED(closuere))
+{
+    const npy_intp dims[2] = {self->basis_eta->integration_rule->order + 1,
+                              self->basis_xi->integration_rule->order + 1};
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+    if (out == NULL)
+        return NULL;
+    double *const out_data = (double *)PyArray_DATA(out);
+    for (npy_intp i = 0; i < dims[0]; ++i)
+    {
+        for (npy_intp j = 0; j < dims[1]; ++j)
+        {
+            out_data[j + i * dims[0]] = self->fem_space->jacobian[j + i * dims[0]].det;
+        }
+    }
+
+    return (PyObject *)out;
+}
+
 static PyGetSetDef element_fem_space_2d_getsets[] = {
     {
         .name = "mass_node",
@@ -256,6 +298,27 @@ static PyGetSetDef element_fem_space_2d_getsets[] = {
         .get = (getter)element_fem_space_2d_get_order_2,
         .doc = "int : Order of the basis in the second dimension.",
         .set = NULL,
+        .closure = NULL,
+    },
+    {
+        .name = "jacobian",
+        .get = (void *)element_fem_space_2d_get_jacobian,
+        .set = NULL,
+        .doc = "(M, N, 2, 2) array : Jacobian components for the element at integration points.\n"
+               "\n"
+               "These are returned in the following order:\n"
+               "\n"
+               "- :math:`\\mathbf{J}_{0, 0} = \\frac{\\mathrm{d} x}{\\mathrm{d} \\xi}`\n"
+               "- :math:`\\mathbf{J}_{0, 1} = \\frac{\\mathrm{d} y}{\\mathrm{d} \\xi}`\n"
+               "- :math:`\\mathbf{J}_{1, 0} = \\frac{\\mathrm{d} x}{\\mathrm{d} \\eta}`\n"
+               "- :math:`\\mathbf{J}_{1, 1} = \\frac{\\mathrm{d} y}{\\mathrm{d} \\eta}`\n",
+        .closure = NULL,
+    },
+    {
+        .name = "jacobian_determinant",
+        .get = (void *)element_fem_space_2d_get_jacobian_determinant,
+        .set = NULL,
+        .doc = "(M, N) array : Determinant of the Jacobian at the integration points.",
         .closure = NULL,
     },
     {0}, // Sentilel

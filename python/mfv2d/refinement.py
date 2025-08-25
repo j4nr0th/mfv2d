@@ -1369,10 +1369,12 @@ def _fine_scale_greens_function(
     """Apply the fine-scale Green's function to the vector."""
     result_fine = fine_sym_decomp.solve(np.pad(x, (0, fine_padding)))[:-fine_padding]
     result_coarse = (
-        coarse_sym_decomp.solve(np.pad(projector @ x, (0, coarse_padding)))[
-            :-coarse_padding
-        ]
-        @ projector
+        projector
+        @ (
+            coarse_sym_decomp.solve(np.pad(x @ projector, (0, coarse_padding)))[
+                :-coarse_padding
+            ]
+        )
     )
     result = result_fine - result_coarse
     return result
@@ -1460,13 +1462,15 @@ def error_estimate_with_vms(
             coarse_forcing -= compute_element_vector(
                 system.unknown_forms, compiled.rhs_codes, element_space, element_solution
             )
+        pv = compute_element_projector(  # TODO: Check why we get NANs
+            system.unknown_forms,
+            higher_space.corners,
+            element_space.basis_2d,
+            higher_space.basis_2d,
+        )
+
         projector_primal = sp.block_diag(
-            compute_element_projector(
-                system.unknown_forms,
-                higher_space.corners,
-                element_space.basis_2d,
-                higher_space.basis_2d,
-            ),
+            pv,
             format="csr",
         )
         projectors.append(cast(sp.csr_array, projector_primal))
@@ -1504,6 +1508,7 @@ def error_estimate_with_vms(
             )
         )
 
+    mesh.uniform_p_change(recon_order, recon_order)
     fine_offsets = np.cumsum(
         [
             0,
@@ -1513,16 +1518,7 @@ def error_estimate_with_vms(
             ),
         ]
     )
-    coarse_offsets = np.cumsum(
-        [
-            0,
-            *(
-                system.unknown_forms.total_size(*mesh.get_leaf_orders(i_leaf))
-                for i_leaf in leaf_indices
-            ),
-        ]
-    )
-    mesh.uniform_p_change(recon_order, recon_order)
+
     fine_lagrange_mat, fine_lagrange_vec = add_system_constraints(
         system,
         mesh,
@@ -1551,6 +1547,15 @@ def error_estimate_with_vms(
     n_lag_fine = fine_lagrange_vec.size
     del (fine_sym_matrix, fine_lagrange_vec, fine_lagrange_mat, symmetric_matrices_fine)
 
+    coarse_offsets = np.cumsum(
+        [
+            0,
+            *(
+                system.unknown_forms.total_size(*mesh.get_leaf_orders(i_leaf))
+                for i_leaf in leaf_indices
+            ),
+        ]
+    )
     coarse_lagrange_mat, coarse_lagrange_vec = add_system_constraints(
         system,
         mesh,

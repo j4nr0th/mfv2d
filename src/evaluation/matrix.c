@@ -389,7 +389,7 @@ mfv2d_result_t matrix_full_invert(const matrix_full_t *this, matrix_full_t *p_ou
  * @param out Where to write the resulting inverse matrix to. Can be equal to ``mat``.
  */
 MFV2D_INTERNAL
-void invert_matrix(const unsigned n, const double mat[static n * n], double buffer[restrict n * n], double out[n * n])
+void invert_matrix(const size_t n, const double mat[static n * n], double buffer[restrict n * n], double out[n * n])
 {
     for (uint32_t i = 0; i < n; ++i)
     {
@@ -458,3 +458,52 @@ void invert_matrix(const unsigned n, const double mat[static n * n], double buff
         }
     }
 }
+
+MFV2D_INTERNAL
+PyObject *python_compute_matrix_inverse(PyObject *Py_UNUSED(self), PyObject *arg)
+{
+    PyArrayObject *const array =
+        (PyArrayObject *)PyArray_FROMANY(arg, NPY_DOUBLE, 2, 2, (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED));
+    if (!array)
+        return NULL;
+
+    const unsigned rows = PyArray_DIM(array, 0);
+    const unsigned cols = PyArray_DIM(array, 1);
+    if (rows != cols)
+    {
+        PyErr_SetString(PyExc_ValueError, "Matrix must be square");
+        return NULL;
+    }
+
+    const double *const data = (const double *)PyArray_DATA(array);
+    const npy_intp dims[2] = {rows, cols};
+    PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+    if (!out)
+    {
+        Py_DECREF(array);
+        return NULL;
+    }
+
+    double *const buffer = allocate(&SYSTEM_ALLOCATOR, sizeof(*buffer) * rows * cols);
+    invert_matrix(rows, data, buffer, PyArray_DATA(out));
+    deallocate(&SYSTEM_ALLOCATOR, buffer);
+    Py_DECREF(array);
+    return (PyObject *)out;
+}
+
+MFV2D_INTERNAL
+const char compute_matrix_inverse_docstr[] =
+    "_compute_matrix_inverse(x: numpy.typing.ArrayLike, /) -> numpy.typing.NDArray[numpy.double]\n"
+    "Compute inverse of a matrix.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : array_like\n"
+    "Matrix to invert.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "array\n"
+    "Inverse of the matrix, which when multiplied with ``x`` should return\n"
+    "the identity matrix (or when accounting for numerical/rounding errors, be very\n"
+    "close to it).\n";

@@ -115,6 +115,12 @@ static PyMethodDef module_methods[] = {
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = compute_integrating_fields_docstring,
     },
+    {
+        .ml_name = "_compute_matrix_inverse",
+        .ml_meth = (void *)python_compute_matrix_inverse,
+        .ml_flags = METH_O,
+        .ml_doc = compute_matrix_inverse_docstr,
+    },
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

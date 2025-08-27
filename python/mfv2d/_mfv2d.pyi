@@ -1038,6 +1038,28 @@ def _compute_matrix_inverse(x: npt.ArrayLike, /) -> npt.NDArray[np.double]:
     """
     ...
 
+def _solve_linear_system(
+    mat: npt.ArrayLike, rhs: npt.ArrayLike, /
+) -> npt.NDArray[np.double]:
+    """Solve a linear system.
+
+    Parameters
+    ----------
+    x : array_like
+        System matrix.
+
+    rhs : array_like
+        Right side of the syste
+
+    Returns
+    -------
+    array
+        Matrix/vector, which when pre-multiplied with the system matrix
+        results in a vector equal to the ``rhs``, after accounting for
+        rounding errors.
+    """
+    ...
+
 _ParameterType = ParamSpec("_ParameterType")
 
 class Mesh:

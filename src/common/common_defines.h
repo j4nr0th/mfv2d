@@ -34,10 +34,10 @@
                     exit(EXIT_FAILURE), 1))
 #else
 #ifdef __GNUC__
-#define ASSUME(condition, message) __assume(condition)
+#define ASSUME(condition, message, ...) __assume(condition)
 #endif
 #ifndef ASSERT
-#define ASSERT(condition, message) 0
+#define ASSERT(condition, message, ...) (0)
 #endif
 #endif
 #endif

@@ -578,7 +578,6 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
         matrix_full_t out_mat;
         if (!dual)
         {
-
             matrix_full_t mass;
             switch (order)
             {
@@ -601,22 +600,6 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
                              mfv2d_result_str(res));
                 deallocate(&SYSTEM_ALLOCATOR, mat.data);
                 goto end;
-            }
-
-            if (order == FORM_ORDER_1)
-            {
-                printf("Mass matrix for form %s:\n[", form_order_str(order));
-                for (unsigned i = 0; i < mass.base.rows; ++i)
-                {
-                    printf("[");
-                    for (unsigned j = 0; j < mass.base.cols; ++j)
-                    {
-                        const double v = mass.data[i * mass.base.cols + j];
-                        printf(" %.15f,", v);
-                    }
-                    printf("],\n ");
-                }
-                printf("\r]\n");
             }
 
             matrix_full_t inv_mat;

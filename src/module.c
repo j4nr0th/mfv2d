@@ -121,6 +121,12 @@ static PyMethodDef module_methods[] = {
         .ml_flags = METH_O,
         .ml_doc = compute_matrix_inverse_docstr,
     },
+    {
+        .ml_name = "_solve_linear_system",
+        .ml_meth = (void *)python_solve_linear_system,
+        .ml_flags = METH_VARARGS,
+        .ml_doc = solve_linear_system_docstr,
+    },
     {NULL, NULL, 0, NULL}, // sentinel
 };
 

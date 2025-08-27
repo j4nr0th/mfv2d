@@ -719,7 +719,6 @@ static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(self), PyObject *const 
         }
         if (svec_parse_merge_mode(kwarg_value, &merge_mode) < 0)
         {
-            printf("On line %u\n", __LINE__);
             PyErr_Format(PyExc_ValueError, "Invalid merge mode '%s'.", kwarg_value);
             return NULL;
         }
@@ -756,7 +755,6 @@ static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(self), PyObject *const 
 
     if (nargs == 1)
     {
-        printf("On line %u\n", __LINE__);
         return PyObject_CallMethod(args[0], "__array__", NULL);
     }
 

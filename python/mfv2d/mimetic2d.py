@@ -1030,7 +1030,7 @@ def bilinear_interpolate(
 
 def element_dual_dofs(
     order: UnknownFormOrder,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
     function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
 ) -> npt.NDArray[np.float64]:
     r"""Compute the dual degrees of freedom (projection) of the function on the element.
@@ -1089,8 +1089,8 @@ def element_dual_dofs(
     array
         Array with dual degrees of freedom.
     """
-    corners = element_cache.corners
-    basis = element_cache.basis_2d
+    corners = element_space.corners
+    basis = element_space.basis_2d
     ((x0, y0), (x1, y1), (x2, y2), (x3, y3)) = corners
     nds_xi = basis.basis_xi.rule.nodes[None, :]
     nds_eta = basis.basis_eta.rule.nodes[:, None]
@@ -1153,7 +1153,7 @@ def element_dual_dofs(
 
 def element_primal_dofs(
     order: UnknownFormOrder,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
     function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
 ) -> npt.NDArray[np.float64]:
     r"""Compute the primal degrees of freedom of projection of a function on the element.
@@ -1188,10 +1188,10 @@ def element_primal_dofs(
     array
         Array with primal degrees of freedom.
     """
-    dofs = element_dual_dofs(order, element_cache, function)
-    mat = element_cache.mass_from_order(order, inverse=True)
+    dofs = element_dual_dofs(order, element_space, function)
+    mat = element_space.mass_from_order(order, inverse=True)
     assert np.allclose(
-        mat, np.linalg.inv(element_cache.mass_from_order(order, inverse=False))
+        mat, np.linalg.inv(element_space.mass_from_order(order, inverse=False))
     )
 
     return np.astype(mat @ dofs, np.float64, copy=False)

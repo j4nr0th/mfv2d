@@ -25,8 +25,8 @@ from mfv2d.solve_system import (
     SystemSettings,
     TimeSettings,
     compute_element_dual,
+    compute_element_dual_from_primal,
     compute_element_primal,
-    compute_element_primal_to_dual,
     compute_linear_system,
     find_time_carry_indices,
     non_linear_solve_run,
@@ -143,12 +143,12 @@ def solve_system_2d(
 
     for leaf_idx in leaf_indices:
         order_1, order_2 = mesh.get_leaf_orders(leaf_idx)
-        element_cache = ElementFemSpace2D(
+        element_space = ElementFemSpace2D(
             cache_2d.get_basis2d(order_1, order_2),
             np.astype(mesh.get_leaf_corners(leaf_idx), np.float64, copy=False),
         )
 
-        element_fem_spaces.append(element_cache)
+        element_fem_spaces.append(element_space)
         element_sizes.append(system.unknown_forms.total_size(order_1, order_2))
 
     _element_offsets = np.pad(np.cumsum(element_sizes), (1, 0))
@@ -307,10 +307,9 @@ def solve_system_2d(
             iters[time_index] = iter_cnt
             projected_solution = np.concatenate(
                 [
-                    compute_element_primal_to_dual(
+                    compute_element_dual_from_primal(
                         system.unknown_forms,
                         new_solution[_element_offsets[ie] : _element_offsets[ie + 1]],
-                        *mesh.get_leaf_orders(leaf_idx),
                         element_fem_spaces[ie],
                     )
                     for ie, leaf_idx in enumerate(leaf_indices)

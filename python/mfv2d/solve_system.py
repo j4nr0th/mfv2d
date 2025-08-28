@@ -79,7 +79,7 @@ def rhs_2d_element_projection(
 def _extract_rhs_2d(
     proj: Sequence[tuple[float, KExplicit]],
     weight: KWeight,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
 ) -> npt.NDArray[np.float64]:
     """Extract the rhs resulting from element projections.
 
@@ -106,7 +106,7 @@ def _extract_rhs_2d(
     """
     # Create empty vector into which to accumulate
     vec = np.zeros(
-        weight.order.full_unknown_count(*element_cache.orders),
+        weight.order.full_unknown_count(*element_space.orders),
         np.float64,
     )
 
@@ -115,7 +115,7 @@ def _extract_rhs_2d(
         if not isinstance(f, KElementProjection):
             continue
 
-        rhs = rhs_2d_element_projection(f, element_cache)
+        rhs = rhs_2d_element_projection(f, element_space)
         if k != 1.0:
             rhs *= k
         vec += rhs
@@ -140,7 +140,7 @@ def compute_element_rhs(
     system : KFormSystem
         System for which to compute the rhs.
 
-    element_caches : FemCache
+    element_spaces : FemCache
         Cache from which to get the basis from.
 
     Returns
@@ -296,25 +296,23 @@ def compute_element_primal(
     return primal
 
 
-def compute_element_primal_to_dual(
+def compute_element_dual_from_primal(
     form_specs: ElementFormSpecification,
     primal: npt.NDArray[np.float64],
-    order_1: int,
-    order_2: int,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
 ) -> npt.NDArray[np.float64]:
-    """Compute primal dofs from dual."""
+    """Compute dual dofs from primal."""
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
     dual = np.empty_like(primal)
     for i_form in range(len(form_specs)):
-        cnt = form_specs.form_size(i_form, order_1, order_2)
+        cnt = form_specs.form_size(i_form, *element_space.orders)
         v = primal[offset : offset + cnt]
         order = form_specs[i_form][1]
         if order in mats:
             m = mats[order]
         else:
-            m = element_cache.mass_from_order(order, inverse=False)
+            m = element_space.mass_from_order(order, inverse=False)
             mats[order] = m
 
         dual[offset : offset + cnt] = m @ v
@@ -322,6 +320,32 @@ def compute_element_primal_to_dual(
         offset += cnt
 
     return dual
+
+
+def compute_element_primal_from_dual(
+    form_specs: ElementFormSpecification,
+    dual: npt.NDArray[np.float64],
+    element_space: ElementFemSpace2D,
+) -> npt.NDArray[np.float64]:
+    """Compute primal dofs from dual."""
+    offset = 0
+    mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
+    primal = np.empty_like(dual)
+    for i_form in range(len(form_specs)):
+        cnt = form_specs.form_size(i_form, *element_space.orders)
+        v = dual[offset : offset + cnt]
+        order = form_specs[i_form][1]
+        if order in mats:
+            m = mats[order]
+        else:
+            m = element_space.mass_from_order(order, inverse=True)
+            mats[order] = m
+
+        primal[offset : offset + cnt] = m @ v
+
+        offset += cnt
+
+    return primal
 
 
 def non_linear_solve_run(

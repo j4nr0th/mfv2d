@@ -951,7 +951,7 @@ def compute_element_matrix(
 def compute_element_vector(
     form_orders: _ElementFormSpecification,
     expressions: _TranslatedSystem2D,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
     degrees_of_freedom: npt.NDArray[np.float64],
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:

@@ -1545,7 +1545,12 @@ def error_estimate_with_vms(
         fine_sym_matrix = sp.block_diag(symmetric_matrices_fine, format="csr")
     fine_decomp = sla.splu(fine_sym_matrix)
     n_lag_fine = fine_lagrange_vec.size
-    del (fine_sym_matrix, fine_lagrange_vec, fine_lagrange_mat, symmetric_matrices_fine)
+    del (
+        fine_sym_matrix,
+        fine_lagrange_vec,
+        fine_lagrange_mat,
+        symmetric_matrices_fine,
+    )
 
     coarse_offsets = np.cumsum(
         [
@@ -1615,7 +1620,10 @@ def error_estimate_with_vms(
 
         offset = system.unknown_forms.form_offset(unknown_index, *element_orders)
         count = system.unknown_forms.form_size(unknown_index, *element_orders)
-        target_dofs = local_dofs[offset : offset + count]
+        target_dofs = (
+            fine_space.mass_from_order(unknown_target.order, inverse=True)
+            @ local_dofs[offset : offset + count]
+        )
 
         rule_1 = fine_space.basis_xi.rule
         rule_2 = fine_space.basis_eta.rule

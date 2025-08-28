@@ -13,17 +13,9 @@ import pyvista as pv
 import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
-from mfv2d._mfv2d import (
-    # Basis2D,
-    ElementFemSpace2D,
-    Mesh,
-    # compute_element_matrix,
-    # compute_element_projector,
-)
-
-# from mfv2d.boundary import BoundaryCondition2DSteady
+from mfv2d._mfv2d import ElementFemSpace2D, Mesh
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KEquation  # ,  KFormUnknown
+from mfv2d.kform import KEquation
 from mfv2d.mimetic2d import FemCache
 from mfv2d.progress import HistogramFormat
 from mfv2d.refinement import RefinementSettings, perform_mesh_refinement
@@ -35,9 +27,7 @@ from mfv2d.solve_system import (
     compute_element_dual,
     compute_element_primal,
     compute_element_primal_to_dual,
-    # _add_system_constraints,
     compute_linear_system,
-    # compute_element_rhs,
     find_time_carry_indices,
     non_linear_solve_run,
     reconstruct_mesh_from_solution,
@@ -120,7 +110,7 @@ def solve_system_2d(
             )
 
     # Make element matrices and vectors
-    cache_2d = FemCache(order_difference=2)
+    cache_2d = FemCache(order_difference=system_settings.over_integration_order)
 
     # Create modified system to make it work with time marching.
     if time_settings is not None:
@@ -492,149 +482,3 @@ def update_system_for_time_march(
             )
 
     return KFormSystem(*new_equations)
-
-
-# def do_vms(
-#     mesh: Mesh,
-#     unknown_ordering: UnknownOrderings,
-#     leaf_indices: Sequence[int],
-#     basis_cache: FemCache,
-#     element_fem_spaces: Sequence[ElementFemSpace2D],
-#     order_diff: int,
-#     boundary_conditions: Sequence[BoundaryCondition2DSteady],
-#     constrained_forms: Sequence[tuple[float, KFormUnknown]],
-#     original_system: KFormSystem,
-#     symmetric_system: KFormSystem,
-#     antisymmetric_system: KFormSystem,
-#     coarse_forcing: npt.NDArray[np.float64],
-#     coarse_solutions: Sequence[npt.NDArray[np.float64]],
-#     coarse_lagrange_mat: None | sp.csr_array,
-# ):
-#     """Do the VMS here."""
-#     fine_fem_spaces = [
-#         ElementFemSpace2D(
-#             Basis2D(
-#                 basis_cache.get_basis1d(element_space.basis_xi.order + order_diff),
-#                 basis_cache.get_basis1d(element_space.basis_eta.order + order_diff),
-#             ),
-#             element_space.corners,
-#         )
-#         for element_space in element_fem_spaces
-#     ]
-
-#     fine_dof_offsets, fine_element_total_dof_counts, fine_element_offset = (
-#         _compute_offsets_and_sizes(mesh, unknown_ordering, leaf_indices, order_diff)
-#     )
-
-#     compiled_symmetric = CompiledSystem(symmetric_system)
-#     fine_linear_vectors = [
-#         compute_element_rhs(original_system, cache) for cache in fine_fem_spaces
-#     ]
-#     fine_lagrange_mat, _ = _add_system_constraints(
-#         original_system,
-#         mesh,
-#         basis_cache,
-#         unknown_ordering,
-#         constrained_forms,
-#         boundary_conditions,
-#         leaf_indices,
-#         fine_dof_offsets,
-#         fine_element_offset,
-#         fine_linear_vectors,
-#     )
-
-#     fine_linear_matrices = [
-#         compute_element_matrix(
-#             unknown_ordering.form_orders,
-#             compiled_symmetric.linear_codes,
-#             tuple(),
-#             element_space,
-#         )
-#         for element_space in fine_fem_spaces
-#     ]
-
-#     element_projectors = [
-#         compute_element_projector(
-#             unknown_ordering.form_orders,
-#             fine_space.corners,
-#             fine_space.basis_2d,
-#             coarse_space.basis_2d,
-#         )
-#         for coarse_space, fine_space in zip(
-#             element_fem_spaces, fine_fem_spaces, strict=True
-#         )
-#     ]
-
-#     projection_matrix = cast(sp.csr_array, sp.block_diag(element_projectors, "csr"))
-
-#     compiled_antisymmetric = CompiledSystem(antisymmetric_system)
-#     fine_antisym_matrices = [
-#         compute_element_matrix(
-#             unknown_ordering.form_orders,
-#             compiled_antisymmetric.lhs_full,
-#             compiled_antisymmetric.vector_field_specs,
-#             element_space,
-#             proj @ sol,
-#         )
-#         for element_space, proj, sol in zip(
-#             fine_fem_spaces, element_projectors, coarse_solutions, strict=True
-#         )
-#     ]
-
-#     coarse_linear_matrices = [
-#         compute_element_matrix(
-#             unknown_ordering.form_orders,
-#             compiled_symmetric.linear_codes,
-#             tuple(),
-#             element_space,
-#         )
-#         for element_space in element_fem_spaces
-#     ]
-
-#     fine_forcing = np.concatenate(fine_linear_vectors)
-#     residual = fine_forcing - projection_matrix @ coarse_forcing
-#     # Assume Lagrange multipliers are satisfied.
-
-#     system_matrix_fine = sp.block_diag(fine_linear_matrices)
-
-#     system_matrix_coarse = sp.block_diag(coarse_linear_matrices)
-#     if coarse_lagrange_mat is not None:
-#         system_matrix_coarse = sp.block_array(
-#             [
-#                 [system_matrix_coarse, coarse_lagrange_mat.T],
-#                 [coarse_lagrange_mat, None],
-#             ]
-#         )
-
-#     fine_mass_inverse = sp.block_diag(
-#         [
-#             element_space.mass_from_order(order, inverse=True)
-#             for order in unknown_ordering.form_orders
-#             for element_space in fine_fem_spaces
-#         ]
-#     )
-#     fine_advection = sp.block_diag(fine_antisym_matrices)
-#     if fine_lagrange_mat is not None:
-#         n = fine_lagrange_mat.shape[0]
-#         residual = np.pad(residual, (0, n))
-#         system_matrix_fine = sp.block_array(
-#             [
-#                 [system_matrix_fine, fine_lagrange_mat.T],
-#                 [fine_lagrange_mat, None],
-#             ]
-#         )
-#         fine_mass_inverse.resize(
-#             fine_mass_inverse.shape[0] + n, fine_mass_inverse.shape[1] + n
-#         )
-#         fine_advection.resize(fine_advection.shape[0] + n, fine_advection.shape[1] + n)
-
-#     fine_part = sla.spsolve(system_matrix_fine, fine_mass_inverse)
-
-#     coarse_part = projection_matrix.T @ sla.spsolve(
-#         system_matrix_coarse, projection_matrix @ fine_mass_inverse
-#     )
-
-#     fine_scale_green = fine_part - coarse_part
-#     advected_green = fine_advection @ fine_scale_green
-#     return advected_green
-#     # sg_result = sla.spsolve(fine_mass_inverse)

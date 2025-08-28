@@ -1355,7 +1355,7 @@ def _compute_fine_scale_dofs(
         if max_du < max_u * rtol or max_du < atol:
             break
 
-    return u
+    return np.pad(u, (0, fine_padding))
 
 
 def _fine_scale_greens_function(
@@ -1610,8 +1610,8 @@ def error_estimate_with_vms(
     for idx_leaf, (fine_space, element_solution, coarse_space) in enumerate(
         zip(higher_order_spaces, projected_solution, element_fem_spaces, strict=True)
     ):
-        local_dofs = fine_scale_dofs[fine_offsets[idx_leaf : idx_leaf + 1]]
-        element_orders = coarse_space.orders
+        local_dofs = fine_scale_dofs[fine_offsets[idx_leaf] : fine_offsets[idx_leaf + 1]]
+        element_orders = fine_space.orders
 
         offset = system.unknown_forms.form_offset(unknown_index, *element_orders)
         count = system.unknown_forms.form_size(unknown_index, *element_orders)

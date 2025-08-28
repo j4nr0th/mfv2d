@@ -505,6 +505,11 @@ class SystemSettings:
 
     intial_conditions : Mapping of (KFormUnknown, Callable), optional
         Functions which give initial conditions for different forms.
+
+    over_integration_order : int, default: 3
+        The order by which the integration rule used to compute mass matrices of the
+        elements should be greater from the basis used. This is important if a specific
+        projection to a finer polynomial space is needed later.
     """
 
     system: KFormSystem
@@ -516,6 +521,7 @@ class SystemSettings:
         KFormUnknown,
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
     ] = field(default_factory=dict)
+    over_integration_order: int = 3
 
 
 @dataclass(frozen=True)

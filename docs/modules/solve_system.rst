@@ -51,10 +51,10 @@ of freedom to carry :func:`find_time_carry_indices` is used.
 
 With time marching element degrees of freedom have to often be mapped
 from primal to dual or the other way around. To support this,
-:func:`compute_element_primal` and :func:`compute_element_dual` can
+:func:`compute_element_primal_from_dual` and :func:`compute_element_dual` can
 be used.
 
-.. autofunction:: compute_element_primal
+.. autofunction:: compute_element_primal_from_dual
 
 .. autofunction:: compute_element_dual
 

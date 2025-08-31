@@ -43,6 +43,7 @@ def compute_legendre_coefficients(
     nodes_xi: npt.NDArray[np.float64],
     nodes_eta: npt.NDArray[np.float64],
     weighted_function: npt.NDArray[np.float64],
+    det: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.float64]:
     """Compute Legendre coefficients from function values at integration nodes.
 
@@ -55,7 +56,11 @@ def compute_legendre_coefficients(
         Order of the coefficients in the second direction.
 
     weighted_function : array
-        Product of function, integration weight, and Jacobian for all integration points.
+        Product of function and integration weight for all integration points
+        multiplied by the Jacobian determinant.
+
+    det : array
+        Determinant of the Jacobian.
 
     Returns
     -------
@@ -67,7 +72,8 @@ def compute_legendre_coefficients(
 
     rleg = np.sum(
         weighted_function[None, None, ...]
-        * (leg1[None, :, None, :] * leg2[:, None, :, None]),
+        * (leg1[None, :, None, :] * leg2[:, None, :, None])
+        / np.sqrt(det[None, ...]),
         axis=(-2, -1),
     )
     n1 = np.arange(order_1 + 1)
@@ -85,6 +91,7 @@ def compute_legendre_error_estimates(
     xi: npt.NDArray[np.float64],
     eta: npt.NDArray[np.float64],
     w: npt.NDArray[np.float64],
+    det: npt.NDArray[np.float64],
     u: npt.NDArray[np.float64],
     err: npt.NDArray[np.float64],
 ) -> tuple[float, float]:
@@ -105,7 +112,10 @@ def compute_legendre_error_estimates(
         Positions of integration nodes in the second direction.
 
     w : array
-        Values of integration weights pre-scaled by the Jacobian determinant.
+        Values of integration weights.
+
+    w : array
+        Values of the Jacobian determinant.
 
     u : array
         Solution values at the integration nodes.
@@ -125,19 +135,21 @@ def compute_legendre_error_estimates(
     if err.ndim == 3:
         err = np.linalg.norm(err, axis=-1)
         u = np.linalg.norm(u, axis=-1)
-    coeffs_err = compute_legendre_coefficients(order_1, order_2, xi, eta, err * w)
-    coeffs_u = compute_legendre_coefficients(order_1, order_2, xi, eta, u * w)
+    coeffs_err = compute_legendre_coefficients(
+        order_1, order_2, xi, eta, err * w * det, det
+    )
+    coeffs_u = compute_legendre_coefficients(order_1, order_2, xi, eta, u * w * det, det)
     norm = 4 / (
         (2 * np.arange(order_1 + 1) + 1)[None, :]
         * (2 * np.arange(order_2 + 1) + 1)[:, None]
     )
-    measure = coeffs_u * (coeffs_u + 2 * coeffs_err) / norm
+    measure = coeffs_u * (coeffs_u + 2 * coeffs_err) * norm
     estimate = (
-        np.sum(measure[order_1 // 2 :, order_2 // 2 :])
-        + np.sum(measure[order_1 // 2 :, : order_2 // 2])
-        + np.sum(measure[: order_1 // 2, order_2 // 2 :])
+        np.sum(measure[order_2 // 2 :, order_1 // 2 :])
+        + np.sum(measure[order_2 // 2 :, : order_1 // 2])
+        + np.sum(measure[: order_2 // 2, order_1 // 2 :])
     )
-    return np.sum(err**2 * w), np.abs(estimate)
+    return np.sum(err**2 * w * det), np.abs(estimate)
 
 
 class ErrorCalculationFunctionFull(Protocol):
@@ -1066,7 +1078,7 @@ def error_estimate_with_local_inversion(
 
         jac = jacobian(fine_space.corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
         det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
-        weights = rule_1.weights[None, :] * rule_2.weights[:, None] * det
+        weights = rule_1.weights[None, :] * rule_2.weights[:, None]
 
         reconstructed_form = reconstruct(
             fine_space,
@@ -1081,6 +1093,7 @@ def error_estimate_with_local_inversion(
             np.astype(rule_1.nodes, np.float64, copy=False),
             np.astype(rule_2.nodes, np.float64, copy=False),
             weights,
+            det,
             reconstructed_form,
             reconstructed_error,
         )
@@ -1185,7 +1198,7 @@ def error_estimate_with_order_reduction(
 
         jac = jacobian(corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
         det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
-        weights = rule_1.weights[None, :] * rule_2.weights[:, None] * det
+        weights = rule_1.weights[None, :] * rule_2.weights[:, None]
 
         reconstructed_form = reconstruct(
             element_space,
@@ -1201,6 +1214,7 @@ def error_estimate_with_order_reduction(
             np.astype(rule_1.nodes, np.float64, copy=False),
             np.astype(rule_2.nodes, np.float64, copy=False),
             weights,
+            det,
             reconstructed_form,
             reconstructed_error,
         )
@@ -1310,7 +1324,8 @@ def error_estimate_with_explicit_solution(
             order_2,
             np.astype(rule_1.nodes[None, :], np.float64, copy=False),
             np.astype(rule_2.nodes[:, None], np.float64, copy=False),
-            det * rule_1.weights[None, :] * rule_2.weights[:, None],
+            rule_1.weights[None, :] * rule_2.weights[:, None],
+            det,
             reconstructed_solution,
             np.asarray(exact_solution) - reconstructed_solution,
         )
@@ -1354,6 +1369,17 @@ def _compute_fine_scale_dofs(
         u = u_new
         if max_du < max_u * rtol or max_du < atol:
             break
+
+    # Sanity check
+    # error = agr - (
+    #     u
+    #     + advection_operator
+    #     @ _fine_scale_greens_function(
+    #         projector, fine_sym_decomp, coarse_sym_decomp, u, fine_padding,
+    # coarse_padding
+    #     )
+    # )
+    # # np.abs(error).max() should be small
 
     return np.pad(u, (0, fine_padding))
 
@@ -1462,7 +1488,7 @@ def error_estimate_with_vms(
             coarse_forcing -= compute_element_vector(
                 system.unknown_forms, compiled.rhs_codes, element_space, element_solution
             )
-        pv = compute_element_projector(  # TODO: Check why we get NANs
+        pv = compute_element_projector(
             system.unknown_forms,
             higher_space.corners,
             element_space.basis_2d,
@@ -1539,10 +1565,10 @@ def error_estimate_with_vms(
                 [sp.block_diag(symmetric_matrices_fine), fine_lagrange_mat.T],
                 [fine_lagrange_mat, None],
             ],
-            format="csr",
+            format="csc",
         )
     else:
-        fine_sym_matrix = sp.block_diag(symmetric_matrices_fine, format="csr")
+        fine_sym_matrix = sp.block_diag(symmetric_matrices_fine, format="csc")
     fine_decomp = sla.splu(fine_sym_matrix)
     n_lag_fine = fine_lagrange_vec.size
     del (
@@ -1577,10 +1603,10 @@ def error_estimate_with_vms(
                 [sp.block_diag(symmetric_matrices_coarse), coarse_lagrange_mat.T],
                 [coarse_lagrange_mat, None],
             ],
-            format="csr",
+            format="csc",
         )
     else:
-        coarse_sym_matrix = sp.block_diag(symmetric_matrices_coarse, format="csr")
+        coarse_sym_matrix = sp.block_diag(symmetric_matrices_coarse, format="csc")
     n_lag_coarse = coarse_lagrange_vec.size
     coarse_decomp = sla.splu(coarse_sym_matrix)
     del (
@@ -1638,7 +1664,7 @@ def error_estimate_with_vms(
 
         jac = jacobian(fine_space.corners, rule_1.nodes[None, :], rule_2.nodes[:, None])
         det = (jac[0][0] * jac[1][1]) - (jac[0][1] * jac[1][0])
-        weights = rule_1.weights[None, :] * rule_2.weights[:, None] * det
+        weights = rule_1.weights[None, :] * rule_2.weights[:, None]
 
         reconstructed_form = reconstruct(
             fine_space,
@@ -1653,6 +1679,7 @@ def error_estimate_with_vms(
             np.astype(rule_1.nodes, np.float64, copy=False),
             np.astype(rule_2.nodes, np.float64, copy=False),
             weights,
+            det,
             reconstructed_form,
             reconstructed_error,
         )

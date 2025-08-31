@@ -5,7 +5,16 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 import pytest
-from mfv2d._mfv2d import Basis1D, IntegrationRule1D, compute_gll, dlagrange1d, lagrange1d
+from mfv2d._mfv2d import (
+    Basis1D,
+    Basis2D,
+    ElementFemSpace2D,
+    IntegrationRule1D,
+    compute_gll,
+    dlagrange1d,
+    lagrange1d,
+)
+from mfv2d.kform import UnknownFormOrder
 
 
 @dataclass(frozen=True)
@@ -66,3 +75,26 @@ def test_old_basis(nb: int, nr: int) -> None:
     assert pytest.approx(new_basis.node) == old_basis.node
     assert pytest.approx(new_basis.edge) == old_basis.edge
     assert new_basis.order == old_basis.order
+
+
+@pytest.mark.parametrize(("nh", "nv"), ((1, 1), (2, 4), (4, 2), (3, 3), (8, 3)))
+def test_mass_matrix_inverses(nh: int, nv: int) -> None:
+    """Verify that mass matrix inverses are computed correctly."""
+    rng = np.random.default_rng(seed=0)
+
+    corners = np.array(
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)), np.float64
+    ) + rng.uniform(-0.1, +0.1, (4, 2))
+
+    space = ElementFemSpace2D(
+        Basis2D(
+            Basis1D(nh, IntegrationRule1D(nh + 1)), Basis1D(nv, IntegrationRule1D(nv + 1))
+        ),
+        corners,
+    )
+
+    for order in UnknownFormOrder:
+        fwd = space.mass_from_order(order, inverse=False)
+        bwd = space.mass_from_order(order, inverse=True)
+        n1, n2 = fwd.shape
+        assert pytest.approx(fwd @ bwd) == np.eye(n1, n2)

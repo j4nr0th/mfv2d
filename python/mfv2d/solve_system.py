@@ -270,32 +270,6 @@ def compute_element_dual(
     return np.concatenate(vecs)
 
 
-def compute_element_primal(
-    form_specs: ElementFormSpecification,
-    dual_dofs: npt.NDArray[np.float64],
-    element_space: ElementFemSpace2D,
-) -> npt.NDArray[np.float64]:
-    """Compute primal dofs from dual."""
-    offset = 0
-    mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
-    primal = np.empty_like(dual_dofs)
-    for i_form in range(len(form_specs)):
-        cnt = form_specs.form_size(i_form, *element_space.orders)
-        v = dual_dofs[offset : offset + cnt]
-        order = form_specs[i_form][1]
-        if order in mats:
-            m = mats[order]
-        else:
-            m = element_space.mass_from_order(order, inverse=True)
-            mats[order] = m
-
-        primal[offset : offset + cnt] = m @ v
-
-        offset += cnt
-
-    return primal
-
-
 def compute_element_dual_from_primal(
     form_specs: ElementFormSpecification,
     primal: npt.NDArray[np.float64],

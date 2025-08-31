@@ -2,7 +2,20 @@
 
 import numpy as np
 import pytest
-from mfv2d._mfv2d import compute_gll
+from mfv2d._mfv2d import (
+    Basis1D,
+    Basis2D,
+    ElementFemSpace2D,
+    IntegrationRule1D,
+    compute_gll,
+)
+from mfv2d.examples import unit_square_mesh
+from mfv2d.kform import KFormUnknown, UnknownFormOrder
+from mfv2d.mimetic2d import integrate_over_elements, jacobian, mesh_create, reconstruct
+from mfv2d.refinement import compute_legendre_error_estimates
+from mfv2d.solve_system import compute_element_dual, compute_element_primal_from_dual
+from mfv2d.system import ElementFormSpecification
+from scipy.integrate import dblquad
 
 
 @pytest.mark.parametrize("n", (1, 3, 5, 6, 8, 10, 20))
@@ -33,29 +46,84 @@ def test_independence(n: int):
         assert np.allclose(w, w1)
 
 
-#     from time import perf_counter
-#     from scipy.special import roots_legendre
-#     np.random.seed(2509)
-#     n = 100000
-#     counts = np.random.randint(3, 15, n)
-#     print(f"Reference time per call for {n} calls with random inputs.")
-#     t0 = perf_counter()
-#     for c in counts:
-#         del c
-#     t1 = perf_counter()
-#     t_ref = (t1 - t0) / n
-#     print(f"Reference time: {t_ref:e}s")
-#
-#     t0 = perf_counter()
-#     for c in counts:
-#         _, _ = compute_gll(c)
-#     t1 = perf_counter()
-#     t_jan = (t1 - t0) / n
-#     print(f"My time: {t_jan:e} s ({t_jan - t_ref: e})")
-#
-#     t0 = perf_counter()
-#     for c in counts:
-#         _, _ = roots_legendre(c)
-#     t1 = perf_counter()
-#     t_spy = (t1 - t0) / n
-#     print(f"Scipy: {t_spy:e} s ({t_spy - t_ref: e})")
+@pytest.mark.parametrize(("nh", "nv", "m"), ((3, 3, 10), (4, 5, 3), (6, 6, 4)))
+def test_mesh_2d_integrals(nh: int, nv: int, m: int) -> None:
+    """Check mesh integration works as good as could be expected."""
+    deformed_mesh = unit_square_mesh(
+        nh,
+        nv,
+        1,
+        deformation=lambda xi, eta: (
+            xi + 0.1 * np.sin(np.pi * xi) * np.sin(np.pi * eta),
+            eta - 0.1 * np.sin(np.pi * xi) * np.sin(np.pi * eta),
+        ),
+    )
+
+    def test_function(x, y):
+        """Function being tested."""
+        return x**m + y**m + x ** (m - 1) * y + y ** (m - 1) * x
+
+    integrals = integrate_over_elements(deformed_mesh, test_function, orders=m)
+    assert pytest.approx(integrals.sum()) == dblquad(test_function, -1, +1, -1, +1)[0]
+
+
+@pytest.mark.parametrize("m", range(1, 5))
+def test_error_measure(m: int) -> None:
+    """Check that the error measurement function works correctly."""
+    rng = np.random.default_rng(seed=0)
+    corners = np.array(
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)), np.float64
+    ) + rng.uniform(-0.1, +0.1, (4, 2))
+    form = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
+    form_specs = ElementFormSpecification(form)
+    element_space = ElementFemSpace2D(
+        Basis2D(
+            Basis1D(m, IntegrationRule1D(3 + m)),
+            Basis1D(m, IntegrationRule1D(3 + m)),
+        ),
+        corners,
+    )
+
+    def test_function(x, y):
+        return x**m + y**m + x ** (m - 1) * y + y ** (m - 1) * x
+
+    def test_function_squared(x, y):
+        return test_function(x, y) ** 2
+
+    dofs = compute_element_primal_from_dual(
+        form_specs,
+        compute_element_dual(form_specs, [test_function], element_space),
+        element_space,
+    )
+
+    mesh = mesh_create(m, corners, ((1, 2), (2, 3), (3, 4), (4, 1)), ((1, 2, 3, 4),))
+    real_integral_2 = integrate_over_elements(mesh, test_function_squared, 2 * m)
+
+    xi = element_space.basis_xi.rule.nodes[None, :]
+    eta = element_space.basis_eta.rule.nodes[:, None]
+
+    w = (
+        element_space.basis_xi.rule.weights[None, :]
+        * element_space.basis_eta.rule.weights[:, None]
+    )
+    (j00, j01), (j10, j11) = jacobian(corners, xi, eta)
+    det = j00 * j11 - j10 * j01
+
+    reconstructed = reconstruct(element_space, form.order, dofs, xi, eta)
+
+    zero_valued_form = np.zeros_like(reconstructed)
+    l2_norm, _ = compute_legendre_error_estimates(
+        m,
+        m,
+        np.astype(xi, np.float64, copy=False),
+        np.astype(eta, np.float64, copy=False),
+        w,
+        det,
+        zero_valued_form,
+        reconstructed,
+    )
+    assert pytest.approx(l2_norm) == real_integral_2[0]
+
+
+if __name__ == "__main__":
+    test_error_measure(8)

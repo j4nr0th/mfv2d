@@ -26,7 +26,7 @@ from mfv2d._mfv2d import (
     dlagrange1d,
     lagrange1d,
 )
-from mfv2d.kform import UnknownFormOrder
+from mfv2d.kform import Function2D, UnknownFormOrder
 
 
 # TODO: remake incidence into working for two different orders
@@ -1305,3 +1305,81 @@ def reconstruct(
         return np.array(out / det, np.float64, copy=None)
 
     raise ValueError(f"Order of the differential form {form_order} is not valid.")
+
+
+def integrate_over_elements(
+    mesh: Mesh,
+    function: Function2D,
+    orders: int | npt.ArrayLike | None = None,
+) -> npt.NDArray[np.float64]:
+    """Compute the integral of a function over each element of the mesh.
+
+    Parameters
+    ----------
+    mesh : Mesh
+        Mesh for which this is to be done.
+
+    function : Function2D
+        Function that is to be evaluated. It should return components as the
+        last dimension(s) of its output.
+
+    orders : int, 1D array_like, or 2D array_like, optional
+        Orders of each element that should be used to integrate the function
+        on elements. If not specified, orders of each element are used.
+
+    Returns
+    -------
+    array
+        Array with values of the integrals of the function over each element
+        in the mesh.
+    """
+    # Determine orders chosen
+    order_vals: npt.NDArray[np.int64] | None
+    if orders is not None:
+        if isinstance(orders, int):
+            order_vals = np.full((mesh.leaf_count, 2), orders, np.int64)
+        else:
+            order_vals = np.asarray(orders, np.int64)
+            if order_vals.ndim == 1:
+                order_vals = np.stack((order_vals, order_vals), axis=-1)
+            elif order_vals.ndim != 2:
+                raise ValueError(
+                    "Orders were not given as a 1D or 2D array, but instead had"
+                    f" {order_vals.ndim} dimensions."
+                )
+            if len(order_vals) != mesh.leaf_count:
+                raise ValueError(
+                    f"Orders array has {len(order_vals)} elements, but the mesh has"
+                    f" {mesh.leaf_count} leaf elements."
+                )
+    else:
+        order_vals = None
+
+    cache = FemCache(order_difference=0)
+    integrals: list[npt.ArrayLike] = list()
+    for ie, idx_leaf in enumerate(mesh.get_leaf_indices()):
+        order_1, order_2 = (
+            order_vals[ie] if order_vals is not None else mesh.get_leaf_orders(idx_leaf)
+        )
+        rule_1 = cache.get_integration_rule(order_1)
+        rule_2 = cache.get_integration_rule(order_2)
+
+        corners = mesh.get_leaf_corners(idx_leaf)
+        x = bilinear_interpolate(
+            corners[:, 0], rule_1.nodes[None, :], rule_2.nodes[:, None]
+        )
+        y = bilinear_interpolate(
+            corners[:, 1], rule_1.nodes[None, :], rule_2.nodes[:, None]
+        )
+        v = np.asarray(function(x, y))
+        (j00, j01), (j10, j11) = jacobian(
+            corners, rule_1.nodes[None, :], rule_2.nodes[:, None]
+        )
+        weights = (
+            (j00 * j11 - j10 * j01) * rule_1.weights[None, :] * rule_2.weights[:, None]
+        )
+
+        result = np.sum(weights * v, axis=(0, 1))
+        integrals.append(result)
+
+    return np.array(integrals, np.float64)

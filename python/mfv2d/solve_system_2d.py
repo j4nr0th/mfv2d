@@ -26,7 +26,7 @@ from mfv2d.solve_system import (
     TimeSettings,
     compute_element_dual,
     compute_element_dual_from_primal,
-    compute_element_primal,
+    compute_element_primal_from_dual,
     compute_linear_system,
     find_time_carry_indices,
     non_linear_solve_run,
@@ -165,7 +165,9 @@ def solve_system_2d(
 
             initial_vectors.append(dual_dofs)
             initial_solution.append(
-                compute_element_primal(system.unknown_forms, dual_dofs, element_space)
+                compute_element_primal_from_dual(
+                    system.unknown_forms, dual_dofs, element_space
+                )
             )
 
     if initial_solution:

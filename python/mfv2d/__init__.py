@@ -20,6 +20,7 @@ from mfv2d.kform import KWeight as KWeight
 from mfv2d.kform import UnknownFormOrder as UnknownFormOrder
 
 # Mimetic2D
+from mfv2d.mimetic2d import integrate_over_elements as integrate_over_elements
 from mfv2d.mimetic2d import mesh_create as mesh_create
 
 # Refinement settings

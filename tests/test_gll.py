@@ -123,7 +123,3 @@ def test_error_measure(m: int) -> None:
         reconstructed,
     )
     assert pytest.approx(l2_norm) == real_integral_2[0]
-
-
-if __name__ == "__main__":
-    test_error_measure(8)

@@ -43,10 +43,12 @@ from mfv2d.refinement import (
 )
 
 # Solve system
+from mfv2d.solve_system import ConvergenceSettings as ConvergenceSettings
 from mfv2d.solve_system import SolutionStatistics as SolutionStatistics
 from mfv2d.solve_system import SolverSettings as SolverSettings
 from mfv2d.solve_system import SystemSettings as SystemSettings
 from mfv2d.solve_system import TimeSettings as TimeSettings
+from mfv2d.solve_system import VMSSettings as VMSSettings
 
 # Actual solving
 from mfv2d.solve_system_2d import solve_system_2d as solve_system_2d

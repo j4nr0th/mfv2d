@@ -23,7 +23,7 @@ from mfv2d.solve_system import (
     ConvergenceSettings,
     SolutionStatistics,
     SolverSettings,
-    # SuyashGreenOperator,
+    SuyashGreenOperator,
     SystemSettings,
     TimeSettings,
     VMSSettings,
@@ -110,14 +110,14 @@ def solve_system_2d(
             )
 
         if (
-            vms_settings.antisymmetric_system.unknown_forms
+            vms_settings.nonsymmetric_system.unknown_forms
             != system_settings.system.unknown_forms
         ):
             raise ValueError(
                 "VMS settings specified a non-symmetric part which does not contain the"
                 " same forms in the matching order as the full system (specified "
                 "symmetric:"
-                f" {vms_settings.antisymmetric_system.unknown_forms}, full system "
+                f" {vms_settings.nonsymmetric_system.unknown_forms}, full system "
                 f"{system_settings.system.unknown_forms})."
             )
         if vms_settings.order_increase > system_settings.over_integration_order:
@@ -267,14 +267,6 @@ def solve_system_2d(
         )
         main_vec = np.concatenate((main_vec, lagrange_vec))
 
-    # TODO: Delet dis
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # # plt.imshow(main_mat.toarray())
-    # plt.spy(main_mat)
-    # plt.show()
-
     linear_matrix = sp.csc_array(main_mat)
     explicit_vec = main_vec
 
@@ -291,7 +283,7 @@ def solve_system_2d(
     resulting_grids: list[pv.UnstructuredGrid] = list()
 
     grid = reconstruct_mesh_from_solution(
-        system.unknown_forms, recon_order, element_fem_spaces, solution
+        system.unknown_forms, recon_order, element_fem_spaces, solution, None
     )
     grid.field_data["time"] = (0.0,)
     resulting_grids.append(grid)
@@ -307,6 +299,22 @@ def solve_system_2d(
     changes: npt.NDArray[np.float64]
     iters: npt.NDArray[np.uint32]
 
+    if vms_settings is not None:
+        sg_operator = SuyashGreenOperator(
+            system,
+            vms_settings,
+            element_fem_spaces,
+            cache_2d,
+            mesh,
+            leaf_indices,
+            constrained_forms,
+            boundary_conditions,
+        )
+    else:
+        sg_operator = None
+
+    fine_scales = None
+
     if time_settings is not None:
         nt = time_settings.nt
         dt = time_settings.dt
@@ -318,26 +326,30 @@ def solve_system_2d(
             assert old_solution_carry is not None and time_carry_term is not None
             current_carry = 2 / dt * old_solution_carry + time_carry_term
 
-            new_solution, global_lagrange, iter_cnt, max_residual = non_linear_solve_run(
-                max_iterations,
-                relax,
-                atol,
-                rtol,
-                print_residual,
-                system.unknown_forms,
-                element_fem_spaces,
-                compiled_system,
-                explicit_vec,
-                _element_offsets,
-                linear_element_matrices,
-                time_carry_index_array,
-                current_carry,
-                solution,
-                global_lagrange,
-                max_mag,
-                system_decomp,
-                lagrange_mat,
-                False,
+            new_solution, global_lagrange, iter_cnt, max_residual, fine_scales = (
+                non_linear_solve_run(
+                    max_iterations,
+                    relax,
+                    atol,
+                    rtol,
+                    print_residual,
+                    system.unknown_forms,
+                    element_fem_spaces,
+                    compiled_system,
+                    explicit_vec,
+                    _element_offsets,
+                    linear_element_matrices,
+                    time_carry_index_array,
+                    current_carry,
+                    solution,
+                    global_lagrange,
+                    max_mag,
+                    system_decomp,
+                    lagrange_mat,
+                    fine_scales,
+                    sg_operator,
+                    False,
+                )
             )
 
             changes[time_index] = float(max_residual[()])
@@ -369,7 +381,11 @@ def solve_system_2d(
                 # Prepare to build up the 1D Splines
 
                 grid = reconstruct_mesh_from_solution(
-                    system.unknown_forms, recon_order, element_fem_spaces, solution
+                    system.unknown_forms,
+                    recon_order,
+                    element_fem_spaces,
+                    solution,
+                    fine_scales,
                 )
                 grid.field_data["time"] = (float((time_index + 1) * dt),)
                 resulting_grids.append(grid)
@@ -380,29 +396,33 @@ def solve_system_2d(
                     f" residual of {max_residual:.5e}"
                 )
     else:
-        new_solution, global_lagrange, iter_cnt, changes = non_linear_solve_run(
-            max_iterations,
-            relax,
-            atol,
-            rtol,
-            print_residual,
-            system.unknown_forms,
-            element_fem_spaces,
-            compiled_system,
-            explicit_vec,
-            _element_offsets,
-            linear_element_matrices,
-            None,
-            None,
-            solution,
-            global_lagrange,
-            max_mag,
-            system_decomp,
-            lagrange_mat,
-            True,
+        new_solution, global_lagrange, iter_cnt, changes, fine_scales = (
+            non_linear_solve_run(
+                max_iterations,
+                relax,
+                atol,
+                rtol,
+                print_residual,
+                system.unknown_forms,
+                element_fem_spaces,
+                compiled_system,
+                explicit_vec,
+                _element_offsets,
+                linear_element_matrices,
+                None,
+                None,
+                solution,
+                global_lagrange,
+                max_mag,
+                system_decomp,
+                lagrange_mat,
+                fine_scales,
+                sg_operator,
+                True,
+            )
         )
 
-        changes = np.asarray(changes, np.float64)[: iter_cnt + 1]
+        changes = np.asarray(changes, np.float64)[:iter_cnt]
         iters = np.array((iter_cnt,), np.uint32)
 
         solution = new_solution
@@ -411,7 +431,7 @@ def solve_system_2d(
         # Prepare to build up the 1D Splines
 
         grid = reconstruct_mesh_from_solution(
-            system.unknown_forms, recon_order, element_fem_spaces, solution
+            system.unknown_forms, recon_order, element_fem_spaces, solution, fine_scales
         )
 
         resulting_grids.append(grid)

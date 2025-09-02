@@ -5,13 +5,16 @@ from functools import partial
 import numpy as np
 import pyvista as pv
 from mfv2d import (
-    ErrorEstimateVMS,
+    ConvergenceSettings,
+    # ErrorEstimateVMS,
     KFormSystem,
     KFormUnknown,
-    RefinementLimitElementCount,
-    RefinementSettings,
+    # RefinementLimitElementCount,
+    # RefinementSettings,
+    SolverSettings,
     SystemSettings,
     UnknownFormOrder,
+    VMSSettings,
     integrate_over_elements,
     solve_system_2d,
 )
@@ -73,7 +76,7 @@ def laplacian_exact(
     x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]
 ) -> npt.NDArray:
     """Compute the exact laplacian."""
-    return (d2fundx2(x, ALPHA) * fun(y, ALPHA) + fun(x, ALPHA) * d2fundx2(y, ALPHA)) / 100
+    return d2fundx2(x, ALPHA) * fun(y, ALPHA) + fun(x, ALPHA) * d2fundx2(y, ALPHA)
 
 
 def advection_field(
@@ -88,7 +91,7 @@ def advection_field(
 
 def source_exact(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> npt.NDArray:
     """Compute the exact equation source."""
-    return laplacian_exact(x, y) - np.sum(
+    return laplacian_exact(x, y) / ALPHA - np.sum(
         advection_field(x, y) * grad_exact(x, y), axis=-1
     )
 
@@ -105,14 +108,14 @@ v = u.weight
 p = q.weight
 
 full_system = KFormSystem(
-    100 * (p * q) + p.derivative * u == p ^ u_exact,
-    v * q.derivative + 100 * (v * (advection_field * ~q)) == v * source_exact,
+    ALPHA * (p * q) + p.derivative * u == p ^ u_exact,
+    v * q.derivative + ALPHA * (v * (advection_field * ~q)) == v * source_exact,
     sorting=lambda f: f.order,
 )
 
 projection_system = KFormSystem(
-    100 * (p * q) + p.derivative * u == p ^ u_exact,
-    v * q.derivative == v * laplacian_exact,
+    ALPHA * (p * q) + p.derivative * u == p ^ u_exact,
+    v * q.derivative == (v * laplacian_exact) / ALPHA,
     sorting=lambda f: f.order,
 )
 
@@ -121,31 +124,64 @@ projection_system = KFormSystem(
 # Find the Galerkin Soltuion
 # --------------------------
 
+# solve_system_2d(
+#     mesh,
+#     system_settings=SystemSettings(full_system, over_integration_order=4),
+#     recon_order=10,
+#     # refinement_settings=RefinementSettings(
+#     #     error_estimate=ErrorEstimateVMS(
+#     #         target_form=u,
+#     #         symmetric_system=KFormSystem(
+#     #             ALPHA * (p * q) + p.derivative * u == 0,
+#     #             v * q.derivative == 0,
+#     #             sorting=lambda f: f.order,
+#     #         ),
+#     #         nonsymmetric_system=KFormSystem(
+#     #             0 * (p * q) == 0,
+#     #             ALPHA * (v * (advection_field * ~q)) == 0,
+#     #             sorting=lambda f: f.order,
+#     #         ),
+#     #         order_increase=1,
+#     #         max_iters=100,
+#     #         atol=0,
+#     #         rtol=1e-15,
+#     #     ),
+#     #     lower_order_limit=3,
+#     #     refinement_limit=RefinementLimitElementCount(0, 0),
+#     # ),
+# )
+
 solutions, stats, _ = solve_system_2d(
     mesh,
     system_settings=SystemSettings(full_system, over_integration_order=4),
     recon_order=10,
-    refinement_settings=RefinementSettings(
-        error_estimate=ErrorEstimateVMS(
-            target_form=u,
-            symmetric_system=KFormSystem(
-                100 * (p * q) + p.derivative * u == 0,
-                v * q.derivative == 0,
-                sorting=lambda f: f.order,
-            ),
-            antisymmetric_system=KFormSystem(
-                0 * (p * q) == 0,
-                100 * (v * (advection_field * ~q)) == 0,
-                sorting=lambda f: f.order,
-            ),
-            order_increase=3,
-            max_iters=100,
-            atol=0,
-            rtol=1e-15,
+    vms_settings=VMSSettings(
+        symmetric_system=KFormSystem(
+            ALPHA * (p * q) + p.derivative * u == 0,
+            v * q.derivative == 0,
+            sorting=lambda f: f.order,
         ),
-        refinement_limit=RefinementLimitElementCount(0, 0),
+        nonsymmetric_system=KFormSystem(
+            0 * (p * q) == 0,
+            ALPHA * (v * (advection_field * ~q)) == 0,
+            sorting=lambda f: f.order,
+        ),
+        order_increase=1,
+        fine_scale_convergence=ConvergenceSettings(
+            maximum_iterations=100,
+            absolute_tolerance=1e-7,
+            relative_tolerance=1e-8,
+        ),
+        relaxation=1 / np.sqrt(ALPHA),
+    ),
+    solver_settings=SolverSettings(
+        ConvergenceSettings(
+            maximum_iterations=1000, relative_tolerance=0, absolute_tolerance=1e-7
+        )
     ),
 )
+print(stats.residual_history)
+
 galerkin_solution = solutions[-1]
 u_ex = u_exact(galerkin_solution.points[:, 0], galerkin_solution.points[:, 1])
 err_g = galerkin_solution.point_data[u.label] - u_ex
@@ -251,18 +287,25 @@ def compute_field(
 integrals = integrate_over_elements(
     mesh, partial(compute_field, projected_solution, "A2"), orders=10
 )
-projected_solution.cell_data["integrated"] = integrals
+projected_solution.cell_data["integrated-exact"] = integrals
+galerkin_solution.point_data["vms-u2"] = galerkin_solution.point_data["vms-u"] ** 2
+integrals = integrate_over_elements(
+    mesh, partial(compute_field, galerkin_solution, "vms-u2"), orders=10
+)
+galerkin_solution.cell_data["integrated-computed"] = integrals
 
 
 plotter = pv.Plotter(off_screen=False, window_size=(1800, 900), shape=(1, 2))
 plotter.subplot(0, 0)
-plotter.add_mesh(projected_solution, scalars="integrated", log_scale=True)
+projected_solution.point_data["A1"] = unresolved_advection
+plotter.add_mesh(projected_solution, scalars="A1", log_scale=False)
 plotter.view_xy()
 plotter.show_grid()
 
 plotter.subplot(0, 1)
 galerkin_solution.points[:, 2] = 0
-plotter.add_mesh(galerkin_solution, scalars="error_estimate", log_scale=True)
+galerkin_solution.point_data["vms-u-abs"] = galerkin_solution.point_data["vms-u"]
+plotter.add_mesh(galerkin_solution, scalars="vms-u-abs", log_scale=False)
 plotter.view_xy()
 plotter.show_grid()
 

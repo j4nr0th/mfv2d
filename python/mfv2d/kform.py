@@ -628,7 +628,7 @@ class TermEvaluatable(Term):
         """Multiply by a constant."""
         return self.__mul__(other)
 
-    def __div__(self, other: float | int, /) -> KSum:
+    def __truediv__(self, other: float | int, /) -> KSum:
         """Divide by a constant."""
         try:
             v = float(other)

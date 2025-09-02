@@ -143,7 +143,7 @@ class LinearVector:
         """Multiply the vector."""
         return self.__mul__(other)
 
-    def __div__(self, other: float) -> LinearVector:
+    def ____truediv__(self, other: float) -> LinearVector:
         """Divide the vector."""
         return self * (1 / other)
 

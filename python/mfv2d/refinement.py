@@ -334,8 +334,8 @@ class ErrorEstimateVMS:
     symmetric_system: KFormSystem
     """Symmetric system based on which the Green's function is computed."""
 
-    antisymmetric_system: KFormSystem
-    """Antisymmetric system based on which the fine-scale function is computed."""
+    nonsymmetric_system: KFormSystem
+    """Non-symmetric system based on which the fine-scale function is computed."""
 
     order_increase: int
     """Order increase for the Green's function and residual."""
@@ -535,7 +535,7 @@ def perform_mesh_refinement(
                 system,
                 CompiledSystem(system),
                 error_estimator.symmetric_system,
-                error_estimator.antisymmetric_system,
+                error_estimator.nonsymmetric_system,
                 error_estimator.target_form,
                 constrained,
                 error_estimator.atol,
@@ -1418,7 +1418,7 @@ def error_estimate_with_vms(
     system: KFormSystem,
     compiled: CompiledSystem,
     symmetric: KFormSystem,
-    antisymmetric: KFormSystem,
+    nonsymmetric: KFormSystem,
     unknown_target: KFormUnknown,
     constrained_forms: Sequence[tuple[float, KFormUnknown]],
     atol: float,
@@ -1445,9 +1445,9 @@ def error_estimate_with_vms(
             "Unknown forms of symmetric system do not match the full system."
         )
 
-    if antisymmetric.unknown_forms != system.unknown_forms:
+    if nonsymmetric.unknown_forms != system.unknown_forms:
         raise ValueError(
-            "Unknown forms of antisymmetric system do not match the full system."
+            "Unknown forms of non-symmetric system do not match the full system."
         )
 
     element_error = np.empty(mesh.leaf_count)
@@ -1458,10 +1458,10 @@ def error_estimate_with_vms(
     projectors: list[sp.csr_array] = list()
     symmetric_matrices_coarse: list[npt.NDArray[np.float64]] = list()
     symmetric_matrices_fine: list[npt.NDArray[np.float64]] = list()
-    antisymmetric_matrices_fine: list[npt.NDArray[np.float64]] = list()
+    nonsymmetric_matrices_fine: list[npt.NDArray[np.float64]] = list()
 
     compiled_symmetric = CompiledSystem(symmetric)
-    compiled_antisymmetric = CompiledSystem(antisymmetric)
+    compiled_nonsymmetric = CompiledSystem(nonsymmetric)
 
     # Compute the residual
     for i_leaf in range(mesh.leaf_count):
@@ -1528,9 +1528,9 @@ def error_estimate_with_vms(
                 symmetric.unknown_forms, compiled_symmetric.lhs_full, higher_space
             )
         )
-        antisymmetric_matrices_fine.append(
+        nonsymmetric_matrices_fine.append(
             compute_element_matrix(
-                antisymmetric.unknown_forms, compiled_antisymmetric.lhs_full, higher_space
+                nonsymmetric.unknown_forms, compiled_nonsymmetric.lhs_full, higher_space
             )
         )
 
@@ -1616,16 +1616,16 @@ def error_estimate_with_vms(
         symmetric_matrices_coarse,
     )
 
-    antisymmetric_operator = cast(
-        sp.csr_array, sp.block_diag(antisymmetric_matrices_fine, format="csr")
+    nonsymmetric_operator = cast(
+        sp.csr_array, sp.block_diag(nonsymmetric_matrices_fine, format="csr")
     )
-    del antisymmetric_matrices_fine
+    del nonsymmetric_matrices_fine
 
     projector = cast(sp.csr_array, sp.block_diag(projectors, format="csr"))
     del projectors
 
     fine_scale_dofs = _compute_fine_scale_dofs(
-        antisymmetric_operator,
+        nonsymmetric_operator,
         projector,
         fine_decomp,
         coarse_decomp,

@@ -20,10 +20,13 @@ from mfv2d.mimetic2d import FemCache
 from mfv2d.progress import HistogramFormat
 from mfv2d.refinement import RefinementSettings, perform_mesh_refinement
 from mfv2d.solve_system import (
+    ConvergenceSettings,
     SolutionStatistics,
     SolverSettings,
+    # SuyashGreenOperator,
     SystemSettings,
     TimeSettings,
+    VMSSettings,
     compute_element_dual,
     compute_element_dual_from_primal,
     compute_element_primal_from_dual,
@@ -39,13 +42,14 @@ def solve_system_2d(
     mesh: Mesh,
     system_settings: SystemSettings,
     solver_settings: SolverSettings = SolverSettings(
-        maximum_iterations=100,
-        relaxation=1,
-        absolute_tolerance=1e-6,
-        relative_tolerance=1e-5,
+        convergence=ConvergenceSettings(
+            maximum_iterations=100, absolute_tolerance=1e-6, relative_tolerance=1e-5
+        ),
+        relaxation=1.0,
     ),
     time_settings: TimeSettings | None = None,
     refinement_settings: RefinementSettings | None = None,
+    vms_settings: VMSSettings | None = None,
     *,
     recon_order: int | None = None,
     print_residual: bool = False,
@@ -92,6 +96,37 @@ def solve_system_2d(
         refinement is returned. If the settings are left as unspecified, then the original
         mesh is returned.
     """
+    # Check the VMS settings
+    if vms_settings is not None:
+        if (
+            vms_settings.symmetric_system.unknown_forms
+            != system_settings.system.unknown_forms
+        ):
+            raise ValueError(
+                "VMS settings specified a symmetric part which does not contain the same"
+                " forms in the matching order as the full system (specified symmetric:"
+                f" {vms_settings.symmetric_system.unknown_forms}, full system "
+                f"{system_settings.system.unknown_forms})."
+            )
+
+        if (
+            vms_settings.antisymmetric_system.unknown_forms
+            != system_settings.system.unknown_forms
+        ):
+            raise ValueError(
+                "VMS settings specified a non-symmetric part which does not contain the"
+                " same forms in the matching order as the full system (specified "
+                "symmetric:"
+                f" {vms_settings.antisymmetric_system.unknown_forms}, full system "
+                f"{system_settings.system.unknown_forms})."
+            )
+        if vms_settings.order_increase > system_settings.over_integration_order:
+            raise ValueError(
+                "VMS settings specified an order increase of "
+                f"{vms_settings.order_increase}, which is higher than order "
+                f"increase for over-integration {system_settings.over_integration_order}."
+            )
+
     system = system_settings.system
 
     constrained_forms = system_settings.constrained_forms
@@ -264,10 +299,10 @@ def solve_system_2d(
     global_lagrange = np.zeros_like(lagrange_vec)
     max_mag = np.abs(explicit_vec).max()
 
-    max_iterations = solver_settings.maximum_iterations
+    max_iterations = solver_settings.convergence.maximum_iterations
     relax = solver_settings.relaxation
-    atol = solver_settings.absolute_tolerance
-    rtol = solver_settings.relative_tolerance
+    atol = solver_settings.convergence.absolute_tolerance
+    rtol = solver_settings.convergence.relative_tolerance
 
     changes: npt.NDArray[np.float64]
     iters: npt.NDArray[np.uint32]

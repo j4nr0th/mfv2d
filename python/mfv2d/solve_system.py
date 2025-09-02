@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import cast
 
 import numpy as np
 import numpy.typing as npt
@@ -20,6 +21,7 @@ from mfv2d._mfv2d import (
     ElementFemSpace2D,
     Mesh,
     compute_element_matrix,
+    compute_element_projector,
     compute_element_vector,
 )
 from mfv2d.boundary import BoundaryCondition2DSteady
@@ -523,6 +525,23 @@ class SystemSettings:
 
 
 @dataclass(frozen=True)
+class ConvergenceSettings:
+    """Settings used to specify convergence of an iterative solver."""
+
+    maximum_iterations: int = 100
+    """Maximum number of iterations to improve the solution."""
+
+    absolute_tolerance: float = 1e-6
+    """When the largest update in the solution drops bellow this value,
+    consider it converged."""
+
+    relative_tolerance: float = 1e-5
+    """When the largest update in the solution drops bellow the largest
+    value of solution degrees of freedom scaled by this value, consider
+    it converged."""
+
+
+@dataclass(frozen=True)
 class SolverSettings:
     r"""Settings used by the non-linear solver.
 
@@ -563,28 +582,13 @@ class SolverSettings:
 
         \Delta {\vec{u}}^i = \left(\mathbb{I}\left({\vec{u}}^i\right)\right)^{-1} \left(
         \vec{E}\left({\vec{u}}^i\right) + \vec{F} + \vec{I}\left({\vec{u}}^i\right)\right)
-
-    Parameters
-    ----------
-    maximum_iterations : int, default: 100
-        Maximum number of iterations the solver performs.
-
-    relaxation : float, default: 1.0
-        Fraction of solution increment to use.
-
-    absolute_tolerance : float, default: 1e-6
-        Maximum value of the residual must meet in order for the solution
-        to be considered converged.
-
-    relative_tolerance : float, default: 1e-5
-        Maximum fraction of the maximum of the right side of the equation the residual
-        must meet in order for the solution to be considered converged.
     """
 
-    maximum_iterations: int = 100
+    convergence: ConvergenceSettings
+    """When should the solution be considered converged"""
+
     relaxation: float = 1.0
-    absolute_tolerance: float = 1e-6
-    relative_tolerance: float = 1e-5
+    """What fraction of the new solution should be used."""
 
 
 def find_time_carry_indices(
@@ -618,12 +622,283 @@ class SolutionStatistics:
 
 
 @dataclass(frozen=True)
-class VmsSettings:
-    """Type used for VMS related information."""
+class VMSSettings:
+    """Estimate unresolved scales based on the variational multi-scale approach."""
 
-    full_system: KFormSystem
-    symmetric_part: KFormSystem
-    advection_part: KFormSystem
+    symmetric_system: KFormSystem
+    """Symmetric system based on which the Green's function is computed."""
+
+    antisymmetric_system: KFormSystem
+    """Antisymmetric system based on which the fine-scale function is computed."""
+
+    order_increase: int
+    """Increase of order for the fine mesh."""
+
+    inner_fine_scale_convergence: ConvergenceSettings
+    """When are fine scales considered accurately computed for a single iteration."""
+
+    outer_fine_scale_convergence: ConvergenceSettings
+    """When are fine scales considered converged for a single iteration."""
+
+
+def _fine_scale_greens_function(
+    projector: sp.csr_array,
+    fine_sym_decomp: sla.SuperLU,
+    coarse_sym_decomp: sla.SuperLU,
+    x: npt.NDArray[np.float64],
+    fine_padding: int,
+    coarse_padding: int,
+) -> npt.NDArray[np.float64]:
+    """Apply the fine-scale Green's function to the vector."""
+    result_fine = fine_sym_decomp.solve(np.pad(x, (0, fine_padding)))[:-fine_padding]
+    result_coarse = (
+        projector
+        @ (
+            coarse_sym_decomp.solve(np.pad(x @ projector, (0, coarse_padding)))[
+                :-coarse_padding
+            ]
+        )
+    )
+    result = result_fine - result_coarse
+    return result
+
+
+class SuyashGreenOperator:
+    """Type used to apply the Suyash-Green operator."""
+
+    unknown_forms: ElementFormSpecification
+    compiled_advection: CompiledSystem
+    coarse_decomp: sla.SuperLU
+    fine_decomp: sla.SuperLU
+    advection_operator: sp.csr_array
+    linear_advection_operator: sp.coo_array
+    projector_c2f: sp.csr_array
+    coarse_padding: int
+    fine_padding: int
+    fine_offsets: npt.NDArray[np.uint32]
+    fine_forcing: npt.NDArray[np.uint32]
+
+    def __init__(
+        self,
+        system: KFormSystem,
+        settings: VMSSettings,
+        coarse_spaces: Sequence[ElementFemSpace2D],
+        basis_cache: FemCache,
+        mesh: Mesh,
+        leaf_indices: Sequence[int],
+        constrained_forms: Sequence[tuple[float, KFormUnknown]],
+        strong_boundary_conditions: Sequence[BoundaryCondition2DSteady],
+    ) -> None:
+        self.unknown_forms = settings.symmetric_system.unknown_forms
+        self.compiled_advection = CompiledSystem(settings.antisymmetric_system)
+
+        fine_spaces = [
+            ElementFemSpace2D(
+                basis_cache.get_basis2d(
+                    fem_space.order_1 + settings.order_increase,
+                    fem_space.order_2 + settings.order_increase,
+                    *fem_space.integration_orders,
+                ),
+                fem_space.corners,
+            )
+            for fem_space in coarse_spaces
+        ]
+
+        projectors = [
+            compute_element_projector(
+                self.unknown_forms,
+                coarse_space.corners,
+                coarse_space.basis_2d,
+                fine_space.basis_2d,
+            )
+            for coarse_space, fine_space in zip(coarse_spaces, fine_spaces, strict=True)
+        ]
+
+        self.projector_c2f = cast(sp.csr_array, sp.block_diag(projectors, format="csr"))
+        del projectors
+
+        compiled_sym = CompiledSystem(settings.symmetric_system)
+
+        # fine_forcing_vecs = [
+        #     compute_element_rhs(system, fine_space) for fine_space in fine_spaces
+        # ]
+
+        fine_matrices = [
+            compute_element_matrix(self.unknown_forms, compiled_sym.lhs_full, fine_space)
+            for fine_space in fine_spaces
+        ]
+
+        mesh.uniform_p_change(+settings.order_increase, +settings.order_increase)
+        self.fine_offsets = np.cumsum(
+            [
+                0,
+                *(
+                    system.unknown_forms.total_size(*mesh.get_leaf_orders(i_leaf))
+                    for i_leaf in leaf_indices
+                ),
+            ]
+        )
+
+        fine_lag_mat, fine_lag_vec = add_system_constraints(
+            system,
+            mesh,
+            basis_cache,
+            constrained_forms,
+            strong_boundary_conditions,
+            leaf_indices,
+            self.fine_offsets,
+            None,  # fine_forcing_vecs,
+        )
+        mesh.uniform_p_change(-settings.order_increase, -settings.order_increase)
+
+        # self.fine_forcing = np.concatenate(fine_forcing_vecs, np.float64)
+
+        if fine_lag_mat:
+            self.fine_decomp = sla.splu(
+                sp.block_array(
+                    [
+                        [sp.block_diag(fine_matrices), fine_lag_mat.T],
+                        [fine_lag_mat, None],
+                    ],
+                    format="csc",
+                )
+            )
+        else:
+            self.fine_decomp = sla.splu(sp.block_diag(fine_matrices, format="csc"))
+
+        self.fine_padding = fine_lag_vec.size
+        del fine_matrices, fine_lag_vec, fine_lag_mat
+
+        coarse_matrices = [
+            compute_element_matrix(
+                self.unknown_forms, compiled_sym.lhs_full, coarse_space
+            )
+            for coarse_space in coarse_spaces
+        ]
+
+        coarse_offsets = np.cumsum(
+            [
+                0,
+                *(
+                    system.unknown_forms.total_size(*mesh.get_leaf_orders(i_leaf))
+                    for i_leaf in leaf_indices
+                ),
+            ]
+        )
+
+        coarse_lag_mat, coarse_lag_vec = add_system_constraints(
+            system,
+            mesh,
+            basis_cache,
+            constrained_forms,
+            strong_boundary_conditions,
+            leaf_indices,
+            coarse_offsets,
+            None,
+        )
+        del coarse_offsets
+
+        if coarse_lag_mat:
+            self.coarse_decomp = sla.splu(
+                sp.block_array(
+                    [
+                        [sp.block_diag(coarse_matrices), coarse_lag_mat.T],
+                        [coarse_lag_mat, None],
+                    ],
+                    format="csc",
+                )
+            )
+        else:
+            self.coarse_decomp = sla.splu(sp.block_diag(coarse_matrices, format="csc"))
+
+        self.coarse_padding = coarse_lag_vec.size
+        del coarse_matrices, coarse_lag_vec, coarse_lag_mat
+
+        advection_matrices = [
+            compute_element_matrix(
+                self.unknown_forms, self.compiled_advection.linear_codes, fine_space
+            )
+            for fine_space in fine_spaces
+        ]
+
+        self.linear_advection_operator = cast(
+            sp.coo_array, sp.block_diag(advection_matrices, format="coo")
+        )
+        if self.compiled_advection.nonlin_codes is None:
+            self.advection_operator = self.linear_advection_operator.tocsr()
+
+        del advection_matrices
+
+    def compute_unresolved(
+        self,
+        coarse_residual: npt.NDArray[np.float64],
+        convergence: ConvergenceSettings,
+    ) -> npt.NDArray[np.float64]:
+        """Compute unresolved scales given the residual vector on the fine mesh."""
+        residual = coarse_residual[: -self.fine_padding] @ self.projector_c2f
+        agr = self.advection_operator @ _fine_scale_greens_function(
+            self.projector_c2f,
+            self.fine_decomp,
+            self.coarse_decomp,
+            residual,
+            self.fine_padding,
+            self.coarse_padding,
+        )
+        u = residual
+        del residual
+        for _ in range(convergence.maximum_iterations):
+            u_new = agr - self.advection_operator @ _fine_scale_greens_function(
+                self.projector_c2f,
+                self.fine_decomp,
+                self.coarse_decomp,
+                u,
+                self.fine_padding,
+                self.coarse_padding,
+            )
+            max_du = np.abs(u - u_new).max()
+            max_u = np.abs(u_new).max()
+            u = u_new
+            if (
+                max_du < max_u * convergence.relative_tolerance
+                or max_du < convergence.absolute_tolerance
+            ):
+                break
+
+        # Sanity check
+        # error = agr - (
+        #     u
+        #     + advection_operator
+        #     @ _fine_scale_greens_function(
+        #         projector, fine_sym_decomp, coarse_sym_decomp, u, fine_padding,
+        # coarse_padding
+        #     )
+        # )
+        # # np.abs(error).max() should be small
+
+        return u @ self.projector_c2f
+
+    def update_nonlinear_advection(
+        self,
+        fine_spaces: Sequence[ElementFemSpace2D],
+        coarse_dofs: npt.NDArray[np.float64],
+    ) -> None:
+        """Update non-linear advection terms if needed."""
+        if self.compiled_advection.nonlin_codes is None:
+            return
+
+        fine_dofs = self.projector_c2f @ coarse_dofs[: -self.coarse_padding]
+
+        nonlinear_matrices = [
+            compute_element_matrix(
+                self.unknown_forms,
+                self.compiled_advection.nonlin_codes,
+                fem_space,
+                fine_dofs[self.fine_offsets[ie] : self.fine_offsets[ie + 1]],
+            )
+            for ie, fem_space in enumerate(fine_spaces)
+        ]
+        nonlin_mat = sp.block_diag(nonlinear_matrices, format="coo")
+        self.advection_operator = (self.linear_advection_operator + nonlin_mat).tocsr()
 
 
 def compute_linear_system(

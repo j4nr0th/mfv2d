@@ -441,7 +441,7 @@ def non_linear_solve_run(
             )
 
         residual = main_vec - main_value
-        if sg_operator is not None and iter_cnt > 0:
+        if sg_operator is not None:
             sg_operator.update_nonlinear_advection(solution)
             unresolved_scales = sg_operator.compute_unresolved(
                 main_value, unresolved_scales
@@ -690,28 +690,6 @@ class VMSSettings:
     """How much of the computed update to use for the next iteration."""
 
 
-def _fine_scale_greens_function(
-    projector: sp.csr_array,
-    fine_sym_decomp: sla.SuperLU,
-    coarse_sym_decomp: sla.SuperLU,
-    x: npt.NDArray[np.float64],
-    fine_padding: int,
-    coarse_padding: int,
-) -> npt.NDArray[np.float64]:
-    """Apply the fine-scale Green's function to the vector."""
-    result_fine = fine_sym_decomp.solve(np.pad(x, (0, fine_padding)))[:-fine_padding]
-    result_coarse = (
-        projector
-        @ (
-            coarse_sym_decomp.solve(np.pad(x @ projector, (0, coarse_padding)))[
-                :-coarse_padding
-            ]
-        )
-    )
-    result = result_fine - result_coarse
-    return result
-
-
 class SuyashGreenOperator:
     """Type used to apply the Suyash-Green operator."""
 
@@ -760,17 +738,19 @@ class SuyashGreenOperator:
 
         projectors = sum(
             (
-                compute_element_projector(
-                    self.unknown_forms,
-                    coarse_space.corners,
-                    coarse_space.basis_2d,
-                    fine_space.basis_2d,
+                list(
+                    compute_element_projector(
+                        self.unknown_forms,
+                        coarse_space.corners,
+                        coarse_space.basis_2d,
+                        fine_space.basis_2d,
+                    )
                 )
                 for coarse_space, fine_space in zip(
                     coarse_spaces, fine_spaces, strict=True
                 )
             ),
-            start=tuple(),
+            start=list(),
         )
 
         self.projector_c2f = cast(sp.csr_array, sp.block_diag(projectors, format="csr"))
@@ -778,17 +758,19 @@ class SuyashGreenOperator:
 
         projectors = sum(
             (
-                compute_element_projector(
-                    self.unknown_forms,
-                    coarse_space.corners,
-                    fine_space.basis_2d,
-                    coarse_space.basis_2d,
+                list(
+                    compute_element_projector(
+                        self.unknown_forms,
+                        coarse_space.corners,
+                        fine_space.basis_2d,
+                        coarse_space.basis_2d,
+                    )
                 )
                 for coarse_space, fine_space in zip(
                     coarse_spaces, fine_spaces, strict=True
                 )
             ),
-            start=tuple(),
+            start=list(),
         )
         self.projector_f2c = cast(sp.csr_array, sp.block_diag(projectors, format="csr"))
         del projectors
@@ -919,7 +901,7 @@ class SuyashGreenOperator:
             - coarse_forcing[: -self.coarse_padding] @ self.projector_f2c
         )
 
-        agr = self.advection_operator @ _fine_scale_greens_function(
+        agr = self.advection_operator @ SuyashGreenOperator.fine_scale_greens_function(
             self.projector_c2f,
             self.fine_decomp,
             self.coarse_decomp,
@@ -931,16 +913,33 @@ class SuyashGreenOperator:
             u = agr
         else:
             u = self.projector_c2f @ initial_guess[: -self.coarse_padding]
-        # del residual, initial_guess
+        del residual, initial_guess
+        # error = agr - (
+        #     u
+        #     + self.advection_operator
+        #     @ SuyashGreenOperator.fine_scale_greens_function(
+        #         self.projector_c2f,
+        #         self.fine_decomp,
+        #         self.coarse_decomp,
+        #         u,
+        #         self.fine_padding,
+        #         self.coarse_padding,
+        #     )
+        # )
+        # print("Initial residual from VMS iterations was:", np.abs(error).max())
 
         for _ in range(self.convergence.maximum_iterations):
-            u_new = agr - self.advection_operator @ _fine_scale_greens_function(
-                self.projector_c2f,
-                self.fine_decomp,
-                self.coarse_decomp,
-                u,
-                self.fine_padding,
-                self.coarse_padding,
+            u_new = (
+                agr
+                - self.advection_operator
+                @ SuyashGreenOperator.fine_scale_greens_function(
+                    self.projector_c2f,
+                    self.fine_decomp,
+                    self.coarse_decomp,
+                    u,
+                    self.fine_padding,
+                    self.coarse_padding,
+                )
             )
             max_du = np.abs(u - u_new).max()
             max_u = np.abs(u_new).max()
@@ -959,12 +958,17 @@ class SuyashGreenOperator:
         # Sanity check
         # error = agr - (
         #     u
-        #     + advection_operator
-        #     @ _fine_scale_greens_function(
-        #         projector, fine_sym_decomp, coarse_sym_decomp, u, fine_padding,
-        # coarse_padding
+        #     + self.advection_operator
+        #     @ SuyashGreenOperator.fine_scale_greens_function(
+        #         self.projector_c2f,
+        #         self.fine_decomp,
+        #         self.coarse_decomp,
+        #         u,
+        #         self.fine_padding,
+        #         self.coarse_padding,
         #     )
         # )
+        # print("Final residual from VMS iterations was:", np.abs(error).max())
         # # np.abs(error).max() should be small
 
         return np.pad(u @ self.projector_c2f, (0, self.coarse_padding))
@@ -988,6 +992,28 @@ class SuyashGreenOperator:
         ]
         nonlin_mat = sp.block_diag(nonlinear_matrices, format="coo")
         self.advection_operator = (self.linear_advection_operator + nonlin_mat).tocsr()
+
+    @staticmethod
+    def fine_scale_greens_function(
+        projector: sp.csr_array,
+        fine_sym_decomp: sla.SuperLU,
+        coarse_sym_decomp: sla.SuperLU,
+        x: npt.NDArray[np.float64],
+        fine_padding: int,
+        coarse_padding: int,
+    ) -> npt.NDArray[np.float64]:
+        """Apply the fine-scale Green's function to the vector."""
+        result_fine = fine_sym_decomp.solve(np.pad(x, (0, fine_padding)))[:-fine_padding]
+        result_coarse = (
+            projector
+            @ (
+                coarse_sym_decomp.solve(np.pad(x @ projector, (0, coarse_padding)))[
+                    :-coarse_padding
+                ]
+            )
+        )
+        result = result_fine - result_coarse
+        return result
 
 
 def compute_linear_system(

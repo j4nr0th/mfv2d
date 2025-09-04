@@ -145,7 +145,7 @@ def solve_system_2d(
             )
 
     # Make element matrices and vectors
-    cache_2d = FemCache(order_difference=system_settings.over_integration_order)
+    basis_cache = FemCache(order_difference=system_settings.over_integration_order)
 
     # Create modified system to make it work with time marching.
     if time_settings is not None:
@@ -179,14 +179,14 @@ def solve_system_2d(
     for leaf_idx in leaf_indices:
         order_1, order_2 = mesh.get_leaf_orders(leaf_idx)
         element_space = ElementFemSpace2D(
-            cache_2d.get_basis2d(order_1, order_2),
+            basis_cache.get_basis2d(order_1, order_2),
             np.astype(mesh.get_leaf_corners(leaf_idx), np.float64, copy=False),
         )
 
         element_fem_spaces.append(element_space)
         element_sizes.append(system.unknown_forms.total_size(order_1, order_2))
 
-    _element_offsets = np.pad(np.cumsum(element_sizes), (1, 0))
+    element_offsets = np.pad(np.cumsum(element_sizes), (1, 0))
 
     # Prepare for evaluation of matrices/vectors
 
@@ -208,7 +208,7 @@ def solve_system_2d(
     if initial_solution:
         solution = np.concatenate(initial_solution)
     else:
-        solution = np.zeros(_element_offsets[-1])
+        solution = np.zeros(element_offsets[-1])
 
     time_carry_index_array: npt.NDArray[np.uint32] | None = None
     if time_settings is not None:
@@ -224,7 +224,7 @@ def solve_system_2d(
                     system.unknown_forms,
                     *space.orders,
                 )
-                + _element_offsets[i]
+                + element_offsets[i]
                 for i, space in enumerate(element_fem_spaces)
             ]
         )
@@ -242,12 +242,12 @@ def solve_system_2d(
     linear_vectors, linear_element_matrices, lagrange_mat, lagrange_vec = (
         compute_linear_system(
             element_fem_spaces,
-            _element_offsets,
+            element_offsets,
             leaf_indices,
             system,
             compiled_system,
             mesh,
-            cache_2d,
+            basis_cache,
             constrained_forms,
             boundary_conditions if boundary_conditions is not None else list(),
             initial_solution,
@@ -304,7 +304,7 @@ def solve_system_2d(
             system,
             vms_settings,
             element_fem_spaces,
-            cache_2d,
+            basis_cache,
             mesh,
             leaf_indices,
             constrained_forms,
@@ -337,7 +337,7 @@ def solve_system_2d(
                     element_fem_spaces,
                     compiled_system,
                     explicit_vec,
-                    _element_offsets,
+                    element_offsets,
                     linear_element_matrices,
                     time_carry_index_array,
                     current_carry,
@@ -358,7 +358,7 @@ def solve_system_2d(
                 [
                     compute_element_dual_from_primal(
                         system.unknown_forms,
-                        new_solution[_element_offsets[ie] : _element_offsets[ie + 1]],
+                        new_solution[element_offsets[ie] : element_offsets[ie + 1]],
                         element_fem_spaces[ie],
                     )
                     for ie, leaf_idx in enumerate(leaf_indices)
@@ -407,7 +407,7 @@ def solve_system_2d(
                 element_fem_spaces,
                 compiled_system,
                 explicit_vec,
-                _element_offsets,
+                element_offsets,
                 linear_element_matrices,
                 None,
                 None,
@@ -447,7 +447,7 @@ def solve_system_2d(
         n_lagrange=int(lagrange_vec.size),
         n_elems=mesh.element_count,
         n_leaves=mesh.leaf_count,
-        n_leaf_dofs=_element_offsets[-1],
+        n_leaf_dofs=element_offsets[-1],
         iter_history=iters,
         residual_history=np.asarray(changes, np.float64),
     )
@@ -465,7 +465,7 @@ def solve_system_2d(
         output_mesh, error_estimates, h_ref_cost_estimate = perform_mesh_refinement(
             mesh,
             solution,
-            _element_offsets,
+            element_offsets,
             system,
             refinement_settings.error_estimate,
             refinement_settings.h_refinement_ratio,
@@ -473,7 +473,7 @@ def solve_system_2d(
             refinement_settings.report_error_distribution,
             element_fem_spaces,
             system_settings.boundary_conditions,
-            cache_2d,
+            basis_cache,
             refinement_settings.upper_order_limit,
             refinement_settings.lower_order_limit,
             system_settings.constrained_forms,

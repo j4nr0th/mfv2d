@@ -751,10 +751,7 @@ class SuyashGreenOperator:
                 sp.coo_array,
                 sp.block_diag(
                     compute_element_projector(
-                        self.unknown_forms,
-                        fem_space.corners,
-                        fem_space.basis_2d,
-                        fine_space.basis_2d,
+                        self.unknown_forms, fem_space.basis_2d, fine_space
                     )
                 ),
             )
@@ -764,10 +761,7 @@ class SuyashGreenOperator:
                 sp.coo_array,
                 sp.block_diag(
                     compute_element_projector(
-                        self.unknown_forms,
-                        fem_space.corners,
-                        fine_space.basis_2d,
-                        fem_space.basis_2d,
+                        self.unknown_forms, fine_space.basis_2d, fem_space
                     )
                 ),
             )

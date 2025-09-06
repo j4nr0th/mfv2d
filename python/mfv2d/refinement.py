@@ -888,10 +888,7 @@ def error_estimate_with_local_inversion(
             )
         projector_primal = sp.block_diag(
             compute_element_projector(
-                system.unknown_forms,
-                higher_space.corners,
-                element_space.basis_2d,
-                higher_space.basis_2d,
+                system.unknown_forms, element_space.basis_2d, higher_space
             )
         )
 
@@ -900,10 +897,7 @@ def error_estimate_with_local_inversion(
 
         projector_dual = sp.block_diag(
             compute_element_projector(
-                system.unknown_forms,
-                higher_space.corners,
-                higher_space.basis_2d,
-                element_space.basis_2d,
+                system.unknown_forms, higher_space.basis_2d, element_space
             )
         ).T
         fine_forcing = projector_dual @ coarse_forcing
@@ -1166,21 +1160,11 @@ def error_estimate_with_order_reduction(
         lower_space = ElementFemSpace2D(lower_basis, corners)
 
         projector_forward = sp.block_diag(
-            compute_element_projector(
-                single_spec,
-                lower_space.corners,
-                element_space.basis_2d,
-                lower_space.basis_2d,
-            )
+            compute_element_projector(single_spec, element_space.basis_2d, lower_space)
         )
 
         projector_backward = sp.block_diag(
-            compute_element_projector(
-                single_spec,
-                lower_space.corners,
-                lower_space.basis_2d,
-                element_space.basis_2d,
-            )
+            compute_element_projector(single_spec, lower_space.basis_2d, element_space)
         )
 
         rule_1 = element_space.basis_xi.rule
@@ -1489,10 +1473,7 @@ def error_estimate_with_vms(
                 system.unknown_forms, compiled.rhs_codes, element_space, element_solution
             )
         pv = compute_element_projector(
-            system.unknown_forms,
-            higher_space.corners,
-            element_space.basis_2d,
-            higher_space.basis_2d,
+            system.unknown_forms, element_space.basis_2d, higher_space
         )
 
         projector_primal = sp.block_diag(
@@ -1506,10 +1487,7 @@ def error_estimate_with_vms(
 
         projector_dual = sp.block_diag(
             compute_element_projector(
-                system.unknown_forms,
-                higher_space.corners,
-                higher_space.basis_2d,
-                element_space.basis_2d,
+                system.unknown_forms, higher_space.basis_2d, element_space
             )
         ).T
         fine_forcing = projector_dual @ coarse_forcing

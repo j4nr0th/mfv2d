@@ -115,10 +115,7 @@ def test_fine_green_adv_dif(nh: int, nv: int, element_order: int, k: int) -> Non
                 sp.coo_array,
                 sp.block_diag(
                     compute_element_projector(
-                        system.unknown_forms,
-                        corners,
-                        coarse_spaces[-1].basis_2d,
-                        fine_spaces[-1].basis_2d,
+                        system.unknown_forms, coarse_spaces[-1].basis_2d, fine_spaces[-1]
                     ),
                     format="coo",
                 ),

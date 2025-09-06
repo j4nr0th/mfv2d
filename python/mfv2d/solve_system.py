@@ -444,7 +444,7 @@ def non_linear_solve_run(
         if sg_operator is not None:
             sg_operator.update_nonlinear_advection(solution)
             unresolved_scales = sg_operator.compute_unresolved(
-                main_value, unresolved_scales
+                solution, unresolved_scales
             )
             residual -= unresolved_scales
 
@@ -698,8 +698,9 @@ class SuyashGreenOperator:
     coarse_decomp: sla.SuperLU
     fine_decomp: sla.SuperLU
     fine_spaces: Sequence[ElementFemSpace2D]
-    advection_operator: sp.csr_array
-    linear_advection_operator: sp.coo_array
+    fine_advection_operator: sp.csr_array
+    coarse_advection_operator: sp.csr_array
+    fine_linear_advection_operator: sp.coo_array
     projector_c2f: sp.csr_array
     projector_f2c: sp.csr_array
     coarse_padding: int
@@ -723,9 +724,19 @@ class SuyashGreenOperator:
         self.unknown_forms = settings.symmetric_system.unknown_forms
         self.compiled_advection = CompiledSystem(settings.nonsymmetric_system)
         self.relaxation = settings.relaxation
+        compiled_sym = CompiledSystem(settings.symmetric_system)
 
-        fine_spaces = [
-            ElementFemSpace2D(
+        fine_spaces: list[ElementFemSpace2D] = list()
+        projectors_c2f: list[sp.coo_array] = list()
+        projectors_f2c: list[sp.coo_array] = list()
+        fine_advection_matrices: list[npt.NDArray[np.float64]] = list()
+        coarse_advection_matrices: list[npt.NDArray[np.float64]] = list()
+        coarse_matrices: list[npt.NDArray[np.float64]] = list()
+        fine_matrices: list[npt.NDArray[np.float64]] = list()
+        fine_forcing_vecs: list[npt.NDArray[np.float64]] = list()
+
+        for fem_space in coarse_spaces:
+            fine_space = ElementFemSpace2D(
                 basis_cache.get_basis2d(
                     fem_space.order_1 + settings.order_increase,
                     fem_space.order_2 + settings.order_increase,
@@ -733,76 +744,80 @@ class SuyashGreenOperator:
                 ),
                 fem_space.corners,
             )
-            for fem_space in coarse_spaces
-        ]
+            if self.compiled_advection.nonlin_codes:
+                fine_spaces.append(fine_space)
 
-        projectors = sum(
-            (
-                list(
+            projector_c2f = cast(
+                sp.coo_array,
+                sp.block_diag(
                     compute_element_projector(
                         self.unknown_forms,
-                        coarse_space.corners,
-                        coarse_space.basis_2d,
+                        fem_space.corners,
+                        fem_space.basis_2d,
                         fine_space.basis_2d,
                     )
-                )
-                for coarse_space, fine_space in zip(
-                    coarse_spaces, fine_spaces, strict=True
-                )
-            ),
-            start=list(),
-        )
+                ),
+            )
+            projectors_c2f.append(projector_c2f)
 
-        self.projector_c2f = cast(sp.csr_array, sp.block_diag(projectors, format="csr"))
-        del projectors
-
-        projectors = sum(
-            (
-                list(
+            projector_f2c = cast(
+                sp.coo_array,
+                sp.block_diag(
                     compute_element_projector(
                         self.unknown_forms,
-                        coarse_space.corners,
+                        fem_space.corners,
                         fine_space.basis_2d,
-                        coarse_space.basis_2d,
+                        fem_space.basis_2d,
                     )
-                )
-                for coarse_space, fine_space in zip(
-                    coarse_spaces, fine_spaces, strict=True
-                )
-            ),
-            start=list(),
-        )
-        self.projector_f2c = cast(sp.csr_array, sp.block_diag(projectors, format="csr"))
-        del projectors
+                ),
+            )
+            projectors_f2c.append(projector_f2c)
 
-        compiled_sym = CompiledSystem(settings.symmetric_system)
+            fine_forcing = compute_element_rhs(system, fine_space)
+            fine_forcing_vecs.append(fine_forcing)
 
-        fine_forcing_vecs = [
-            compute_element_rhs(system, fine_space) for fine_space in fine_spaces
-        ]
-
-        advection_matrices = [
-            compute_element_matrix(
+            fine_advection_matrix = compute_element_matrix(
                 self.unknown_forms, self.compiled_advection.linear_codes, fine_space
             )
-            for fine_space in fine_spaces
-        ]
+            fine_advection_matrices.append(fine_advection_matrix)
 
-        self.linear_advection_operator = cast(
-            sp.coo_array, sp.block_diag(advection_matrices, format="coo")
+            coarse_advection_matrix = compute_element_matrix(
+                self.unknown_forms, self.compiled_advection.linear_codes, fem_space
+            )
+            coarse_advection_matrices.append(coarse_advection_matrix)
+
+            fine_matrix = compute_element_matrix(
+                self.unknown_forms, compiled_sym.lhs_full, fine_space
+            )
+            fine_matrices.append(fine_matrix)
+
+            # coarse_matrix = projector_c2f.T @ fine_matrix @ projector_f2c.T
+            coarse_matrix = compute_element_matrix(
+                self.unknown_forms, compiled_sym.lhs_full, fem_space
+            )
+            coarse_matrices.append(coarse_matrix)
+
+        self.projector_c2f = cast(
+            sp.csr_array, sp.block_diag(projectors_c2f, format="csr")
+        )
+        self.projector_f2c = cast(
+            sp.csr_array, sp.block_diag(projectors_f2c, format="csr")
+        )
+
+        self.fine_linear_advection_operator = cast(
+            sp.coo_array, sp.block_diag(fine_advection_matrices, format="coo")
         )
         if self.compiled_advection.nonlin_codes is None:
-            self.advection_operator = self.linear_advection_operator.tocsr()
-            self.fine_spaces = fine_spaces
-        else:
-            self.fine_spaces = tuple()
+            self.fine_advection_operator = self.fine_linear_advection_operator.tocsr()
 
-        del advection_matrices
+        self.coarse_linear_advection_operator = cast(
+            sp.coo_array, sp.block_diag(fine_advection_matrices, format="coo")
+        )
+        if self.compiled_advection.nonlin_codes is None:
+            self.coarse_advection_operator = self.coarse_linear_advection_operator.tocsr()
 
-        fine_matrices = [
-            compute_element_matrix(self.unknown_forms, compiled_sym.lhs_full, fine_space)
-            for fine_space in fine_spaces
-        ]
+        self.fine_spaces = tuple(fine_spaces)
+        del fine_advection_matrices
 
         mesh.uniform_p_change(+settings.order_increase, +settings.order_increase)
         self.fine_offsets = np.cumsum(
@@ -830,27 +845,21 @@ class SuyashGreenOperator:
         self.fine_forcing = np.concatenate(fine_forcing_vecs, dtype=np.float64)
 
         if fine_lag_mat is not None:
-            self.fine_decomp = sla.splu(
-                sp.block_array(
-                    [
-                        [sp.block_diag(fine_matrices), fine_lag_mat.T],
-                        [fine_lag_mat, None],
-                    ],
-                    format="csc",
-                )
+            self.fine_sym_mat = sp.block_array(
+                [
+                    [sp.block_diag(fine_matrices), fine_lag_mat.T],
+                    [fine_lag_mat, None],
+                ],
+                format="csc",
             )
+
+            self.fine_decomp = sla.splu(self.fine_sym_mat)
         else:
-            self.fine_decomp = sla.splu(sp.block_diag(fine_matrices, format="csc"))
+            self.fine_sym_mat = sp.block_diag(fine_matrices, format="csc")
+            self.fine_decomp = sla.splu(self.fine_sym_mat)
 
         self.fine_padding = fine_lag_vec.size
         del fine_matrices, fine_lag_vec, fine_lag_mat, fine_spaces
-
-        coarse_matrices = [
-            compute_element_matrix(
-                self.unknown_forms, compiled_sym.lhs_full, coarse_space
-            )
-            for coarse_space in coarse_spaces
-        ]
 
         coarse_offsets = np.cumsum(
             [
@@ -892,23 +901,17 @@ class SuyashGreenOperator:
 
     def compute_unresolved(
         self,
-        coarse_forcing: npt.NDArray[np.float64],
+        coarse_solution: npt.NDArray[np.float64],
         initial_guess: npt.NDArray[np.float64] | None,
     ) -> npt.NDArray[np.float64]:
         """Compute unresolved scales given the residual vector on the fine mesh."""
-        residual = (
-            self.fine_forcing
-            - coarse_forcing[: -self.coarse_padding] @ self.projector_f2c
+        residual = self.fine_forcing - (
+            self.fine_advection_operator
+            @ self.projector_c2f
+            @ coarse_solution[: -self.coarse_padding]
         )
 
-        agr = self.advection_operator @ SuyashGreenOperator.fine_scale_greens_function(
-            self.projector_c2f,
-            self.fine_decomp,
-            self.coarse_decomp,
-            residual,
-            self.fine_padding,
-            self.coarse_padding,
-        )
+        agr = self.fine_advection_operator @ self.fine_scale_greens_function(residual)
         if initial_guess is None:
             u = agr
         else:
@@ -929,17 +932,8 @@ class SuyashGreenOperator:
         # print("Initial residual from VMS iterations was:", np.abs(error).max())
 
         for _ in range(self.convergence.maximum_iterations):
-            u_new = (
-                agr
-                - self.advection_operator
-                @ SuyashGreenOperator.fine_scale_greens_function(
-                    self.projector_c2f,
-                    self.fine_decomp,
-                    self.coarse_decomp,
-                    u,
-                    self.fine_padding,
-                    self.coarse_padding,
-                )
+            u_new = agr - self.fine_advection_operator @ self.fine_scale_greens_function(
+                u
             )
             max_du = np.abs(u - u_new).max()
             max_u = np.abs(u_new).max()
@@ -971,7 +965,8 @@ class SuyashGreenOperator:
         # print("Final residual from VMS iterations was:", np.abs(error).max())
         # # np.abs(error).max() should be small
 
-        return np.pad(u @ self.projector_c2f, (0, self.coarse_padding))
+        # return np.pad(u @ self.projector_c2f, (0, self.coarse_padding))
+        return u
 
     def update_nonlinear_advection(self, coarse_dofs: npt.NDArray[np.float64]) -> None:
         """Update non-linear advection terms if needed."""
@@ -991,25 +986,23 @@ class SuyashGreenOperator:
             for ie, fem_space in enumerate(self.fine_spaces)
         ]
         nonlin_mat = sp.block_diag(nonlinear_matrices, format="coo")
-        self.advection_operator = (self.linear_advection_operator + nonlin_mat).tocsr()
+        self.fine_advection_operator = (
+            self.fine_linear_advection_operator + nonlin_mat
+        ).tocsr()
 
-    @staticmethod
     def fine_scale_greens_function(
-        projector: sp.csr_array,
-        fine_sym_decomp: sla.SuperLU,
-        coarse_sym_decomp: sla.SuperLU,
-        x: npt.NDArray[np.float64],
-        fine_padding: int,
-        coarse_padding: int,
+        self, x: npt.NDArray[np.float64]
     ) -> npt.NDArray[np.float64]:
         """Apply the fine-scale Green's function to the vector."""
-        result_fine = fine_sym_decomp.solve(np.pad(x, (0, fine_padding)))[:-fine_padding]
+        result_fine = self.fine_decomp.solve(np.pad(x, (0, self.fine_padding)))[
+            : -self.fine_padding
+        ]
         result_coarse = (
-            projector
+            self.projector_c2f
             @ (
-                coarse_sym_decomp.solve(np.pad(x @ projector, (0, coarse_padding)))[
-                    :-coarse_padding
-                ]
+                self.coarse_decomp.solve(
+                    np.pad(x @ self.projector_c2f, (0, self.coarse_padding))
+                )[: -self.coarse_padding]
             )
         )
         result = result_fine - result_coarse

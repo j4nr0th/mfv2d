@@ -743,7 +743,8 @@ def connect_elements(
                             ec.i_e,
                             ec.dofs
                             + form_specs.form_offset(
-                                i_form, *mesh.get_leaf_orders(ec.i_e)
+                                i_form,
+                                *mesh.get_leaf_orders(mesh.find_leaf_by_index(ec.i_e)),
                             ),
                             ec.coeffs,
                         )

@@ -879,29 +879,24 @@ def error_estimate_with_local_inversion(
         higher_order_spaces.append(higher_space)
 
         fine_rhs = compute_element_rhs(system, higher_space)
-        coarse_forcing = compute_element_vector(
-            system.unknown_forms, compiled.lhs_full, element_space, element_solution
-        )
-        if compiled.rhs_codes:
-            coarse_forcing -= compute_element_vector(
-                system.unknown_forms, compiled.rhs_codes, element_space, element_solution
-            )
+
         projector_primal = sp.block_diag(
             compute_element_projector(
                 system.unknown_forms, element_space.basis_2d, higher_space
             )
         )
+        fine_solution = projector_primal @ element_solution
 
-        projected_solution.append(projector_primal @ element_solution)
-        del projector_primal
-
-        projector_dual = sp.block_diag(
-            compute_element_projector(
-                system.unknown_forms, higher_space.basis_2d, element_space
+        fine_forcing = compute_element_vector(
+            system.unknown_forms, compiled.lhs_full, higher_space, fine_solution
+        )
+        if compiled.rhs_codes:
+            fine_forcing -= compute_element_vector(
+                system.unknown_forms, compiled.rhs_codes, higher_space, fine_solution
             )
-        ).T
-        fine_forcing = projector_dual @ coarse_forcing
-        del projector_dual
+
+        projected_solution.append(fine_solution)
+        del projector_primal
 
         residuals.append(fine_rhs - fine_forcing)
         del fine_forcing, fine_rhs
@@ -964,8 +959,7 @@ def error_estimate_with_local_inversion(
                 basis_cache,
             )
             for bc in bc_data:
-                i_element = mesh.get_leaf_index(bc.i_e)
-                residuals[i_element][bc.dofs] += bc.coeffs
+                residuals[bc.i_e][bc.dofs] += bc.coeffs
 
     # Residual is now complete. Now error can be estimated based on the local
     # inverse of the residual

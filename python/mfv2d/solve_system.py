@@ -443,10 +443,12 @@ def non_linear_solve_run(
         residual = main_vec - main_value
         if sg_operator is not None:
             sg_operator.update_nonlinear_advection(solution)
-            unresolved_scales = sg_operator.compute_unresolved(
+            unresolved_scales = sg_operator.compute_unresolved_contributions(
                 solution, unresolved_scales
             )
-            residual -= unresolved_scales
+            residual -= sg_operator.fine_results_to_coarse_dofs(
+                unresolved_scales, dual=True
+            )
 
         max_residual = np.abs(residual).max()
         residuals[iter_cnt] = max_residual
@@ -701,6 +703,7 @@ class SuyashGreenOperator:
     fine_advection_operator: sp.csr_array
     coarse_advection_operator: sp.csr_array
     fine_linear_advection_operator: sp.coo_array
+    coarse_linear_advection_operator: sp.coo_array
     projector_c2f: sp.csr_array
     projector_f2c: sp.csr_array
     coarse_padding: int
@@ -785,7 +788,7 @@ class SuyashGreenOperator:
             )
             fine_matrices.append(fine_matrix)
 
-            # coarse_matrix = projector_c2f.T @ fine_matrix @ projector_f2c.T
+            # coarse_matrix = projector_c2f.T @ fine_matrix @ projector_c2f
             coarse_matrix = compute_element_matrix(
                 self.unknown_forms, compiled_sym.lhs_full, fem_space
             )
@@ -805,7 +808,7 @@ class SuyashGreenOperator:
             self.fine_advection_operator = self.fine_linear_advection_operator.tocsr()
 
         self.coarse_linear_advection_operator = cast(
-            sp.coo_array, sp.block_diag(fine_advection_matrices, format="coo")
+            sp.coo_array, sp.block_diag(coarse_advection_matrices, format="coo")
         )
         if self.compiled_advection.nonlin_codes is None:
             self.coarse_advection_operator = self.coarse_linear_advection_operator.tocsr()
@@ -878,22 +881,22 @@ class SuyashGreenOperator:
         del coarse_offsets
 
         if coarse_lag_mat is not None:
-            self.coarse_decomp = sla.splu(
-                sp.block_array(
-                    [
-                        [sp.block_diag(coarse_matrices), coarse_lag_mat.T],
-                        [coarse_lag_mat, None],
-                    ],
-                    format="csc",
-                )
+            self.coarse_sym_mat = sp.block_array(
+                [
+                    [sp.block_diag(coarse_matrices), coarse_lag_mat.T],
+                    [coarse_lag_mat, None],
+                ],
+                format="csc",
             )
+            self.coarse_decomp = sla.splu(self.coarse_sym_mat)
         else:
-            self.coarse_decomp = sla.splu(sp.block_diag(coarse_matrices, format="csc"))
+            self.coarse_sym_mat = sp.block_diag(coarse_matrices, format="csc")
+            self.coarse_decomp = sla.splu(self.coarse_sym_mat)
 
         self.coarse_padding = coarse_lag_vec.size
         del coarse_matrices, coarse_lag_vec, coarse_lag_mat
 
-    def compute_unresolved(
+    def compute_unresolved_contributions(
         self,
         coarse_solution: npt.NDArray[np.float64],
         initial_guess: npt.NDArray[np.float64] | None,
@@ -902,28 +905,16 @@ class SuyashGreenOperator:
         residual = self.fine_forcing - (
             self.fine_advection_operator
             @ self.projector_c2f
-            @ coarse_solution[: -self.coarse_padding]
+            @ coarse_solution  # [: coarse_solution.size - self.coarse_padding]
         )
 
         agr = self.fine_advection_operator @ self.fine_scale_greens_function(residual)
         if initial_guess is None:
-            u = agr
+            u = np.array(agr)
         else:
-            u = self.projector_c2f @ initial_guess[: -self.coarse_padding]
-        del residual, initial_guess
-        # error = agr - (
-        #     u
-        #     + self.advection_operator
-        #     @ SuyashGreenOperator.fine_scale_greens_function(
-        #         self.projector_c2f,
-        #         self.fine_decomp,
-        #         self.coarse_decomp,
-        #         u,
-        #         self.fine_padding,
-        #         self.coarse_padding,
-        #     )
-        # )
-        # print("Initial residual from VMS iterations was:", np.abs(error).max())
+            u = np.array(initial_guess)
+
+        del residual
 
         for _ in range(self.convergence.maximum_iterations):
             u_new = agr - self.fine_advection_operator @ self.fine_scale_greens_function(
@@ -943,24 +934,36 @@ class SuyashGreenOperator:
             ):
                 break
 
-        # Sanity check
-        # error = agr - (
-        #     u
-        #     + self.advection_operator
-        #     @ SuyashGreenOperator.fine_scale_greens_function(
-        #         self.projector_c2f,
-        #         self.fine_decomp,
-        #         self.coarse_decomp,
-        #         u,
-        #         self.fine_padding,
-        #         self.coarse_padding,
-        #     )
-        # )
-        # print("Final residual from VMS iterations was:", np.abs(error).max())
-        # # np.abs(error).max() should be small
-
         # return np.pad(u @ self.projector_c2f, (0, self.coarse_padding))
         return u
+
+    def recover_unresolved(
+        self,
+        coarse_solution: npt.NDArray[np.float64],
+        unresolved_contribution: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """Recover unresolved scales from unresolved forcing."""
+        residual = (
+            self.fine_forcing
+            - (
+                self.fine_advection_operator
+                @ self.projector_c2f
+                @ coarse_solution[: coarse_solution.size - self.coarse_padding]
+            )
+            - unresolved_contribution
+        )
+        return self.fine_scale_greens_function(residual)
+
+    def fine_results_to_coarse_dofs(
+        self, x: npt.NDArray[np.float64], *, dual: bool
+    ) -> npt.NDArray[np.float64]:
+        """Project fine scale results to coarse scale DoFs and pad for constraints."""
+        if dual:
+            y = x @ self.projector_c2f
+        else:
+            y = self.projector_f2c @ x
+
+        return np.pad(y, (0, self.coarse_padding))
 
     def update_nonlinear_advection(self, coarse_dofs: npt.NDArray[np.float64]) -> None:
         """Update non-linear advection terms if needed."""
@@ -988,16 +991,12 @@ class SuyashGreenOperator:
         self, x: npt.NDArray[np.float64]
     ) -> npt.NDArray[np.float64]:
         """Apply the fine-scale Green's function to the vector."""
-        result_fine = self.fine_decomp.solve(np.pad(x, (0, self.fine_padding)))[
-            : -self.fine_padding
-        ]
+        result_fine = self.fine_decomp.solve(np.pad(x, (0, self.fine_padding)))[: x.size]
+        coarse_sol = self.coarse_decomp.solve(
+            np.pad(x @ self.projector_c2f, (0, self.coarse_padding))
+        )
         result_coarse = (
-            self.projector_c2f
-            @ (
-                self.coarse_decomp.solve(
-                    np.pad(x @ self.projector_c2f, (0, self.coarse_padding))
-                )[: -self.coarse_padding]
-            )
+            self.projector_c2f @ (coarse_sol[: coarse_sol.size - self.coarse_padding])
         )
         result = result_fine - result_coarse
         return result

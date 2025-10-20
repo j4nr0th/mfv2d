@@ -1,7 +1,7 @@
 #ifndef MFV2D_CRS_MATRIX_H
 #define MFV2D_CRS_MATRIX_H
 #include "../common/common.h"
-#include <jmtx/double/matrices/sparse_row_compressed.h>
+#include <jmtx/jmtxd.h>
 
 typedef struct
 {

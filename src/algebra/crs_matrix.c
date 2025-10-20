@@ -1,5 +1,4 @@
 #include "crs_matrix.h"
-#include "../../jmtx/source/double/matrices/sparse_row_compressed_internal.h"
 #include "../common/error.h"
 #include "svector.h"
 

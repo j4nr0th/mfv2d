@@ -42,6 +42,7 @@ from mfv2d.mimetic2d import (
     vtk_lagrange_ordering,
 )
 from mfv2d.progress import ProgressTracker
+from mfv2d.solving import ConvergenceSettings
 from mfv2d.system import ElementFormSpecification, KFormSystem
 
 
@@ -573,23 +574,6 @@ class SystemSettings:
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
     ] = field(default_factory=dict)
     over_integration_order: int = 3
-
-
-@dataclass(frozen=True)
-class ConvergenceSettings:
-    """Settings used to specify convergence of an iterative solver."""
-
-    maximum_iterations: int = 100
-    """Maximum number of iterations to improve the solution."""
-
-    absolute_tolerance: float = 1e-6
-    """When the largest update in the solution drops bellow this value,
-    consider it converged."""
-
-    relative_tolerance: float = 1e-5
-    """When the largest update in the solution drops bellow the largest
-    value of solution degrees of freedom scaled by this value, consider
-    it converged."""
 
 
 @dataclass(frozen=True)

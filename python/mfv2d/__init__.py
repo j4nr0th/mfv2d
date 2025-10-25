@@ -41,9 +41,6 @@ from mfv2d.refinement import (
 from mfv2d.refinement import (
     compute_legendre_error_estimates as compute_legendre_error_estimates,
 )
-
-# Solve system
-from mfv2d.solve_system import ConvergenceSettings as ConvergenceSettings
 from mfv2d.solve_system import SolutionStatistics as SolutionStatistics
 from mfv2d.solve_system import SolverSettings as SolverSettings
 from mfv2d.solve_system import SystemSettings as SystemSettings
@@ -52,6 +49,9 @@ from mfv2d.solve_system import VMSSettings as VMSSettings
 
 # Actual solving
 from mfv2d.solve_system_2d import solve_system_2d as solve_system_2d
+
+# Solve system
+from mfv2d.solving import ConvergenceSettings as ConvergenceSettings
 
 # System
 from mfv2d.system import KFormSystem as KFormSystem

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import SupportsIndex, cast
+from typing import SupportsIndex, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -37,16 +37,83 @@ class SystemBlock:
 
 
 @dataclass(frozen=True)
-class VectorBlock:
-    """Block of a vector."""
+class DenseVector:
+    """Block of a dense vector."""
 
-    main_values: npt.NDArray[np.float64]
-    trace_values: SparseVector
+    parent: LinearSystem
+    data: tuple[npt.NDArray[np.float64], ...]
 
-    @property
-    def norm2(self) -> float:
-        """Square of the L2 norm."""
-        return np.dot(self.main_values, self.main_values) + self.trace_values.norm2
+    def __sub__(self, other: DenseVector) -> DenseVector:
+        """Take the difference of the dense vectors."""
+        if other.parent is not self.parent:
+            raise ValueError("Can not subtract two dense vectors with different parents.")
+
+        return DenseVector(
+            self.parent,
+            tuple(sd - od for sd, od in zip(self.data, other.data, strict=True)),
+        )
+
+    def __add__(self, other: DenseVector) -> DenseVector:
+        """Add the dense vectors together."""
+        if other.parent is not self.parent:
+            raise ValueError("Can not add two dense vectors with different parents.")
+
+        return DenseVector(
+            self.parent,
+            tuple(sd + od for sd, od in zip(self.data, other.data, strict=True)),
+        )
+
+    def combinded_system_vector(self) -> npt.NDArray[np.float64]:
+        """Combine the blocks into a single vector."""
+        return np.concatenate(self.data, dtype=np.float64)
+
+
+@dataclass(frozen=True)
+class TraceVector:
+    """Part of the trace vector."""
+
+    parent: LinearSystem
+    values: tuple[SparseVector, ...]
+
+    def __sub__(self, other: TraceVector) -> TraceVector:
+        """Take the difference of the trace."""
+        if other.parent is not self.parent:
+            raise ValueError("Can not subtract two trace vectors with different parents.")
+
+        return TraceVector(
+            self.parent,
+            tuple((ss - so) for ss, so in zip(self.values, other.values, strict=True)),
+        )
+
+    def __add__(self, other: TraceVector) -> TraceVector:
+        """Add traces."""
+        if other.parent is not self.parent:
+            raise ValueError("Can not add two trace vectors with different parents.")
+
+        return TraceVector(
+            self.parent,
+            tuple((ss + so) for ss, so in zip(self.values, other.values, strict=True)),
+        )
+
+    def __mul__(self, other: float) -> TraceVector:
+        """Add traces."""
+        return TraceVector(
+            self.parent,
+            tuple((ss.__mul__(other)) for ss in self.values),
+        )
+
+    def dot(self, other: TraceVector) -> float:
+        """Compute dot product with other trace vector."""
+        return sum(
+            [
+                SparseVector.dot(ss, so)
+                for ss, so in zip(self.values, other.values, strict=True)
+            ]
+        )
+
+    def combinded_system_vector(self) -> npt.NDArray[np.float64]:
+        """Combine the blocks into a single vector."""
+        return SparseVector.merge_to_dense(*self.values, duplicates="last")
 
 
 @dataclass(frozen=True)
@@ -69,117 +136,6 @@ class SystemConstraintRelations:
     def count(self) -> int:
         """Number of constraints."""
         return self.element_array_offsets.size - 1
-
-
-@dataclass(frozen=True)
-class LinearVector:
-    """Type containing system vectors."""
-
-    parent: LinearSystem
-    blocks: tuple[VectorBlock, ...]
-
-    def _check_other_implemented(self, other) -> bool:
-        """Check that operations are implemented between the elements."""
-        if type(other) is not LinearVector:
-            return False
-
-        if other.parent is not self.parent:
-            raise ValueError(
-                "Only vectors that belong to same parents can be operated on."
-            )
-
-        return True
-
-    def __add__(self, other: LinearVector) -> LinearVector:
-        """Add vectors."""
-        if not self._check_other_implemented(other):
-            return NotImplemented
-
-        return LinearVector(
-            self.parent,
-            tuple(
-                VectorBlock(
-                    sv.main_values + ov.main_values, sv.trace_values + ov.trace_values
-                )
-                for sv, ov in zip(self.blocks, other.blocks, strict=True)
-            ),
-        )
-
-    def __sub__(self, other: LinearVector) -> LinearVector:
-        """Subtract vectors."""
-        if not self._check_other_implemented(other):
-            return NotImplemented
-
-        return LinearVector(
-            self.parent,
-            tuple(
-                VectorBlock(
-                    sv.main_values - ov.main_values, sv.trace_values - ov.trace_values
-                )
-                for sv, ov in zip(self.blocks, other.blocks, strict=True)
-            ),
-        )
-
-    def __mul__(self, other: float) -> LinearVector:
-        """Multiply the vector."""
-        if not (isinstance(other, float) or isinstance(other, int)):
-            return NotImplemented
-        return LinearVector(
-            self.parent,
-            tuple(
-                VectorBlock(
-                    sv.main_values * other,
-                    SparseVector.from_entries(
-                        sv.trace_values.n,
-                        sv.trace_values.indices,
-                        other * sv.trace_values.values,
-                    ),
-                )
-                for sv in (self.blocks)
-            ),
-        )
-
-    def __rmul__(self, other: float) -> LinearVector:
-        """Multiply the vector."""
-        return self.__mul__(other)
-
-    def ____truediv__(self, other: float) -> LinearVector:
-        """Divide the vector."""
-        return self * (1 / other)
-
-    def __matmul__(self, other: LinearVector) -> float:
-        """Compute dot product of two vectors."""
-        if not self._check_other_implemented(other):
-            return NotImplemented
-
-        return np.sum(
-            [
-                sv.trace_values.dot(ov.trace_values)
-                + np.dot(sv.main_values, ov.main_values)
-                for sv, ov in zip(self.blocks, other.blocks, strict=True)
-            ]
-        )
-
-    def __rmatmul__(self, other: LinearVector) -> float:
-        """Compute dot product of two vectors."""
-        return self.__matmul__(other)
-
-    def combinded_system_vector(self) -> npt.NDArray[np.float64]:
-        """Combine all blocks together into a single vector."""
-        return np.concatenate(
-            [
-                *(block.main_values for block in self.blocks),
-                SparseVector.merge_to_dense(
-                    *(block.trace_values for block in self.blocks)
-                ),
-            ],
-            dtype=np.float64,
-        )
-
-    @property
-    def norm2(self) -> float:
-        """Square of the L2 norm."""
-        return np.sum([block.norm2 for block in self.blocks])
 
 
 @dataclass(frozen=True)
@@ -279,14 +235,12 @@ class LinearSystem:
             ),
         )
 
-    def create_vector(
+    def create_block_vector(
         self,
         element_vectors: Sequence[npt.ArrayLike] | None = None,
-        constraint_vals: npt.ArrayLike | None = None,
-    ) -> LinearVector:
-        """Create a new vector associated with the system."""
+    ) -> DenseVector:
+        """Create a vector associated with the system."""
         vecs: list[npt.NDArray[np.float64]]
-        cons: npt.NDArray[np.float64]
         if element_vectors is None:
             vecs = [
                 np.zeros(element.diagonal_block.shape[0], np.float64)
@@ -310,6 +264,13 @@ class LinearSystem:
                     )
                 vecs.append(array)
 
+        return DenseVector(self, tuple(vecs))
+
+    def create_trace_vector(
+        self,
+        constraint_vals: npt.ArrayLike | None = None,
+    ) -> TraceVector:
+        """Create a new trace vector associated with the system."""
         if constraint_vals is None:
             cv: list[SparseVector] = list()
             for block in self.blocks:
@@ -335,56 +296,76 @@ class LinearSystem:
                     )
                 )
 
-        return LinearVector(
-            self, tuple(VectorBlock(ev, ec) for ev, ec in zip(vecs, cv, strict=True))
+        return TraceVector(self, tuple(cv))
+
+    def _check_input_output(
+        self,
+        input_v: DenseVector | TraceVector,
+        output_v: DenseVector | TraceVector,
+    ) -> None:
+        """Check input and output vectors are indeed based on this system."""
+        if input_v.parent is not self:
+            raise ValueError("Input vector is not based on the system.")
+        if output_v.parent is not self:
+            raise ValueError("Output vector is not based on the system.")
+
+    def apply_diagonal(
+        self, v: DenseVector, /, out: DenseVector | None = None
+    ) -> DenseVector:
+        """Apply multiplication by the diagonal part."""
+        if out is None:
+            out = self.create_block_vector(None)
+        self._check_input_output(v, out)
+
+        for block, vb, ob in zip(self.blocks, v.data, out.data, strict=True):
+            ob[:] = block.diagonal_block @ vb[:]
+
+        return out
+
+    def apply_diagonal_inverse(
+        self, v: DenseVector, /, out: DenseVector | None = None
+    ) -> DenseVector:
+        """Apply multiplication by the diagonal part."""
+        if out is None:
+            out = self.create_block_vector(None)
+        self._check_input_output(v, out)
+
+        for block, vb, ob in zip(self.blocks, v.data, out.data, strict=True):
+            ob[:] = block.apply_diag_inverse(vb[:])
+
+        return out
+
+    def apply_trace(self, v: DenseVector, /) -> TraceVector:
+        """Apply the trace (constraint) part of the system."""
+        dense_merged: list[SparseVector] = list()
+        for block, vb in zip(self.blocks, v.data, strict=True):
+            trace_output = block.constraint_matrix.multiply_to_sparse(vb)
+            dense_merged.append(trace_output)
+
+        return self.create_trace_vector(
+            SparseVector.merge_to_dense(*dense_merged, duplicates="sum")
         )
 
-    def __matmul__(self, other: LinearVector) -> LinearVector:
-        """Multiply by a system related vector."""
-        if type(other) is not LinearVector:
-            return NotImplemented
+    def apply_transpose_trace(
+        self, v: TraceVector, /, out: DenseVector | None = None
+    ) -> DenseVector:
+        """Apply transpose of the trace to the trace vector."""
+        if out is None:
+            out = self.create_block_vector(None)
+        self._check_input_output(v, out)
 
-        if other.parent is not self:
-            raise ValueError(
-                "Can only multiply a vector with a system that's its parent."
-            )
+        for block, vb, ob in zip(self.blocks, v.values, out.data, strict=True):
+            ob[:] = vb @ block.constraint_matrix
 
-        element_vecs: list[npt.NDArray[np.float64]] = list()
-        element_cons: list[SparseVector] = [
-            SparseVector.from_pairs(self.constraints.count)
-        ] * self.n_blocks
+        return out
 
-        for ie in range(self.n_blocks):
-            sys = self.blocks[ie]
-            val = other.blocks[ie]
-
-            dense_result = (
-                sys.diagonal_block @ val.main_values  # Element system part
-                + np.array(
-                    val.trace_values @ sys.constraint_matrix
-                )  # Element constraints
-            )
-            element_vecs.append(dense_result)
-
-            # NOTE: if this always returned a sparse vector, it would be more efficient
-            trace_result = sys.constraint_matrix.multiply_to_sparse(val.main_values)
-            for idx, sv in zip(trace_result.indices, trace_result.values):
-                elements = self.constraints.get_value_associated_elements(idx)
-                for ie in elements:
-                    addition = SparseVector.from_pairs(
-                        self.constraints.count, (int(idx), float(sv))
-                    )
-                    new = addition + element_cons[ie]
-                    element_cons[ie] = new
-
-        # for trace, block in zip(element_cons, other.blocks):
-        #     assert np.all(trace.indices == block.trace_values.indices)
-
-        return LinearVector(
-            self,
-            tuple(
-                VectorBlock(mv, tv)
-                for mv, tv in zip(element_vecs, element_cons, strict=True)
+    def apply_trace_system(self, v: TraceVector, /) -> TraceVector:
+        """Apply the system for trace variables from Schur's compliment."""
+        return self.apply_trace(
+            self.apply_diagonal_inverse(
+                self.apply_transpose_trace(
+                    v,
+                ),
             ),
         )
 
@@ -400,96 +381,208 @@ class LinearSystem:
             block.diagonal_block.shape[0] for block in self.blocks
         )
 
-    def precondition(self, other: LinearVector) -> LinearVector:
-        """Apply the preconditioner to the vector."""
-        if other.parent is not self:
-            raise ValueError(
-                "Can only multiply a vector with a system that's its parent."
-            )
+    # def precondition(self, other: LinearVector) -> LinearVector:
+    #     """Apply the preconditioner to the vector."""
+    #     if other.parent is not self:
+    #         raise ValueError(
+    #             "Can only multiply a vector with a system that's its parent."
+    #         )
 
-        return LinearVector(
-            self,
-            tuple(
-                VectorBlock(sb.apply_diag_inverse(vb.main_values), vb.trace_values)
-                for sb, vb in zip(self.blocks, other.blocks, strict=True)
-            ),
-        )
+    #     return LinearVector(
+    #         self,
+    #         tuple(
+    #             VectorBlock(sb.apply_diag_inverse(vb.main_values), vb.trace_values)
+    #             for sb, vb in zip(self.blocks, other.blocks, strict=True)
+    #         ),
+    #     )
 
-    def reverse_precondition(self, other: LinearVector) -> None:
-        """Apply the inverse of the preconditioner to the vector."""
-        if other.parent is not self:
-            raise ValueError(
-                "Can only multiply a vector with a system that's its parent."
-            )
+    # def reverse_precondition(self, other: LinearVector) -> None:
+    #     """Apply the inverse of the preconditioner to the vector."""
+    #     if other.parent is not self:
+    #         raise ValueError(
+    #             "Can only multiply a vector with a system that's its parent."
+    #         )
+    #     for sb, vb in zip(self.blocks, other.blocks, strict=True):
+    #         vb.main_values[:] = sb.diagonal_block @ vb.main_values
 
-        for sb, vb in zip(self.blocks, other.blocks, strict=True):
-            vb.main_values[:] = sb.diagonal_block @ vb.main_values
+
+@dataclass(frozen=True)
+class ConvergenceSettings:
+    """Settings used to specify convergence of an iterative solver."""
+
+    maximum_iterations: int = 100
+    """Maximum number of iterations to improve the solution."""
+
+    absolute_tolerance: float = 1e-6
+    """When the largest update in the solution drops bellow this value,
+    consider it converged."""
+
+    relative_tolerance: float = 1e-5
+    """When the largest update in the solution drops bellow the largest
+    value of solution degrees of freedom scaled by this value, consider
+    it converged."""
 
 
-def solve_schur(system: LinearSystem, rhs: LinearVector) -> LinearVector:
-    """Solve the system using Schur's compliment."""
-    trace_transform = tuple(
-        sb.constraint_matrix @ MatrixCRS.from_dense(la.inv(sb.diagonal_block))
-        for sb in system.blocks
-    )
+_Mat = TypeVar("_Mat")
+_Vec = TypeVar("_Vec")
 
-    ## Serial part begins
-    full_trace = SparseVector.merge_to_dense(
-        *(block.trace_values for block in rhs.blocks)
-    )
 
-    trace_forcing = (
-        SparseVector.merge_to_dense(
-            *(
-                tt.multiply_to_sparse(vb.main_values)
-                for tt, vb in zip(trace_transform, rhs.blocks, strict=True)
-            ),
-            duplicates="sum",
-        )
-        - full_trace
-    )
-    del full_trace
+def gmres_general(
+    mat: _Mat,
+    rhs: _Vec,
+    convergence: ConvergenceSettings,
+    system_application_function: Callable[[_Mat, _Vec], _Vec],
+    vec_dot_function: Callable[[_Vec, _Vec], float],
+    vec_add_function: Callable[[_Vec, _Vec], _Vec],
+    vec_sub_function: Callable[[_Vec, _Vec], _Vec],
+    vec_scale_function: Callable[[_Vec, float], _Vec],
+) -> tuple[_Vec, float, int]:
+    """General implementation of GMRES to use for any data type with operators.
 
-    trace_matrix = np.zeros((trace_forcing.size, trace_forcing.size), np.float64)
-    for tt, sb in zip(trace_transform, system.blocks, strict=True):
-        (tt @ sb.constraint_matrix.transpose()).add_to_dense(trace_matrix)
-    del trace_transform
+    Parameters
+    ----------
+    m : int
+        Number of basis to use for the solution.
 
-    trace_solution = la.solve(
-        trace_matrix,
-        trace_forcing,
-        overwrite_a=True,
-        overwrite_b=True,
-        check_finite=False,
-        assume_a="general",
-    )
-    del trace_matrix, trace_forcing
-    ## Serial part ends
+    mat : _Mat
+        System matrix state.
 
-    split_trace = [
-        SparseVector.from_entries(
-            block.trace_values.n,
-            block.trace_values.indices,
-            trace_solution[block.trace_values.indices],
-        )
-        for block in rhs.blocks
-    ]
-    del trace_solution
+    rhs : _Vec
+        Right side of the system.
 
-    return LinearVector(
+    convergence : ConvergenceSettings
+        Settings to use for convergence.
+
+    system_application_function : (_Mat, _Vec) -> _Vec
+        Function that applies the system to the input vector.
+
+    vec_dot_function : (_Vec, _Vec) -> float
+        Function that computes the dot product of system vectors.
+
+    vec_add_function : (_Vec, _Vec) -> _Vec
+        Function that adds two vectors together.
+
+    vec_sub_function : (_Vec, _Vec) -> _Vec
+        Function which subtracts two vectors.
+
+    vec_scale_function : (float, _Vec) -> _Vec
+        Function which scales a vector by a constant
+
+    Returns
+    -------
+    _Vec
+        Computed solution.
+
+    float
+        Estimated residual.
+
+    int
+        Iterations done.
+    """
+    m = convergence.maximum_iterations
+    g = np.zeros(m, np.float64)
+    h = np.zeros(m, np.float64)
+    sk = np.zeros(m, np.float64)
+    ck = np.zeros(m, np.float64)
+    r = np.zeros((m, m), np.float64)
+    k = 0
+
+    p_vecs: list[_Vec] = list()
+
+    # Find stopping criterion
+    rhs_mag = np.sqrt(vec_dot_function(rhs, rhs))
+    if rhs_mag * convergence.relative_tolerance > convergence.absolute_tolerance:
+        tol = convergence.absolute_tolerance
+    else:
+        tol = rhs_mag * convergence.relative_tolerance
+
+    # First residual
+    p = rhs
+    # Get magnitude of the residual
+    r_mag = np.sqrt(vec_dot_function(p, p))
+    # Normalize the vector
+    p = vec_scale_function(p, 1 / r_mag)
+    # Add it to the current collection of basis and LSQR state
+    p_vecs.append(p)
+    g[0] = r_mag
+
+    for k in range(1, m):
+        # Make a new basis vector
+        p = system_application_function(mat, p)
+        # Make it orthogonal to other basis
+        for li in range(k):
+            p_old = p_vecs[li]
+            pp_dp = vec_dot_function(p, p_old)
+            h[li] = pp_dp
+            p = vec_sub_function(p, vec_scale_function(p_old, pp_dp))
+
+        # Get the magnitude and normalize it
+        p_mag2 = vec_dot_function(p, p)  # Surprise tool for later
+        p_mag = np.sqrt(p_mag2)
+        p = vec_scale_function(p, 1 / p_mag)
+        p_vecs.append(p)
+
+        # Apply previous Givens rotations to the new column
+        for i in range(k - 1):
+            tmp = ck[i] * h[i] + sk[i] * h[i + 1]
+            h[i + 1] = -sk[i] * h[i] + ck[i] * h[i + 1]
+            h[i] = tmp
+
+        # Find new Givens rotation
+        rho = np.sqrt(p_mag2 + h[k - 1] * h[k - 1])
+        c_new = h[k - 1] / rho
+        s_new = p_mag / rho
+        ck[k - 1] = c_new
+        sk[k - 1] = s_new
+        h[k - 1] = c_new * h[k - 1] + s_new * p_mag
+        r[:k, k - 1] = h[:k]
+        g[k] = -s_new * g[k - 1]
+        g[k - 1] = c_new * g[k - 1]
+
+        r_mag = np.abs(g[k])
+        if r_mag < tol:
+            # k += 1
+            break
+
+    # Iterations are done, time to solve the LSQR problem
+    alpha = la.solve_triangular(r[:k, :k], g[:k])
+    for i in range(k):
+        p_vecs[i] = vec_scale_function(p_vecs[i], alpha[i])
+    sol = p_vecs[0]
+    for i in range(1, k):
+        sol = vec_add_function(sol, p_vecs[i])
+    return sol, r_mag, k
+
+
+def solve_schur_iterative(
+    system: LinearSystem,
+    rhs: DenseVector,
+    constraints: TraceVector,
+    convergence: ConvergenceSettings,
+) -> tuple[DenseVector, TraceVector, float]:
+    """Solve the system using Schur's compliment but iteratively."""
+    # Compute rhs forcing for the Lagrange multipliers
+
+    ### A^{-1} y
+    inv_a_y = system.apply_diagonal_inverse(rhs)
+    ### N A^{-1} y - phi
+    trace_rhs = system.apply_trace(inv_a_y) - constraints
+
+    # Iteratively solve the system for trace lambda
+    trace_lhs, tr, _ = gmres_general(
         system,
-        tuple(
-            VectorBlock(
-                np.astype(
-                    np.linalg.solve(
-                        sb.diagonal_block,
-                        vb.main_values - np.array(st @ sb.constraint_matrix),
-                    ),
-                    np.float64,
-                    copy=False,
-                ),
-                st,
-            )
-            for sb, vb, st in zip(system.blocks, rhs.blocks, split_trace, strict=True)
-        ),
+        trace_rhs,
+        convergence,
+        LinearSystem.apply_trace_system,
+        TraceVector.dot,
+        TraceVector.__add__,
+        TraceVector.__sub__,
+        TraceVector.__mul__,
     )
+
+    # Apply contribution of trace to the system x = A^{-1} y - A^{-1} N^T lambda
+    solution = inv_a_y - system.apply_diagonal_inverse(
+        system.apply_transpose_trace(trace_lhs)
+    )
+
+    return solution, trace_lhs, tr

@@ -20,7 +20,6 @@ from mfv2d.mimetic2d import FemCache
 from mfv2d.progress import HistogramFormat
 from mfv2d.refinement import RefinementSettings, perform_mesh_refinement
 from mfv2d.solve_system import (
-    ConvergenceSettings,
     SolutionStatistics,
     SolverSettings,
     SuyashGreenOperator,
@@ -35,6 +34,7 @@ from mfv2d.solve_system import (
     non_linear_solve_run,
     reconstruct_mesh_from_solution,
 )
+from mfv2d.solving import ConvergenceSettings
 from mfv2d.system import KFormSystem
 
 

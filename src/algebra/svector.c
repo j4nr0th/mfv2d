@@ -1228,16 +1228,17 @@ static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
     const svector_t that_vector = {.n = other->n, .entries = (entry_t *)other->entries, .count = other->count};
 
     svector_t sum_vector;
-    if (sparse_vector_copy(&this_vector, &sum_vector, &SYSTEM_ALLOCATOR))
+    if (sparse_vector_copy(&that_vector, &sum_vector, &SYSTEM_ALLOCATOR))
         return NULL;
 
+    // Negate this vector
     for (unsigned i = 0; i < sum_vector.count; ++i)
     {
-        sum_vector.entries[i].value *= -sum_vector.entries[i].value;
+        sum_vector.entries[i].value = -sum_vector.entries[i].value;
     }
 
     svec_object_t *out = NULL;
-    if (sparse_vector_add_inplace(&sum_vector, &that_vector, &SYSTEM_ALLOCATOR) == 0)
+    if (sparse_vector_add_inplace(&sum_vector, &this_vector, &SYSTEM_ALLOCATOR) == 0)
     {
         out = sparse_vector_to_python(&sum_vector);
     }
@@ -1245,9 +1246,34 @@ static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
     return (PyObject *)out;
 }
 
+static PyObject *svec_mul(const svec_object_t *self, PyObject *other)
+{
+    const double v = PyFloat_AsDouble(other);
+    if (PyErr_Occurred())
+    {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    const svector_t this_vector = {.n = self->n, .entries = (entry_t *)self->entries, .count = self->count};
+
+    svector_t prod_vector;
+    if (sparse_vector_copy(&this_vector, &prod_vector, &SYSTEM_ALLOCATOR))
+        return NULL;
+
+    for (unsigned i = 0; i < prod_vector.count; ++i)
+    {
+        prod_vector.entries[i].value *= v;
+    }
+
+    svec_object_t *const out = sparse_vector_to_python(&prod_vector);
+    sparse_vector_del(&prod_vector, &SYSTEM_ALLOCATOR);
+    return (PyObject *)out;
+}
+
 static PyNumberMethods svec_as_number = {
     .nb_add = (binaryfunc)svec_add,
     .nb_subtract = (binaryfunc)svec_sub,
+    .nb_multiply = (binaryfunc)svec_mul,
 };
 
 PyTypeObject svec_type_object = {

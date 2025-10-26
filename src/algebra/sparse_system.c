@@ -65,12 +65,11 @@ mfv2d_result_t sparse_system_apply_diagonal_inverse(const system_t *system, cons
         // Manually pivot the vector
         for (unsigned row = 0; row < n_out; ++row)
         {
-            // TODO: check this is not the other way around
-            p_out[block->pivots[row]] = p_in[row];
+            p_out[row] = p_in[block->pivots[row]];
         }
 
         // Now solve using the decomposition (we can use the same input and output buffer, since we un-pivoted).
-        solve_lu(block->n, block->n, block->diagonal_lu, p_out, p_out);
+        solve_lu(block->n, 1, block->diagonal_lu, p_out, p_out);
     }
 
     return MFV2D_SUCCESS;

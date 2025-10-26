@@ -159,6 +159,46 @@ def test_c_python_types(nh: int, nv: int, order: int) -> None:
 
 
 @pytest.mark.parametrize(("nh", "nv", "order"), _TEST_DIMS)
+def test_c_operations(nh: int, nv: int, order: int) -> None:
+    """Check that C operators behave same as their Python counterparts."""
+    sys, den, tra = laplace_sample_system(nh, nv, order)
+
+    # Check the system itself works as expected
+    csys = CLinearSystem(
+        tuple((block.diagonal_block, block.constraint_matrix) for block in sys.blocks),
+        np.array(sys.constraints.element_array_offsets, np.uint32),
+        np.array(sys.constraints.associated_element_array, np.uint32),
+    )
+
+    cden = csys.create_dense_vector(*den.data)
+
+    ctra = csys.create_trace_vector(tra.combinded_system_vector())
+
+    c_d_out = csys.create_empty_dense_vector()
+    c_t_out = csys.create_empty_trace_vector()
+
+    # Check diagonal
+    csys.apply_diagonal(cden, c_d_out)
+    p_d_out = sys.apply_diagonal(den)
+    assert pytest.approx(c_d_out.as_merged()) == p_d_out.combinded_system_vector()
+
+    # Check diagonal inverse
+    csys.apply_diagonal_inverse(cden, c_d_out)
+    p_d_out = sys.apply_diagonal_inverse(den)
+    assert pytest.approx(c_d_out.as_merged()) == p_d_out.combinded_system_vector()
+
+    # Check trace
+    csys.apply_trace(cden, c_t_out)
+    p_t_out = sys.apply_trace(den)
+    assert pytest.approx(c_t_out.as_merged()) == p_t_out.combinded_system_vector()
+
+    # Check transpose
+    csys.apply_trace_transpose(ctra, c_d_out)
+    p_d_out = sys.apply_transpose_trace(tra)
+    assert pytest.approx(c_d_out.as_merged()) == p_d_out.combinded_system_vector()
+
+
+@pytest.mark.parametrize(("nh", "nv", "order"), _TEST_DIMS)
 def test_multiplication(nh: int, nv: int, order: int):
     """Check that system matrix computes the same solution as SciPy."""
     # Problem to be solved is based on mixed Laplace
@@ -270,6 +310,8 @@ def test_schur(nh: int, nv: int, order: int):
 if __name__ == "__main__":
     for args in _TEST_DIMS:
         test_c_python_types(*args)
+    for args in _TEST_DIMS:
+        test_c_operations(*args)
 
     # test_gmres(10, 100)
     # test_multiplication(10, 10, 6)

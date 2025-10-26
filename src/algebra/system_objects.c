@@ -601,6 +601,229 @@ static PyObject *system_get_constraint_blocks(PyObject *self, PyObject *Py_UNUSE
     return (PyObject *)res;
 }
 
+PyDoc_STRVAR(system_apply_diagonal_docstring, "apply_diagonal(x: DenseVector, out: DenseVector, /) -> None\n"
+                                              "Apply multiplication by the diagonal part of the system.\n"
+                                              "\n"
+                                              "Parameters\n"
+                                              "----------\n"
+                                              "DenseVector\n"
+                                              "    Dense vector to which this is applied.\n"
+                                              "\n"
+                                              "DenseVector\n"
+                                              "    Dense vector to which the output is returned.\n");
+
+static PyObject *system_apply_diagonal(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 2)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected 2 arguments, got %zd", nargs);
+        return NULL;
+    }
+
+    const system_object_t *const system = (system_object_t *)self;
+    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected first argument to be a DenseVector, got %s", Py_TYPE(args[0])->tp_name);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected second argument to be a DenseVector, got %s",
+                     Py_TYPE(args[1])->tp_name);
+        return NULL;
+    }
+    const dense_vector_object_t *const vec_in = (dense_vector_object_t *)args[0];
+    const dense_vector_object_t *const vec_out = (dense_vector_object_t *)args[1];
+    if (vec_in->parent != system || vec_out->parent != system)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both arguments must be from the same LinearSystem");
+        return NULL;
+    }
+    mfv2d_result_t res;
+    Py_BEGIN_ALLOW_THREADS;
+
+    const dense_vector_t vec_in_alias = dense_vector_object_as_dense_vector(vec_in);
+    const dense_vector_t vec_out_alias = dense_vector_object_as_dense_vector(vec_out);
+    res = sparse_system_apply_diagonal(system_object_as_system(system), &vec_in_alias, &vec_out_alias);
+
+    Py_END_ALLOW_THREADS;
+
+    if (res != MFV2D_SUCCESS)
+    {
+        PyErr_Format(PyExc_RuntimeError, "Failed to apply diagonal block: reason %s", mfv2d_result_str(res));
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(system_apply_diagonal_inverse_docstring,
+             "apply_diagonal_inverse(x: DenseVector, out: DenseVector, /) -> None\n"
+             "Apply inverse of the diagonal part of the system.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "DenseVector\n"
+             "    Dense vector to which this is applied.\n"
+             "\n"
+             "DenseVector\n"
+             "    Dense vector to which the output is returned.\n");
+
+static PyObject *system_apply_diagonal_inverse(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 2)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected 2 arguments, got %zd", nargs);
+        return NULL;
+    }
+
+    const system_object_t *const system = (system_object_t *)self;
+    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected first argument to be a DenseVector, got %s", Py_TYPE(args[0])->tp_name);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected second argument to be a DenseVector, got %s",
+                     Py_TYPE(args[1])->tp_name);
+        return NULL;
+    }
+    const dense_vector_object_t *const vec_in = (dense_vector_object_t *)args[0];
+    const dense_vector_object_t *const vec_out = (dense_vector_object_t *)args[1];
+    if (vec_in->parent != system || vec_out->parent != system)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both arguments must be from the same LinearSystem");
+        return NULL;
+    }
+    mfv2d_result_t res;
+    Py_BEGIN_ALLOW_THREADS;
+
+    const dense_vector_t vec_in_alias = dense_vector_object_as_dense_vector(vec_in);
+    const dense_vector_t vec_out_alias = dense_vector_object_as_dense_vector(vec_out);
+    res = sparse_system_apply_diagonal_inverse(system_object_as_system(system), &vec_in_alias, &vec_out_alias);
+
+    Py_END_ALLOW_THREADS;
+
+    if (res != MFV2D_SUCCESS)
+    {
+        PyErr_Format(PyExc_RuntimeError, "Failed to apply diagonal inverse: reason %s", mfv2d_result_str(res));
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(system_apply_trace_docstring, "apply_trace(x: DenseVector, out: TraceVector, /) -> None\n"
+                                           "Apply the trace constraints to the dense vector.\n"
+                                           "\n"
+                                           "Parameters\n"
+                                           "----------\n"
+                                           "DenseVector\n"
+                                           "    Dense vector to which this is applied.\n"
+                                           "\n"
+                                           "TraceVector\n"
+                                           "    Trace vector to which the output is returned.\n");
+
+static PyObject *system_apply_trace(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 2)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected 2 arguments, got %zd", nargs);
+        return NULL;
+    }
+
+    const system_object_t *const system = (system_object_t *)self;
+    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected first argument to be a DenseVector, got %s", Py_TYPE(args[0])->tp_name);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[1], &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected first argument to be a TraceVector, got %s", Py_TYPE(args[1])->tp_name);
+        return NULL;
+    }
+    const dense_vector_object_t *const vec_in = (dense_vector_object_t *)args[0];
+    const trace_vector_object_t *const vec_out = (trace_vector_object_t *)args[1];
+    if (vec_in->parent != system || vec_out->parent != system)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both arguments must be from the same LinearSystem");
+        return NULL;
+    }
+    mfv2d_result_t res;
+    Py_BEGIN_ALLOW_THREADS;
+
+    const dense_vector_t vec_in_alias = dense_vector_object_as_dense_vector(vec_in);
+    const trace_vector_t vec_out_alias = trace_vector_object_as_trace_vector(vec_out);
+    res = sparse_system_apply_trace(system_object_as_system(system), &vec_in_alias, &vec_out_alias);
+
+    Py_END_ALLOW_THREADS;
+
+    if (res != MFV2D_SUCCESS)
+    {
+        PyErr_Format(PyExc_RuntimeError, "Failed to apply trace: reason %s", mfv2d_result_str(res));
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(system_apply_trace_transpose_docstring,
+             "apply_trace_transpose(x: TraceVector, out: DenseVector, /) -> None\n"
+             "Apply the transpose of the constraints to the trace vector.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "TraceVector\n"
+             "    Trace vector to which this is applied.\n"
+             "\n"
+             "DenseVector\n"
+             "    Dense vector to which the output is returned.\n");
+
+static PyObject *system_apply_trace_transpose(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 2)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected 2 arguments, got %zd", nargs);
+    }
+
+    const system_object_t *const system = (system_object_t *)self;
+    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected first argument to be a TraceVector, got %s", Py_TYPE(args[0])->tp_name);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected first argument to be a DenseVector, got %s", Py_TYPE(args[1])->tp_name);
+        return NULL;
+    }
+    const trace_vector_object_t *const vec_in = (trace_vector_object_t *)args[0];
+    const dense_vector_object_t *const vec_out = (dense_vector_object_t *)args[1];
+    if (vec_in->parent != system || vec_out->parent != system)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both arguments must be from the same LinearSystem");
+        return NULL;
+    }
+    mfv2d_result_t res;
+    Py_BEGIN_ALLOW_THREADS;
+
+    const trace_vector_t vec_in_alias = trace_vector_object_as_trace_vector(vec_in);
+    const dense_vector_t vec_out_alias = dense_vector_object_as_dense_vector(vec_out);
+    res = sparse_system_apply_trace_transpose(system_object_as_system(system), &vec_in_alias, &vec_out_alias);
+
+    Py_END_ALLOW_THREADS;
+
+    if (res != MFV2D_SUCCESS)
+    {
+        PyErr_Format(PyExc_RuntimeError, "Failed to apply trace transpose: reason %s", mfv2d_result_str(res));
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef system_methods[] = {
     {
         .ml_name = "create_empty_dense_vector",
@@ -637,6 +860,30 @@ static PyMethodDef system_methods[] = {
         .ml_meth = (void *)system_get_constraint_blocks,
         .ml_flags = METH_NOARGS,
         .ml_doc = system_get_constraint_blocks_docstring,
+    },
+    {
+        .ml_name = "apply_diagonal",
+        .ml_meth = (void *)system_apply_diagonal,
+        .ml_flags = METH_FASTCALL,
+        .ml_doc = system_apply_diagonal_docstring,
+    },
+    {
+        .ml_name = "apply_diagonal_inverse",
+        .ml_meth = (void *)system_apply_diagonal_inverse,
+        .ml_flags = METH_FASTCALL,
+        .ml_doc = system_apply_diagonal_inverse_docstring,
+    },
+    {
+        .ml_name = "apply_trace",
+        .ml_meth = (void *)system_apply_trace,
+        .ml_flags = METH_FASTCALL,
+        .ml_doc = system_apply_trace_docstring,
+    },
+    {
+        .ml_name = "apply_trace_transpose",
+        .ml_meth = (void *)system_apply_trace_transpose,
+        .ml_flags = METH_FASTCALL,
+        .ml_doc = system_apply_trace_transpose_docstring,
     },
     {}, // Sentinel
 };

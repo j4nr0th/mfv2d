@@ -2025,7 +2025,7 @@ class LinearSystem:
         """Get the constraint blocks of the system."""
         ...
 
-    def apply_diagonal(self, x: DenseVector, /) -> DenseVector:
+    def apply_diagonal(self, x: DenseVector, out: DenseVector, /) -> None:
         """Apply multiplication by the diagonal part of the system.
 
         Parameters
@@ -2033,14 +2033,12 @@ class LinearSystem:
         DenseVector
             Dense vector to which this is applied.
 
-        Returns
-        -------
         DenseVector
-            Resulting dense vector.
+            Dense vector to which the output is returned.
         """
         ...
 
-    def apply_diagonal_inverse(self, x: DenseVector, /) -> DenseVector:
+    def apply_diagonal_inverse(self, x: DenseVector, out: DenseVector, /) -> None:
         """Apply inverse of the diagonal part of the system.
 
         Parameters
@@ -2048,14 +2046,12 @@ class LinearSystem:
         DenseVector
             Dense vector to which this is applied.
 
-        Returns
-        -------
         DenseVector
-            Resulting dense vector.
+            Dense vector to which the output is returned.
         """
         ...
 
-    def apply_trace(self, x: DenseVector, /) -> TraceVector:
+    def apply_trace(self, x: DenseVector, out: TraceVector, /) -> None:
         """Apply the trace constraints to the dense vector.
 
         Parameters
@@ -2063,14 +2059,12 @@ class LinearSystem:
         DenseVector
             Dense vector to which this is applied.
 
-        Returns
-        -------
         TraceVector
-            Resulting trace vector.
+            Trace vector to which the output is returned.
         """
         ...
 
-    def apply_trace_transpose(self, x: TraceVector, /) -> DenseVector:
+    def apply_trace_transpose(self, x: TraceVector, out: DenseVector, /) -> None:
         """Apply the transpose of the constraints to the trace vector.
 
         Parameters
@@ -2078,10 +2072,8 @@ class LinearSystem:
         TraceVector
             Trace vector to which this is applied.
 
-        Returns
-        -------
         DenseVector
-            Resulting dense vector.
+            Dense vector to which the output is returned.
         """
         ...
 

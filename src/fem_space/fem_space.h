@@ -1,7 +1,7 @@
 #ifndef FEM_SPACE_H
 #define FEM_SPACE_H
 
-#include "../evaluation/matrix.h"
+#include "../algebra/matrix.h"
 
 typedef enum
 {

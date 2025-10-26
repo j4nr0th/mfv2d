@@ -3,7 +3,7 @@
 //
 
 #include "matrix.h"
-#include "incidence.h"
+#include "../evaluation/incidence.h"
 
 PyArrayObject *matrix_full_to_array(const matrix_full_t *mat)
 {

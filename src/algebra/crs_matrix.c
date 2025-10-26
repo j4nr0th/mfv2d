@@ -17,7 +17,8 @@ static void *realloc_wrap(void *state, void *ptr, size_t new_size)
     return reallocate(state, ptr, new_size);
 }
 
-const static jmtx_allocator_callbacks JMTX_ALLOCATOR = {
+MFV2D_INTERNAL
+const jmtx_allocator_callbacks JMTX_ALLOCATOR = {
     .alloc = alloc_wrap,
     .realloc = realloc_wrap,
     .free = dealloc_wrap,
@@ -166,7 +167,8 @@ static PyObject *crs_matrix_matmul_left_svec(const crs_matrix_t *this, const sve
 
     svector_t svec;
     const unsigned rows = this->matrix->base.rows;
-    if (sparse_vector_new(&svec, rows, other->count > rows ? rows : other->count, &SYSTEM_ALLOCATOR))
+    mfv2d_result_t res = sparse_vector_new(&svec, rows, other->count > rows ? rows : other->count, &SYSTEM_ALLOCATOR);
+    if (res != MFV2D_SUCCESS)
     {
         return NULL;
     }
@@ -203,10 +205,12 @@ static PyObject *crs_matrix_matmul_left_svec(const crs_matrix_t *this, const sve
                 i2 += 1;
             }
         }
-        if (v != 0.0 && sparse_vector_append(&svec, (entry_t){.index = r, .value = v}, &SYSTEM_ALLOCATOR))
+        if (v != 0.0 &&
+            (res = sparse_vector_append(&svec, (entry_t){.index = r, .value = v}, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
         {
             sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
-            raise_exception_from_current(PyExc_RuntimeError, "Failed to append to sparse vector");
+            raise_exception_from_current(PyExc_RuntimeError, "Failed to append to sparse vector: %s",
+                                         mfv2d_result_str(res));
             return NULL;
         }
     }
@@ -230,11 +234,14 @@ static PyObject *crs_matrix_matmul_right_svec(const crs_matrix_t *this, const sv
     svector_t svec = {};
     svector_t temporary = {};
     const unsigned cols = this->matrix->base.cols;
-    if (sparse_vector_new(&svec, cols, other->count > cols ? cols : other->count, &SYSTEM_ALLOCATOR))
+    mfv2d_result_t res;
+    if ((res = sparse_vector_new(&svec, cols, other->count > cols ? cols : other->count, &SYSTEM_ALLOCATOR)) !=
+        MFV2D_SUCCESS)
     {
         return NULL;
     }
-    if (sparse_vector_new(&temporary, cols, other->count > cols ? cols : other->count, &SYSTEM_ALLOCATOR))
+    if ((res = sparse_vector_new(&temporary, cols, other->count > cols ? cols : other->count, &SYSTEM_ALLOCATOR)) !=
+        MFV2D_SUCCESS)
     {
         sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
         return NULL;
@@ -252,21 +259,23 @@ static PyObject *crs_matrix_matmul_right_svec(const crs_matrix_t *this, const sv
         for (unsigned j = 0; j < n; ++j)
         {
             const double v = values[j] * e->value;
-            if (v != 0.0 &&
-                sparse_vector_append(&temporary, (entry_t){.index = indices[j], .value = v}, &SYSTEM_ALLOCATOR))
+            if (v != 0.0 && (res = sparse_vector_append(&temporary, (entry_t){.index = indices[j], .value = v},
+                                                        &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
             {
                 sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
                 sparse_vector_del(&temporary, &SYSTEM_ALLOCATOR);
-                raise_exception_from_current(PyExc_RuntimeError, "Failed to append to sparse vector");
+                raise_exception_from_current(PyExc_RuntimeError, "Failed to append to sparse vector: %s",
+                                             mfv2d_result_str(res));
                 return NULL;
             }
         }
 
-        if (temporary.count > 0 && sparse_vector_add_inplace(&svec, &temporary, &SYSTEM_ALLOCATOR))
+        if (temporary.count > 0 &&
+            (res = sparse_vector_add_inplace(&svec, &temporary, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
         {
             sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
             sparse_vector_del(&temporary, &SYSTEM_ALLOCATOR);
-            raise_exception_from_current(PyExc_RuntimeError, "Failed to add sparse vectors");
+            raise_exception_from_current(PyExc_RuntimeError, "Failed to add sparse vectors: %s", mfv2d_result_str(res));
             return NULL;
         }
     }
@@ -322,8 +331,9 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
         return NULL;
     }
     svector_t row_built = {}, temp = {};
-    if (sparse_vector_new(&row_built, out_cols, out_buffer_capacity, &SYSTEM_ALLOCATOR) ||
-        sparse_vector_new(&temp, out_cols, out_buffer_capacity, &SYSTEM_ALLOCATOR))
+    mfv2d_result_t res;
+    if ((res = sparse_vector_new(&row_built, out_cols, out_buffer_capacity, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS ||
+        (res = sparse_vector_new(&temp, out_cols, out_buffer_capacity, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
     {
         sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
         sparse_vector_del(&row_built, &SYSTEM_ALLOCATOR);
@@ -352,8 +362,8 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
             for (unsigned j = 0; j < n_1; ++j)
             {
                 const double v = values_1[j] * row_value;
-                if (v != 0 &&
-                    sparse_vector_append(&temp, (entry_t){.index = indices_1[j], .value = v}, &SYSTEM_ALLOCATOR))
+                if (v != 0 && (res = sparse_vector_append(&temp, (entry_t){.index = indices_1[j], .value = v},
+                                                          &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
                 {
                     PyErr_Format(PyExc_RuntimeError, "Failed to append to sparse vector.");
                     sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
@@ -365,7 +375,7 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
                 }
             }
 
-            if (sparse_vector_add_inplace(&row_built, &temp, &SYSTEM_ALLOCATOR))
+            if ((res = sparse_vector_add_inplace(&row_built, &temp, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
             {
                 PyErr_Format(PyExc_RuntimeError, "Failed to add sparse vectors.");
                 sparse_vector_del(&temp, &SYSTEM_ALLOCATOR);
@@ -905,7 +915,9 @@ static PyObject *crs_matrix_multiply_to_sparse(const crs_matrix_t *this, PyObjec
         return NULL;
     }
     svector_t svector;
-    if (sparse_vector_new(&svector, this->matrix->base.rows, this->matrix->base.rows, &SYSTEM_ALLOCATOR))
+    mfv2d_result_t res;
+    if ((res = sparse_vector_new(&svector, this->matrix->base.rows, this->matrix->base.rows, &SYSTEM_ALLOCATOR)) !=
+        MFV2D_SUCCESS)
     {
         Py_DECREF(array);
         return NULL;
@@ -925,7 +937,7 @@ static PyObject *crs_matrix_multiply_to_sparse(const crs_matrix_t *this, PyObjec
         if (v != 0.0)
         {
             // Memory was pre-allocated for enough entries, so no need to check this.
-            (void)sparse_vector_append(&svector, (entry_t){.index = r, .value = v}, &SYSTEM_ALLOCATOR);
+            res = sparse_vector_append(&svector, (entry_t){.index = r, .value = v}, &SYSTEM_ALLOCATOR);
         }
     }
     Py_DECREF(array);
@@ -1184,7 +1196,8 @@ static PyObject *crs_matrix_get_row(const crs_matrix_t *this, PyObject *key)
     double *values = NULL;
     const unsigned n = jmtxd_matrix_crs_get_row(this->matrix, long_row, &indices, &values);
     svector_t svec;
-    if (sparse_vector_new(&svec, this->matrix->base.cols, n, &SYSTEM_ALLOCATOR))
+    mfv2d_result_t res;
+    if ((res = sparse_vector_new(&svec, this->matrix->base.cols, n, &SYSTEM_ALLOCATOR)) != MFV2D_SUCCESS)
     {
         return NULL;
     }

@@ -20,8 +20,11 @@ execute_process(
 set(MFV2D_SOURCE_FILES
         src/module.c
         # algebra
-        src/algebra/svector.c
         src/algebra/crs_matrix.c
+        src/algebra/matrix.c
+        src/algebra/sparse_system.c
+        src/algebra/svector.c
+        src/algebra/system_objects.c
         # common
         src/common/allocator.c
         src/common/common.c
@@ -33,7 +36,6 @@ set(MFV2D_SOURCE_FILES
         src/evaluation/forms.c
         src/evaluation/incidence.c
         src/evaluation/integrating_fields.c
-        src/evaluation/matrix.c
         src/evaluation/system_template.c
         # fem_space
         src/fem_space/basis.c
@@ -54,8 +56,11 @@ set(MFV2D_SOURCE_FILES
 set(MFV2D_HEADER_FILES
         src/module.h
         # algebra
-        src/algebra/svector.h
         src/algebra/crs_matrix.h
+        src/algebra/matrix.h
+        src/algebra/sparse_system.h
+        src/algebra/svector.h
+        src/algebra/system_objects.h
         # common
         src/common/allocator.h
         src/common/common.h
@@ -67,7 +72,6 @@ set(MFV2D_HEADER_FILES
         src/evaluation/forms.h
         src/evaluation/incidence.h
         src/evaluation/integrating_fields.h
-        src/evaluation/matrix.h
         src/evaluation/system_template.h
         # fem_space
         src/fem_space/basis.h

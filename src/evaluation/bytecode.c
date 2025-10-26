@@ -5,7 +5,7 @@
 #include "bytecode.h"
 #include "integrating_fields.h"
 
-#include "matrix.h"
+#include "../algebra/matrix.h"
 #include "system_template.h"
 
 #define MATRIX_OP_ENTRY(op) [op] = #op

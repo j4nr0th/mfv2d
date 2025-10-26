@@ -1,7 +1,3 @@
-//
-// Created by jan on 18.1.2025.
-//
-
 #ifndef MIMETIC_MODULE_H
 #define MIMETIC_MODULE_H
 

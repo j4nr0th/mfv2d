@@ -29,4 +29,7 @@ static inline int check_jmtx_call(const jmtx_result res, const char *file, const
 #define JMTX_SUCCEEDED(call) check_jmtx_call((call), __FILE__, __LINE__, __func__, #call)
 #endif // JMTX_SUCCEEDED
 
+MFV2D_INTERNAL
+extern const jmtx_allocator_callbacks JMTX_ALLOCATOR;
+
 #endif // MFV2D_CRS_MATRIX_H

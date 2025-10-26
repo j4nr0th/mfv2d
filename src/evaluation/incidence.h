@@ -5,8 +5,8 @@
 #ifndef INCIDENCE_H
 #define INCIDENCE_H
 
+#include "../algebra/matrix.h"
 #include "../common/error.h"
-#include "matrix.h"
 
 MFV2D_INTERNAL
 mfv2d_result_t apply_e10_left(unsigned order, const matrix_full_t *in, matrix_full_t *out,

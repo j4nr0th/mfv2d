@@ -1940,3 +1940,202 @@ class MatrixCRS:
     def nonempty_rows(self) -> npt.NDArray[np.uintc]:
         """Indices of rows with at least one entry."""
         ...
+
+class LinearSystem:
+    """Class used to represent a linear system with element equations and constraints.
+
+    Parameters
+    ----------
+    blocks : tuple of (array, MatrixCRS)
+        Tuple of blocks that contain the (square) dense matrix diagonal block and the
+        matrix representing the constraint block.
+
+    offsets : array
+        Array of offsets for the array of element indices for each trace variable.
+
+    indices : array
+        Packed array of element indices for each trace variable, denoting to which
+        elements the variable must be added to.
+    """
+
+    # TODO: refactor all these "create_*" methods into constructors for appropriate types
+    def __new__(
+        cls,
+        blocks: tuple[tuple[npt.NDArray[np.float64], MatrixCRS], ...],
+        offsets: npt.NDArray[np.uint32],
+        indices: npt.NDArray[np.uint32],
+    ) -> Self: ...
+    def __str__(self) -> str: ...
+    def create_empty_dense_vector(self) -> DenseVector:
+        """Create an empty dense vector associated with the system.
+
+        Returns
+        -------
+        DenseVector
+            Dense vector containing all zeros.
+        """
+        ...
+
+    def create_dense_vector(self, *blocks: npt.NDArray[np.float64]) -> DenseVector:
+        """Create a dense vector associated with the system.
+
+        Parameters
+        ----------
+        *blocks : array
+            Arrays with values of the vector for each block. These must have the
+            same size as each of the blocks.
+
+        Returns
+        -------
+        DenseVector
+            Dense vector representation of the values.
+        """
+        ...
+
+    def create_empty_trace_vector(self) -> TraceVector:
+        """Create an empty trace vector associated with the system.
+
+        Returns
+        -------
+        TraceVector
+            Trace vector of all zeros.
+        """
+        ...
+
+    def create_trace_vector(self, value: npt.NDArray[np.float64], /) -> TraceVector:
+        """Create a trace vector associated with the system.
+
+        Parameters
+        ----------
+        value : array
+            Array with values of all trace variables.
+
+        Returns
+        -------
+        TraceVector
+            Trace vector representation of the the trace of the system.
+        """
+        ...
+
+    def get_dense_blocks(self) -> tuple[npt.NDArray[np.float64], ...]:
+        """Get the dense blocks of the system."""
+        ...
+
+    def get_constraint_blocks(self) -> tuple[MatrixCRS, ...]:
+        """Get the constraint blocks of the system."""
+        ...
+
+    def apply_diagonal(self, x: DenseVector, /) -> DenseVector:
+        """Apply multiplication by the diagonal part of the system.
+
+        Parameters
+        ----------
+        DenseVector
+            Dense vector to which this is applied.
+
+        Returns
+        -------
+        DenseVector
+            Resulting dense vector.
+        """
+        ...
+
+    def apply_diagonal_inverse(self, x: DenseVector, /) -> DenseVector:
+        """Apply inverse of the diagonal part of the system.
+
+        Parameters
+        ----------
+        DenseVector
+            Dense vector to which this is applied.
+
+        Returns
+        -------
+        DenseVector
+            Resulting dense vector.
+        """
+        ...
+
+    def apply_trace(self, x: DenseVector, /) -> TraceVector:
+        """Apply the trace constraints to the dense vector.
+
+        Parameters
+        ----------
+        DenseVector
+            Dense vector to which this is applied.
+
+        Returns
+        -------
+        TraceVector
+            Resulting trace vector.
+        """
+        ...
+
+    def apply_trace_transpose(self, x: TraceVector, /) -> DenseVector:
+        """Apply the transpose of the constraints to the trace vector.
+
+        Parameters
+        ----------
+        TraceVector
+            Trace vector to which this is applied.
+
+        Returns
+        -------
+        DenseVector
+            Resulting dense vector.
+        """
+        ...
+
+@final
+class DenseVector:
+    """Type used to represent the "dense" system variables associated with one element."""
+
+    def __str__(self) -> str: ...
+    def as_merged(self) -> npt.NDArray[np.float64]:
+        """Return the dense vector as a single merged array."""
+        ...
+
+    def as_split(self) -> tuple[npt.NDArray[np.float64], ...]:
+        """Return the dense vector as a tuple of individual block arrays."""
+        ...
+
+    def subtract_from(self, other: DenseVector, /) -> None:
+        """Subtract another dense vector from itself."""
+        ...
+
+    def copy(self) -> Self:
+        """Create a copy of itself."""
+        ...
+
+@final
+class TraceVector:
+    """Type used to represent the "trace" system variables associated with constraints."""
+
+    def __str__(self) -> str: ...
+    def as_merged(self) -> npt.NDArray[np.float64]:
+        """Return the trace vector as a single merged array."""
+        ...
+
+    def as_split(self) -> tuple[SparseVector, ...]:
+        """Return the trace vector as a tuple of individual block traces."""
+        ...
+
+    @staticmethod
+    def dot(v1: TraceVector, v2: TraceVector, /) -> float:
+        """Compute the dot product of two trace vectors."""
+        ...
+
+    def add_to(self, other: TraceVector, /) -> None:
+        """Add another trace vector to itself."""
+        ...
+
+    def subtract_from(self, other: TraceVector, /) -> None:
+        """Subtract another trace vector from itself."""
+        ...
+
+    def scale_by(self, x: float, /) -> None:
+        """Scale the vector by a value."""
+        ...
+
+    def copy(self) -> Self:
+        """Create a copy of itself."""
+        ...

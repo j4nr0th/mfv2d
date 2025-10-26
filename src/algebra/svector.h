@@ -6,6 +6,7 @@
 #define SVECTOR_H
 
 #include "../common/common.h"
+#include "../common/error.h"
 
 typedef double scalar_t;
 typedef struct
@@ -40,7 +41,7 @@ extern PyTypeObject svec_type_object;
  * @return Zero on success.
  */
 MFV2D_INTERNAL
-int sparse_vector_new(svector_t *this, uint64_t n, uint64_t capacity, const allocator_callbacks *allocator);
+mfv2d_result_t sparse_vector_new(svector_t *this, uint64_t n, uint64_t capacity, const allocator_callbacks *allocator);
 
 /**
  * Clean up the memory used by the vector and clear the memory where it was stored.
@@ -60,7 +61,7 @@ void sparse_vector_del(svector_t *this, const allocator_callbacks *allocator);
  * @return Zero on success.
  */
 MFV2D_INTERNAL
-int sparse_vec_resize(svector_t *this, uint64_t new_capacity, const allocator_callbacks *allocator);
+mfv2d_result_t sparse_vec_resize(svector_t *this, uint64_t new_capacity, const allocator_callbacks *allocator);
 
 /**
  * Append an entry to a sparse vector, resizing if needed.
@@ -71,7 +72,7 @@ int sparse_vec_resize(svector_t *this, uint64_t new_capacity, const allocator_ca
  * @return Zero on success.
  */
 MFV2D_INTERNAL
-int sparse_vector_append(svector_t *this, entry_t e, const allocator_callbacks *allocator);
+mfv2d_result_t sparse_vector_append(svector_t *this, entry_t e, const allocator_callbacks *allocator);
 
 /**
  * Create a Python sparse vector object based on the given sparse vector.
@@ -91,7 +92,7 @@ svec_object_t *sparse_vector_to_python(const svector_t *this);
  * @return Zero on success.
  */
 MFV2D_INTERNAL
-int sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_callbacks *allocator);
+mfv2d_result_t sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_callbacks *allocator);
 
 /**
  * Search the vector for the first entry with the given index, or one which is greater than it. The length of the vector
@@ -124,6 +125,7 @@ uint64_t sparse_vector_find_first_geq(const svector_t *this, uint64_t v, uint64_
  *         (e.g., memory allocation failure during resizing).
  */
 MFV2D_INTERNAL
-int sparse_vector_add_inplace(svector_t *first, const svector_t *second, const allocator_callbacks *allocator);
+mfv2d_result_t sparse_vector_add_inplace(svector_t *first, const svector_t *second,
+                                         const allocator_callbacks *allocator);
 
 #endif // SVECTOR_H

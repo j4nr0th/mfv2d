@@ -6,6 +6,9 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 from mfv2d._mfv2d import ElementFemSpace2D, compute_element_matrix
+from mfv2d._mfv2d import (
+    LinearSystem as CLinearSystem,
+)
 from mfv2d.continuity import connect_elements
 from mfv2d.eval import CompiledSystem
 from mfv2d.examples import unit_square_mesh
@@ -86,7 +89,76 @@ def laplace_sample_system(
     return linear_system, forcing_vec_d, forcing_vec_t
 
 
-@pytest.mark.parametrize(("nh", "nv", "order"), ((10, 10, 3), (3, 4, 4), (5, 2, 5)))
+_TEST_DIMS = (
+    (10, 10, 3),
+    (3, 4, 4),
+    (5, 2, 5),
+)
+
+
+@pytest.mark.parametrize(("nh", "nv", "order"), _TEST_DIMS)
+def test_c_python_types(nh: int, nv: int, order: int) -> None:
+    """Check that C types behave same as their Python counterparts."""
+    sys, den, tra = laplace_sample_system(nh, nv, order)
+
+    # Check the system itself works as expected
+    csys = CLinearSystem(
+        tuple((block.diagonal_block, block.constraint_matrix) for block in sys.blocks),
+        np.array(sys.constraints.element_array_offsets, np.uint32),
+        np.array(sys.constraints.associated_element_array, np.uint32),
+    )
+
+    for sblock, cd, cs in zip(
+        sys.blocks,
+        csys.get_dense_blocks(),
+        csys.get_constraint_blocks(),
+        strict=True,
+    ):
+        assert np.all(sblock.diagonal_block == cd)
+        sb = sblock.constraint_matrix
+        assert np.all(sb.row_indices == cs.row_indices)
+        assert np.all(sb.row_offsets == cs.row_offsets)
+        assert np.all(sb.values == cs.values)
+
+    # Check empty dense vectors can be created
+    cden = csys.create_empty_dense_vector()
+    merge_dense = den.combinded_system_vector()
+
+    assert np.all(np.zeros_like(merge_dense) == cden.as_merged())
+
+    for block, sbl in zip(den.data, cden.as_split(), strict=True):
+        assert np.all(np.zeros_like(block) == sbl)
+
+    # Check filled dense vectors can be created
+    cden = csys.create_dense_vector(*den.data)
+
+    assert np.all(merge_dense == cden.as_merged())
+
+    for block, sbl in zip(den.data, cden.as_split(), strict=True):
+        assert np.all(block == sbl)
+
+    # Check empty trace vectors can be created
+    ctra = csys.create_empty_trace_vector()
+    merge_trace = tra.combinded_system_vector()
+
+    assert np.all(np.zeros_like(merge_trace) == ctra.as_merged())
+
+    for svec1, svec2 in zip(tra.values, ctra.as_split(), strict=True):
+        assert np.all(svec1.indices == svec2.indices)
+        assert svec1.n == svec2.n
+
+    # Check filled trace vectors can be created
+    ctra = csys.create_trace_vector(merge_trace)
+
+    assert np.all(merge_trace == ctra.as_merged())
+
+    for svec1, svec2 in zip(tra.values, ctra.as_split(), strict=True):
+        assert np.all(svec1.indices == svec2.indices)
+        assert np.all(svec1.values == svec2.values)
+        assert svec1.n == svec2.n
+
+
+@pytest.mark.parametrize(("nh", "nv", "order"), _TEST_DIMS)
 def test_multiplication(nh: int, nv: int, order: int):
     """Check that system matrix computes the same solution as SciPy."""
     # Problem to be solved is based on mixed Laplace
@@ -146,7 +218,7 @@ def test_gmres(n: int, m: int):
     assert pytest.approx(solution) == lhs
 
 
-@pytest.mark.parametrize(("nh", "nv", "order"), ((10, 10, 3), (3, 4, 4), (5, 2, 5)))
+@pytest.mark.parametrize(("nh", "nv", "order"), _TEST_DIMS)
 def test_schur(nh: int, nv: int, order: int):
     """Check that Schur's compliment solver computes the same solution as SciPy."""
     # Problem to be solved is based on mixed Laplace
@@ -196,9 +268,12 @@ def test_schur(nh: int, nv: int, order: int):
 
 
 if __name__ == "__main__":
+    for args in _TEST_DIMS:
+        test_c_python_types(*args)
+
     # test_gmres(10, 100)
     # test_multiplication(10, 10, 6)
     # test_schur(3, 3, 3)
-    test_schur(20, 15, 5)
+    # test_schur(20, 15, 5)
     # test_schur(3, 4, 4)
     # test_schur(5, 2, 5)

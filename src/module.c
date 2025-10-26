@@ -14,6 +14,7 @@
 // Algebra
 #include "algebra/crs_matrix.h"
 #include "algebra/svector.h"
+#include "algebra/system_objects.h"
 
 //  Geometry
 #include "geometry/geoidobject.h"
@@ -156,13 +157,14 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
         PyModule_AddType(mod, &element_fem_space_2d_type) < 0 || PyModule_AddType(mod, &mesh_type_object) < 0 ||
         PyModule_AddType(mod, &element_form_spec_type) < 0 || PyModule_AddType(mod, &element_form_spec_iter_type) < 0 ||
         PyModule_AddType(mod, &svec_type_object) < 0 || PyModule_AddType(mod, &crs_matrix_type_object) < 0 ||
-        PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_RIGHT) < 0 ||
-        PyModule_AddIntMacro(mod, ELEMENT_SIDE_TOP) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_LEFT) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_INVALID) < 0 || PyModule_AddIntMacro(mod, MATOP_IDENTITY) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_MASS) < 0 || PyModule_AddIntMacro(mod, MATOP_INCIDENCE) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_PUSH) < 0 || PyModule_AddIntMacro(mod, MATOP_MATMUL) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_SCALE) < 0 || PyModule_AddIntMacro(mod, MATOP_SUM) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_INTERPROD) < 0)
+        PyModule_AddType(mod, &system_object_type) < 0 || PyModule_AddType(mod, &trace_vector_object_type) < 0 ||
+        PyModule_AddType(mod, &dense_vector_object_type) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 ||
+        PyModule_AddIntMacro(mod, ELEMENT_SIDE_RIGHT) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_TOP) < 0 ||
+        PyModule_AddIntMacro(mod, ELEMENT_SIDE_LEFT) < 0 || PyModule_AddIntMacro(mod, MATOP_INVALID) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_IDENTITY) < 0 || PyModule_AddIntMacro(mod, MATOP_MASS) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_INCIDENCE) < 0 || PyModule_AddIntMacro(mod, MATOP_PUSH) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_MATMUL) < 0 || PyModule_AddIntMacro(mod, MATOP_SCALE) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_SUM) < 0 || PyModule_AddIntMacro(mod, MATOP_INTERPROD) < 0)
     {
         Py_XDECREF(mod);
         return NULL;

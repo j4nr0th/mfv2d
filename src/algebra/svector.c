@@ -5,12 +5,12 @@
 #include "svector.h"
 #include "numpy/ndarrayobject.h"
 
-int sparse_vector_new(svector_t *this, uint64_t n, uint64_t capacity, const allocator_callbacks *allocator)
+mfv2d_result_t sparse_vector_new(svector_t *this, uint64_t n, uint64_t capacity, const allocator_callbacks *allocator)
 {
     entry_t *const entries = allocate(allocator, sizeof *entries * capacity);
     if (!entries)
     {
-        return -1;
+        return MFV2D_FAILED_ALLOC;
     }
 
     this->count = 0;
@@ -18,7 +18,7 @@ int sparse_vector_new(svector_t *this, uint64_t n, uint64_t capacity, const allo
     this->capacity = capacity;
     this->entries = entries;
 
-    return 0;
+    return MFV2D_SUCCESS;
 }
 
 void sparse_vector_del(svector_t *this, const allocator_callbacks *allocator)
@@ -27,30 +27,32 @@ void sparse_vector_del(svector_t *this, const allocator_callbacks *allocator)
     *this = (svector_t){};
 }
 
-int sparse_vec_resize(svector_t *this, const uint64_t new_capacity, const allocator_callbacks *allocator)
+mfv2d_result_t sparse_vec_resize(svector_t *this, const uint64_t new_capacity, const allocator_callbacks *allocator)
 {
     if (this->capacity >= new_capacity)
-        return 0;
+        return MFV2D_SUCCESS;
 
     entry_t *const new_ptr = reallocate(allocator, this->entries, sizeof(*this->entries) * new_capacity);
     if (!new_ptr)
     {
-        return -1;
+        return MFV2D_FAILED_ALLOC;
     }
     this->entries = new_ptr;
     this->capacity = new_capacity;
-    return 0;
+    return MFV2D_SUCCESS;
 }
 
-int sparse_vector_append(svector_t *this, const entry_t e, const allocator_callbacks *allocator)
+mfv2d_result_t sparse_vector_append(svector_t *this, const entry_t e, const allocator_callbacks *allocator)
 {
     enum
     {
         MINIMUM_INCREMENT = 8
     };
-    if (this->count >= this->capacity && sparse_vec_resize(this, this->count + MINIMUM_INCREMENT, allocator))
+    mfv2d_result_t res;
+    if (this->count >= this->capacity &&
+        (res = sparse_vec_resize(this, this->count + MINIMUM_INCREMENT, allocator)) != MFV2D_SUCCESS)
     {
-        return -1;
+        return res;
     }
     ASSERT(this->count == 0 || e.index > this->entries[this->count - 1].index,
            "Must have higher index than last in array (index comparison %u vs %u).", (unsigned)e.index,
@@ -58,7 +60,7 @@ int sparse_vector_append(svector_t *this, const entry_t e, const allocator_callb
 
     this->entries[this->count] = e;
     this->count += 1;
-    return 0;
+    return MFV2D_SUCCESS;
 }
 
 svec_object_t *sparse_vector_to_python(const svector_t *this)
@@ -78,16 +80,17 @@ svec_object_t *sparse_vector_to_python(const svector_t *this)
     return self;
 }
 
-int sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_callbacks *allocator)
+mfv2d_result_t sparse_vector_copy(const svector_t *src, svector_t *dst, const allocator_callbacks *allocator)
 {
     dst->n = src->n;
-    if (sparse_vec_resize(dst, src->count, allocator))
-        return -1;
+    const mfv2d_result_t res = sparse_vec_resize(dst, src->count, allocator);
+    if (res != MFV2D_SUCCESS)
+        return res;
 
     memcpy(dst->entries, src->entries, sizeof *dst->entries * src->count);
     dst->count = src->count;
 
-    return 0;
+    return MFV2D_SUCCESS;
 }
 
 uint64_t sparse_vector_find_first_geq(const svector_t *this, const uint64_t v, const uint64_t start)
@@ -149,10 +152,11 @@ uint64_t sparse_vector_find_first_geq(const svector_t *this, const uint64_t v, c
     return begin + len;
 }
 
-int sparse_vector_add_inplace(svector_t *first, const svector_t *second, const allocator_callbacks *allocator)
+mfv2d_result_t sparse_vector_add_inplace(svector_t *first, const svector_t *second,
+                                         const allocator_callbacks *allocator)
 {
     if (second->count == 0)
-        return 0;
+        return MFV2D_SUCCESS;
 
     unsigned pos_1 = 0, pos_2 = 0;
     unsigned unique = 0;
@@ -192,8 +196,9 @@ int sparse_vector_add_inplace(svector_t *first, const svector_t *second, const a
     if (first->capacity < new_size)
     {
         const unsigned new_capacity = new_size;
-        if (sparse_vec_resize(first, new_capacity, allocator))
-            return -1;
+        const mfv2d_result_t res = sparse_vec_resize(first, new_capacity, allocator);
+        if (res)
+            return res;
     }
     // Loop over backwards
     pos_1 = first->count;
@@ -243,7 +248,7 @@ int sparse_vector_add_inplace(svector_t *first, const svector_t *second, const a
         ASSERT(first->entries[i - 1].index < first->entries[i].index,
                "The entries after merge must be sorted, but %u and %u were not", i - 1, i);
     }
-    return 0;
+    return MFV2D_SUCCESS;
 }
 
 static PyObject *svec_repr(const svec_object_t *this)
@@ -1205,11 +1210,13 @@ static PyObject *svec_add(const svec_object_t *self, const svec_object_t *other)
     const svector_t that_vector = {.n = other->n, .entries = (entry_t *)other->entries, .count = other->count};
 
     svector_t sum_vector;
-    if (sparse_vector_copy(&this_vector, &sum_vector, &SYSTEM_ALLOCATOR))
+    mfv2d_result_t res = sparse_vector_copy(&this_vector, &sum_vector, &SYSTEM_ALLOCATOR);
+    if (res != MFV2D_SUCCESS)
         return NULL;
 
     svec_object_t *out = NULL;
-    if (sparse_vector_add_inplace(&sum_vector, &that_vector, &SYSTEM_ALLOCATOR) == 0)
+    res = sparse_vector_add_inplace(&sum_vector, &that_vector, &SYSTEM_ALLOCATOR);
+    if (res == MFV2D_SUCCESS)
     {
         out = sparse_vector_to_python(&sum_vector);
     }
@@ -1228,8 +1235,11 @@ static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
     const svector_t that_vector = {.n = other->n, .entries = (entry_t *)other->entries, .count = other->count};
 
     svector_t sum_vector;
-    if (sparse_vector_copy(&that_vector, &sum_vector, &SYSTEM_ALLOCATOR))
+    mfv2d_result_t res = sparse_vector_copy(&that_vector, &sum_vector, &SYSTEM_ALLOCATOR);
+    if (res != MFV2D_SUCCESS)
+    {
         return NULL;
+    }
 
     // Negate this vector
     for (unsigned i = 0; i < sum_vector.count; ++i)
@@ -1238,7 +1248,8 @@ static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
     }
 
     svec_object_t *out = NULL;
-    if (sparse_vector_add_inplace(&sum_vector, &this_vector, &SYSTEM_ALLOCATOR) == 0)
+    res = sparse_vector_add_inplace(&sum_vector, &this_vector, &SYSTEM_ALLOCATOR);
+    if (res == MFV2D_SUCCESS)
     {
         out = sparse_vector_to_python(&sum_vector);
     }
@@ -1257,7 +1268,9 @@ static PyObject *svec_mul(const svec_object_t *self, PyObject *other)
     const svector_t this_vector = {.n = self->n, .entries = (entry_t *)self->entries, .count = self->count};
 
     svector_t prod_vector;
-    if (sparse_vector_copy(&this_vector, &prod_vector, &SYSTEM_ALLOCATOR))
+
+    const mfv2d_result_t res = sparse_vector_copy(&this_vector, &prod_vector, &SYSTEM_ALLOCATOR);
+    if (res != MFV2D_SUCCESS)
         return NULL;
 
     for (unsigned i = 0; i < prod_vector.count; ++i)

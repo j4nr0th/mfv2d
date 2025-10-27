@@ -23,19 +23,6 @@ const char *matrix_op_type_str(const matrix_op_type_t op)
     return matrix_op_strings[op];
 }
 
-static int check_instruction_count(const unsigned available, const unsigned required, const matrix_op_type_t type)
-{
-    if (available < required)
-    {
-        PyErr_Format(PyExc_ValueError,
-                     "Not enough instructions available for the required instruction type %s, which requires %u, but "
-                     "only %u are left.",
-                     matrix_op_type_str(type), required, available);
-        return 0;
-    }
-    return 1;
-}
-
 /**
  * Converts a Python object to a value of type `form_order_t`.
  *
@@ -332,6 +319,9 @@ int matrix_op_type_from_object(PyObject *const o, matrix_op_type_t *const out)
     const long val = PyLong_AsLong(o);
     if (PyErr_Occurred())
     {
+        // This warning is fine because the format string is actually passed on to Python,
+        // which has a few different format specifiers. See the link below:
+        // https://docs.python.org/3/c-api/unicode.html#c.PyUnicode_FromFormat
         raise_exception_from_current(PyExc_ValueError, "Could not convert value \"%R\" to the correct type.", o);
         return 0;
     }

@@ -144,7 +144,8 @@ static mfv2d_result_t operation_incidence(matrix_t *current, const matrix_op_t *
         break;
 
     case MATRIX_TYPE_INCIDENCE:
-        res = incidence_to_full(current->type, element_fem_space->basis_xi->order, &current->full, allocator);
+        res = incidence_to_full(current->incidence.incidence, element_fem_space->basis_xi->order, &current->full,
+                                allocator);
         if (res != MFV2D_SUCCESS)
         {
             MFV2D_ERROR(error_stack, res, "Could not create the incidence matrix.");

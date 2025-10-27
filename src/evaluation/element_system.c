@@ -573,6 +573,9 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
             case FORM_ORDER_2:
                 mass = element_mass_cache_get_surf_inv(space_out);
                 break;
+
+            default:
+                ASSERT(0, "Should never happen.");
             }
 
             if (mass == NULL)

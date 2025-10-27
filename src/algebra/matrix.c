@@ -508,6 +508,7 @@ void solve_lu(const size_t n, const size_t m, const double lu[static restrict n 
         for (unsigned j = 0; j < m; ++j)
         {
             double v = rhs[i * m + j];
+#pragma omp simd reduction(- : v)
             for (unsigned k = 0; k < i; ++k)
             {
                 v -= lu[i * n + k] * lhs[k * m + j];
@@ -522,6 +523,7 @@ void solve_lu(const size_t n, const size_t m, const double lu[static restrict n 
         for (unsigned j = 0; j < m; ++j)
         {
             double v = lhs[(i - 1) * m + j];
+#pragma omp simd reduction(- : v)
             for (unsigned k = i; k < n; ++k)
             {
                 v -= lu[(i - 1) * n + k] * lhs[k * m + j];

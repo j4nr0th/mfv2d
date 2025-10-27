@@ -1203,14 +1203,19 @@ static PyObject *trace_vector_dot(PyObject *Py_UNUSED(mod), PyObject *const *arg
         ASSERT(lhs_vec->count == rhs_vec->count, "Trace vector blocks %u don't have matching sizes (%u vs %u)", i,
                (unsigned)lhs_vec->count, (unsigned)rhs_vec->count);
 
+#pragma omp simd reduction(+ : res)
         for (unsigned j = 0; j < lhs_vec->count; ++j)
         {
             const double lhs_value = lhs_vec->entries[j].value;
             const double rhs_value = rhs_vec->entries[j].value;
-            ASSERT(lhs_vec->entries[j].index == rhs_vec->entries[j].index,
-                   "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
-                   (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
-            res += lhs_value * rhs_value;
+            const unsigned trace_idx = lhs_vec->entries[j].index;
+            ASSERT(trace_idx == rhs_vec->entries[j].index,
+                   "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j, (unsigned)trace_idx,
+                   (unsigned)rhs_vec->entries[j].index);
+            const unsigned cnt = // NOTE: consider caching this inverse
+                lhs->parent->system.trace_offsets[trace_idx + 1] - lhs->parent->system.trace_offsets[trace_idx];
+            // If the unknown is in multiple elements, it will be added to the result multiple times, so divide that out
+            res += lhs_value * rhs_value / (double)cnt;
         }
     }
 
@@ -1261,6 +1266,58 @@ static PyObject *trace_vector_add_to(PyObject *self, PyObject *other)
     Py_RETURN_NONE;
 }
 
+PyDoc_STRVAR(trace_vector_add_to_scaled_docstring, "add_to_scaled(other: TraceVector, x: float, /) -> None\n"
+                                                   "Add another scaled trace vector to itself.\n");
+
+static PyObject *trace_vector_add_to_scaled(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 2)
+    {
+        PyErr_Format(PyExc_TypeError, "add_to_scaled() takes exactly 2 arguments (%u given)", (unsigned)nargs);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "add_to_scaled() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
+        return NULL;
+    }
+    const double k = PyFloat_AsDouble(args[1]);
+    if (PyErr_Occurred())
+        return NULL;
+
+    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
+    const trace_vector_object_t *const that = (trace_vector_object_t *)args[0];
+
+    if (this->parent != that->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Cannot add vectors from different systems.");
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS;
+
+    const unsigned n_blocks = this->parent->system.n_blocks;
+
+    for (unsigned i = 0; i < n_blocks; ++i)
+    {
+        const svector_t *const lhs_vec = this->values + i;
+        const svector_t *const rhs_vec = that->values + i;
+        ASSERT(lhs_vec->count == rhs_vec->count, "Trace vector blocks %u don't have matching sizes (%u vs %u)", i,
+               (unsigned)lhs_vec->count, (unsigned)rhs_vec->count);
+
+        for (unsigned j = 0; j < lhs_vec->count; ++j)
+        {
+            ASSERT(lhs_vec->entries[j].index == rhs_vec->entries[j].index,
+                   "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
+                   (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
+            lhs_vec->entries[j].value += k * rhs_vec->entries[j].value;
+        }
+    }
+
+    Py_END_ALLOW_THREADS;
+    Py_RETURN_NONE;
+}
+
 PyDoc_STRVAR(trace_vector_subtract_from_docstring, "subtract_from(other: TraceVector, /) -> None\n"
                                                    "Subtract another trace vector from itself.");
 
@@ -1297,6 +1354,60 @@ static PyObject *trace_vector_subtract_from(PyObject *self, PyObject *other)
                    "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
                    (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
             lhs_vec->entries[j].value -= rhs_vec->entries[j].value;
+        }
+    }
+
+    Py_END_ALLOW_THREADS;
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(trace_vector_subtract_from_scaled_docstring,
+             "subtract_from_scaled(other: TraceVector, factor: float, /) -> None\n"
+             "Subtract another scaled trace vector from itself.");
+
+static PyObject *trace_vector_subtract_from_scaled(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 2)
+    {
+        PyErr_Format(PyExc_TypeError, "subtract_from_scaled() takes exactly 2 arguments (%u given)", (unsigned)nargs);
+        return NULL;
+    }
+
+    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "subtract_from() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
+        return NULL;
+    }
+    const double k = PyFloat_AsDouble(args[1]);
+    if (PyErr_Occurred())
+        return NULL;
+
+    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
+    const trace_vector_object_t *const that = (trace_vector_object_t *)args[0];
+
+    if (this->parent != that->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Cannot subtract vectors from different systems.");
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS;
+
+    const unsigned n_blocks = this->parent->system.n_blocks;
+
+    for (unsigned i = 0; i < n_blocks; ++i)
+    {
+        const svector_t *const lhs_vec = this->values + i;
+        const svector_t *const rhs_vec = that->values + i;
+        ASSERT(lhs_vec->count == rhs_vec->count, "Trace vector blocks %u don't have matching sizes (%u vs %u)", i,
+               (unsigned)lhs_vec->count, (unsigned)rhs_vec->count);
+
+        for (unsigned j = 0; j < lhs_vec->count; ++j)
+        {
+            ASSERT(lhs_vec->entries[j].index == rhs_vec->entries[j].index,
+                   "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
+                   (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
+            lhs_vec->entries[j].value -= k * rhs_vec->entries[j].value;
         }
     }
 
@@ -1367,6 +1478,48 @@ static PyObject *trace_vector_copy(PyObject *self, PyObject *Py_UNUSED(other))
     return (PyObject *)res;
 }
 
+PyDoc_STRVAR(trace_vector_set_docstring, "set(other: TraceVector) -> None\n"
+                                         "Sets the value of the vector from another.");
+
+static PyObject *trace_vector_set(PyObject *self, PyObject *other)
+{
+    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
+    if (!PyObject_TypeCheck(other, &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "set() argument must be a TraceVector, not %R", Py_TYPE(other));
+        return NULL;
+    }
+    const trace_vector_object_t *const that = (trace_vector_object_t *)other;
+    if (this->parent != that->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Cannot set vectors from different systems.");
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS;
+
+    const unsigned n_blocks = this->parent->system.n_blocks;
+    for (unsigned i = 0; i < n_blocks; ++i)
+    {
+        const svector_t *const lhs_vec = this->values + i;
+        const svector_t *const rhs_vec = that->values + i;
+        ASSERT(lhs_vec->count == rhs_vec->count, "Trace vector blocks %u don't have matching sizes (%u vs %u)", i,
+               (unsigned)lhs_vec->count, (unsigned)rhs_vec->count);
+
+        for (unsigned j = 0; j < lhs_vec->count; ++j)
+        {
+            ASSERT(lhs_vec->entries[j].index == rhs_vec->entries[j].index,
+                   "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
+                   (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
+            lhs_vec->entries[j].value = rhs_vec->entries[j].value;
+        }
+    }
+
+    Py_END_ALLOW_THREADS;
+
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef trace_vector_methods[] = {
     {
         .ml_name = "as_merged",
@@ -1393,10 +1546,22 @@ static PyMethodDef trace_vector_methods[] = {
         .ml_doc = trace_vector_add_to_docstring,
     },
     {
+        .ml_name = "add_to_scaled",
+        .ml_meth = (void *)trace_vector_add_to_scaled,
+        .ml_flags = METH_FASTCALL,
+        .ml_doc = trace_vector_add_to_scaled_docstring,
+    },
+    {
         .ml_name = "subtract_from",
         .ml_meth = (void *)trace_vector_subtract_from,
         .ml_flags = METH_O,
         .ml_doc = trace_vector_subtract_from_docstring,
+    },
+    {
+        .ml_name = "subtract_from_scaled",
+        .ml_meth = (void *)trace_vector_subtract_from_scaled,
+        .ml_flags = METH_FASTCALL,
+        .ml_doc = trace_vector_subtract_from_scaled_docstring,
     },
     {
         .ml_name = "scale_by",
@@ -1409,6 +1574,12 @@ static PyMethodDef trace_vector_methods[] = {
         .ml_meth = (void *)trace_vector_copy,
         .ml_flags = METH_NOARGS,
         .ml_doc = trace_vector_copy_docstring,
+    },
+    {
+        .ml_name = "set",
+        .ml_meth = (void *)trace_vector_set,
+        .ml_flags = METH_O,
+        .ml_doc = trace_vector_set_docstring,
     },
     {}, // sentinel
 };

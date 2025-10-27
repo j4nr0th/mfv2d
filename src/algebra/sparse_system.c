@@ -63,6 +63,7 @@ mfv2d_result_t sparse_system_apply_diagonal_inverse(const system_t *system, cons
         ASSERT(n_in == block->n, "Inconsistent number of rows in matrix and vector");
 
         // Manually pivot the vector
+#pragma omp simd
         for (unsigned row = 0; row < n_out; ++row)
         {
             p_out[row] = p_in[block->pivots[row]];
@@ -119,17 +120,44 @@ mfv2d_result_t sparse_system_apply_trace(const system_t *system, const dense_vec
             {
                 const svector_t out_v = out->values[elements[j]];
 
-                unsigned k;
-                for (k = 0; k < out_v.count; ++k)
+                enum
                 {
-                    if (out_v.entries[k].index == l_index)
+                    LINEAR_SEARCH_SIZE = 8
+                };
+                unsigned pos = 0;
+                unsigned len = out_v.count;
+
+                // Binary search baby!
+                while (len > LINEAR_SEARCH_SIZE)
+                {
+                    const unsigned piv = pos + len / 2;
+                    if (out_v.entries[piv].index == l_index)
                     {
-                        out_v.entries[k].value += value;
+                        pos = piv;
+                        len = 1;
+                        break;
+                    }
+                    if (out_v.entries[piv].index < l_index)
+                    {
+                        pos = piv;
+                        len = len - len / 2;
+                    }
+                    else
+                    {
+                        len = len / 2;
+                    }
+                }
+
+                unsigned k;
+                for (k = 0; k < len; ++k)
+                {
+                    if (out_v.entries[k + pos].index == l_index)
+                    {
+                        out_v.entries[k + pos].value += value;
                         break;
                     }
                 }
-                ASSERT(k < out_v.count, "Trace vector of block %u did not contain value with index %u", elements[j],
-                       l_index);
+                ASSERT(k < len, "Trace vector of block %u did not contain value with index %u", elements[j], l_index);
             }
         }
     }

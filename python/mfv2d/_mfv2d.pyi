@@ -2120,8 +2120,16 @@ class TraceVector:
         """Add another trace vector to itself."""
         ...
 
+    def add_to_scaled(self, other: TraceVector, x: float, /) -> None:
+        """Add another scaled trace vector to itself."""
+        ...
+
     def subtract_from(self, other: TraceVector, /) -> None:
         """Subtract another trace vector from itself."""
+        ...
+
+    def subtract_from_scaled(self, other: TraceVector, x: float, /) -> None:
+        """Subtract another scaled trace vector from itself."""
         ...
 
     def scale_by(self, x: float, /) -> None:
@@ -2130,4 +2138,8 @@ class TraceVector:
 
     def copy(self) -> Self:
         """Create a copy of itself."""
+        ...
+
+    def set(self, other: TraceVector) -> None:
+        """Set the value from another trace vector."""
         ...

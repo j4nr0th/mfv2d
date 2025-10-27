@@ -414,7 +414,7 @@ static PyObject *mesh_get_element_parent(const mesh_t *const this, PyObject *ind
     }
 
     const element_base_t *const elem = &this->element_mesh.elements[index_long].base;
-    if (elem->parent == PARENT_IDX_INVALID)
+    if (elem->parent == (unsigned)PARENT_IDX_INVALID)
     {
         Py_RETURN_NONE;
     }
@@ -613,7 +613,7 @@ static PyObject *mesh_get_element_depth(const mesh_t *const this, PyObject *inde
 
     unsigned depth = 0;
     const element_t *elem = &this->element_mesh.elements[index_long];
-    while (elem->base.parent != PARENT_IDX_INVALID)
+    while (elem->base.parent != (unsigned)PARENT_IDX_INVALID)
     {
         ++depth;
         elem = &this->element_mesh.elements[elem->base.parent];

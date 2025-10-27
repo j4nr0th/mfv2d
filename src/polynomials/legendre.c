@@ -118,7 +118,7 @@ PyObject *compute_legendre_polynomials(PyObject *Py_UNUSED(self), PyObject *args
     {
         const double x = p_positions[i];
         legendre_eval_bonnet_all(order, x, buffer);
-        for (unsigned j = 0; j < (order + 1); ++j)
+        for (unsigned j = 0; j < (unsigned)(order + 1); ++j)
         {
             p_out[j * n_positions + i] = buffer[j];
         }

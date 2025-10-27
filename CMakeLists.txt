@@ -105,8 +105,9 @@ if ("${NumPy_INCLUDE_DIRS}" STREQUAL "")
 endif ()
 target_include_directories(_mfv2d PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS} jmtx/include)
 
-if (CMAKE_C_COMPILER_ID EQUAL "GNU")
-    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -fanalyzer)# -g -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -fanalyzer)
+    target_link_options(_mfv2d PRIVATE "-Wl,--exclude-libs,ALL")
 endif ()
 
 if (OPENMP_FOUND)

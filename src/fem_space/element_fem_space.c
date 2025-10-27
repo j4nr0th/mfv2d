@@ -376,8 +376,12 @@ PyDoc_STRVAR(mass_from_order_docstr, "mass_from_order(order: UnknownFormOrder, i
                                      "    Mass matrix of the specified order (or inverse if specified).\n");
 
 static PyMethodDef element_fem_space_2d_methods[] = {
-    {"mass_from_order", (PyCFunction)element_fem_space_2d_mass_from_order, METH_VARARGS | METH_KEYWORDS,
-     mass_from_order_docstr},
+    {
+        "mass_from_order",
+        (void *)element_fem_space_2d_mass_from_order,
+        METH_VARARGS | METH_KEYWORDS,
+        mass_from_order_docstr,
+    },
     {0}, // Sentinel
 };
 

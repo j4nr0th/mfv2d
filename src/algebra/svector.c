@@ -326,7 +326,7 @@ static PyObject *svec_from_entries(PyTypeObject *type, PyObject *args, PyObject 
         return NULL;
     }
 
-    for (uint64_t i = 1; i < count; ++i)
+    for (uint64_t i = 1; i < (uint64_t)count; ++i)
     {
         if (pi[i - 1] >= pi[i])
         {
@@ -336,9 +336,9 @@ static PyObject *svec_from_entries(PyTypeObject *type, PyObject *args, PyObject 
             return NULL;
         }
     }
-    for (uint64_t i = 0; i < count; ++i)
+    for (uint64_t i = 0; i < (uint64_t)count; ++i)
     {
-        if (pi[i] >= n)
+        if (pi[i] >= (uint64_t)n)
         {
             PyErr_Format(PyExc_ValueError,
                          "Entry index at %" PRIu64 " with value %" PRIu64 " is outside the allowed range [0, %" PRIu64
@@ -362,7 +362,7 @@ static PyObject *svec_from_entries(PyTypeObject *type, PyObject *args, PyObject 
     this->count = count;
     this->n = (uint64_t)n;
 
-    for (uint64_t i = 0; i < count; ++i)
+    for (uint64_t i = 0; i < (uint64_t)count; ++i)
     {
         this->entries[i] = (entry_t){.index = pi[i], .value = pv[i]};
     }
@@ -594,7 +594,7 @@ static PyObject *svec_from_pairs(PyTypeObject *type, PyObject *args, PyObject *k
             Py_DECREF(self);
             return NULL;
         }
-        if (i > 1 && dof <= self->entries[i - 2].index)
+        if (i > 1 && (uint64_t)dof <= self->entries[i - 2].index)
         {
             PyErr_Format(PyExc_ValueError,
                          "DoF indices must be sorted in ascending order. Got %" PRId64 " after %" PRId64, dof,
@@ -1156,7 +1156,7 @@ static PyObject *svec_richcompare(const svec_object_t *self, PyObject *other, in
         Py_RETURN_NOTIMPLEMENTED;
     }
 
-    if (PyArray_DIM(array, 0) != self->n)
+    if (PyArray_DIM(array, 0) != (npy_intp)self->n)
     {
         Py_DECREF(array);
         Py_RETURN_BOOL(!want_equal);
@@ -1267,7 +1267,7 @@ static PyObject *svec_mul(const svec_object_t *self, PyObject *other)
 
     const svector_t this_vector = {.n = self->n, .entries = (entry_t *)self->entries, .count = self->count};
 
-    svector_t prod_vector;
+    svector_t prod_vector = {};
 
     const mfv2d_result_t res = sparse_vector_copy(&this_vector, &prod_vector, &SYSTEM_ALLOCATOR);
     if (res != MFV2D_SUCCESS)

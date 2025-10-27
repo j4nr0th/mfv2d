@@ -713,8 +713,6 @@ static PyObject *crs_matrix_from_data(crs_matrix_t *const this, PyObject *args, 
 
 static PyObject *crs_matrix_array_ufunc(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
 {
-    //
-    PyObject *ufunc_method;
     ASSERT(PyTuple_Check(args), "Arguments must be a python tuple.");
     ASSERT(kwds == NULL || PyDict_CheckExact(kwds), "Keyworkds must be passed as a dict.");
 

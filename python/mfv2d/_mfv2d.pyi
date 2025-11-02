@@ -1966,57 +1966,6 @@ class LinearSystem:
         indices: npt.NDArray[np.uint32],
     ) -> Self: ...
     def __str__(self) -> str: ...
-    def create_empty_dense_vector(self) -> DenseVector:
-        """Create an empty dense vector associated with the system.
-
-        Returns
-        -------
-        DenseVector
-            Dense vector containing all zeros.
-        """
-        ...
-
-    def create_dense_vector(self, *blocks: npt.NDArray[np.float64]) -> DenseVector:
-        """Create a dense vector associated with the system.
-
-        Parameters
-        ----------
-        *blocks : array
-            Arrays with values of the vector for each block. These must have the
-            same size as each of the blocks.
-
-        Returns
-        -------
-        DenseVector
-            Dense vector representation of the values.
-        """
-        ...
-
-    def create_empty_trace_vector(self) -> TraceVector:
-        """Create an empty trace vector associated with the system.
-
-        Returns
-        -------
-        TraceVector
-            Trace vector of all zeros.
-        """
-        ...
-
-    def create_trace_vector(self, value: npt.NDArray[np.float64], /) -> TraceVector:
-        """Create a trace vector associated with the system.
-
-        Parameters
-        ----------
-        value : array
-            Array with values of all trace variables.
-
-        Returns
-        -------
-        TraceVector
-            Trace vector representation of the the trace of the system.
-        """
-        ...
-
     def get_dense_blocks(self) -> tuple[npt.NDArray[np.float64], ...]:
         """Get the dense blocks of the system."""
         ...
@@ -2077,9 +2026,24 @@ class LinearSystem:
         """
         ...
 
-@final
 class DenseVector:
     """Type used to represent the "dense" system variables associated with one element."""
+
+    def __new__(cls, parent: LinearSystem, /, *blocks: npt.NDArray[np.float64]) -> Self:
+        """Create a new dense vector.
+
+        Parameters
+        ----------
+        LinearSystem
+            The system to which this vector belongs to.
+
+        *blocks : array
+            Arrays with values of the vector for each block. These must have the
+            same size as each of the blocks of the system. If an empty vector is
+            desired, no blocks should be provided.
+
+        """
+        ...
 
     def __str__(self) -> str: ...
     def as_merged(self) -> npt.NDArray[np.float64]:
@@ -2090,17 +2054,83 @@ class DenseVector:
         """Return the dense vector as a tuple of individual block arrays."""
         ...
 
-    def subtract_from(self, other: DenseVector, /) -> None:
-        """Subtract another dense vector from itself."""
+    @staticmethod
+    def dot(v1: DenseVector, v2: DenseVector, /) -> float:
+        """Compute the dot product of two dense vectors."""
+        ...
+
+    @staticmethod
+    def add(
+        v1: DenseVector, v2: DenseVector, out: DenseVector, k: float, /
+    ) -> DenseVector:
+        r"""Add two dense vectors, potentially scaling one.
+
+        Result obtained is :math:`\vec{v}_1 + k \cdot \vec{v}_2`. The result is written
+        to the ``out`` vector, which is also returned by the function.
+
+        Returns
+        -------
+        DenseVector
+            The vector to which the result is written.
+        """
+        ...
+
+    @staticmethod
+    def subtract(
+        v1: DenseVector, v2: DenseVector, out: DenseVector, k: float, /
+    ) -> DenseVector:
+        r"""Subtract two dense vectors, scaling the second one.
+
+        Result obtained is :math:`\vec{v}_1 - k \cdot \vec{v}_2`. The result is written
+        to the ``out`` vector, which is also returned by the function.
+
+        Returns
+        -------
+        DenseVector
+            The vector to which the result is written.
+        """
         ...
 
     def copy(self) -> Self:
         """Create a copy of itself."""
         ...
 
-@final
+    def set_from(self, other: DenseVector) -> None:
+        """Set the value from another dense vector."""
+        ...
+
+    @staticmethod
+    def scale(v: DenseVector, x: float, out: DenseVector, /) -> DenseVector:
+        """Scale the vector by a value.
+
+        Returns
+        -------
+        DenseVector
+            The vector to which the result is written.
+        """
+        ...
+
+    @property
+    def parent(self) -> LinearSystem: ...
+
 class TraceVector:
     """Type used to represent the "trace" system variables associated with constraints."""
+
+    def __new__(
+        cls, parent: LinearSystem, value: npt.NDArray[np.float64] | None = None, /
+    ) -> Self:
+        """Create a new TraceVector.
+
+        Parameters
+        ----------
+        LinearSystem
+            The system to which this vector belongs to.
+
+        array
+            Array with values of all trace variables. If not given, an all-zero vector
+            will be created.
+        """
+        ...
 
     def __str__(self) -> str: ...
     def as_merged(self) -> npt.NDArray[np.float64]:
@@ -2116,30 +2146,56 @@ class TraceVector:
         """Compute the dot product of two trace vectors."""
         ...
 
-    def add_to(self, other: TraceVector, /) -> None:
-        """Add another trace vector to itself."""
+    @staticmethod
+    def add(
+        v1: TraceVector, v2: TraceVector, out: TraceVector, k: float, /
+    ) -> TraceVector:
+        r"""Add two trace vectors, potentially scaling one.
+
+        Result obtained is :math:`\vec{v}_1 + k \cdot \vec{v}_2`. The result is written
+        to the ``out`` vector, which is also returned by the function.
+
+        Returns
+        -------
+        TraceVector
+            The vector to which the result is written.
+        """
         ...
 
-    def add_to_scaled(self, other: TraceVector, x: float, /) -> None:
-        """Add another scaled trace vector to itself."""
+    @staticmethod
+    def subtract(
+        v1: TraceVector, v2: TraceVector, out: TraceVector, k: float, /
+    ) -> TraceVector:
+        r"""Subtract two trace vectors, scaling the second one.
+
+        Result obtained is :math:`\vec{v}_1 - k \cdot \vec{v}_2`. The result is written
+        to the ``out`` vector, which is also returned by the function.
+
+        Returns
+        -------
+        TraceVector
+            The vector to which the result is written.
+        """
         ...
 
-    def subtract_from(self, other: TraceVector, /) -> None:
-        """Subtract another trace vector from itself."""
-        ...
+    @staticmethod
+    def scale(v1: TraceVector, x: float, out: TraceVector, /) -> TraceVector:
+        """Scale the vector by a value.
 
-    def subtract_from_scaled(self, other: TraceVector, x: float, /) -> None:
-        """Subtract another scaled trace vector from itself."""
-        ...
-
-    def scale_by(self, x: float, /) -> None:
-        """Scale the vector by a value."""
+        Returns
+        -------
+        TraceVector
+            The vector to which the result is written.
+        """
         ...
 
     def copy(self) -> Self:
         """Create a copy of itself."""
         ...
 
-    def set(self, other: TraceVector) -> None:
+    def set_from(self, other: TraceVector) -> None:
         """Set the value from another trace vector."""
         ...
+
+    @property
+    def parent(self) -> LinearSystem: ...

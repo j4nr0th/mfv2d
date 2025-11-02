@@ -178,44 +178,16 @@ _Vec = TypeVar("_Vec")
 def gmres_general(
     mat: _Mat,
     rhs: _Vec,
+    initial_guess: _Vec,
     convergence: ConvergenceSettings,
-    system_application_function: Callable[[_Mat, _Vec], None],
+    system_application_function: Callable[[_Mat, _Vec, _Vec], None],
     vec_dot_function: Callable[[_Vec, _Vec], float],
-    vec_add_to_function: Callable[[_Vec, _Vec], None],
-    vec_sub_from_scaled_function: Callable[[_Vec, _Vec, float], None],
-    vec_scale_by_function: Callable[[_Vec, float], None],
+    vec_add_to_function: Callable[[_Vec, _Vec, _Vec, float], None],
+    vec_sub_from_scaled_function: Callable[[_Vec, _Vec, _Vec, float], None],
+    vec_scale_by_function: Callable[[_Vec, float, _Vec], None],
     vec_copy_function: Callable[[_Vec], _Vec],
 ) -> tuple[_Vec, float, int]:
     """General implementation of GMRES to use for any data type with operators.
-
-    Parameters
-    ----------
-    m : int
-        Number of basis to use for the solution.
-
-    mat : _Mat
-        System matrix state.
-
-    rhs : _Vec
-        Right side of the system.
-
-    convergence : ConvergenceSettings
-        Settings to use for convergence.
-
-    system_application_function : (_Mat, _Vec) -> _Vec
-        Function that applies the system to the input vector.
-
-    vec_dot_function : (_Vec, _Vec) -> float
-        Function that computes the dot product of system vectors.
-
-    vec_add_function : (_Vec, _Vec) -> _Vec
-        Function that adds two vectors together.
-
-    vec_sub_function : (_Vec, _Vec) -> _Vec
-        Function which subtracts two vectors.
-
-    vec_scale_function : (float, _Vec) -> _Vec
-        Function which scales a vector by a constant
 
     Returns
     -------
@@ -245,12 +217,15 @@ def gmres_general(
     else:
         tol = rhs_mag * convergence.relative_tolerance
 
+    res = vec_copy_function(rhs)
+    system_application_function(mat, initial_guess, res)
+    vec_sub_from_scaled_function(rhs, res, res, 1.0)
     # First residual
-    p = rhs
+    p = res
     # Get magnitude of the residual
     r_mag = np.sqrt(vec_dot_function(p, p))
     # Normalize the vector
-    vec_scale_by_function(p, 1 / r_mag)
+    vec_scale_by_function(p, 1 / r_mag, p)
     # Add it to the current collection of basis and LSQR state
     p_vecs.append(p)
     g[0] = r_mag
@@ -258,18 +233,18 @@ def gmres_general(
     for k in range(1, m):
         # Make a new basis vector
         p = vec_copy_function(p)
-        system_application_function(mat, p)
+        system_application_function(mat, p, p)
         # Make it orthogonal to other basis
         for li in range(k):
             p_old = p_vecs[li]
             pp_dp = vec_dot_function(p, p_old)
             h[li] = pp_dp
-            vec_sub_from_scaled_function(p, p_old, pp_dp)
+            vec_sub_from_scaled_function(p, p_old, p, pp_dp)
 
         # Get the magnitude and normalize it
         p_mag2 = vec_dot_function(p, p)  # Surprise tool for later
         p_mag = np.sqrt(p_mag2)
-        vec_scale_by_function(p, 1 / p_mag)
+        vec_scale_by_function(p, 1 / p_mag, p)
         p_vecs.append(p)
 
         # Apply previous Givens rotations to the new column
@@ -296,12 +271,80 @@ def gmres_general(
 
     # Iterations are done, time to solve the LSQR problem
     alpha = la.solve_triangular(r[:k, :k], g[:k])
+    sol = vec_copy_function(initial_guess)
     for i in range(k):
-        vec_scale_by_function(p_vecs[i], alpha[i])
-    sol = p_vecs[0]
-    for i in range(1, k):
-        vec_add_to_function(sol, p_vecs[i])
+        vec_add_to_function(sol, p_vecs[i], sol, alpha[i])
     return sol, r_mag, k
+
+
+def pcg_general(
+    mat: _Mat,
+    rhs: _Vec,
+    initial_guess: _Vec,
+    convergence: ConvergenceSettings,
+    system_application_function: Callable[[_Mat, _Vec, _Vec], None],
+    precondition_function: Callable[[_Mat, _Vec, _Vec], None],
+    vec_dot_function: Callable[[_Vec, _Vec], float],
+    vec_add_to_scaled_function: Callable[[_Vec, _Vec, float, _Vec], None],
+    vec_sub_from_scaled_function: Callable[[_Vec, _Vec, float, _Vec], None],
+    vec_copy_function: Callable[[_Vec], _Vec],
+    degen_limit: float = 1e-12,
+) -> tuple[_Vec, float, int]:
+    """General implementation of GMRES to use for any data type with operators.
+
+    Returns
+    -------
+    _Vec
+        Computed solution.
+
+    float
+        Estimated residual.
+
+    int
+        Iterations done.
+    """
+    # Find stopping criterion
+    x = vec_copy_function(initial_guess)
+    res = vec_copy_function(initial_guess)
+    system_application_function(mat, x, res)
+    vec_sub_from_scaled_function(rhs, res, 1.0, res)
+    p = vec_copy_function(res)
+    precondition_function(mat, res, p)
+    z = vec_copy_function(p)
+    ap = vec_copy_function(rhs)
+
+    res_mag2 = vec_dot_function(rhs, rhs)
+    if (
+        np.sqrt(res_mag2) * convergence.relative_tolerance
+        > convergence.absolute_tolerance
+    ):
+        tol = convergence.absolute_tolerance
+    else:
+        tol = np.sqrt(res_mag2) * convergence.relative_tolerance
+
+    rz_dp = vec_dot_function(res, z)
+
+    iter_cnt = 0
+    for iter_cnt in range(convergence.maximum_iterations):
+        system_application_function(mat, p, ap)
+        apa = vec_dot_function(ap, p)
+        if (np.log(abs(apa)) - np.log(res_mag2)) < np.log(degen_limit):
+            raise RuntimeError("System degenerated (matrix was probably not SPD).")
+        alpha = rz_dp / apa
+        vec_add_to_scaled_function(x, p, alpha, x)
+        vec_sub_from_scaled_function(res, ap, alpha, res)
+        res_mag2 = vec_dot_function(res, res)
+        if res_mag2 < tol**2:
+            break
+
+        precondition_function(mat, res, z)
+        new_rz_dp = vec_dot_function(res, z)
+
+        beta = new_rz_dp / rz_dp
+        rz_dp = new_rz_dp
+        vec_add_to_scaled_function(z, p, beta, p)
+
+    return x, np.sqrt(res_mag2), iter_cnt
 
 
 def cg_general(
@@ -403,15 +446,15 @@ def solve_schur_iterative(
     # Compute rhs forcing for the Lagrange multipliers
 
     ### A^{-1} y
-    inv_a_y = system.create_empty_dense_vector()
+    inv_a_y = DenseVector(system)
     system.apply_diagonal_inverse(rhs, inv_a_y)
     ### N A^{-1} y - phi
-    trace_rhs = system.create_empty_trace_vector()
+    trace_rhs = TraceVector(system)
     system.apply_trace(inv_a_y, trace_rhs)
-    trace_rhs.subtract_from(constraints)
+    TraceVector.subtract(trace_rhs, constraints, trace_rhs, 1.0)
 
-    tmp_d1 = system.create_empty_dense_vector()
-    tmp_d2 = system.create_empty_dense_vector()
+    tmp_d1 = DenseVector(system)
+    tmp_d2 = DenseVector(system)
 
     def wrapped_apply_system(system: LinearSystem, v: TraceVector, /) -> None:
         """Apply the trace system in a wrapped way."""
@@ -429,22 +472,213 @@ def solve_schur_iterative(
     #     TraceVector.scale_by,
     #     TraceVector.copy,
     # )
+
+    def _wrap_add(v1: TraceVector, v2: TraceVector, k: float) -> None:
+        TraceVector.add(v1, v2, v1, k)
+
+    def _wrap_sub(v1: TraceVector, v2: TraceVector, k: float) -> None:
+        TraceVector.subtract(v1, v2, v1, k)
+
     trace_lhs, tr, itr_cnt = cg_general(
         system,
         trace_rhs,
-        system.create_empty_trace_vector(),
+        TraceVector(system),
         convergence,
         wrapped_apply_system,
         TraceVector.dot,
-        TraceVector.add_to_scaled,
-        TraceVector.subtract_from_scaled,
+        _wrap_add,
+        _wrap_sub,
         TraceVector.copy,
-        TraceVector.set,
+        TraceVector.set_from,
     )
 
     # Apply contribution of trace to the system x = A^{-1} y - A^{-1} N^T lambda
     system.apply_trace_transpose(trace_lhs, tmp_d1)
     system.apply_diagonal_inverse(tmp_d1, tmp_d2)
-    inv_a_y.subtract_from(tmp_d2)
+    DenseVector.subtract(inv_a_y, tmp_d2, inv_a_y, 1.0)
 
     return inv_a_y, trace_lhs, tr, itr_cnt
+
+
+@dataclass
+class FullVector:
+    """Class contaning a dense and trace vector."""
+
+    dense: DenseVector
+    trace: TraceVector
+
+    def __post_init__(self) -> None:
+        """Check both are from the same parent."""
+        if self.dense.parent is not self.trace.parent:
+            raise ValueError("Both parts must have the same parent.")
+
+    @classmethod
+    def make_empty(cls, system: LinearSystem) -> Self:
+        """Create an empty vector."""
+        return cls(DenseVector(system), TraceVector(system))
+
+    @staticmethod
+    def dot(v1: FullVector, v2: FullVector) -> float:
+        """Compute dot product of two vectors."""
+        return DenseVector.dot(v1.dense, v2.dense) + TraceVector.dot(v1.trace, v2.trace)
+
+    def copy(self) -> FullVector:
+        """Create a copy of itself."""
+        return FullVector(self.dense.copy(), self.trace.copy())
+
+    def set_from(self, other: FullVector) -> None:
+        """Set the vector from another."""
+        self.dense.set_from(other.dense)
+        self.trace.set_from(other.trace)
+
+    @staticmethod
+    def add(v1: FullVector, v2: FullVector, v_out: FullVector, k: float, /) -> None:
+        """Add two vectors."""
+        DenseVector.add(v1.dense, v2.dense, v_out.dense, k)
+        TraceVector.add(v1.trace, v2.trace, v_out.trace, k)
+
+    @staticmethod
+    def subtract(v1: FullVector, v2: FullVector, v_out: FullVector, k: float, /) -> None:
+        """Subtracts two vectors."""
+        DenseVector.subtract(v1.dense, v2.dense, v_out.dense, k)
+        TraceVector.subtract(v1.trace, v2.trace, v_out.trace, k)
+
+    @staticmethod
+    def scale(v: FullVector, k: float, v_out: FullVector, /) -> None:
+        """Scale the vector by a constant."""
+        DenseVector.scale(v.dense, k, v_out.dense)
+        TraceVector.scale(v.trace, k, v_out.trace)
+
+
+def solve_gmres_iterative(
+    system: LinearSystem,
+    rhs: DenseVector,
+    constraints: TraceVector,
+    convergence: ConvergenceSettings,
+) -> tuple[DenseVector, TraceVector, float, int]:
+    """Solve the system using GMRES."""
+    # Set up the right side
+
+    rhs_full = FullVector(rhs, constraints)
+
+    dense_buffer1 = DenseVector(system)
+
+    def wrapped_apply_system(
+        sys: LinearSystem, v_in: FullVector, v_out: FullVector
+    ) -> None:
+        sys.apply_diagonal(v_in.dense, dense_buffer1)
+        sys.apply_trace_transpose(v_in.trace, v_out.dense)
+        sys.apply_trace(v_in.dense, v_out.trace)
+        DenseVector.add(v_out.dense, dense_buffer1, v_out.dense, 1.0)
+
+    solution, tr, itr_cnt = gmres_general(
+        system,
+        rhs_full,
+        FullVector.make_empty(system),
+        convergence,
+        wrapped_apply_system,
+        FullVector.dot,
+        FullVector.add,
+        FullVector.subtract,
+        FullVector.scale,
+        FullVector.copy,
+    )
+
+    return solution.dense, solution.trace, tr, itr_cnt
+
+
+def solve_cg_iterative(
+    system: LinearSystem,
+    rhs: DenseVector,
+    constraints: TraceVector,
+    convergence: ConvergenceSettings,
+) -> tuple[DenseVector, TraceVector, float, int]:
+    """Solve the system using CG."""
+    # Set up the right side
+
+    rhs_full = FullVector(rhs, constraints)
+
+    dense_buffer1 = DenseVector(system)
+    dense_buffer2 = DenseVector(system)
+
+    def wrapped_apply_system(sys: LinearSystem, v_in: FullVector) -> None:
+        sys.apply_diagonal(v_in.dense, dense_buffer1)
+        sys.apply_trace_transpose(v_in.trace, dense_buffer2)
+        sys.apply_trace(v_in.dense, v_in.trace)
+        DenseVector.add(dense_buffer1, dense_buffer2, v_in.dense, 1.0)
+
+    def wrapped_add(v1: FullVector, v2: FullVector, k: float) -> None:
+        DenseVector.add(v1.dense, v2.dense, v1.dense, k)
+        TraceVector.add(v1.trace, v2.trace, v1.trace, k)
+
+    def wrapped_sub(v1: FullVector, v2: FullVector, k: float) -> None:
+        DenseVector.subtract(v1.dense, v2.dense, v1.dense, k)
+        TraceVector.subtract(v1.trace, v2.trace, v1.trace, k)
+
+    solution, tr, itr_cnt = cg_general(
+        system,
+        rhs_full,
+        FullVector.make_empty(system),
+        convergence,
+        wrapped_apply_system,
+        FullVector.dot,
+        wrapped_add,
+        wrapped_sub,
+        FullVector.copy,
+        FullVector.set_from,
+    )
+
+    return solution.dense, solution.trace, tr, itr_cnt
+
+
+def solve_pcg_iterative(
+    system: LinearSystem,
+    rhs: DenseVector,
+    constraints: TraceVector,
+    convergence: ConvergenceSettings,
+) -> tuple[DenseVector, TraceVector, float, int]:
+    """Solve the system using preconditioned CG."""
+    # Set up the right side
+
+    rhs_full = FullVector(rhs, constraints)
+
+    dense_buffer1 = DenseVector(system)
+    dense_buffer2 = DenseVector(system)
+
+    def wrapped_apply_system(
+        sys: LinearSystem, v_in: FullVector, v_out: FullVector
+    ) -> None:
+        sys.apply_diagonal(v_in.dense, dense_buffer1)
+        sys.apply_trace_transpose(v_in.trace, dense_buffer2)
+        sys.apply_trace(v_in.dense, v_out.trace)
+        DenseVector.add(dense_buffer1, dense_buffer2, v_out.dense, 1.0)
+
+    def precondition_block_jacobi(
+        sys: LinearSystem, v_in: FullVector, v_out: FullVector
+    ) -> None:
+        # Block Jacobi precondition
+        sys.apply_diagonal_inverse(v_in.dense, v_out.dense)
+        v_out.trace.set_from(v_in.trace)
+
+    def wrapped_add(v1: FullVector, v2: FullVector, k: float, v_out: FullVector) -> None:
+        DenseVector.add(v1.dense, v2.dense, v_out.dense, k)
+        TraceVector.add(v1.trace, v2.trace, v_out.trace, k)
+
+    def wrapped_sub(v1: FullVector, v2: FullVector, k: float, v_out: FullVector) -> None:
+        DenseVector.subtract(v1.dense, v2.dense, v_out.dense, k)
+        TraceVector.subtract(v1.trace, v2.trace, v_out.trace, k)
+
+    solution, tr, itr_cnt = pcg_general(
+        system,
+        rhs_full,
+        FullVector.make_empty(system),
+        convergence,
+        wrapped_apply_system,
+        precondition_block_jacobi,
+        FullVector.dot,
+        wrapped_add,
+        wrapped_sub,
+        FullVector.copy,
+    )
+
+    return solution.dense, solution.trace, tr, itr_cnt

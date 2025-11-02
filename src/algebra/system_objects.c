@@ -31,8 +31,8 @@ static mfv2d_result_t system_fill_out(system_object_t *const this, const unsigne
     for (unsigned i = 0; i < num_blocks; ++i)
     {
         PyObject *const block_info = PyTuple_GET_ITEM(tuple_blocks, i);
-        PyArrayObject *const dense_part = (PyArrayObject *)PyTuple_GET_ITEM(block_info, 0);
-        crs_matrix_t *const constraints = (crs_matrix_t *)PyTuple_GET_ITEM(block_info, 1);
+        const PyArrayObject *const dense_part = (PyArrayObject *)PyTuple_GET_ITEM(block_info, 0);
+        const crs_matrix_t *const constraints = (crs_matrix_t *)PyTuple_GET_ITEM(block_info, 1);
 
         system_block_t *const block = this->system.blocks + i;
         block->n = PyArray_DIM(dense_part, 0);
@@ -222,307 +222,6 @@ static PyObject *system_str(PyObject *self)
     const system_object_t *const this = (const system_object_t *)self;
     return PyUnicode_FromFormat("<LinearSystem (%u DoFs, %u Const.) with %u blocks>", this->total_dense,
                                 this->system.n_trace, this->system.n_blocks);
-}
-
-PyDoc_STRVAR(system_create_empty_dense_vector_docstring, "create_empty_dense_vector() -> DenseVector\n"
-                                                         "Create an empty dense vector associated with the system.\n"
-                                                         "\n"
-                                                         "Returns\n"
-                                                         "-------\n"
-                                                         "DenseVector\n"
-                                                         "    Dense vector containing all zeros.\n");
-
-static PyObject *system_create_empty_dense_vector(PyObject *self, PyObject *Py_UNUSED(args))
-{
-    system_object_t *const system = (system_object_t *)self;
-    const unsigned n_blocks = system->system.n_blocks;
-
-    // Allocate all the necessary memory
-    dense_vector_object_t *const this =
-        (dense_vector_object_t *)dense_vector_object_type.tp_alloc(&dense_vector_object_type, 0);
-    if (!this)
-    {
-        return NULL;
-    }
-    this->offsets = NULL;
-    this->values = NULL;
-    this->parent = system;
-    Py_INCREF(system);
-    this->offsets = allocate(&SYSTEM_ALLOCATOR, sizeof *this->offsets * (n_blocks + 1));
-    if (!this->offsets)
-    {
-        Py_DECREF(this);
-        return NULL;
-    }
-    this->values = allocate(&SYSTEM_ALLOCATOR, sizeof *this->values * system->total_dense);
-    if (!this->values)
-    {
-        Py_DECREF(this);
-        return NULL;
-    }
-
-    // Fill the data in
-    unsigned offset = 0;
-    for (unsigned i = 0; i < n_blocks; ++i)
-    {
-        this->offsets[i] = offset;
-        const system_block_t *const block = system->system.blocks + i;
-        for (unsigned j = 0; j < block->n; ++j)
-        {
-            this->values[offset + j] = 0.0;
-        }
-        offset += block->n;
-    }
-    this->offsets[n_blocks] = offset;
-
-    return (PyObject *)this;
-}
-
-PyDoc_STRVAR(system_create_dense_vector_docstring,
-             "create_dense_vector(*blocks: numpy.typing.NDArray[numpy.float64]) -> DenseVector\n"
-             "Create a dense vector associated with the system.\n"
-             "\n"
-             "Parameters\n"
-             "----------\n"
-             "*blocks : array\n"
-             "    Arrays with values of the vector for each block. These must have the\n"
-             "    same size as each of the blocks.\n"
-             "\n"
-             "Returns\n"
-             "-------\n"
-             "DenseVector\n"
-             "    Dense vector representation of the values.\n");
-
-static PyObject *system_create_dense_vector(PyObject *self, PyObject *const *args, const Py_ssize_t n_args)
-{
-    system_object_t *const system = (system_object_t *)self;
-    const unsigned n_blocks = system->system.n_blocks;
-
-    if (n_args != n_blocks)
-    {
-        PyErr_Format(PyExc_TypeError,
-                     "Same number of arguments must be given as there are blocks (%u), but only %u were given.",
-                     n_blocks, (unsigned)n_args);
-        return NULL;
-    }
-
-    // Check args are 1D numpy arrays of doubles with the same size as blocks.
-    for (unsigned i = 0; i < n_blocks; ++i)
-    {
-        const system_block_t *const block = system->system.blocks + i;
-        if (check_input_array((PyArrayObject *)(args[i]), 1, (const npy_intp[1]){block->n}, NPY_DOUBLE,
-                              NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "block value"))
-        {
-            raise_exception_from_current(PyExc_ValueError, "Block %u was not a contiguous matrix of %u doubles", i,
-                                         block->n);
-            return NULL;
-        }
-    }
-
-    // Allocate all the necessary memory
-    dense_vector_object_t *const this =
-        (dense_vector_object_t *)dense_vector_object_type.tp_alloc(&dense_vector_object_type, 0);
-    if (!this)
-    {
-        return NULL;
-    }
-    this->offsets = NULL;
-    this->values = NULL;
-    this->parent = system;
-    Py_INCREF(system);
-    this->offsets = allocate(&SYSTEM_ALLOCATOR, sizeof *this->offsets * (n_blocks + 1));
-    if (!this->offsets)
-    {
-        Py_DECREF(this);
-        return NULL;
-    }
-    this->values = allocate(&SYSTEM_ALLOCATOR, sizeof *this->values * system->total_dense);
-    if (!this->values)
-    {
-        Py_DECREF(this);
-        return NULL;
-    }
-
-    // Fill the data in
-    unsigned offset = 0;
-    for (unsigned i = 0; i < n_blocks; ++i)
-    {
-        this->offsets[i] = offset;
-        const system_block_t *const block = system->system.blocks + i;
-        const npy_double *const data = PyArray_DATA((PyArrayObject *)(args[i]));
-        for (unsigned j = 0; j < block->n; ++j)
-        {
-            this->values[offset + j] = data[j];
-        }
-        offset += block->n;
-    }
-    this->offsets[n_blocks] = offset;
-
-    return (PyObject *)this;
-}
-
-PyDoc_STRVAR(system_create_trace_vector_docstring,
-             "create_trace_vector(value: numpy.typing.NDArray[numpy.float64], /) -> TraceVector\n"
-             "Create a trace vector associated with the system.\n"
-             "\n"
-             "Parameters\n"
-             "----------\n"
-             "value : array\n"
-             "    Array with values of all trace variables.\n"
-             "\n"
-             "Returns\n"
-             "-------\n"
-             "TraceVector\n"
-             "    Trace vector representation of the the trace of the system.\n");
-
-static PyObject *system_create_trace_vector(PyObject *self, PyObject *arg)
-{
-    system_object_t *const system = (system_object_t *)self;
-    const unsigned n_blocks = system->system.n_blocks;
-
-    const PyArrayObject *const array = (PyArrayObject *)arg;
-    if (check_input_array(array, 1, (const npy_intp[1]){system->system.n_trace}, NPY_DOUBLE,
-                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, "trace values"))
-    {
-        return NULL;
-    }
-
-    trace_vector_object_t *const this =
-        (trace_vector_object_t *)trace_vector_object_type.tp_alloc(&trace_vector_object_type, 0);
-    if (!this)
-    {
-        return NULL;
-    }
-    this->values = NULL;
-    this->parent = system;
-    Py_INCREF(system);
-    this->values = allocate(&SYSTEM_ALLOCATOR, sizeof *this->values * n_blocks);
-    if (!this->values)
-    {
-        Py_DECREF(this);
-        return NULL;
-    }
-    // Zero it out to make the state valid
-    memset(this->values, 0, sizeof *this->values * n_blocks);
-
-    const npy_double *const values = PyArray_DATA(array);
-
-    // Count up all the unknowns
-    for (unsigned i = 0; i < system->system.n_trace; ++i)
-    {
-        unsigned count;
-        unsigned *indices;
-        trace_element_indices(&system->system, i, &count, &indices);
-        for (unsigned j = 0; j < count; ++j)
-        {
-            this->values[indices[j]].count += 1;
-        }
-    }
-
-    // Allocate all the vectors
-    for (unsigned i = 0; i < system->system.n_blocks; ++i)
-    {
-        svector_t *const vec = this->values + i;
-        const mfv2d_result_t res = sparse_vector_new(vec, system->system.n_trace, vec->count, &SYSTEM_ALLOCATOR);
-        if (res != MFV2D_SUCCESS)
-        {
-            Py_DECREF(this);
-            return NULL;
-        }
-    }
-
-    // Fill all the vectors
-    for (unsigned i = 0; i < system->system.n_trace; ++i)
-    {
-        unsigned count;
-        unsigned *indices;
-        trace_element_indices(&system->system, i, &count, &indices);
-
-        for (unsigned j = 0; j < count; ++j)
-        {
-            svector_t *const vec = this->values + indices[j];
-            vec->entries[vec->count].value = values[i];
-            vec->entries[vec->count].index = i;
-            vec->count += 1;
-        }
-    }
-
-    return (PyObject *)this;
-}
-
-PyDoc_STRVAR(system_create_empty_trace_vector_docstring,
-             "create_empty_trace_vector(value: numpy.typing.NDArray[numpy.float64], /) -> TraceVector\n"
-             "Create an empty trace vector associated with the system.\n"
-             "\n"
-             "Returns\n"
-             "-------\n"
-             "TraceVector\n"
-             "    Trace vector of all zeros.\n");
-
-static PyObject *system_create_empty_trace_vector(PyObject *self, PyObject *Py_UNUSED(args))
-{
-    system_object_t *const system = (system_object_t *)self;
-    const unsigned n_blocks = system->system.n_blocks;
-
-    trace_vector_object_t *const this =
-        (trace_vector_object_t *)trace_vector_object_type.tp_alloc(&trace_vector_object_type, 0);
-    if (!this)
-    {
-        return NULL;
-    }
-    this->values = NULL;
-    this->parent = system;
-    Py_INCREF(system);
-    this->values = allocate(&SYSTEM_ALLOCATOR, sizeof *this->values * n_blocks);
-    if (!this->values)
-    {
-        Py_DECREF(this);
-        return NULL;
-    }
-    // Zero it out to make the state valid
-    memset(this->values, 0, sizeof *this->values * n_blocks);
-
-    // Count up all the unknowns
-    for (unsigned i = 0; i < system->system.n_trace; ++i)
-    {
-        unsigned count;
-        unsigned *indices;
-        trace_element_indices(&system->system, i, &count, &indices);
-        for (unsigned j = 0; j < count; ++j)
-        {
-            this->values[indices[j]].count += 1;
-        }
-    }
-
-    // Allocate all the vectors
-    for (unsigned i = 0; i < system->system.n_blocks; ++i)
-    {
-        svector_t *const vec = this->values + i;
-        const mfv2d_result_t res = sparse_vector_new(vec, system->system.n_trace, vec->count, &SYSTEM_ALLOCATOR);
-        if (res != MFV2D_SUCCESS)
-        {
-            Py_DECREF(this);
-            return NULL;
-        }
-    }
-
-    // Fill all the vectors
-    for (unsigned i = 0; i < system->system.n_trace; ++i)
-    {
-        unsigned count;
-        unsigned *indices;
-        trace_element_indices(&system->system, i, &count, &indices);
-
-        for (unsigned j = 0; j < count; ++j)
-        {
-            svector_t *const vec = this->values + indices[j];
-            vec->entries[vec->count].value = 0.0;
-            vec->entries[vec->count].index = i;
-            vec->count += 1;
-        }
-    }
-
-    return (PyObject *)this;
 }
 
 PyDoc_STRVAR(system_get_dense_blocks_docstring,
@@ -826,30 +525,6 @@ static PyObject *system_apply_trace_transpose(PyObject *self, PyObject *const *a
 
 static PyMethodDef system_methods[] = {
     {
-        .ml_name = "create_empty_dense_vector",
-        .ml_meth = (void *)system_create_empty_dense_vector,
-        .ml_flags = METH_NOARGS,
-        .ml_doc = system_create_empty_dense_vector_docstring,
-    },
-    {
-        .ml_name = "create_dense_vector",
-        .ml_meth = (void *)system_create_dense_vector,
-        .ml_flags = METH_FASTCALL,
-        .ml_doc = system_create_dense_vector_docstring,
-    },
-    {
-        .ml_name = "create_trace_vector",
-        .ml_meth = (void *)system_create_trace_vector,
-        .ml_flags = METH_O,
-        .ml_doc = system_create_trace_vector_docstring,
-    },
-    {
-        .ml_name = "create_empty_trace_vector",
-        .ml_meth = (void *)system_create_empty_trace_vector,
-        .ml_flags = METH_NOARGS,
-        .ml_doc = system_create_empty_trace_vector_docstring,
-    },
-    {
         .ml_name = "get_dense_blocks",
         .ml_meth = (void *)system_get_dense_blocks,
         .ml_flags = METH_NOARGS,
@@ -919,6 +594,109 @@ PyTypeObject system_object_type = {
     .tp_new = system_new,
     .tp_dealloc = system_dealloc,
 };
+
+static PyObject *dense_vector_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+{
+    if (kwargs != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "DenseVector does not accept keyword arguments");
+        return NULL;
+    }
+    if (args == NULL || PyTuple_GET_SIZE(args) == 0)
+    {
+        PyErr_SetString(PyExc_TypeError, "DenseVector requires at least one argument");
+    }
+
+    system_object_t *const system = (system_object_t *)PyTuple_GET_ITEM(args, 0);
+    if (!PyObject_TypeCheck(system, &system_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected first argument to be a LinearSystem, got %s", Py_TYPE(system)->tp_name);
+        return NULL;
+    }
+    const unsigned n_args = PyTuple_GET_SIZE(args) - 1; // First is the system
+    const unsigned n_blocks = system->system.n_blocks;
+
+    if (n_args != 0 && n_args != n_blocks)
+    {
+        PyErr_Format(PyExc_TypeError,
+                     "Same number of arguments must be given as there are blocks (%u), but only %u were given.",
+                     n_blocks, (unsigned)n_args);
+        return NULL;
+    }
+
+    // Check args are 1D numpy arrays of doubles with the same size as blocks.
+    if (n_args != 0)
+    {
+        for (unsigned i = 0; i < n_blocks; ++i)
+        {
+            const system_block_t *const block = system->system.blocks + i;
+            if (check_input_array((PyArrayObject *)PyTuple_GET_ITEM(args, i + 1), 1, (const npy_intp[1]){block->n},
+                                  NPY_DOUBLE, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS, "block value"))
+            {
+                raise_exception_from_current(PyExc_ValueError, "Block %u was not a contiguous matrix of %u doubles", i,
+                                             block->n);
+                return NULL;
+            }
+        }
+    }
+
+    // Allocate all the necessary memory
+    dense_vector_object_t *const this = (dense_vector_object_t *)type->tp_alloc(type, 0);
+    if (!this)
+    {
+        return NULL;
+    }
+    this->offsets = NULL;
+    this->values = NULL;
+    this->parent = system;
+    Py_INCREF(system);
+    this->offsets = allocate(&SYSTEM_ALLOCATOR, sizeof *this->offsets * (n_blocks + 1));
+    if (!this->offsets)
+    {
+        Py_DECREF(this);
+        return NULL;
+    }
+    this->values = allocate(&SYSTEM_ALLOCATOR, sizeof *this->values * system->total_dense);
+    if (!this->values)
+    {
+        Py_DECREF(this);
+        return NULL;
+    }
+
+    // Fill the data in
+    unsigned offset = 0;
+    if (n_args != 0)
+    {
+        for (unsigned i = 0; i < n_blocks; ++i)
+        {
+            this->offsets[i] = offset;
+            const system_block_t *const block = system->system.blocks + i;
+            const npy_double *const data = PyArray_DATA((PyArrayObject *)PyTuple_GET_ITEM(args, i + 1));
+            for (unsigned j = 0; j < block->n; ++j)
+            {
+                this->values[offset + j] = data[j];
+            }
+            offset += block->n;
+        }
+    }
+    else
+    {
+        for (unsigned i = 0; i < n_blocks; ++i)
+        {
+            this->offsets[i] = offset;
+            const system_block_t *const block = system->system.blocks + i;
+            for (unsigned j = 0; j < block->n; ++j)
+            {
+                this->values[offset + j] = 0;
+            }
+            offset += block->n;
+        }
+    }
+
+    this->offsets[n_blocks] = offset;
+
+    return (PyObject *)this;
+}
 
 static void dense_vector_destroy(PyObject *self)
 {
@@ -991,31 +769,228 @@ static PyObject *dense_vector_as_split(PyObject *self, PyObject *Py_UNUSED(args)
     return (PyObject *)res;
 }
 
-PyDoc_STRVAR(dense_vector_subtract_from_docstring, "subtract_from(other: DenseVector, /) -> None\n"
-                                                   "Subtract another dense vector from itself.");
+PyDoc_STRVAR(dense_vector_dot_docstring, "dot(v1: DenseVector, v2: DenseVector, /) -> float\n"
+                                         "Compute the dot product of two dense vectors.\n");
 
-static PyObject *dense_vector_subtract_from(PyObject *self, PyObject *other)
+static PyObject *dense_vector_dot(PyObject *Py_UNUSED(mod), PyObject *const *args, const Py_ssize_t nargs)
 {
-    const dense_vector_object_t *const this = (dense_vector_object_t *)self;
-    const dense_vector_object_t *const that = (dense_vector_object_t *)other;
-    if (this->parent != that->parent)
+    if (nargs != 2)
     {
-        PyErr_SetString(PyExc_ValueError, "Cannot subtract vectors from different systems.");
+        PyErr_Format(PyExc_TypeError, "dot() takes exactly 2 arguments (%u given)", (unsigned)nargs);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "dot() first argument must be a DenseVector, not %R", Py_TYPE(args[0]));
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "dot() second argument must be a DenseVector, not %R", Py_TYPE(args[1]));
+        return NULL;
+    }
+
+    const dense_vector_object_t *const lhs = (dense_vector_object_t *)args[0];
+    const dense_vector_object_t *const rhs = (dense_vector_object_t *)args[1];
+    if (lhs->parent != rhs->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Cannot perform dot product between vectors from different systems.");
+        return NULL;
+    }
+
+    double res = 0.0;
+    Py_BEGIN_ALLOW_THREADS;
+
+    const unsigned n = lhs->parent->total_dense;
+
+#pragma omp simd reduction(+ : res)
+    for (unsigned i = 0; i < n; ++i)
+    {
+        res += lhs->values[i] * rhs->values[i];
+    }
+
+    Py_END_ALLOW_THREADS;
+
+    return PyFloat_FromDouble(res);
+}
+
+PyDoc_STRVAR(dense_vector_add_docstring,
+             "add(v1: DenseVector, v2: DenseVector, out: DenseVector, k: float, /) -> DenseVector\n"
+             "Add two dense vectors, potentially scaling one.\n"
+             "\n"
+             "Result obtained is :math:`\\vec{v}_1 + k \\cdot \\vec{v}_2`. The result is written\n"
+             "to the ``out`` vector, which is also returned by the function.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "DenseVector\n"
+             "    The vector to which the result is written.\n");
+
+static PyObject *dense_vector_add(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 4)
+    {
+        PyErr_Format(PyExc_TypeError, "add() takes exactly 4 arguments (%u given)", (unsigned)nargs);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "First add() argument must be a DenseVector, not %R", Py_TYPE(args[0]));
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Second add() argument must be a DenseVector, not %R", Py_TYPE(args[1]));
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[2], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Third add() argument must be a DenseVector, not %R", Py_TYPE(args[2]));
+        return NULL;
+    }
+    const double k = PyFloat_AsDouble(args[3]);
+    if (PyErr_Occurred())
+        return NULL;
+
+    const dense_vector_object_t *const v1 = (dense_vector_object_t *)args[0];
+    const dense_vector_object_t *const v2 = (dense_vector_object_t *)args[1];
+    const dense_vector_object_t *const out = (dense_vector_object_t *)args[2];
+
+    if (v1->parent != v2->parent || v1->parent != out->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both input and output vectors must have the same parent system.");
         return NULL;
     }
 
     Py_BEGIN_ALLOW_THREADS;
 
-    const unsigned count = this->parent->total_dense;
+    const unsigned n = v1->parent->total_dense;
 
-    for (unsigned i = 0; i < count; ++i)
+#pragma omp simd
+    for (unsigned i = 0; i < n; ++i)
     {
-        this->values[i] -= that->values[i];
+        out->values[i] = v1->values[i] + k * v2->values[i];
     }
 
     Py_END_ALLOW_THREADS;
+    Py_INCREF(out);
+    return (PyObject *)out;
+}
 
-    Py_RETURN_NONE;
+PyDoc_STRVAR(dense_vector_subtract_docstring,
+             "subtract(v1: DenseVector, v2: DenseVector, out: DenseVector, k: float, /) -> DenseVector\n"
+             "Subtract two dense vectors, scaling the second one.\n"
+             "\n"
+             "Result obtained is :math:`\\vec{v}_1 - k \\cdot \\vec{v}_2`. The result is written\n"
+             "to the ``out`` vector, which is also returned by the function.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "DenseVector\n"
+             "    The vector to which the result is written.\n");
+
+static PyObject *dense_vector_subtract(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 4)
+    {
+        PyErr_Format(PyExc_TypeError, "subtract() takes exactly 4 arguments (%u given)", (unsigned)nargs);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "First subtract() argument must be a DenseVector, not %R", Py_TYPE(args[0]));
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Second subtract() argument must be a DenseVector, not %R", Py_TYPE(args[1]));
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[2], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Third subtract() argument must be a DenseVector, not %R", Py_TYPE(args[2]));
+        return NULL;
+    }
+    const double k = PyFloat_AsDouble(args[3]);
+    if (PyErr_Occurred())
+        return NULL;
+
+    const dense_vector_object_t *const v1 = (dense_vector_object_t *)args[0];
+    const dense_vector_object_t *const v2 = (dense_vector_object_t *)args[1];
+    const dense_vector_object_t *const out = (dense_vector_object_t *)args[2];
+
+    if (v1->parent != v2->parent || v1->parent != out->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both input and output vectors must have the same parent system.");
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS;
+
+    const unsigned n = v1->parent->total_dense;
+
+#pragma omp simd
+    for (unsigned i = 0; i < n; ++i)
+    {
+        out->values[i] = v1->values[i] - k * v2->values[i];
+    }
+
+    Py_END_ALLOW_THREADS;
+    Py_INCREF(out);
+    return (PyObject *)out;
+}
+
+PyDoc_STRVAR(dense_vector_scale_docstring, "scale(v: DenseVector, x: float, out: DenseVector, /) -> DenseVector\n"
+                                           "Scale the vector by a value.\n"
+                                           "\n"
+                                           "Returns\n"
+                                           "-------\n"
+                                           "DenseVector\n"
+                                           "The vector to which the result is written.\n");
+
+static PyObject *dense_vector_scale(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 3)
+    {
+        PyErr_Format(PyExc_TypeError, "scale() takes exactly 3 arguments (%u given)", (unsigned)nargs);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "First scale() argument must be a DenseVector, not %R", Py_TYPE(args[0]));
+        return NULL;
+    }
+    const double k = PyFloat_AsDouble(args[1]);
+    if (PyErr_Occurred())
+        return NULL;
+    if (!PyObject_TypeCheck(args[2], &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Third scale() argument must be a DenseVector, not %R", Py_TYPE(args[2]));
+        return NULL;
+    }
+
+    const dense_vector_object_t *const v1 = (dense_vector_object_t *)args[0];
+    const dense_vector_object_t *const out = (dense_vector_object_t *)args[2];
+
+    if (v1->parent != out->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both input and output vectors must have the same parent system.");
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS;
+
+    const unsigned n = v1->parent->total_dense;
+
+#pragma omp simd
+    for (unsigned i = 0; i < n; ++i)
+    {
+        out->values[i] = k * v1->values[i];
+    }
+
+    Py_END_ALLOW_THREADS;
+    Py_INCREF(out);
+    return (PyObject *)out;
 }
 
 PyDoc_STRVAR(dense_vector_copy_docstring, "copy() -> DenseVector\n"
@@ -1038,7 +1013,7 @@ static PyObject *dense_vector_copy(PyObject *self, PyObject *Py_UNUSED(other))
         Py_DECREF(res);
         return NULL;
     }
-    const unsigned n_offsets = (this->parent->system.n_blocks + 1);
+    const unsigned n_offsets = this->parent->system.n_blocks + 1;
     res->offsets = allocate(&SYSTEM_ALLOCATOR, sizeof *res->offsets * n_offsets);
     if (!res->offsets)
     {
@@ -1048,6 +1023,38 @@ static PyObject *dense_vector_copy(PyObject *self, PyObject *Py_UNUSED(other))
     memcpy(res->offsets, this->offsets, sizeof *res->offsets * n_offsets);
     memcpy(res->values, this->values, sizeof *res->values * this->parent->total_dense);
     return (PyObject *)res;
+}
+
+PyDoc_STRVAR(dense_vector_set_from_docstring, "set(other: DenseVector) -> None\n"
+                                              "Sets the value of the vector from another.");
+
+static PyObject *dense_vector_set_from(PyObject *self, PyObject *other)
+{
+    const dense_vector_object_t *const this = (dense_vector_object_t *)self;
+    if (!PyObject_TypeCheck(other, &dense_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "set() argument must be a TraceVector, not %R", Py_TYPE(other));
+        return NULL;
+    }
+    const dense_vector_object_t *const that = (dense_vector_object_t *)other;
+    if (this->parent != that->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Cannot set vectors from different systems.");
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS;
+
+    const unsigned n = this->parent->total_dense;
+#pragma omp simd
+    for (unsigned i = 0; i < n; ++i)
+    {
+        this->values[i] = that->values[i];
+    }
+
+    Py_END_ALLOW_THREADS;
+
+    Py_RETURN_NONE;
 }
 
 static PyMethodDef dense_vector_methods[] = {
@@ -1064,10 +1071,28 @@ static PyMethodDef dense_vector_methods[] = {
         .ml_doc = dense_vector_as_split_docstring,
     },
     {
-        .ml_name = "subtract_from",
-        .ml_meth = (void *)dense_vector_subtract_from,
-        .ml_flags = METH_O,
-        .ml_doc = dense_vector_subtract_from_docstring,
+        .ml_name = "dot",
+        .ml_meth = (void *)dense_vector_dot,
+        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_doc = dense_vector_dot_docstring,
+    },
+    {
+        .ml_name = "add",
+        .ml_meth = (void *)dense_vector_add,
+        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_doc = dense_vector_add_docstring,
+    },
+    {
+        .ml_name = "subtract",
+        .ml_meth = (void *)dense_vector_subtract,
+        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_doc = dense_vector_subtract_docstring,
+    },
+    {
+        .ml_name = "scale",
+        .ml_meth = (void *)dense_vector_scale,
+        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_doc = dense_vector_scale_docstring,
     },
     {
         .ml_name = "copy",
@@ -1075,7 +1100,28 @@ static PyMethodDef dense_vector_methods[] = {
         .ml_flags = METH_NOARGS,
         .ml_doc = dense_vector_copy_docstring,
     },
+    {
+        .ml_name = "set_from",
+        .ml_meth = (void *)dense_vector_set_from,
+        .ml_flags = METH_O,
+        .ml_doc = dense_vector_set_from_docstring,
+    },
     {}, // sentinel
+};
+
+static PyObject *dense_vector_get_parent(const dense_vector_object_t *self, void *Py_UNUSED(closure))
+{
+    Py_INCREF(self->parent);
+    return (PyObject *)self->parent;
+}
+
+static PyGetSetDef dense_vector_getset[] = {
+    {
+        .name = "parent",
+        .get = (getter)dense_vector_get_parent,
+        .doc = "LinearSystem : The LinearSystem object that this DenseVector belongs to.",
+    },
+    {}, // Sentinel
 };
 
 PyDoc_STRVAR(dense_vector_object_type_docstring,
@@ -1087,12 +1133,126 @@ PyTypeObject dense_vector_object_type = {
     .tp_basicsize = sizeof(dense_vector_object_t),
     .tp_itemsize = 0,
     .tp_str = dense_vector_str,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
     .tp_doc = dense_vector_object_type_docstring,
     .tp_methods = dense_vector_methods,
-    // .tp_getset = ,
+    .tp_getset = dense_vector_getset,
     .tp_dealloc = dense_vector_destroy,
+    .tp_new = dense_vector_new,
 };
+
+static PyObject *trace_vector_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+{
+    if (kwargs != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "TraceVector does not accept keyword arguments");
+        return NULL;
+    }
+    if (args == NULL || (PyTuple_GET_SIZE(args) != 1 && PyTuple_GET_SIZE(args) != 2))
+    {
+        PyErr_SetString(PyExc_TypeError, "TraceVector requires one or two arguments");
+    }
+
+    system_object_t *const system = (system_object_t *)PyTuple_GET_ITEM(args, 0);
+    if (!PyObject_TypeCheck(system, &system_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected first argument to be a LinearSystem, got %s", Py_TYPE(system)->tp_name);
+        return NULL;
+    }
+
+    const unsigned n_blocks = system->system.n_blocks;
+    const npy_double *values = NULL;
+    if (PyTuple_GET_SIZE(args) == 2)
+    {
+        const PyArrayObject *const array = (PyArrayObject *)PyTuple_GET_ITEM(args, 1);
+        if (check_input_array(array, 1, (const npy_intp[1]){system->system.n_trace}, NPY_DOUBLE,
+                              NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, "trace values"))
+        {
+            return NULL;
+        }
+        values = PyArray_DATA(array);
+    }
+
+    trace_vector_object_t *const this = (trace_vector_object_t *)type->tp_alloc(type, 0);
+    if (!this)
+    {
+        return NULL;
+    }
+    this->values = NULL;
+    this->parent = system;
+    Py_INCREF(system);
+    this->values = allocate(&SYSTEM_ALLOCATOR, sizeof *this->values * n_blocks);
+    if (!this->values)
+    {
+        Py_DECREF(this);
+        return NULL;
+    }
+    // Zero it out to make the state valid
+    memset(this->values, 0, sizeof *this->values * n_blocks);
+
+    // Count up all the unknowns
+    for (unsigned i = 0; i < system->system.n_trace; ++i)
+    {
+        unsigned count;
+        unsigned *indices;
+        trace_element_indices(&system->system, i, &count, &indices);
+        for (unsigned j = 0; j < count; ++j)
+        {
+            this->values[indices[j]].count += 1;
+        }
+    }
+
+    // Allocate all the vectors
+    for (unsigned i = 0; i < system->system.n_blocks; ++i)
+    {
+        svector_t *const vec = this->values + i;
+        const mfv2d_result_t res = sparse_vector_new(vec, system->system.n_trace, vec->count, &SYSTEM_ALLOCATOR);
+        if (res != MFV2D_SUCCESS)
+        {
+            Py_DECREF(this);
+            return NULL;
+        }
+    }
+
+    // Fill all the vectors
+    if (values != NULL)
+    {
+        for (unsigned i = 0; i < system->system.n_trace; ++i)
+        {
+            unsigned count;
+            unsigned *indices;
+            trace_element_indices(&system->system, i, &count, &indices);
+
+            for (unsigned j = 0; j < count; ++j)
+            {
+                svector_t *const vec = this->values + indices[j];
+                vec->entries[vec->count].value = values[i];
+                vec->entries[vec->count].index = i;
+                vec->count += 1;
+            }
+        }
+    }
+    else
+    {
+
+        for (unsigned i = 0; i < system->system.n_trace; ++i)
+        {
+            unsigned count;
+            unsigned *indices;
+            trace_element_indices(&system->system, i, &count, &indices);
+
+            for (unsigned j = 0; j < count; ++j)
+            {
+                svector_t *const vec = this->values + indices[j];
+                vec->entries[vec->count].value = 0;
+                vec->entries[vec->count].index = i;
+                vec->count += 1;
+            }
+        }
+    }
+
+    return (PyObject *)this;
+}
 
 static PyObject *trace_vector_str(PyObject *self)
 {
@@ -1223,74 +1383,201 @@ static PyObject *trace_vector_dot(PyObject *Py_UNUSED(mod), PyObject *const *arg
     return PyFloat_FromDouble(res);
 }
 
-PyDoc_STRVAR(trace_vector_add_to_docstring, "add_to(other: TraceVector, /) -> None\n"
-                                            "Add another trace vector to itself.\n");
+PyDoc_STRVAR(trace_vector_add_docstring,
+             "add(v1: TraceVector, v2: TraceVector, out: TraceVector, k: float, /) -> TraceVector\n"
+             "Add two trace vectors, potentially scaling one.\n"
+             "\n"
+             "Result obtained is :math:`\\vec{v}_1 + k \\cdot \\vec{v}_2`. The result is written\n"
+             "to the ``out`` vector, which is also returned by the function.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "TraceVector\n"
+             "    The vector to which the result is written.\n");
 
-static PyObject *trace_vector_add_to(PyObject *self, PyObject *other)
+static PyObject *trace_vector_add(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
 {
-    if (!PyObject_TypeCheck(other, &trace_vector_object_type))
+    if (nargs != 4)
     {
-        PyErr_Format(PyExc_TypeError, "add_to() argument must be a TraceVector, not %R", Py_TYPE(other));
+        PyErr_Format(PyExc_TypeError, "add() takes exactly 4 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
-    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
-    const trace_vector_object_t *const that = (trace_vector_object_t *)other;
-
-    if (this->parent != that->parent)
+    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
     {
-        PyErr_SetString(PyExc_ValueError, "Cannot add vectors from different systems.");
+        PyErr_Format(PyExc_TypeError, "First add() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[1], &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Second add() argument must be a TraceVector, not %R", Py_TYPE(args[1]));
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[2], &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Third add() argument must be a TraceVector, not %R", Py_TYPE(args[2]));
+        return NULL;
+    }
+    const double k = PyFloat_AsDouble(args[3]);
+    if (PyErr_Occurred())
+        return NULL;
+
+    const trace_vector_object_t *const v1 = (trace_vector_object_t *)args[0];
+    const trace_vector_object_t *const v2 = (trace_vector_object_t *)args[1];
+    const trace_vector_object_t *const out = (trace_vector_object_t *)args[2];
+
+    if (v1->parent != v2->parent || v1->parent != out->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both input and output vectors must have the same parent system.");
         return NULL;
     }
 
     Py_BEGIN_ALLOW_THREADS;
 
-    const unsigned n_blocks = this->parent->system.n_blocks;
+    const unsigned n_blocks = v1->parent->system.n_blocks;
 
     for (unsigned i = 0; i < n_blocks; ++i)
     {
-        const svector_t *const lhs_vec = this->values + i;
-        const svector_t *const rhs_vec = that->values + i;
+        const svector_t *const lhs_vec = v1->values + i;
+        const svector_t *const rhs_vec = v2->values + i;
+        const svector_t *const out_vec = out->values + i;
         ASSERT(lhs_vec->count == rhs_vec->count, "Trace vector blocks %u don't have matching sizes (%u vs %u)", i,
                (unsigned)lhs_vec->count, (unsigned)rhs_vec->count);
+        ASSERT(lhs_vec->count == out_vec->count, "Output vector blocks %u don't have matching sizes (%u vs %u)", i,
+               (unsigned)lhs_vec->count, (unsigned)out_vec->count);
 
+#pragma omp simd
         for (unsigned j = 0; j < lhs_vec->count; ++j)
         {
             ASSERT(lhs_vec->entries[j].index == rhs_vec->entries[j].index,
                    "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
                    (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
-            lhs_vec->entries[j].value += rhs_vec->entries[j].value;
+            ASSERT(out_vec->entries[j].index == rhs_vec->entries[j].index,
+                   "Output vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
+                   (unsigned)out_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
+            out_vec->entries[j].value = lhs_vec->entries[j].value + k * rhs_vec->entries[j].value;
         }
     }
 
     Py_END_ALLOW_THREADS;
-    Py_RETURN_NONE;
+    Py_INCREF(out);
+    return (PyObject *)out;
 }
 
-PyDoc_STRVAR(trace_vector_add_to_scaled_docstring, "add_to_scaled(other: TraceVector, x: float, /) -> None\n"
-                                                   "Add another scaled trace vector to itself.\n");
+PyDoc_STRVAR(trace_vector_subtract_docstring,
+             "subtract(v1: TraceVector, v2: TraceVector, out: TraceVector, k: float, /) ->TraceVector\n"
+             "Subtract two trace vectors, scaling the second one.\n"
+             "\n"
+             "Result obtained is :math:`\\vec{v}_1 - k \\cdot \\vec{v}_2`. The result is written\n"
+             "to the ``out`` vector, which is also returned by the function.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "TraceVector\n"
+             "    The vector to which the result is written.\n");
 
-static PyObject *trace_vector_add_to_scaled(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *trace_vector_subtract(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
 {
-    if (nargs != 2)
+    if (nargs != 4)
     {
-        PyErr_Format(PyExc_TypeError, "add_to_scaled() takes exactly 2 arguments (%u given)", (unsigned)nargs);
+        PyErr_Format(PyExc_TypeError, "subtract() takes exactly 4 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
     if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
     {
-        PyErr_Format(PyExc_TypeError, "add_to_scaled() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
+        PyErr_Format(PyExc_TypeError, "First subtract() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[1], &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Second subtract() argument must be a TraceVector, not %R", Py_TYPE(args[1]));
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[2], &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "Third subtract() argument must be a TraceVector, not %R", Py_TYPE(args[2]));
+        return NULL;
+    }
+    const double k = PyFloat_AsDouble(args[3]);
+    if (PyErr_Occurred())
+        return NULL;
+
+    const trace_vector_object_t *const v1 = (trace_vector_object_t *)args[0];
+    const trace_vector_object_t *const v2 = (trace_vector_object_t *)args[1];
+    const trace_vector_object_t *const out = (trace_vector_object_t *)args[2];
+
+    if (v1->parent != v2->parent || v1->parent != out->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both input and output vectors must have the same parent system.");
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS;
+
+    const unsigned n_blocks = v1->parent->system.n_blocks;
+
+    for (unsigned i = 0; i < n_blocks; ++i)
+    {
+        const svector_t *const lhs_vec = v1->values + i;
+        const svector_t *const rhs_vec = v2->values + i;
+        const svector_t *const out_vec = out->values + i;
+        ASSERT(lhs_vec->count == rhs_vec->count, "Trace vector blocks %u don't have matching sizes (%u vs %u)", i,
+               (unsigned)lhs_vec->count, (unsigned)rhs_vec->count);
+        ASSERT(lhs_vec->count == out_vec->count, "Output vector blocks %u don't have matching sizes (%u vs %u)", i,
+               (unsigned)lhs_vec->count, (unsigned)out_vec->count);
+
+#pragma omp simd
+        for (unsigned j = 0; j < lhs_vec->count; ++j)
+        {
+            ASSERT(lhs_vec->entries[j].index == rhs_vec->entries[j].index,
+                   "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
+                   (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
+            ASSERT(out_vec->entries[j].index == rhs_vec->entries[j].index,
+                   "Output vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
+                   (unsigned)out_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
+            out_vec->entries[j].value = lhs_vec->entries[j].value - k * rhs_vec->entries[j].value;
+        }
+    }
+
+    Py_END_ALLOW_THREADS;
+    Py_INCREF(out);
+    return (PyObject *)out;
+}
+
+PyDoc_STRVAR(trace_vector_scale_docstring, "scale(v1: TraceVector, x: float, out: TraceVector, /) -> TraceVector\n"
+                                           "Scale the vector by a value.\n"
+                                           "\n"
+                                           "Returns\n"
+                                           "-------\n"
+                                           "TraceVector\n"
+                                           "    The vector to which the result is written.\n");
+
+static PyObject *trace_vector_scale(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+{
+    if (nargs != 3)
+    {
+        PyErr_Format(PyExc_TypeError, "scale() takes exactly 3 arguments (%u given)", (unsigned)nargs);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
+    {
+        PyErr_Format(PyExc_TypeError, "First scale() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
         return NULL;
     }
     const double k = PyFloat_AsDouble(args[1]);
     if (PyErr_Occurred())
         return NULL;
-
-    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
-    const trace_vector_object_t *const that = (trace_vector_object_t *)args[0];
-
-    if (this->parent != that->parent)
+    if (!PyObject_TypeCheck(args[2], &trace_vector_object_type))
     {
-        PyErr_SetString(PyExc_ValueError, "Cannot add vectors from different systems.");
+        PyErr_Format(PyExc_TypeError, "Third scale() argument must be a TraceVector, not %R", Py_TYPE(args[2]));
+        return NULL;
+    }
+
+    const trace_vector_object_t *const this = (trace_vector_object_t *)args[0];
+    const trace_vector_object_t *const out = (trace_vector_object_t *)args[2];
+
+    if (this->parent != out->parent)
+    {
+        PyErr_SetString(PyExc_ValueError, "Both input and output vectors must have the same parent system.");
         return NULL;
     }
 
@@ -1301,147 +1588,20 @@ static PyObject *trace_vector_add_to_scaled(PyObject *self, PyObject *const *arg
     for (unsigned i = 0; i < n_blocks; ++i)
     {
         const svector_t *const lhs_vec = this->values + i;
-        const svector_t *const rhs_vec = that->values + i;
-        ASSERT(lhs_vec->count == rhs_vec->count, "Trace vector blocks %u don't have matching sizes (%u vs %u)", i,
-               (unsigned)lhs_vec->count, (unsigned)rhs_vec->count);
-
+        const svector_t *const out_vec = out->values + i;
+#pragma omp simd
         for (unsigned j = 0; j < lhs_vec->count; ++j)
         {
-            ASSERT(lhs_vec->entries[j].index == rhs_vec->entries[j].index,
-                   "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
-                   (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
-            lhs_vec->entries[j].value += k * rhs_vec->entries[j].value;
+            ASSERT(out_vec->entries[j].index == lhs_vec->entries[j].index,
+                   "Output vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
+                   (unsigned)out_vec->entries[j].index, (unsigned)lhs_vec->entries[j].index);
+            out_vec->entries[j].value = lhs_vec->entries[j].value * k;
         }
     }
 
     Py_END_ALLOW_THREADS;
-    Py_RETURN_NONE;
-}
-
-PyDoc_STRVAR(trace_vector_subtract_from_docstring, "subtract_from(other: TraceVector, /) -> None\n"
-                                                   "Subtract another trace vector from itself.");
-
-static PyObject *trace_vector_subtract_from(PyObject *self, PyObject *other)
-{
-    if (!PyObject_TypeCheck(other, &trace_vector_object_type))
-    {
-        PyErr_Format(PyExc_TypeError, "subtract_from() argument must be a TraceVector, not %R", Py_TYPE(other));
-        return NULL;
-    }
-    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
-    const trace_vector_object_t *const that = (trace_vector_object_t *)other;
-
-    if (this->parent != that->parent)
-    {
-        PyErr_SetString(PyExc_ValueError, "Cannot subtract vectors from different systems.");
-        return NULL;
-    }
-
-    Py_BEGIN_ALLOW_THREADS;
-
-    const unsigned n_blocks = this->parent->system.n_blocks;
-
-    for (unsigned i = 0; i < n_blocks; ++i)
-    {
-        const svector_t *const lhs_vec = this->values + i;
-        const svector_t *const rhs_vec = that->values + i;
-        ASSERT(lhs_vec->count == rhs_vec->count, "Trace vector blocks %u don't have matching sizes (%u vs %u)", i,
-               (unsigned)lhs_vec->count, (unsigned)rhs_vec->count);
-
-        for (unsigned j = 0; j < lhs_vec->count; ++j)
-        {
-            ASSERT(lhs_vec->entries[j].index == rhs_vec->entries[j].index,
-                   "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
-                   (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
-            lhs_vec->entries[j].value -= rhs_vec->entries[j].value;
-        }
-    }
-
-    Py_END_ALLOW_THREADS;
-    Py_RETURN_NONE;
-}
-
-PyDoc_STRVAR(trace_vector_subtract_from_scaled_docstring,
-             "subtract_from_scaled(other: TraceVector, factor: float, /) -> None\n"
-             "Subtract another scaled trace vector from itself.");
-
-static PyObject *trace_vector_subtract_from_scaled(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
-{
-    if (nargs != 2)
-    {
-        PyErr_Format(PyExc_TypeError, "subtract_from_scaled() takes exactly 2 arguments (%u given)", (unsigned)nargs);
-        return NULL;
-    }
-
-    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
-    {
-        PyErr_Format(PyExc_TypeError, "subtract_from() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
-        return NULL;
-    }
-    const double k = PyFloat_AsDouble(args[1]);
-    if (PyErr_Occurred())
-        return NULL;
-
-    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
-    const trace_vector_object_t *const that = (trace_vector_object_t *)args[0];
-
-    if (this->parent != that->parent)
-    {
-        PyErr_SetString(PyExc_ValueError, "Cannot subtract vectors from different systems.");
-        return NULL;
-    }
-
-    Py_BEGIN_ALLOW_THREADS;
-
-    const unsigned n_blocks = this->parent->system.n_blocks;
-
-    for (unsigned i = 0; i < n_blocks; ++i)
-    {
-        const svector_t *const lhs_vec = this->values + i;
-        const svector_t *const rhs_vec = that->values + i;
-        ASSERT(lhs_vec->count == rhs_vec->count, "Trace vector blocks %u don't have matching sizes (%u vs %u)", i,
-               (unsigned)lhs_vec->count, (unsigned)rhs_vec->count);
-
-        for (unsigned j = 0; j < lhs_vec->count; ++j)
-        {
-            ASSERT(lhs_vec->entries[j].index == rhs_vec->entries[j].index,
-                   "Trace vector blocks %u don't have matching indices %u (%u vs %u)", i, j,
-                   (unsigned)lhs_vec->entries[j].index, (unsigned)rhs_vec->entries[j].index);
-            lhs_vec->entries[j].value -= k * rhs_vec->entries[j].value;
-        }
-    }
-
-    Py_END_ALLOW_THREADS;
-    Py_RETURN_NONE;
-}
-
-PyDoc_STRVAR(trace_vector_scale_by_docstring, "scale_by(x: float, /) -> None\n"
-                                              "Scale the vector by a value.");
-
-static PyObject *trace_vector_scale_by(PyObject *self, PyObject *other)
-{
-    const double k = PyFloat_AsDouble(other);
-    if (PyErr_Occurred())
-        return NULL;
-
-    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
-
-    Py_BEGIN_ALLOW_THREADS;
-
-    const unsigned n_blocks = this->parent->system.n_blocks;
-
-    for (unsigned i = 0; i < n_blocks; ++i)
-    {
-        const svector_t *const lhs_vec = this->values + i;
-
-        for (unsigned j = 0; j < lhs_vec->count; ++j)
-        {
-            lhs_vec->entries[j].value *= k;
-        }
-    }
-
-    Py_END_ALLOW_THREADS;
-    Py_RETURN_NONE;
+    Py_INCREF(out);
+    return (PyObject *)out;
 }
 
 PyDoc_STRVAR(trace_vector_copy_docstring, "copy() -> TraceVector\n"
@@ -1478,10 +1638,10 @@ static PyObject *trace_vector_copy(PyObject *self, PyObject *Py_UNUSED(other))
     return (PyObject *)res;
 }
 
-PyDoc_STRVAR(trace_vector_set_docstring, "set(other: TraceVector) -> None\n"
-                                         "Sets the value of the vector from another.");
+PyDoc_STRVAR(trace_vector_set_from_docstring, "set(other: TraceVector) -> None\n"
+                                              "Sets the value of the vector from another.");
 
-static PyObject *trace_vector_set(PyObject *self, PyObject *other)
+static PyObject *trace_vector_set_from(PyObject *self, PyObject *other)
 {
     const trace_vector_object_t *const this = (trace_vector_object_t *)self;
     if (!PyObject_TypeCheck(other, &trace_vector_object_type))
@@ -1540,34 +1700,22 @@ static PyMethodDef trace_vector_methods[] = {
         .ml_doc = trace_vector_dot_docstring,
     },
     {
-        .ml_name = "add_to",
-        .ml_meth = (void *)trace_vector_add_to,
-        .ml_flags = METH_O,
-        .ml_doc = trace_vector_add_to_docstring,
+        .ml_name = "add",
+        .ml_meth = (void *)trace_vector_add,
+        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_doc = trace_vector_add_docstring,
     },
     {
-        .ml_name = "add_to_scaled",
-        .ml_meth = (void *)trace_vector_add_to_scaled,
-        .ml_flags = METH_FASTCALL,
-        .ml_doc = trace_vector_add_to_scaled_docstring,
+        .ml_name = "subtract",
+        .ml_meth = (void *)trace_vector_subtract,
+        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_doc = trace_vector_subtract_docstring,
     },
     {
-        .ml_name = "subtract_from",
-        .ml_meth = (void *)trace_vector_subtract_from,
-        .ml_flags = METH_O,
-        .ml_doc = trace_vector_subtract_from_docstring,
-    },
-    {
-        .ml_name = "subtract_from_scaled",
-        .ml_meth = (void *)trace_vector_subtract_from_scaled,
-        .ml_flags = METH_FASTCALL,
-        .ml_doc = trace_vector_subtract_from_scaled_docstring,
-    },
-    {
-        .ml_name = "scale_by",
-        .ml_meth = (void *)trace_vector_scale_by,
-        .ml_flags = METH_O,
-        .ml_doc = trace_vector_scale_by_docstring,
+        .ml_name = "scale",
+        .ml_meth = (void *)trace_vector_scale,
+        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_doc = trace_vector_scale_docstring,
     },
     {
         .ml_name = "copy",
@@ -1576,12 +1724,27 @@ static PyMethodDef trace_vector_methods[] = {
         .ml_doc = trace_vector_copy_docstring,
     },
     {
-        .ml_name = "set",
-        .ml_meth = (void *)trace_vector_set,
+        .ml_name = "set_from",
+        .ml_meth = (void *)trace_vector_set_from,
         .ml_flags = METH_O,
-        .ml_doc = trace_vector_set_docstring,
+        .ml_doc = trace_vector_set_from_docstring,
     },
     {}, // sentinel
+};
+
+static PyObject *trace_vector_get_parent(const trace_vector_object_t *self, void *Py_UNUSED(closure))
+{
+    Py_INCREF(self->parent);
+    return (PyObject *)self->parent;
+}
+
+static PyGetSetDef trace_vector_getset[] = {
+    {
+        .name = "parent",
+        .get = (getter)trace_vector_get_parent,
+        .doc = "LinearSystem : The LinearSystem object that this TraceVector belongs to.",
+    },
+    {}, // Sentinel
 };
 
 PyDoc_STRVAR(trace_vector_object_type_docstring,
@@ -1593,9 +1756,10 @@ PyTypeObject trace_vector_object_type = {
     .tp_basicsize = sizeof(trace_vector_object_t),
     .tp_itemsize = 0,
     .tp_str = trace_vector_str,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
     .tp_doc = trace_vector_object_type_docstring,
     .tp_methods = trace_vector_methods,
-    // .tp_getset = ,
+    .tp_getset = trace_vector_getset,
+    .tp_new = trace_vector_new,
     .tp_dealloc = trace_vector_destroy,
 };

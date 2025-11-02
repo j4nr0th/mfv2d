@@ -30,7 +30,7 @@ from mfv2d.solving import (
     DenseVector,
     LinearSystem,
     TraceVector,
-    # gmres_general,
+    solve_pcg_iterative,
     solve_schur_iterative,
 )
 from mfv2d.system import ElementFormSpecification, KFormSystem
@@ -521,9 +521,9 @@ def laplace_sample_system_new(
         continuity_constraints,
     )
 
-    forcing_vec_d = linear_system.create_dense_vector(*vectors)
-    forcing_vec_t = linear_system.create_trace_vector(
-        np.array([con.rhs for con in continuity_constraints], np.float64)
+    forcing_vec_d = DenseVector(linear_system, *vectors)
+    forcing_vec_t = TraceVector(
+        linear_system, np.array([con.rhs for con in continuity_constraints], np.float64)
     )
 
     return linear_system, forcing_vec_d, forcing_vec_t
@@ -561,7 +561,7 @@ def test_c_python_types(nh: int, nv: int, order: int) -> None:
         assert np.all(sb.values == cs.values)
 
     # Check empty dense vectors can be created
-    cden = csys.create_empty_dense_vector()
+    cden = DenseVector(csys)
     merge_dense = den.combinded_system_vector()
 
     assert np.all(np.zeros_like(merge_dense) == cden.as_merged())
@@ -570,7 +570,7 @@ def test_c_python_types(nh: int, nv: int, order: int) -> None:
         assert np.all(np.zeros_like(block) == sbl)
 
     # Check filled dense vectors can be created
-    cden = csys.create_dense_vector(*den.data)
+    cden = DenseVector(csys, *den.data)
 
     assert np.all(merge_dense == cden.as_merged())
 
@@ -578,7 +578,7 @@ def test_c_python_types(nh: int, nv: int, order: int) -> None:
         assert np.all(block == sbl)
 
     # Check empty trace vectors can be created
-    ctra = csys.create_empty_trace_vector()
+    ctra = TraceVector(csys)
     merge_trace = tra.combinded_system_vector()
 
     assert np.all(np.zeros_like(merge_trace) == ctra.as_merged())
@@ -588,7 +588,7 @@ def test_c_python_types(nh: int, nv: int, order: int) -> None:
         assert svec1.n == svec2.n
 
     # Check filled trace vectors can be created
-    ctra = csys.create_trace_vector(merge_trace)
+    ctra = TraceVector(csys, merge_trace)
 
     assert np.all(merge_trace == ctra.as_merged())
 
@@ -610,12 +610,12 @@ def test_c_system_operations(nh: int, nv: int, order: int) -> None:
         np.array(sys.constraints.associated_element_array, np.uint32),
     )
 
-    cden = csys.create_dense_vector(*den.data)
+    cden = DenseVector(csys, *den.data)
 
-    ctra = csys.create_trace_vector(tra.combinded_system_vector())
+    ctra = TraceVector(csys, tra.combinded_system_vector())
 
-    c_d_out = csys.create_empty_dense_vector()
-    c_t_out = csys.create_empty_trace_vector()
+    c_d_out = DenseVector(csys)
+    c_t_out = TraceVector(csys)
 
     # Check diagonal
     csys.apply_diagonal(cden, c_d_out)
@@ -636,18 +636,6 @@ def test_c_system_operations(nh: int, nv: int, order: int) -> None:
     csys.apply_trace_transpose(ctra, c_d_out)
     p_d_out = sys.apply_transpose_trace(tra)
     assert pytest.approx(c_d_out.as_merged()) == p_d_out.combinded_system_vector()
-
-
-# @pytest.mark.parametrize(("nh", "nv", "order"), _TEST_DIMS)
-# def test_c_vector_operations(nh: int, nv: int, order: int) -> None:
-#     """Check that C types behave same as their Python counterparts."""
-#     _, den, tra = laplace_sample_system_new(nh, nv, order)
-
-#     full_dense = den.as_merged()
-#     den2 = den.copy()
-
-#     den2.subtract_from(den)
-#     assert
 
 
 @pytest.mark.parametrize(("nh", "nv", "order"), _TEST_DIMS)
@@ -684,34 +672,6 @@ def test_multiplication(nh: int, nv: int, order: int):
 
     cpv = np.concatenate((pv1.combinded_system_vector(), pv2.combinded_system_vector()))
     assert pytest.approx(u) == cpv
-
-
-@pytest.mark.parametrize(("n", "m"), ((10, 100), (3, 10), (5, 50)))
-def test_gmres(n: int, m: int):
-    """Check that GMRES solver computes the same solution as SciPy."""
-    # Problem to be solved is based on mixed Laplace
-    rng = np.random.default_rng()
-    mat = rng.random((n, n))
-    lhs = rng.random((n,))
-    rhs = mat @ lhs
-    del rhs, m
-
-    pass  # TODO
-    # solution, residual, k = gmres_general(
-    #     mat,
-    #     rhs,
-    #     ConvergenceSettings(
-    #         maximum_iterations=m, absolute_tolerance=1e-9, relative_tolerance=1e-7
-    #     ),
-    #     np.ndarray.__matmul__,
-    #     np.dot,
-    #     np.ndarray.__add__,
-    #     np.ndarray.__sub__,
-    #     np.ndarray.__mul__,
-    #     np.array,
-    # )
-
-    # assert pytest.approx(solution) == lhs
 
 
 @pytest.mark.parametrize(("nh", "nv", "order"), _TEST_DIMS)
@@ -760,6 +720,52 @@ def test_schur(nh: int, nv: int, order: int):
     assert pytest.approx(solution_scipy) == combined_schur
 
 
+@pytest.mark.parametrize(("nh", "nv", "order"), _TEST_DIMS)
+def test_pcg(nh: int, nv: int, order: int):
+    """Check that preconditioned CG solver computes the same solution as SciPy."""
+    # Problem to be solved is based on mixed Laplace
+    linear_system, forcing_dense, forcing_trace = laplace_sample_system_new(nh, nv, order)
+
+    combined_matrix = linear_system.combined_system_matrix()
+    combined_vec = np.concatenate((forcing_dense.as_merged(), forcing_trace.as_merged()))
+
+    tsc0 = perf_counter()
+    solution_pcg = solve_pcg_iterative(
+        linear_system,
+        forcing_dense,
+        forcing_trace,
+        convergence=ConvergenceSettings(
+            maximum_iterations=nh * nv * order,
+            absolute_tolerance=1e-14,
+            relative_tolerance=1e-13,
+        ),
+    )
+    tsc1 = perf_counter()
+    tsp0 = perf_counter()
+    solution_scipy = sla.spsolve(combined_matrix, combined_vec)
+    tsp1 = perf_counter()
+
+    print(f"System dimensionas are is {combined_matrix.shape}")
+
+    print(
+        f"Time taken by PCG solve for {combined_matrix.shape} system is {tsc1 - tsc0:g}"
+        " seconds"
+    )
+
+    print(
+        f"Time taken by Scipy solve for {combined_matrix.shape} system is {tsp1 - tsp0:g}"
+        " seconds"
+    )
+
+    sol_d, sol_t, residual, iters = solution_pcg
+
+    combined_schur = np.concatenate((sol_d.as_merged(), sol_t.as_merged()))
+    print("Estimated residual is:", residual)
+    print("Number of itersations:", iters)
+    print("Max difference: ", np.max(np.abs(solution_scipy - combined_schur)))
+    assert pytest.approx(solution_scipy, abs=1e-8) == combined_schur
+
+
 if __name__ == "__main__":
     # for args in _TEST_DIMS:
     #     test_c_python_types(*args)
@@ -769,7 +775,9 @@ if __name__ == "__main__":
     # test_gmres(10, 100)
     # test_multiplication(10, 10, 6)
     # test_schur(3, 3, 3)
-    for _ in range(10):
-        test_schur(20, 20, 5)
+    # for _ in range(5):
+    # test_cg(10, 10, 5)
+    test_schur(25, 25, 5)
+    test_pcg(25, 25, 5)
     # test_schur(3, 4, 4)
     # test_schur(5, 2, 5)

@@ -699,7 +699,11 @@ def test_schur(nh: int, nv: int, order: int):
     solution_scipy = sla.spsolve(combined_matrix, combined_vec)
     tsp1 = perf_counter()
 
-    print(f"System dimensionas are is {combined_matrix.shape}")
+    print(
+        f"System dimensionas are is {combined_matrix.shape}"
+        f" (dense: {forcing_dense.as_merged().size}, trace: "
+        f"{forcing_trace.as_merged().size})"
+    )
 
     print(
         f"Time taken by Schur solve for {combined_matrix.shape} system is {tsc1 - tsc0:g}"
@@ -775,9 +779,10 @@ if __name__ == "__main__":
     # test_gmres(10, 100)
     # test_multiplication(10, 10, 6)
     # test_schur(3, 3, 3)
-    # for _ in range(5):
-    # test_cg(10, 10, 5)
-    test_schur(25, 25, 5)
-    test_pcg(25, 25, 5)
+    for _ in range(10):
+        # test_cg(10, 10, 5)
+        test_schur(40, 40, 5)
+    for _ in range(10):
+        test_pcg(40, 40, 5)
     # test_schur(3, 4, 4)
     # test_schur(5, 2, 5)

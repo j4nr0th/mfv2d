@@ -5,7 +5,6 @@ from typing import Any, Self, SupportsIndex
 
 from mfv2d._mfv2d import _ElementFormSpecification
 from mfv2d.kform import (
-    Function2D,
     KEquation,
     KExplicit,
     KForm,
@@ -258,7 +257,6 @@ class KFormSystem:
 
     unknown_forms: ElementFormSpecification
     equations: tuple[KEquation, ...]
-    vector_fields: tuple[Function2D | KFormUnknown, ...]
 
     def __init__(
         self,
@@ -268,7 +266,6 @@ class KFormSystem:
         unknowns: set[KFormUnknown] = set()
         weights: list[KWeight] = []
         equation_list: list[KEquation] = []
-        vfs: set[Function2D | KFormUnknown] = set()
         for ie, equation in enumerate(equations):
             weight = equation.weight
             if weight in weights:
@@ -279,7 +276,6 @@ class KFormSystem:
             unknowns |= set(equation.left.unknowns + equation.right.unknowns)
             weights.append(weight)
             equation_list.append(equation)
-            vfs |= set(equation.left.vector_fields + equation.right.vector_fields)
 
         if sorting is not None:
             self.weight_forms = tuple(sorted(weights, key=sorting))
@@ -291,7 +287,6 @@ class KFormSystem:
         )
 
         self.equations = tuple(equation_list[self.weight_forms.index(w)] for w in weights)
-        self.vector_fields = tuple(vec_field for vec_field in vfs)
 
     def __str__(self) -> str:
         """Create a printable representation of the object."""

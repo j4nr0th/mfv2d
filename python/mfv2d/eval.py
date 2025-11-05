@@ -484,22 +484,14 @@ def _translate_equation(
         case KWeight():
             return {form: [Identity()]}
 
-        case KInteriorProduct() | KInteriorProductNonlinear():
+        case KInteriorProduct():
             if transpose:
                 ValueError("Can not transpose interior product instructions (yet?).")
 
             res = _translate_equation(form=form.form, newton=newton, transpose=transpose)
             field: Function2D | str
-            if type(form) is KInteriorProduct:
-                field = form.vector_field
-                base_form = form.form
-
-            elif type(form) is KInteriorProductNonlinear:
-                field = form.form_field.label
-                base_form = form.form
-
-            else:
-                assert False, "Litterally can not happen."
+            field = form.vector_field
+            base_form = form.form
 
             prod_instruct: list[MatOp] = [
                 InterProd(base_form.order, field, not base_form.is_primal, False)
@@ -515,7 +507,32 @@ def _translate_equation(
             for k in res:
                 res[k].extend(prod_instruct)
 
-            if type(form) is KInteriorProductNonlinear and newton:
+            return res
+
+        case KInteriorProductNonlinear():
+            if transpose:
+                ValueError("Can not transpose interior product instructions (yet?).")
+
+            res = _translate_equation(form=form.form, newton=newton, transpose=transpose)
+
+            field = form.form_field.label
+            base_form = form.form
+
+            prod_instruct = [
+                InterProd(base_form.order, field, not base_form.is_primal, False)
+            ]
+
+            if not base_form.is_primal:
+                prod_instruct = (
+                    [MassMat(UnknownFormOrder(form.primal_order.value - 1), True)]
+                    + prod_instruct
+                    + [MassMat(form.primal_order, True)]
+                )
+
+            for k in res:
+                res[k].extend(prod_instruct)
+
+            if newton:
                 other_form = form.form_field
                 if other_form in res:
                     raise ValueError(
@@ -535,7 +552,6 @@ def _translate_equation(
                 res[other_form] = extra_op
 
             return res
-
         case _:
             raise TypeError("Unknown type")
 
@@ -757,10 +773,6 @@ class CompiledSystem:
     nonlin_codes: _TranslatedSystem2D | None
     """If not ``None``, contains the non-linear codes that can be used
         for Newton-Raphson solver."""
-    vector_field_specs: tuple[int | Function2D, ...]
-    """Specifications of vector fields used by the system. Intended to
-        be passed to :func:`mfv2d._mfv2d.compute_element_matrix` and
-        :func:`mfv2d._mfv2d.compute_element_vector`."""
 
     @staticmethod
     def _compile_system_part(
@@ -838,10 +850,3 @@ class CompiledSystem:
                 for eq in system.equations
             ),
         )
-        vector_field_specs: list[int | Function2D] = list()
-        for vec_field in system.vector_fields:
-            if callable(vec_field):
-                vector_field_specs.append(vec_field)
-            else:
-                vector_field_specs.append(system.unknown_forms.index(vec_field))
-        object.__setattr__(self, "vector_field_specs", tuple(vector_field_specs))

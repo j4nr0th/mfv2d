@@ -479,7 +479,7 @@ class KInteriorProduct(KForm):
     @property
     def is_primal(self) -> bool:
         """Check if the form is primal or not."""
-        return not self.form.is_primal
+        return self.form.is_primal
 
     @property
     def is_weight(self) -> bool:
@@ -555,7 +555,7 @@ class KInteriorProductNonlinear(KForm):
     @property
     def is_primal(self) -> bool:
         """Check if the form is primal or not."""
-        return not self.form.is_primal
+        return self.form.is_primal
 
     @property
     def is_weight(self) -> bool:
@@ -673,35 +673,6 @@ class TermEvaluatable(Term):
         raise NotImplementedError
 
 
-def _extract_vector_fields(form: KForm) -> list[KFormUnknown | Function2D]:
-    """Extract vector fields from the form, otherwise raises type error."""
-    if type(form) is KFormUnknown or type(form) is KWeight:
-        return []
-
-    if type(form) is KFormDerivative:
-        return _extract_vector_fields(form.form)
-
-    if type(form) is KHodge:
-        return _extract_vector_fields(form.base_form)
-
-    if type(form) is KInteriorProduct:
-        return _extract_vector_fields(form.form) + [form.vector_field]
-
-    if type(form) is KInteriorProductNonlinear:
-        second_form = form.form.base_form if type(form.form) is KHodge else form.form
-        if type(second_form) is not KFormUnknown:
-            raise TypeError(
-                "Non-linear interior product can only be applied to an unknown or its "
-                "Hodge."
-            )
-        return _extract_vector_fields(form.form) + [
-            form.form_field,
-            second_form,
-        ]
-
-    raise TypeError(f"Vector fields can not be extracted from the form {form}.")
-
-
 def _extract_unknowns(form: KForm) -> list[KFormUnknown]:
     """Extract unknown forms from the form, otherwise raises type error."""
     if type(form) is KFormUnknown:
@@ -772,14 +743,6 @@ class KInnerProduct(TermEvaluatable):
     def unknowns(self) -> tuple[KFormUnknown, ...]:
         """Return all unknowns in the sum."""
         return tuple(_extract_unknowns(self.unknown_form))
-
-    @property
-    def vector_fields(self) -> tuple[Function2D | KFormUnknown, ...]:
-        """Return all vector fields in the sum."""
-        out: set[Function2D | KFormUnknown] = set()
-        out |= set(_extract_vector_fields(self.weight_form))
-        out |= set(_extract_vector_fields(self.unknown_form))
-        return tuple(out)
 
 
 @dataclass(init=False, frozen=True, eq=False)

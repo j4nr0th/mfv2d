@@ -256,6 +256,7 @@ def solve_system_2d(
     del initial_vectors, initial_solution
 
     main_mat = sp.block_diag(linear_element_matrices, format="csr")
+    del linear_element_matrices
     main_vec = np.concatenate(linear_vectors, dtype=np.float64)
 
     if lagrange_mat is not None:
@@ -338,7 +339,6 @@ def solve_system_2d(
                     compiled_system,
                     explicit_vec,
                     element_offsets,
-                    linear_element_matrices,
                     time_carry_index_array,
                     current_carry,
                     solution,
@@ -408,7 +408,6 @@ def solve_system_2d(
                 compiled_system,
                 explicit_vec,
                 element_offsets,
-                linear_element_matrices,
                 None,
                 None,
                 solution,
@@ -508,11 +507,10 @@ def update_system_for_time_march(
             raise ValueError(f"Unknown form {u} is not in the system.")
         if w not in system.weight_forms:
             raise ValueError(f"Weight form {w} is not in the system.")
-        if u.primal_order != w.primal_order:
+        if u.order != w.order:
             raise ValueError(
                 f"Forms {u} and {w} in the time march relation can not be used, as "
-                f"they have differing primal orders ({u.primal_order} vs "
-                f"{w.primal_order})."
+                f"they have differing orders ({u.order} vs {w.order})."
             )
 
     time_march_indices = tuple(
@@ -533,7 +531,7 @@ def update_system_for_time_march(
                 eq.left
                 + 2
                 / time_settings.dt
-                * (system.weight_forms[m_idx] * system.unknown_forms.get_form(m_idx))
+                * (system.weight_forms[m_idx] @ system.unknown_forms.get_form(m_idx))
                 == eq.right
             )
 

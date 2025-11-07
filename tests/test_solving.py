@@ -420,8 +420,8 @@ def laplace_sample_system_old(
         return -2 * np.pi**2 * np.cos(np.pi * x) * np.cos(np.pi * y)
 
     system = KFormSystem(
-        p * q + p.derivative * u == 0,
-        v * q.derivative == v @ f_exact,
+        p @ q + p.derivative @ u == 0,
+        v @ q.derivative == v @ f_exact,
         sorting=lambda f: f.order,
     )
 
@@ -444,7 +444,7 @@ def laplace_sample_system_old(
 
     vectors = [compute_element_rhs(system, space) for space in fem_spaces]
     matrices = [
-        compute_element_matrix(system.unknown_forms, compiled.lhs_full, space)
+        compute_element_matrix(system.unknown_forms, compiled.lhs_codes, space)
         for space in fem_spaces
     ]
     continuity_constraints = connect_elements(system.unknown_forms, mesh)
@@ -482,8 +482,8 @@ def laplace_sample_system_new(
         return -2 * np.pi**2 * np.cos(np.pi * x) * np.cos(np.pi * y)
 
     system = KFormSystem(
-        p * q + p.derivative * u == 0,
-        v * q.derivative == v @ f_exact,
+        p @ q + p.derivative @ u == 0,
+        v @ q.derivative == v @ f_exact,
         sorting=lambda f: f.order,
     )
 
@@ -506,7 +506,7 @@ def laplace_sample_system_new(
 
     vectors = [compute_element_rhs(system, space) for space in fem_spaces]
     matrices = [
-        compute_element_matrix(system.unknown_forms, compiled.lhs_full, space)
+        compute_element_matrix(system.unknown_forms, compiled.lhs_codes, space)
         for space in fem_spaces
     ]
     continuity_constraints = connect_elements(system.unknown_forms, mesh)

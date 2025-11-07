@@ -82,7 +82,7 @@ typedef struct
     matrix_op_type_t op;
     form_order_t order;
     unsigned field_index;
-    unsigned dual;
+    unsigned transpose;
     unsigned adjoint;
 } matrix_op_interprod_t;
 

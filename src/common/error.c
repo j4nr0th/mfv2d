@@ -62,7 +62,8 @@ void error_message_submit(error_stack_t *stack, const char *file, int line, cons
     char *const buffer = allocate(stack->allocator, sizeof *buffer * (len + 1));
     if (!buffer)
         return;
-    vsnprintf(buffer, len, msg, args);
+    vsnprintf(buffer, len + 1, msg, args);
+    buffer[len] = 0;
     va_end(args);
     stack->messages[stack->position] =
         (error_message_t){.code = err, .message = buffer, .line = line, .file = file, .function = func};

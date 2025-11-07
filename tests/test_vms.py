@@ -48,8 +48,8 @@ def test_fine_green_adv_dif(nh: int, nv: int, element_order: int, k: int) -> Non
     p = q.weight
 
     system = KFormSystem(
-        p * q + p.derivative * u == 0,
-        v * q.derivative == 0,
+        p @ q + p.derivative @ u == 0,
+        v @ q.derivative == 0,
         sorting=lambda f: f.order,
     )
 
@@ -93,7 +93,7 @@ def test_fine_green_adv_dif(nh: int, nv: int, element_order: int, k: int) -> Non
         coarse_matrices.append(
             np.astype(
                 compute_element_matrix(
-                    system.unknown_forms, compiled.lhs_full, coarse_spaces[-1]
+                    system.unknown_forms, compiled.lhs_codes, coarse_spaces[-1]
                 ),
                 np.float64,
                 copy=False,
@@ -103,7 +103,7 @@ def test_fine_green_adv_dif(nh: int, nv: int, element_order: int, k: int) -> Non
         fine_matrices.append(
             np.astype(
                 compute_element_matrix(
-                    system.unknown_forms, compiled.lhs_full, fine_spaces[-1]
+                    system.unknown_forms, compiled.lhs_codes, fine_spaces[-1]
                 ),
                 np.float64,
                 copy=False,

@@ -13,6 +13,9 @@ from mfv2d._mfv2d import Mesh as Mesh
 # Boundary
 from mfv2d.boundary import BoundaryCondition2DSteady as BoundaryCondition2DSteady
 
+# Eval
+from mfv2d.eval import system_as_string as system_as_string
+
 # K-forms
 from mfv2d.kform import KEquation as KEquation
 from mfv2d.kform import KFormUnknown as KFormUnknown

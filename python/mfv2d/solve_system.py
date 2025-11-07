@@ -219,8 +219,6 @@ def reconstruct_mesh_from_solution(
             form_offset = form_spec.form_offset(idx, *orders)
             form_offset_end = form_offset + form_spec.form_size(idx, *orders)
             form_dofs = element_dofs[form_offset:form_offset_end]
-            if not form.is_primal:
-                raise ValueError("Can not reconstruct a non-primal form.")
             # Reconstruct unknown
             recon_v = reconstruct(
                 element_space,
@@ -364,7 +362,6 @@ def non_linear_solve_run(
     compiled_system: CompiledSystem,
     explicit_vec: npt.NDArray[np.float64],
     element_offsets: npt.NDArray[np.uint32],
-    linear_element_matrices: Sequence[npt.NDArray[np.float64]],
     time_carry_index_array: npt.NDArray[np.uint32] | None,
     time_carry_term: npt.NDArray[np.float64] | None,
     solution: npt.NDArray[np.float64],
@@ -406,12 +403,11 @@ def non_linear_solve_run(
             main_vec = base_vec  # Do not copy
 
         lhs_vectors: list[npt.NDArray[np.float64]] = list()
-        lhs_matrices: list[npt.NDArray[np.float64]] = list()
         for ie, element_space in enumerate(element_fem_spaces):
             element_solution = solution[element_offsets[ie] : element_offsets[ie + 1]]
 
             lhs_vec = compute_element_vector(
-                form_spec, compiled_system.lhs_full, element_space, element_solution
+                form_spec, compiled_system.lhs_codes, element_space, element_solution
             )
 
             if compiled_system.rhs_codes is not None:
@@ -423,15 +419,6 @@ def non_linear_solve_run(
 
                 del rhs_vec
             lhs_vectors.append(lhs_vec)
-
-            if compiled_system.nonlin_codes is not None:
-                mat = compute_element_matrix(
-                    form_spec,
-                    compiled_system.nonlin_codes,
-                    element_space,
-                    element_solution,
-                )
-                lhs_matrices.append(linear_element_matrices[ie] + mat)
 
         main_value = np.concatenate(lhs_vectors)
 
@@ -465,18 +452,6 @@ def non_linear_solve_run(
 
         if not (max_residual > atol and max_residual > max_mag * rtol):
             break
-
-        if len(lhs_matrices):
-            main_mat = sp.block_diag(lhs_matrices, format="csr")
-            if lagrange_mat is not None:
-                main_mat = sp.block_array(
-                    [[main_mat, lagrange_mat.T], [lagrange_mat, None]], format="csc"
-                )
-            else:
-                main_mat = main_mat.tocsc()
-
-            system_decomp = sla.splu(main_mat)
-            del main_mat, lhs_matrices
 
         d_solution = np.asarray(
             system_decomp.solve(residual),
@@ -768,14 +743,14 @@ class SuyashGreenOperator:
             coarse_advection_matrices.append(coarse_advection_matrix)
 
             fine_matrix = compute_element_matrix(
-                self.unknown_forms, compiled_sym.lhs_full, fine_space
+                self.unknown_forms, compiled_sym.lhs_codes, fine_space
             )
             fine_matrices.append(fine_matrix)
 
-            # coarse_matrix = projector_c2f.T @ fine_matrix @ projector_c2f
-            coarse_matrix = compute_element_matrix(
-                self.unknown_forms, compiled_sym.lhs_full, fem_space
-            )
+            coarse_matrix = projector_c2f.T @ fine_matrix @ projector_c2f
+            # coarse_matrix = compute_element_matrix(
+            #     self.unknown_forms, compiled_sym.lhs_codes, fem_space
+            # )
             coarse_matrices.append(coarse_matrix)
 
         self.projector_c2f = cast(

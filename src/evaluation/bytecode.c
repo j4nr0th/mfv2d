@@ -12,7 +12,7 @@
 static const char *matrix_op_strings[MATOP_COUNT] = {
     MATRIX_OP_ENTRY(MATOP_INVALID), MATRIX_OP_ENTRY(MATOP_IDENTITY),  MATRIX_OP_ENTRY(MATOP_MASS),
     MATRIX_OP_ENTRY(MATOP_MATMUL),  MATRIX_OP_ENTRY(MATOP_INCIDENCE), MATRIX_OP_ENTRY(MATOP_PUSH),
-    MATRIX_OP_ENTRY(MATOP_SCALE),   MATRIX_OP_ENTRY(MATOP_SUM),
+    MATRIX_OP_ENTRY(MATOP_SCALE),   MATRIX_OP_ENTRY(MATOP_SUM),       MATRIX_OP_ENTRY(MATOP_INTERPROD),
 };
 #undef MATRIX_OP_ENTRY
 
@@ -142,7 +142,7 @@ static mfv2d_result_t convert_interprod(PyObject *const o, matrix_op_interprod_t
     matrix_op_type_t type;
     form_order_t start_order;
     PyObject *field;
-    int dual;
+    int dual; // TODO: fix the dual/transpose refactor.
     int adjoint;
     if (!PyArg_ParseTuple(o, "O&O&Opp", matrix_op_type_from_object, &type, converter_form_order, &start_order, &field,
                           &dual, &adjoint))
@@ -224,7 +224,7 @@ static mfv2d_result_t convert_interprod(PyObject *const o, matrix_op_interprod_t
     }
 
     *out = (matrix_op_interprod_t){
-        .order = start_order, .field_index = field_idx, .dual = dual, .adjoint = adjoint, .op = MATOP_INTERPROD};
+        .order = start_order, .field_index = field_idx, .transpose = dual, .adjoint = adjoint, .op = MATOP_INTERPROD};
     *p_field_cnt += 1;
     return MFV2D_SUCCESS;
 }
@@ -419,7 +419,7 @@ PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *args, PyObject *
 
         case MATOP_INTERPROD:
             res = Py_BuildValue("(IIIII)", MATOP_INTERPROD, op->interprod.order, op->interprod.field_index,
-                                op->interprod.dual, op->interprod.adjoint);
+                                op->interprod.transpose, op->interprod.adjoint);
             break;
 
         default:

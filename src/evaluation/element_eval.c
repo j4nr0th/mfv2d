@@ -325,7 +325,8 @@ static mfv2d_result_t operation_sum(matrix_t *current, const matrix_op_t *operat
         matrix_cleanup(left, allocator);
         if (res != MFV2D_SUCCESS)
         {
-            MFV2D_ERROR(error_stack, res, "Could not add two matrices.");
+            MFV2D_ERROR(error_stack, res, "Could not add two matrices with dims (%u, %u) and (%u, %u).",
+                        left->base.rows, left->base.cols, current->base.rows, current->base.cols);
             return res;
         }
         *current = new;
@@ -342,7 +343,7 @@ static mfv2d_result_t operation_interprod(matrix_t *current, const matrix_op_t *
     const matrix_op_interprod_t *const interprod = (const matrix_op_interprod_t *)operation;
     const form_order_t order = interprod->order;
     const unsigned field_index = interprod->field_index;
-    const unsigned dual = interprod->dual;
+    const unsigned transpose = interprod->transpose;
     const unsigned adjoint = interprod->adjoint;
 
     if (order != FORM_ORDER_1 && order != FORM_ORDER_2)
@@ -365,69 +366,37 @@ static mfv2d_result_t operation_interprod(matrix_t *current, const matrix_op_t *
 
     if (!adjoint)
     {
-        if (!dual)
+        if (order == FORM_ORDER_1)
         {
-            if (order == FORM_ORDER_1)
-            {
-                res = compute_mass_matrix_node_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = 1.0;
-            }
-            else // if (order == FORM_ORDER_2)
-            {
-                res = compute_mass_matrix_edge_surf(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = 1.0;
-            }
+            res = compute_mass_matrix_node_edge(element_fem_space->fem_space, &this.full, allocator, field,
+                                                (int)transpose);
+            // this.coefficient = +1.0;
         }
-        else
+        else // if (order == FORM_ORDER_2)
         {
-            if (order == FORM_ORDER_1)
-            {
-                res = compute_mass_matrix_edge_surf(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = -1.0;
-            }
-            else // if (order == FORM_ORDER_2)
-            {
-                res = compute_mass_matrix_node_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = 1.0;
-            }
+            res = compute_mass_matrix_edge_surf(element_fem_space->fem_space, &this.full, allocator, field,
+                                                (int)transpose);
+            this.coefficient = -1.0;
         }
+        // if (transpose)
+        //     this.coefficient = -this.coefficient;
     }
     else
     {
-        if (!dual)
+        if (order == FORM_ORDER_1)
         {
-            if (order == FORM_ORDER_1)
-            {
-                res = compute_mass_matrix_node_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = -1.0;
-            }
-            else // if (order == FORM_ORDER_2)
-            {
-                res = compute_mass_matrix_edge_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = -1.0;
-            }
+            res = compute_mass_matrix_node_edge(element_fem_space->fem_space, &this.full, allocator, field,
+                                                (int)transpose);
+            this.coefficient = +1.0;
         }
-        else
+        else // if (order == FORM_ORDER_2)
         {
-            if (order == FORM_ORDER_1)
-            {
-                res = compute_mass_matrix_edge_surf(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = -1.0;
-            }
-            else // if (order == FORM_ORDER_2)
-            {
-                res = compute_mass_matrix_edge_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = 1.0;
-            }
+            res = compute_mass_matrix_edge_edge(element_fem_space->fem_space, &this.full, allocator, field,
+                                                (int)transpose);
+            this.coefficient = -1.0;
         }
+        if (transpose)
+            this.coefficient = -this.coefficient;
     }
 
     if (res != MFV2D_SUCCESS)

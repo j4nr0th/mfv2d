@@ -888,7 +888,7 @@ def error_estimate_with_local_inversion(
         fine_solution = projector_primal @ element_solution
 
         fine_forcing = compute_element_vector(
-            system.unknown_forms, compiled.lhs_full, higher_space, fine_solution
+            system.unknown_forms, compiled.lhs_codes, higher_space, fine_solution
         )
         if compiled.rhs_codes:
             fine_forcing -= compute_element_vector(
@@ -987,7 +987,7 @@ def error_estimate_with_local_inversion(
         )
     ):
         local_lhs = compute_element_matrix(
-            system.unknown_forms, compiled.lhs_full, fine_space, element_solution
+            system.unknown_forms, compiled.lhs_codes, fine_space, element_solution
         )
         element_orders = fine_space.orders
         # Use lagrange multipliers to force boundary DoFs to zero if needed
@@ -1460,7 +1460,7 @@ def error_estimate_with_vms(
 
         fine_rhs = compute_element_rhs(system, higher_space)
         coarse_forcing = compute_element_vector(
-            system.unknown_forms, compiled.lhs_full, element_space, element_solution
+            system.unknown_forms, compiled.lhs_codes, element_space, element_solution
         )
         if compiled.rhs_codes:
             coarse_forcing -= compute_element_vector(
@@ -1492,17 +1492,17 @@ def error_estimate_with_vms(
 
         symmetric_matrices_coarse.append(
             compute_element_matrix(
-                symmetric.unknown_forms, compiled_symmetric.lhs_full, element_space
+                symmetric.unknown_forms, compiled_symmetric.lhs_codes, element_space
             )
         )
         symmetric_matrices_fine.append(
             compute_element_matrix(
-                symmetric.unknown_forms, compiled_symmetric.lhs_full, higher_space
+                symmetric.unknown_forms, compiled_symmetric.lhs_codes, higher_space
             )
         )
         nonsymmetric_matrices_fine.append(
             compute_element_matrix(
-                nonsymmetric.unknown_forms, compiled_nonsymmetric.lhs_full, higher_space
+                nonsymmetric.unknown_forms, compiled_nonsymmetric.lhs_codes, higher_space
             )
         )
 

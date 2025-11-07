@@ -10,9 +10,9 @@
 
 #define MATRIX_OP_ENTRY(op) [op] = #op
 static const char *matrix_op_strings[MATOP_COUNT] = {
-    MATRIX_OP_ENTRY(MATOP_INVALID), MATRIX_OP_ENTRY(MATOP_IDENTITY),  MATRIX_OP_ENTRY(MATOP_MASS),
-    MATRIX_OP_ENTRY(MATOP_MATMUL),  MATRIX_OP_ENTRY(MATOP_INCIDENCE), MATRIX_OP_ENTRY(MATOP_PUSH),
-    MATRIX_OP_ENTRY(MATOP_SCALE),   MATRIX_OP_ENTRY(MATOP_SUM),       MATRIX_OP_ENTRY(MATOP_INTERPROD),
+    MATRIX_OP_ENTRY(MATOP_INVALID),   MATRIX_OP_ENTRY(MATOP_IDENTITY),  MATRIX_OP_ENTRY(MATOP_MASS),
+    MATRIX_OP_ENTRY(MATOP_INCIDENCE), MATRIX_OP_ENTRY(MATOP_PUSH),      MATRIX_OP_ENTRY(MATOP_SCALE),
+    MATRIX_OP_ENTRY(MATOP_SUM),       MATRIX_OP_ENTRY(MATOP_INTERPROD),
 };
 #undef MATRIX_OP_ENTRY
 
@@ -142,52 +142,21 @@ static mfv2d_result_t convert_interprod(PyObject *const o, matrix_op_interprod_t
     matrix_op_type_t type;
     form_order_t start_order;
     PyObject *field;
-    int dual; // TODO: fix the dual/transpose refactor.
-    int adjoint;
-    if (!PyArg_ParseTuple(o, "O&O&Opp", matrix_op_type_from_object, &type, converter_form_order, &start_order, &field,
-                          &dual, &adjoint))
+    int transpose; // TODO: fix the dual/transpose refactor.
+    if (!PyArg_ParseTuple(o, "O&O&Op", matrix_op_type_from_object, &type, converter_form_order, &start_order, &field,
+                          &transpose))
     {
         return MFV2D_BAD_ARGUMENT;
     }
 
-    unsigned field_idx = *p_field_cnt;
-    form_order_t required_order;
-    // Determine the field's order based on what operation it is.
-    if (adjoint)
-    {
-        if (dual)
-        {
-            if (start_order == FORM_ORDER_1)
-            {
-                required_order = FORM_ORDER_1;
-            }
-            else // start_order == FORM_ORDER_2
-            {
-                required_order = FORM_ORDER_0;
-            }
-        }
-        else
-        {
-            if (start_order == FORM_ORDER_1)
-            {
-                required_order = FORM_ORDER_1;
-            }
-            else // start_order == FORM_ORDER_2
-            {
-                required_order = FORM_ORDER_2;
-            }
-        }
-    }
-    else
-    {
-        required_order = FORM_ORDER_1;
-    }
+    const unsigned field_idx = *p_field_cnt;
+    const form_order_t required_order = FORM_ORDER_1;
 
     if (PyCallable_Check(field))
     {
         // We're dealing with a callable field, we do no checks
         field_specs[field_idx].callable =
-            (field_spec_callable_t){.type = FIELD_SPEC_CALLABLE, .callable = field, .form_order = required_order};
+            (field_spec_callable_t){.type = FIELD_SPEC_CALLABLE, .callable = field, .form_order = FORM_ORDER_1};
     }
     else
     {
@@ -224,7 +193,7 @@ static mfv2d_result_t convert_interprod(PyObject *const o, matrix_op_interprod_t
     }
 
     *out = (matrix_op_interprod_t){
-        .order = start_order, .field_index = field_idx, .transpose = dual, .adjoint = adjoint, .op = MATOP_INTERPROD};
+        .order = start_order, .field_index = field_idx, .transpose = transpose, .op = MATOP_INTERPROD};
     *p_field_cnt += 1;
     return MFV2D_SUCCESS;
 }
@@ -247,7 +216,7 @@ mfv2d_result_t convert_bytecode(const unsigned n, matrix_op_t ops[restrict const
 
         if (PyTuple_Size(items[i]) == 0)
         {
-            PyErr_Format(PyExc_ValueError, "Empty tuple for instruction %u.", (unsigned)i);
+            PyErr_Format(PyExc_ValueError, "Empty tuple for instruction %u.", i);
             return MFV2D_BAD_ARGUMENT;
         }
 
@@ -270,15 +239,6 @@ mfv2d_result_t convert_bytecode(const unsigned n, matrix_op_t ops[restrict const
             {
                 max_load = stack_load;
             }
-            break;
-
-        case MATOP_MATMUL:
-            if (stack_load == 0)
-            {
-                PyErr_SetString(PyExc_ValueError, "Matmul instruction with nothing on the stack.");
-                return MFV2D_BAD_ARGUMENT;
-            }
-            stack_load -= 1;
             break;
 
         case MATOP_SCALE:
@@ -393,10 +353,6 @@ PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *args, PyObject *
             res = Py_BuildValue("(I)", MATOP_IDENTITY);
             break;
 
-        case MATOP_MATMUL:
-            res = Py_BuildValue("(I)", MATOP_MATMUL);
-            break;
-
         case MATOP_SCALE:
             res = Py_BuildValue("(Id)", MATOP_SCALE, op->scale.k);
             break;
@@ -418,8 +374,8 @@ PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *args, PyObject *
             break;
 
         case MATOP_INTERPROD:
-            res = Py_BuildValue("(IIIII)", MATOP_INTERPROD, op->interprod.order, op->interprod.field_index,
-                                op->interprod.transpose, op->interprod.adjoint);
+            res = Py_BuildValue("(IIII)", MATOP_INTERPROD, op->interprod.order, op->interprod.field_index,
+                                op->interprod.transpose);
             break;
 
         default:
@@ -440,4 +396,43 @@ PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *args, PyObject *
     PyMem_RawFree(bytecode);
 
     return (PyObject *)out_tuple;
+}
+
+MFV2D_INTERNAL
+size_t bytecode_instruction_print(const matrix_op_t *op, const size_t size, char buffer[const size])
+{
+    size_t count = 0;
+    switch (op->type)
+    {
+    case MATOP_IDENTITY:
+        count = snprintf(buffer, size, "(%s)", matrix_op_type_str(op->identity.op));
+        break;
+    case MATOP_SCALE:
+        count = snprintf(buffer, size, "(%s %f)", matrix_op_type_str(op->scale.op), op->scale.k);
+        break;
+    case MATOP_SUM:
+        count = snprintf(buffer, size, "(%s %u)", matrix_op_type_str(op->sum.op), op->sum.n);
+        break;
+    case MATOP_INCIDENCE:
+        count = snprintf(buffer, size, "(%s %s %s)", matrix_op_type_str(op->incidence.op),
+                         form_order_str(op->incidence.order), op->incidence.transpose ? "T" : "F");
+        break;
+    case MATOP_INTERPROD:
+        count = snprintf(buffer, size, "(%s %s %u %s)", matrix_op_type_str(op->interprod.op),
+                         form_order_str(op->interprod.order), op->interprod.field_index,
+                         op->interprod.transpose ? "T" : "F");
+        break;
+    case MATOP_MASS:
+        count = snprintf(buffer, size, "(%s %s %s)", matrix_op_type_str(op->mass.op), form_order_str(op->mass.order),
+                         op->mass.invert ? "T" : "F");
+        break;
+    case MATOP_PUSH:
+        count = snprintf(buffer, size, "(%s)", matrix_op_type_str(op->push.op));
+        break;
+    default:
+        count = snprintf(buffer, size, "(%s)", "UNKNOWN");
+        break;
+    }
+
+    return count;
 }

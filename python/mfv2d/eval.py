@@ -147,7 +147,6 @@ class InterProd(MatOp):
     starting_order: UnknownFormOrder
     field: str | Function2D
     transpose: bool
-    adjoint: bool
 
 
 def simplify_expression(*operations: MatOp) -> list[MatOp]:
@@ -399,12 +398,12 @@ def _translate_form(form: KForm) -> list[MatOp]:
             return _translate_form(fd.form) + [Incidence(fd.form.order, False)]
         case KInteriorProduct() as ip:
             return _translate_form(ip.form) + [
-                InterProd(ip.form.order, ip.vector_field, False, False),
+                InterProd(ip.form.order, ip.vector_field, False),
                 MassMat(ip.order, True),
             ]
         case KInteriorProductLowered() as ipl:
             return _translate_form(ipl.form) + [
-                InterProd(ipl.form.order, ipl.form_field.label, False, False),
+                InterProd(ipl.form.order, ipl.form_field.label, False),
                 MassMat(ipl.order, True),
             ]
         case _:
@@ -432,7 +431,7 @@ def _translate_inner_prod(inner: KInnerProduct) -> list[MatOp]:
                 unknown_ops.append(op)
             case InterProd() as ip:
                 unknown_ops.append(
-                    InterProd(ip.starting_order, ip.field, not ip.transpose, False)
+                    InterProd(ip.starting_order, ip.field, not ip.transpose)
                 )
             case _:
                 raise TypeError("Unexpected type for an inner product instructions.")
@@ -457,10 +456,9 @@ class MatOpCode(IntEnum):
     MASS = 2
     INCIDENCE = 3
     PUSH = 4
-    # MATMUL = 5
-    SCALE = 6
-    SUM = 7
-    INTERPROD = 8
+    SCALE = 5
+    SUM = 6
+    INTERPROD = 7
 
 
 _TranslatedInstruction = tuple[MatOpCode | int | float | Function2D | str, ...]
@@ -513,7 +511,6 @@ def translate_to_c_instructions(*ops: MatOp) -> _TranslatedBlock:
                     op.starting_order,
                     op.field,
                     op.transpose,
-                    op.adjoint,
                 )
 
             case _:

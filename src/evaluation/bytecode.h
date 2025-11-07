@@ -21,14 +21,12 @@ typedef enum
     MATOP_INCIDENCE = 3,
     // Push matrix on the stack to prepare for multiplication or summation
     MATOP_PUSH = 4,
-    // Multiply with matrix currently on stack
-    MATOP_MATMUL = 5,
     // Scale by constant, which is the next bytecode value
-    MATOP_SCALE = 6,
+    MATOP_SCALE = 5,
     // Sum matrices with those on stack, the next bytecode value is says how many are to be popped from the stack.
-    MATOP_SUM = 7,
+    MATOP_SUM = 6,
     // Interior product with vector field.
-    MATOP_INTERPROD = 8,
+    MATOP_INTERPROD = 7,
     // Not an instruction, used to count how many instructions there are.
     MATOP_COUNT,
 } matrix_op_type_t;
@@ -83,7 +81,6 @@ typedef struct
     form_order_t order;
     unsigned field_index;
     unsigned transpose;
-    unsigned adjoint;
 } matrix_op_interprod_t;
 
 typedef union {
@@ -129,5 +126,8 @@ PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *args, PyObject *
 
 MFV2D_INTERNAL
 extern const char check_bytecode_docstr[];
+
+MFV2D_INTERNAL
+size_t bytecode_instruction_print(const matrix_op_t *op, size_t size, char buffer[size]);
 
 #endif // BYTECODE_H

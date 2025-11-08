@@ -4,9 +4,7 @@ solve_system
 ============
 
 This submodule contains all the basic building blocks which are needed to
-create the solver in :mod:`mfv2d.solve_system_2d`. Some of these should
-be replaced or removed, as they are outdated, but it works for now.
-
+create the solver in :mod:`mfv2d.solve_system_2d`.
 
 Computing the Explicit Terms
 ----------------------------
@@ -57,16 +55,6 @@ be used.
 .. autofunction:: compute_element_primal_from_dual
 
 .. autofunction:: compute_element_dual
-
-
-Supporting Calculations
------------------------
-
-Computing element matrices and vectors requires vector field information
-be provided. These can be computed using
-:func:`compute_element_vector_fields_nonlin`.
-
-.. autofunction:: compute_element_vector_fields_nonlin
 
 
 The Actual Solver

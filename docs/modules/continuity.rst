@@ -28,6 +28,14 @@ constraints for mesh continuity.
 
 .. autofunction:: connect_elements
 
+
+This function is then used by :func:`add_system_constraints`, which
+generates all these continuity constraints and adds them to the system
+together with the boundary condition-related constraints.
+
+.. autofunction:: add_system_constraints
+
+
 There is also a number of utility functions, since hierarchical layout
 of the elements means that recursive calls have to be ofter used.
 

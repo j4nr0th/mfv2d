@@ -138,10 +138,6 @@ class InterProd(MatOp):
 
     transpose : bool
         Should the matrix be transposed.
-
-    adjoint : bool
-        Should the adjoint interior product be applied, which is used by
-        the Newton-Raphson solver.
     """
 
     starting_order: UnknownFormOrder

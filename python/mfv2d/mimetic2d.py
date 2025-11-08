@@ -873,34 +873,6 @@ class Constraint:
         object.__setattr__(self, "element_constraints", element_constraints)
 
 
-# def compute_leaf_dof_counts(
-#     order_1: int, order_2: int, forms: Sequence[UnknownFormOrder]
-# ) -> npt.NDArray[np.uint32]:
-#     """Compute number of DoFs for each element.
-
-#     Parameters
-#     ----------
-#     order_1 : int
-#         Order of the element in the first dimension.
-
-#     order_2 : int
-#         Order of the element in the second dimension.
-
-#     ordering : UnknownOrderings
-#         Orders of differential forms in the system.
-
-#     Returns
-#     -------
-#     array of int
-#         Array with count of degrees of freedom for of each differential form
-#         for the element.
-#     """
-#     return np.array(
-#         [form.full_unknown_count(order_1, order_2) for form in forms],
-#         np.uint32,
-#     )
-
-
 def jacobian(
     corners: npt.NDArray[np.floating], nodes_1: npt.ArrayLike, nodes_2: npt.ArrayLike
 ) -> tuple[

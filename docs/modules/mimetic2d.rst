@@ -3,10 +3,10 @@
 mimetic2d
 =========
 
-Most of the module is in the process of getting refactored into others.
-Previously, code was written with element objects, which were used to
-hold element relations. These are now all handled by
-:class:`mfv2d.element.ElementCollection`.
+This module contains miscellanious functions and types dealing with
+supporting the topological and geometrical operations, such as searching
+for nodes, getting boundary degrees of freedom, ordering the DoFs for VTK,
+reconstructing functions and integrating functions over elements.
 
 Incidence Functions
 -------------------
@@ -118,16 +118,6 @@ hand side.
 .. autoclass:: ElementConstraint
 
 .. autoclass:: Constraint
-
-
-Degree of Freedom Counts
-------------------------
-
-There are some utility functions provided for computing number of
-elemet degrees of freedom or lagrange multipliers. This is done
-by :func:`compute_leaf_dof_counts`.
-
-.. autofunction:: compute_leaf_dof_counts
 
 
 Element Geometry

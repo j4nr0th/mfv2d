@@ -39,6 +39,7 @@ import pyvista as pv
 import rmsh
 from matplotlib import pyplot as plt
 from mfv2d import (
+    ConvergenceSettings,
     KFormSystem,
     KFormUnknown,
     SolverSettings,
@@ -115,8 +116,8 @@ q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
 p = q.weight
 
 system = KFormSystem(
-    ALPHA * (v * u) == ALPHA * (v * final_u),
-    p * q - p * u.derivative == 0,
+    ALPHA * (v @ u) == ALPHA * (v @ final_u),
+    p @ q - p @ u.derivative == 0,
     sorting=lambda f: f.order,
 )
 
@@ -187,7 +188,9 @@ for i_nt, nt in enumerate(nt_vals):
         mesh,
         system_settings=SystemSettings(system, initial_conditions={u: initial_u}),
         solver_settings=SolverSettings(
-            maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+            ConvergenceSettings(
+                maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+            )
         ),
         time_settings=TimeSettings(dt=dt, nt=nt, time_march_relations={v: u}),
         recon_order=10,

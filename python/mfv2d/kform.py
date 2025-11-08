@@ -480,15 +480,15 @@ def check_form_linear(form: KForm) -> bool:
     """Check if the form is linear."""
     match form:
         case KFormUnknown():
-            return False
+            return True
         case KWeight():
-            return False
+            return True
         case KFormDerivative() as df:
             return check_form_linear(df.form)
         case KInteriorProduct() as ip:
             return check_form_linear(ip.form)
         case KInteriorProductLowered():
-            return True
+            return False
         case _:
             raise TypeError(f"Unknown form type {type(form)}")
 

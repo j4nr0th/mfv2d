@@ -991,7 +991,7 @@ def compute_linear_system(
         linear_matrices = [
             compute_element_matrix(
                 system.unknown_forms,
-                compiled.linear_codes,
+                compiled.lhs_codes,
                 element_space,
                 element_solution,
             )
@@ -1002,7 +1002,7 @@ def compute_linear_system(
     else:
         linear_matrices = [
             compute_element_matrix(
-                system.unknown_forms, compiled.linear_codes, element_space
+                system.unknown_forms, compiled.lhs_codes, element_space
             )
             for element_space in element_fem_spaces
         ]

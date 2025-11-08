@@ -32,6 +32,7 @@ import rmsh
 from matplotlib import pyplot as plt
 from mfv2d import (
     BoundaryCondition2DSteady,
+    ConvergenceSettings,
     KFormSystem,
     KFormUnknown,
     SolverSettings,
@@ -40,6 +41,7 @@ from mfv2d import (
     UnknownFormOrder,
     mesh_create,
     solve_system_2d,
+    system_as_string,
 )
 from scipy.integrate import trapezoid
 
@@ -106,11 +108,10 @@ u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
 v = u.weight
 
 system = KFormSystem(
-    ALPHA * (v.derivative * u.derivative)
-    == BETA * (v * steady_u) - (BETA - ALPHA * np.pi**2 / 2) * (v * u),
-    sorting=lambda f: f.order,
+    ALPHA * (v.derivative @ u.derivative)
+    == BETA * (v @ steady_u) - (BETA - ALPHA * np.pi**2 / 2) * (v @ u),
 )
-print(system)
+print(system_as_string(system))
 # %%
 #
 # Making the Mesh
@@ -166,7 +167,9 @@ for i_nt, nt in enumerate(nt_vals):
             ],
         ),
         solver_settings=SolverSettings(
-            maximum_iterations=20, relative_tolerance=0, absolute_tolerance=1e-10
+            ConvergenceSettings(
+                maximum_iterations=20, relative_tolerance=0, absolute_tolerance=1e-10
+            )
         ),
         time_settings=TimeSettings(dt=dt, nt=nt, time_march_relations={v: u}),
         recon_order=25,

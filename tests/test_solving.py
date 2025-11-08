@@ -770,19 +770,110 @@ def test_pcg(nh: int, nv: int, order: int):
     assert pytest.approx(solution_scipy, abs=1e-8) == combined_schur
 
 
-if __name__ == "__main__":
-    # for args in _TEST_DIMS:
-    #     test_c_python_types(*args)
-    # for args in _TEST_DIMS:
-    #     test_c_system_operations(*args)
+def time_methods(
+    nv: int, nh: int, order: int, n_runs: int
+) -> tuple[
+    npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64], int, int
+]:
+    """Time the time needed to solve using different methods."""
+    t_scipy = np.zeros(n_runs)
+    t_schur = np.zeros(n_runs)
+    t_pcg = np.zeros(n_runs)
 
-    # test_gmres(10, 100)
-    # test_multiplication(10, 10, 6)
-    # test_schur(3, 3, 3)
-    for _ in range(10):
-        # test_cg(10, 10, 5)
-        test_schur(40, 40, 5)
-    for _ in range(10):
-        test_pcg(40, 40, 5)
-    # test_schur(3, 4, 4)
-    # test_schur(5, 2, 5)
+    linear_system, forcing_dense, forcing_trace = laplace_sample_system_new(nh, nv, order)
+    combined_matrix = linear_system.combined_system_matrix()
+    dof_dense = forcing_dense.as_merged().size
+    dof_trace = forcing_trace.as_merged().size
+    combined_vec = np.concatenate((forcing_dense.as_merged(), forcing_trace.as_merged()))
+
+    for i in range(n_runs):
+        tpc0 = perf_counter()
+        solution_pcg = solve_pcg_iterative(
+            linear_system,
+            forcing_dense,
+            forcing_trace,
+            convergence=ConvergenceSettings(
+                maximum_iterations=nh * nv * order,
+                absolute_tolerance=1e-14,
+                relative_tolerance=1e-13,
+            ),
+        )
+        tpc1 = perf_counter()
+        del solution_pcg
+        t_pcg[i] = tpc1 - tpc0
+
+    for i in range(n_runs):
+        tsc0 = perf_counter()
+        solution_sch = solve_schur_iterative(
+            linear_system,
+            forcing_dense,
+            forcing_trace,
+            convergence=ConvergenceSettings(
+                maximum_iterations=nh * nv * order,
+                absolute_tolerance=1e-14,
+                relative_tolerance=1e-13,
+            ),
+        )
+        tsc1 = perf_counter()
+        del solution_sch
+        t_schur[i] = tsc1 - tsc0
+
+    for i in range(n_runs):
+        tsp0 = perf_counter()
+        solution_scipy = sla.spsolve(combined_matrix, combined_vec)
+        tsp1 = perf_counter()
+        del solution_scipy
+        t_scipy[i] = tsp1 - tsp0
+
+    return t_scipy, t_schur, t_pcg, dof_dense, dof_trace
+
+
+if __name__ == "__main__":
+    # First run on 30x30 mesh with 5th order for 10 runs
+
+    nv = 30
+    nh = 30
+    order = 5
+    n_runs = 10
+
+    with open("res.csv", "w") as f_out:
+        f_out.write(
+            "nh,nv,order,dof_dense,dof_trace,mean_scipy,std_scipy,mean_schur,"
+            "std_schur,mean_precg,std_precg\n"
+        )
+
+        def _report_run(nv: int, nh: int, order: int, n_runs: int) -> None:
+            t_scipy, t_schur, t_precg, dof_dense, dof_trace = time_methods(
+                nv, nh, order, n_runs
+            )
+
+            f_out.write(
+                f"{nh}, {nv}, {order}, {dof_dense}, {dof_trace},"
+                f" {np.mean(t_scipy):.15e},{np.std(t_scipy):.15e}"
+                f", {np.mean(t_schur):.15e},{np.std(t_schur):.15e}, "
+                f"{np.mean(t_precg):.15e}, {np.std(t_precg):.15e}\n"
+            )
+            f_out.flush()
+
+        for args in [
+            # Vary the element count
+            (10, 10, 5, 10),
+            (12, 12, 5, 10),
+            (15, 15, 5, 10),
+            (18, 18, 5, 10),
+            (20, 20, 5, 10),
+            (22, 22, 5, 10),
+            (25, 25, 5, 10),
+            (28, 28, 5, 10),
+            (30, 30, 5, 10),
+            # Vary the order
+            (20, 20, 1, 10),
+            (20, 20, 2, 10),
+            (20, 20, 3, 10),
+            (20, 20, 4, 10),
+            (20, 20, 6, 10),
+            (20, 20, 7, 10),
+            (20, 20, 8, 10),
+        ]:
+            _report_run(*args)
+            print(f"Done {args} run.")

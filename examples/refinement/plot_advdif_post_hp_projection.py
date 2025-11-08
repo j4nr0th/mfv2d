@@ -23,7 +23,7 @@ import rmsh
 from matplotlib import pyplot as plt
 from matplotlib.collections import PolyCollection
 from mfv2d import (
-    ErrorEstimateCustom,
+    ErrorEstimateExplicit,
     KFormSystem,
     KFormUnknown,
     Mesh,
@@ -31,9 +31,9 @@ from mfv2d import (
     RefinementSettings,
     SystemSettings,
     UnknownFormOrder,
-    compute_legendre_coefficients,
     mesh_create,
     solve_system_2d,
+    system_as_string,
 )
 
 # %%
@@ -139,11 +139,10 @@ q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
 p = q.weight
 
 system = KFormSystem(
-    p * q + p.derivative * u == p ^ u_exact,
-    v * q.derivative - (v * (adv_field * ~q)) == v * source_exact,
-    sorting=lambda f: f.order,
+    p @ q + p.derivative @ u == p ^ u_exact,
+    v @ q.derivative - (adv_field * v @ q) == v @ source_exact,
 )
-print(system)
+print(system_as_string(system))
 
 # %%
 #
@@ -239,37 +238,20 @@ def plot_mesh_comparisons(*meshes: tuple[str, Mesh]) -> None:
 # ``x`` and ``y``, which is then used to estimate error.
 
 
-def error_calc_function(
+def reconstruct_fine(
     x: npt.NDArray[np.float64],
     y: npt.NDArray[np.float64],
-    w: npt.NDArray[np.float64],
-    order_1: int,
-    order_2: int,
-    xi: npt.NDArray[np.float64],
-    eta: npt.NDArray[np.float64],
-    **kwargs,
-) -> tuple[float, float]:
-    """Compute L2 error "estimate" and H1 refinement cost."""
-    u = kwargs["u"]
-    mesh: pv.UnstructuredGrid = kwargs["fine_solution"]
-    assert x.shape == y.shape
-    points = pv.PolyData(np.stack((x.flatten(), y.flatten(), np.zeros(x.size)), axis=-1))
-    pts = points.sample(mesh)
-    real_u = np.reshape(pts.point_data["u"], x.shape)
-    err = real_u - u
-    coeffs_err = compute_legendre_coefficients(order_1, order_2, xi, eta, err * w)
-    coeffs_u = compute_legendre_coefficients(order_1, order_2, xi, eta, u * w)
-    norm = 4 / (
-        (2 * np.arange(order_1 + 1) + 1)[None, :]
-        * (2 * np.arange(order_2 + 1) + 1)[:, None]
-    )
-    measure = coeffs_u * (coeffs_u + 2 * coeffs_err) / norm
-    estimate = (
-        np.sum(measure[order_1 // 2 :, order_2 // 2 :])
-        + np.sum(measure[order_1 // 2 :, : order_2 // 2])
-        + np.sum(measure[: order_1 // 2, order_2 // 2 :])
-    )
-    return np.sum(err**2 * w), np.abs(estimate)
+    *,
+    fine_solution: pv.UnstructuredGrid,
+    form: KFormUnknown,
+) -> npt.NDArray[np.float64]:
+    """Compute the reconstruction of the fine solutions."""
+    zeros = 0 * x + 0 * y
+    points = np.stack((x + 0 * y, 0 * x + y, zeros), axis=-1).reshape((-1, 3))
+    pts = pv.PolyData(points)
+    interpolated = pts.sample(fine_solution)
+    resulting_data = interpolated.point_data[form.label]
+    return np.reshape(resulting_data, zeros.shape)
 
 
 N_ROUNDS = 12
@@ -314,12 +296,12 @@ def run_refinement_strategy(dp: int, h_ratio: float, max_elements: int, mesh: Me
         mesh.uniform_p_change(-dp, -dp)
         refinement_settings = RefinementSettings(
             # Specifying how the error is estimated
-            error_estimate=ErrorEstimateCustom(
+            error_estimate=ErrorEstimateExplicit(
                 # Required by the error function
-                required_forms=[u],
+                target_form=u,
                 # The error (estimation) function
-                error_calculation_function=partial(
-                    error_calc_function, fine_solution=fine_solutions[-1]
+                solution_estimate=partial(
+                    reconstruct_fine, fine_solution=fine_solutions[-1], form=u
                 ),
             ),
             # H-refinement when ratio of h-cost and error less than this

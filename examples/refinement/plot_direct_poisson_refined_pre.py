@@ -20,6 +20,7 @@ from matplotlib import pyplot as plt
 from matplotlib.collections import PolyCollection
 from mfv2d import (
     BoundaryCondition2DSteady,
+    ConvergenceSettings,
     KFormSystem,
     KFormUnknown,
     Mesh,
@@ -28,6 +29,7 @@ from mfv2d import (
     UnknownFormOrder,
     mesh_create,
     solve_system_2d,
+    system_as_string,
 )
 
 
@@ -58,11 +60,11 @@ u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
 v = u.weight
 
 system = KFormSystem(
-    v.derivative * u.derivative == -(v * source_exact) + (v ^ q_exact),
-    p * u.derivative - p * q == 0,
+    v.derivative @ u.derivative == -(v @ source_exact) + (v ^ q_exact),
+    p @ u.derivative - p @ q == 0,
     sorting=lambda f: f.order,
 )
-print(system)
+print(system_as_string(system))
 
 N = 6
 n1 = N
@@ -198,7 +200,9 @@ solution, stats, depth_mesh = solve_system_2d(
             BoundaryCondition2DSteady(u, depth_mesh.boundary_indices, u_exact)
         ],
     ),
-    solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+    solver_settings=SolverSettings(
+        ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+    ),
     print_residual=False,
     recon_order=25,
 )
@@ -270,7 +274,9 @@ for ip, pval in enumerate(p_vals):
                 BoundaryCondition2DSteady(u, mesh.boundary_indices, u_exact)
             ],
         ),
-        solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+        solver_settings=SolverSettings(
+            ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+        ),
         print_residual=False,
         recon_order=25,
     )

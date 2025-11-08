@@ -315,11 +315,7 @@ def translate_implicit_ksum(ks: KSum) -> dict[KFormUnknown, list[MatOp]]:
 
         ops: list[MatOp] = _translate_inner_prod(ip)
         if k != 1.0:
-            if len(ops) > 1:
-                ops += [Scale(k)]
-            else:
-                assert ops[0] == Identity()
-                ops = [Scale(k)]
+            ops += [Scale(k)]
         base = extract_base_form(ip.unknown_form)
         assert type(base) is KFormUnknown
         if base not in instructions:

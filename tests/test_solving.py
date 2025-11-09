@@ -378,7 +378,8 @@ class OldLinearSystem:
         self._check_input_output(v, out)
 
         for block, vb, ob in zip(self.blocks, v.values, out.data, strict=True):
-            ob[:] = vb @ block.constraint_matrix
+            res = vb @ block.constraint_matrix
+            ob[res.indices] = res.values
 
         return out
 

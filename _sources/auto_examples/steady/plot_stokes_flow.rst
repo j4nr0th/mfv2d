@@ -61,7 +61,7 @@ system :eq:`steady-stokes-variational`.
 
     \left(r^{(2)}, \mathrm{d} u^{(1)}\right)_\Omega = 0 \quad\forall r^{(2)} \in \Lambda^{(2)}(\mathcal{M})
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-63
+.. GENERATED FROM PYTHON SOURCE LINES 46-65
 
 .. code-block:: Python
 
@@ -73,6 +73,7 @@ system :eq:`steady-stokes-variational`.
     from matplotlib import pyplot as plt
     from mfv2d import (
         BoundaryCondition2DSteady,
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -80,6 +81,7 @@ system :eq:`steady-stokes-variational`.
         UnknownFormOrder,
         mesh_create,
         solve_system_2d,
+        system_as_string,
     )
 
 
@@ -89,7 +91,7 @@ system :eq:`steady-stokes-variational`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 64-91
+.. GENERATED FROM PYTHON SOURCE LINES 66-93
 
 Setup
 -----
@@ -119,7 +121,7 @@ This together gives the momentum source as per :eq:`steady-stokes-source`.
     f^{(1)} = -2 (\sin(x) \cos(y) dy - (-\cos(x) \sin(y)) dx)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 92-118
+.. GENERATED FROM PYTHON SOURCE LINES 94-120
 
 .. code-block:: Python
 
@@ -156,7 +158,7 @@ This together gives the momentum source as per :eq:`steady-stokes-source`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 119-130
+.. GENERATED FROM PYTHON SOURCE LINES 121-132
 
 System Setup
 ------------
@@ -170,7 +172,7 @@ the divergence of :math:`u^{(1)}`. The reason for this is the demonstration in t
 section of how the divergence behaves.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 131-151
+.. GENERATED FROM PYTHON SOURCE LINES 133-152
 
 .. code-block:: Python
 
@@ -185,14 +187,13 @@ section of how the divergence behaves.
     w_div = div.weight
 
     system = KFormSystem(
-        w_vor.derivative * vel + w_vor * vor == w_vor ^ vel_exact,
-        w_vel * vor.derivative + w_vel.derivative * prs
-        == (w_vel ^ prs_exact) + w_vel * momentum_source,
-        w_prs * vel.derivative == 0,
-        w_div * div - w_div * vel.derivative == 0,
-        sorting=lambda f: f.order,
+        w_vor.derivative @ vel + w_vor @ vor == w_vor ^ vel_exact,
+        w_vel @ vor.derivative + w_vel.derivative @ prs
+        == (w_vel ^ prs_exact) + w_vel @ momentum_source,
+        w_prs @ vel.derivative == 0,
+        w_div @ div - w_div @ vel.derivative == 0,
     )
-    print(system)
+    print(system_as_string(system))
 
 
 
@@ -202,15 +203,15 @@ section of how the divergence behaves.
 
  .. code-block:: none
 
-    [vor(0*)]^T  ([          M(0) |  (E(1, 0))^T @ M(0) |                  0 |    0]  [vor(0)]   [                         <vor, vel_exact>])
-    [vel(1*)]    ([M(1) @ E(1, 0) |                   0 | (E(2, 1))^T @ M(1) |    0]  [vel(1)]   [<vel, prs_exact> + <vel, momentum_source>])
-    [prs(2*)]    ([             0 |      M(2) @ E(2, 1) |                  0 |    0]  [prs(2)] = [                                        0])
-    [div(2*)]    ([             0 | -1 * M(2) @ E(2, 1) |                  0 | M(2)]  [div(2)]   [                                        0])
+    [M(0)         | (E(1, 0))^T M(1)  | 0                | 0   ] [vor(0)]   [+ B<vor, vel_exact>                          ]   [0 | 0 | 0 | 0] [vor(0)]
+    [M(1) E(1, 0) | 0                 | (E(2, 1))^T M(2) | 0   ] [vel(1)]   [+ B<vel, prs_exact> + E<vel, momentum_source>]   [0 | 0 | 0 | 0] [vel(1)]
+    [0            | M(2) E(2, 1)      | 0                | 0   ] [prs(2)] = [+ 0                                          ] + [0 | 0 | 0 | 0] [prs(2)]
+    [0            | -1.0 M(2) E(2, 1) | 0                | M(2)] [div(2)]   [+ 0                                          ]   [0 | 0 | 0 | 0] [div(2)]
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 152-158
+.. GENERATED FROM PYTHON SOURCE LINES 153-159
 
 Making the Mesh
 ---------------
@@ -219,7 +220,7 @@ The mesh is the same mess as for all the other examples
 of steady problems.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 159-188
+.. GENERATED FROM PYTHON SOURCE LINES 160-189
 
 .. code-block:: Python
 
@@ -264,7 +265,7 @@ of steady problems.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 189-204
+.. GENERATED FROM PYTHON SOURCE LINES 190-205
 
 Check the Results
 -----------------
@@ -282,7 +283,7 @@ to machine precision.
     \Lambda^{(2)}(\mathcal(M))
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 205-235
+.. GENERATED FROM PYTHON SOURCE LINES 206-238
 
 .. code-block:: Python
 
@@ -300,7 +301,9 @@ to machine precision.
             ],
         ),
         solver_settings=SolverSettings(
-            absolute_tolerance=1e-10, relative_tolerance=0, maximum_iterations=1
+            ConvergenceSettings(
+                absolute_tolerance=1e-10, relative_tolerance=0, maximum_iterations=1
+            )
         ),
         recon_order=25,
     )
@@ -329,12 +332,12 @@ to machine precision.
 
  .. code-block:: none
 
-    Highest value of divergence in the domain is 9.183e-15
+    Highest value of divergence in the domain is 8.773e-15
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 236-241
+.. GENERATED FROM PYTHON SOURCE LINES 239-244
 
 Solve for Different Orders
 --------------------------
@@ -342,16 +345,16 @@ Solve for Different Orders
 So we solve for different orders. Before that, we remake the system without the
 divergence form.
 
-.. GENERATED FROM PYTHON SOURCE LINES 242-292
+.. GENERATED FROM PYTHON SOURCE LINES 245-297
 
 .. code-block:: Python
 
 
     system = KFormSystem(
-        w_vor.derivative * vel + w_vor * vor == w_vor ^ vel_exact,
-        w_vel * vor.derivative + w_vel.derivative * prs
-        == (w_vel ^ prs_exact) + w_vel * momentum_source,
-        w_prs * vel.derivative == 0,
+        w_vor.derivative @ vel + w_vor @ vor == w_vor ^ vel_exact,
+        w_vel @ vor.derivative + w_vel.derivative @ prs
+        == (w_vel ^ prs_exact) + w_vel @ momentum_source,
+        w_prs @ vel.derivative == 0,
         sorting=lambda f: f.order,
     )
 
@@ -374,7 +377,9 @@ divergence form.
                 ],
             ),
             solver_settings=SolverSettings(
-                absolute_tolerance=1e-10, relative_tolerance=0, maximum_iterations=1
+                ConvergenceSettings(
+                    absolute_tolerance=1e-10, relative_tolerance=0, maximum_iterations=1
+                )
             ),
             recon_order=25,
         )
@@ -414,7 +419,7 @@ divergence form.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 293-303
+.. GENERATED FROM PYTHON SOURCE LINES 298-308
 
 Plot Results
 ------------
@@ -427,7 +432,7 @@ Here we plot the results.
 The vorticity error.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 304-328
+.. GENERATED FROM PYTHON SOURCE LINES 309-333
 
 .. code-block:: Python
 
@@ -468,19 +473,19 @@ The vorticity error.
 
  .. code-block:: none
 
-    Solution converges with p as: 0.00146 * (0.0726) ** p in H1 norm.
+    Solution converges with p as: 0.000535 * (0.109) ** p in H1 norm.
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 329-333
+.. GENERATED FROM PYTHON SOURCE LINES 334-338
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
 The velocity error.
 
-.. GENERATED FROM PYTHON SOURCE LINES 334-356
+.. GENERATED FROM PYTHON SOURCE LINES 339-361
 
 .. code-block:: Python
 
@@ -519,7 +524,7 @@ The velocity error.
 
  .. code-block:: none
 
-    Solution converges with p as: 6.06 * (0.035) ** p in L2 norm.
+    Solution converges with p as: 5.99 * (0.0352) ** p in L2 norm.
 
 
 
@@ -527,7 +532,7 @@ The velocity error.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.456 seconds)
+   **Total running time of the script:** (0 minutes 1.427 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_stokes_flow.py:

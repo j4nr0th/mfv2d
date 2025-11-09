@@ -4,18 +4,20 @@ _mfv2d
 ======
 
 Internal module which includes functions written in C. These are mostly
-intended for speed, but some types are written in C for the exprese purpose
-of making it easier to use in other C functions.
+intended to improve the speed. There are also some types where the speed is not
+key, but they need to be passed to to other C functions.
 
 Polynomials
 -----------
 
-Since basis require Lagrange polynomials and their derivatives to be
-computed often, these are implemented in C, where the most efficient algorithms
-also preserve accuracy for large degrees of these polynomials.
+Since basis are made from Lagrange polynomials and their derivatives to be
+computed often, calculations of these are implemented in C,
+using the most efficient algorithms I could manage, which also have high
+accuracy for high degrees of these polynomials.
 
 Another commonly required operation is computing Gauss-Legendre-Lobatto nodes
-and associated integration weights.
+and associated integration weights. As such, these are also handled in C. If
+even this is not fast enough, just consider caching them.
 
 .. autofunction:: lagrange1d
 
@@ -25,14 +27,10 @@ and associated integration weights.
 
 
 There is also a function to evaluate Legendre polynomials. This is intended to
-be used for computing projections on Legendre hierarchical basis.
+be used for computing smoothness measures. These are used for
+refinement.
 
 .. autofunction:: compute_legendre
-
-For conversion of the Legendre basis coefficients into Legendre integral basis
-coefficients, the function :func:`legendre_l2_to_h1_coefficients` is provided.
-
-.. autofunction:: legendre_l2_to_h1_coefficients
 
 
 Basis
@@ -40,14 +38,16 @@ Basis
 
 In order to define a set of basis, which can be integrated, an integration
 rule is defined by an :class:`IntegrationRule1D`. This is essentially wrapped
-result of :func:`compute_gll`, but as an object.
+result of :func:`compute_gll` in an object.
 
 .. autoclass:: IntegrationRule1D
     :members:
 
 
 Based on an integration rule, one-dimensional basis can be defined with the
-:class:`Basis1D` type. This
+:class:`Basis1D` type. This is in essence a wrapper around :func:`lagrange1d`
+and :func:`dlagrange1d` that are passed nodes from :func:`compute_gll` and
+keep a reference to an :class:`IntegrationRule1D` instance to integrate them.
 
 .. autoclass:: Basis1D
     :members:
@@ -128,7 +128,7 @@ Evaluating Terms
 One of key operations that need to be supported in order to solve a
 system is either computation of element matrices, or computing what
 is their product with the current solution vector. The instruction
-translation and generation is handled by the :mod:`mfv2d.kforms` module,
+translation and generation is handled by the :mod:`mfv2d.eval` module,
 so as far as :mod:`mfv2d._mfv2d` code is concerned, it receives parsed
 bytecode it just needs to execute.
 
@@ -146,6 +146,43 @@ useful for non-linear terms, since they would require matrices to be evaulated
 at every iteration.
 
 .. autofunction:: compute_element_vector
+
+
+To make it simple to pass information about the :math:`k`-forms in the equation
+between C and Python, the type :class:`_ElementFormSpecification` is
+introduced, which is then inherrited by
+:class:`mfv2d.system.ElementFormSpecification`.
+
+.. autoclass:: _ElementFormSpecification
+
+
+Enum Values
+-----------
+
+Evaluation instruction bytecode use instructions, which must match between
+the C and the Python version. To avoid the hassle of circular dependencies
+just to add type hints, these are defined separately in Python and C.
+
+Instead, to ensure they match, a one of tests checks that these enum values
+match that of :class:`mfv2d.eval.MatOpCode`.
+
+.. autodata:: MATOP_INVALID
+.. autodata:: MATOP_IDENTITY
+.. autodata:: MATOP_MASS
+.. autodata:: MATOP_INCIDENCE
+.. autodata:: MATOP_PUSH
+.. autodata:: MATOP_SCALE
+.. autodata:: MATOP_SUM
+.. autodata:: MATOP_INTERPROD
+
+
+Similar approach is taken when dealing with enum for sides of elements
+:class:`mfv2d.mimetic2d.ElementSide`.
+
+.. autodata:: ELEMENT_SIDE_BOTTOM
+.. autodata:: ELEMENT_SIDE_RIGHT
+.. autodata:: ELEMENT_SIDE_TOP
+.. autodata:: ELEMENT_SIDE_LEFT
 
 
 Projections
@@ -167,3 +204,44 @@ projection matirx is transposed, it will instead act as the projector for
 dual degrees of freedom.
 
 .. autofunction:: compute_element_projector
+
+
+Solver Types
+------------
+
+To allow for efficient implimentation of the Schur and preconditioned CG
+solver for the system some types are implemented in C. These allow for
+the hybridized system to be stored in an efficient sparse representation
+and for the operations to be carried out efficiently. With some work,
+it could even be adapted for a distributed memory architecture.
+
+.. autoclass:: SparseVector
+
+.. autoclass:: MatrixCRS
+
+.. autoclass:: LinearSystem
+
+.. autoclass:: DenseVector
+
+.. autoclass:: TraceVector
+
+
+Test Functions
+--------------
+
+There are some functions used only to test parts of the C extension that
+need to work with more complicated parts of the Python extension. These
+are used in the module tests and are not intended to be useful for anything
+besides confirming that C code works.
+
+.. autofunction:: check_bytecode
+
+.. autofunction:: check_incidence
+
+.. autofunction:: compute_element_matrix_test
+
+.. autofunction:: _compute_matrix_inverse
+
+.. autofunction:: _solve_linear_system
+
+.. autofunction:: compute_integrating_fields

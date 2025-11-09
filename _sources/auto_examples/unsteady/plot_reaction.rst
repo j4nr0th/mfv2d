@@ -50,7 +50,7 @@ will then be integrated using trapezoidal integration to find total error over
 the entire time march. This error will then be compared for different number of
 time steps over the same time period.
 
-.. GENERATED FROM PYTHON SOURCE LINES 35-53
+.. GENERATED FROM PYTHON SOURCE LINES 35-54
 
 .. code-block:: Python
 
@@ -61,6 +61,7 @@ time steps over the same time period.
     import rmsh
     from matplotlib import pyplot as plt
     from mfv2d import (
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -79,7 +80,7 @@ time steps over the same time period.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 54-65
+.. GENERATED FROM PYTHON SOURCE LINES 55-66
 
 Setup
 -----
@@ -93,7 +94,7 @@ The problem would be simulated on the time interval :math:`t \in [0, 10]`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 66-103
+.. GENERATED FROM PYTHON SOURCE LINES 67-104
 
 .. code-block:: Python
 
@@ -141,7 +142,7 @@ The problem would be simulated on the time interval :math:`t \in [0, 10]`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 104-110
+.. GENERATED FROM PYTHON SOURCE LINES 105-111
 
 System Setup
 ------------
@@ -150,7 +151,7 @@ The system being solved is formulated bellow. An additional equation was introdu
 to obtain the curl of the solution, so that the :math:`H^1` norm could be computed.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 111-123
+.. GENERATED FROM PYTHON SOURCE LINES 112-124
 
 .. code-block:: Python
 
@@ -161,8 +162,8 @@ to obtain the curl of the solution, so that the :math:`H^1` norm could be comput
     p = q.weight
 
     system = KFormSystem(
-        ALPHA * (v * u) == ALPHA * (v * final_u),
-        p * q - p * u.derivative == 0,
+        ALPHA * (v @ u) == ALPHA * (v @ final_u),
+        p @ q - p @ u.derivative == 0,
         sorting=lambda f: f.order,
     )
 
@@ -173,7 +174,7 @@ to obtain the curl of the solution, so that the :math:`H^1` norm could be comput
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 124-131
+.. GENERATED FROM PYTHON SOURCE LINES 125-132
 
 Make the Mesh
 -------------
@@ -183,13 +184,13 @@ convexly deformed square.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 132-171
+.. GENERATED FROM PYTHON SOURCE LINES 133-172
 
 .. code-block:: Python
 
 
     N = 6
-    P = 3
+    P = 4
 
     n1 = N
     n2 = N
@@ -238,20 +239,20 @@ convexly deformed square.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 172-177
+.. GENERATED FROM PYTHON SOURCE LINES 173-178
 
 Run Unsteady Simulations
 ------------------------
 
 With the mesh and system defined, the simulations can be run. The run is done for
-10, 20, 50, 100, and 200 time steps.
+10, 20, 50, and 100 time steps.
 
-.. GENERATED FROM PYTHON SOURCE LINES 178-231
+.. GENERATED FROM PYTHON SOURCE LINES 179-234
 
 .. code-block:: Python
 
 
-    nt_vals = np.array((10, 20, 50, 100, 200))
+    nt_vals = np.array((10, 20, 50, 100))
     h1_err = np.zeros(nt_vals.size)
     l2_err = np.zeros(nt_vals.size)
     dt_vals = np.zeros(nt_vals.size)
@@ -262,10 +263,12 @@ With the mesh and system defined, the simulations can be run. The run is done fo
             mesh,
             system_settings=SystemSettings(system, initial_conditions={u: initial_u}),
             solver_settings=SolverSettings(
-                maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+                ConvergenceSettings(
+                    maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+                )
             ),
             time_settings=TimeSettings(dt=dt, nt=nt, time_march_relations={v: u}),
-            recon_order=25,
+            recon_order=10,
         )
 
         n_sol = len(solutions)
@@ -310,7 +313,7 @@ With the mesh and system defined, the simulations can be run. The run is done fo
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 232-239
+.. GENERATED FROM PYTHON SOURCE LINES 235-242
 
 Plot the Time Error
 -------------------
@@ -320,7 +323,7 @@ The total integrated time error in the two norms is now examined.
 :math:`H^1` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 240-264
+.. GENERATED FROM PYTHON SOURCE LINES 243-267
 
 .. code-block:: Python
 
@@ -360,12 +363,12 @@ The total integrated time error in the two norms is now examined.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 265-267
+.. GENERATED FROM PYTHON SOURCE LINES 268-270
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 268-293
+.. GENERATED FROM PYTHON SOURCE LINES 271-296
 
 .. code-block:: Python
 
@@ -406,14 +409,14 @@ The total integrated time error in the two norms is now examined.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 294-298
+.. GENERATED FROM PYTHON SOURCE LINES 297-301
 
 Plot Solution's Evolution
 -------------------------
 
 With :mod:`pyvista` the unsteady solution can even be plotted.
 
-.. GENERATED FROM PYTHON SOURCE LINES 299-311
+.. GENERATED FROM PYTHON SOURCE LINES 302-314
 
 .. code-block:: Python
 
@@ -444,7 +447,7 @@ With :mod:`pyvista` the unsteady solution can even be plotted.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (1 minutes 18.353 seconds)
+   **Total running time of the script:** (0 minutes 32.835 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_reaction.py:

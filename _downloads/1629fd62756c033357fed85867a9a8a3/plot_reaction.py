@@ -39,6 +39,7 @@ import pyvista as pv
 import rmsh
 from matplotlib import pyplot as plt
 from mfv2d import (
+    ConvergenceSettings,
     KFormSystem,
     KFormUnknown,
     SolverSettings,
@@ -115,8 +116,8 @@ q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
 p = q.weight
 
 system = KFormSystem(
-    ALPHA * (v * u) == ALPHA * (v * final_u),
-    p * q - p * u.derivative == 0,
+    ALPHA * (v @ u) == ALPHA * (v @ final_u),
+    p @ q - p @ u.derivative == 0,
     sorting=lambda f: f.order,
 )
 
@@ -131,7 +132,7 @@ system = KFormSystem(
 #
 
 N = 6
-P = 3
+P = 4
 
 n1 = N
 n2 = N
@@ -174,9 +175,9 @@ plt.show()
 # ------------------------
 #
 # With the mesh and system defined, the simulations can be run. The run is done for
-# 10, 20, 50, 100, and 200 time steps.
+# 10, 20, 50, and 100 time steps.
 
-nt_vals = np.array((10, 20, 50, 100, 200))
+nt_vals = np.array((10, 20, 50, 100))
 h1_err = np.zeros(nt_vals.size)
 l2_err = np.zeros(nt_vals.size)
 dt_vals = np.zeros(nt_vals.size)
@@ -187,10 +188,12 @@ for i_nt, nt in enumerate(nt_vals):
         mesh,
         system_settings=SystemSettings(system, initial_conditions={u: initial_u}),
         solver_settings=SolverSettings(
-            maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+            ConvergenceSettings(
+                maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+            )
         ),
         time_settings=TimeSettings(dt=dt, nt=nt, time_march_relations={v: u}),
-        recon_order=25,
+        recon_order=10,
     )
 
     n_sol = len(solutions)

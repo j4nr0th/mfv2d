@@ -26,7 +26,7 @@ given how well the solution to this problem is known. In this exampled it
 is solved for the case of :math:`Re = 10`, since that allows for quick convergence
 on a fairly coarse grid.
 
-.. GENERATED FROM PYTHON SOURCE LINES 10-26
+.. GENERATED FROM PYTHON SOURCE LINES 10-28
 
 .. code-block:: Python
 
@@ -36,6 +36,7 @@ on a fairly coarse grid.
     import rmsh
     from mfv2d import (
         BoundaryCondition2DSteady,
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -44,6 +45,7 @@ on a fairly coarse grid.
         UnknownFormOrder,
         mesh_create,
         solve_system_2d,
+        system_as_string,
     )
 
 
@@ -53,7 +55,7 @@ on a fairly coarse grid.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 27-34
+.. GENERATED FROM PYTHON SOURCE LINES 29-36
 
 Setup
 -----
@@ -63,7 +65,7 @@ is the boundary velocity, which should be 2 on the top side of the
 mesh and zero elsewhere. The reason for it being 2 is because the
 domain length is also 2.
 
-.. GENERATED FROM PYTHON SOURCE LINES 35-46
+.. GENERATED FROM PYTHON SOURCE LINES 37-48
 
 .. code-block:: Python
 
@@ -85,7 +87,7 @@ domain length is also 2.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 47-54
+.. GENERATED FROM PYTHON SOURCE LINES 49-56
 
 System Setup
 ------------
@@ -95,7 +97,7 @@ with the only difference being the weak pressure boundary conditions
 not being included, due to the fact that the strong boundary conditions
 on the normal velocity mean that they would not be used either way.
 
-.. GENERATED FROM PYTHON SOURCE LINES 54-115
+.. GENERATED FROM PYTHON SOURCE LINES 56-115
 
 .. code-block:: Python
 
@@ -108,14 +110,12 @@ on the normal velocity mean that they would not be used either way.
     w_vor = vor.weight
 
     system = KFormSystem(
-        w_vor.derivative * vel - w_vor * vor == w_vor ^ boundary_velocty,
+        w_vor.derivative @ vel - w_vor @ vor == w_vor ^ boundary_velocty,
         # No weak BC for pressure, since normal velocity is given
-        (1 / RE) * (w_vel * vor.derivative) + w_vel.derivative * pre
-        == -(w_vel * (vel ^ (~vor))),
-        w_pre * vel.derivative == 0,
-        sorting=lambda f: f.order,
+        (1 / RE) * (w_vel @ vor.derivative) + w_vel.derivative @ pre == -(vel * w_vel @ vor),
+        w_pre @ vel.derivative == 0,
     )
-    print(system)
+    print(system_as_string(system))
 
     N = 6
     P = 3
@@ -149,9 +149,9 @@ on the normal velocity mean that they would not be used either way.
             [(0.0, pre)],
         ),
         solver_settings=SolverSettings(
-            maximum_iterations=100,
-            absolute_tolerance=1e-10,
-            relative_tolerance=0,
+            ConvergenceSettings(
+                maximum_iterations=100, absolute_tolerance=1e-10, relative_tolerance=0
+            )
         ),
         time_settings=TimeSettings(dt=5, nt=20, time_march_relations={w_vel: vel}),
         print_residual=False,
@@ -168,15 +168,15 @@ on the normal velocity mean that they would not be used either way.
 
  .. code-block:: none
 
-    [vor(0*)]^T  ([           -1 * M(0) | (E(1, 0))^T @ M(0) |                  0]  [vor(0)]   [<vor, boundary_velocty>])   [vor(0*)]^T  ([                              0 |                        0 | 0]  [vor(0)] 
-    [vel(1*)]    ([0.1 * M(1) @ E(1, 0) |                  0 | (E(2, 1))^T @ M(1)]  [vel(1)] = [                       ]) + [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(1) | -1 * M(1) @ N(1, 2; vor) | 0]  [vel(1)] 
-    [pre(2*)]    ([                   0 |     M(2) @ E(2, 1) |                  0]  [pre(2)]   [                      0])   [pre(2*)]    ([                              0 |                        0 | 0]  [pre(2)] 
-    SolutionStatistics(element_orders={(3, 3): 25}, n_total_dofs=1550, n_leaf_dofs=np.uint64(1225), n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20,
-           20, 20, 20], dtype=uint32), residual_history=array([4.73040218e-11, 3.78859860e-11, 4.94556202e-11, 4.77373419e-11,
-           6.63145788e-11, 4.92627328e-11, 6.85677765e-11, 4.04782319e-11,
-           7.24523080e-11, 9.98627847e-11, 7.65691122e-11, 9.79617637e-11,
-           7.69061897e-11, 9.11821313e-11, 7.17330223e-11, 8.28753177e-11,
-           7.86609111e-11, 9.14862630e-11, 8.53559723e-11, 9.54867019e-11]))
+    [-1.0 M(0)        | (E(1, 0))^T M(1) | 0               ] [vor(0)]   [+ B<vor, boundary_velocty>]   [0                     | 0 | 0] [vor(0)]
+    [0.1 M(1) E(1, 0) | 0                | (E(2, 1))^T M(2)] [vel(1)] = [+ 0                       ] + [-1.0 (P(0, 1, vel))^T | 0 | 0] [vel(1)]
+    [0                | M(2) E(2, 1)     | 0               ] [pre(2)]   [+ 0                       ]   [0                     | 0 | 0] [pre(2)]
+    SolutionStatistics(element_orders={(3, 3): 25}, n_total_dofs=1550, n_leaf_dofs=np.int64(1225), n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 21, 20, 21, 20, 20, 20, 20, 20,
+           20, 20, 21], dtype=uint32), residual_history=array([5.17096366e-11, 4.13753129e-11, 5.32816135e-11, 5.16224528e-11,
+           7.14699445e-11, 5.31673768e-11, 7.41279677e-11, 4.40298006e-11,
+           7.86667086e-11, 4.21390908e-11, 8.34286563e-11, 3.90289398e-11,
+           8.40019304e-11, 9.96673959e-11, 7.84921902e-11, 9.02426640e-11,
+           8.57943716e-11, 9.98889547e-11, 9.32962266e-11, 3.53547712e-11]))
 
 
 
@@ -229,7 +229,7 @@ Pyvista allows for very simple 2D streamline plots.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 4.587 seconds)
+   **Total running time of the script:** (0 minutes 2.589 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_cavity_flow.py:

@@ -162,16 +162,20 @@
 <li class="toctree-l1"><a class="reference internal" href="../../auto_examples/index.html">Examples</a></li>
 
 
+
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/examples.html">examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/system.html">system</a></li>
 </ul>
 </details></li>
 </ul>
@@ -288,6 +292,7 @@ document.write(`
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">cast</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
@@ -296,25 +301,21 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">linalg</span> <span class="k">as</span> <span class="n">sla</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Basis2D</span><span class="p">,</span>
-    <span class="n">ElementMassMatrixCache</span><span class="p">,</span>
+    <span class="n">ElementFemSpace2D</span><span class="p">,</span>
     <span class="n">Mesh</span><span class="p">,</span>
     <span class="n">compute_element_matrix</span><span class="p">,</span>
+    <span class="n">compute_element_projector</span><span class="p">,</span>
     <span class="n">compute_element_vector</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.boundary</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">BoundaryCondition2DSteady</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.boundary</span><span class="w"> </span><span class="kn">import</span> <span class="n">BoundaryCondition2DSteady</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.continuity</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_system_constraints</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.eval</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompiledSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Function2D</span><span class="p">,</span>
     <span class="n">KElementProjection</span><span class="p">,</span>
     <span class="n">KExplicit</span><span class="p">,</span>
-    <span class="n">KFormSystem</span><span class="p">,</span>
     <span class="n">KFormUnknown</span><span class="p">,</span>
     <span class="n">KWeight</span><span class="p">,</span>
     <span class="n">UnknownFormOrder</span><span class="p">,</span>
-    <span class="n">UnknownOrderings</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.mimetic2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">FemCache</span><span class="p">,</span>
@@ -324,120 +325,14 @@ document.write(`
     <span class="n">vtk_lagrange_ordering</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.progress</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProgressTracker</span>
-
-
-<div class="viewcode-block" id="compute_element_vector_fields_nonlin">
-<a class="viewcode-back" href="../../modules/solve_system.html#mfv2d.solve_system.compute_element_vector_fields_nonlin">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_vector_fields_nonlin</span><span class="p">(</span>
-    <span class="n">unknown_forms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">KFormUnknown</span><span class="p">],</span>
-    <span class="n">element_basis</span><span class="p">:</span> <span class="n">Basis2D</span><span class="p">,</span>
-    <span class="n">output_basis</span><span class="p">:</span> <span class="n">Basis2D</span><span class="p">,</span>
-    <span class="n">vector_fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Function2D</span> <span class="o">|</span> <span class="n">KFormUnknown</span><span class="p">],</span>
-    <span class="n">element_corners</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span>
-    <span class="n">unknown_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
-    <span class="n">solution</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="o">...</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Evaluate vector fields which may be non-linear.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    unknown_forms : Sequence of KFormUnknown</span>
-<span class="sd">        Unknown forms in the order they appear in the system. This is used to</span>
-<span class="sd">        determine what degrees of freedom are needed for the vector fields</span>
-<span class="sd">        based on differential forms.</span>
-
-<span class="sd">    element_basis : Basis2D</span>
-<span class="sd">        Basis functions that the element uses. This needs to match</span>
-<span class="sd">        with the number of degrees of freedom of the element.</span>
-
-<span class="sd">    output_basis : Basis2D</span>
-<span class="sd">        Basis onto which the result is to be computed.</span>
-
-<span class="sd">    vector_fields : Sequence of Function2D or KFormUnknown</span>
-<span class="sd">        Description of the vector fields. Can be a callable which gives its</span>
-<span class="sd">        value at a point, or instead it can be an unknown in the system.</span>
-
-<span class="sd">    element_corners : (4, 2) array</span>
-<span class="sd">        Array of the element corner points.</span>
-
-<span class="sd">    unknown_offsets : array</span>
-<span class="sd">        Array with offsets of the degrees of freedom within the element. This</span>
-<span class="sd">        is used to pick correct degrees of freedom from the element DoFs vector.</span>
-
-<span class="sd">    solution : array, optional</span>
-<span class="sd">        Array of the element degrees of freedom. If not provided, all are assumed</span>
-<span class="sd">        to be zero instead.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    tuple of array</span>
-<span class="sd">        Tuple with arrays with values of the vector field at each point of the 2D</span>
-<span class="sd">        basis integration rules.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">vec_field_lists</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-    <span class="c1"># Extract element DoFs</span>
-
-    <span class="n">out_xi</span> <span class="o">=</span> <span class="n">output_basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
-    <span class="n">out_eta</span> <span class="o">=</span> <span class="n">output_basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">rule</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
-
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">vec_fld</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">vector_fields</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vec_fld</span><span class="p">,</span> <span class="n">KFormUnknown</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">solution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">i_form</span> <span class="o">=</span> <span class="n">unknown_forms</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">vec_fld</span><span class="p">)</span>
-                <span class="n">element_dofs</span> <span class="o">=</span> <span class="n">solution</span>
-                <span class="n">form_offset</span> <span class="o">=</span> <span class="n">unknown_offsets</span><span class="p">[</span><span class="n">i_form</span><span class="p">]</span>
-                <span class="n">form_offset_end</span> <span class="o">=</span> <span class="n">unknown_offsets</span><span class="p">[</span><span class="n">i_form</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-                <span class="n">form_dofs</span> <span class="o">=</span> <span class="n">element_dofs</span><span class="p">[</span><span class="n">form_offset</span><span class="p">:</span><span class="n">form_offset_end</span><span class="p">]</span>
-                <span class="n">vf</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="p">(</span>
-                    <span class="n">element_corners</span><span class="p">,</span>
-                    <span class="n">vec_fld</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
-                    <span class="n">form_dofs</span><span class="p">,</span>
-                    <span class="n">out_xi</span><span class="p">,</span>
-                    <span class="n">out_eta</span><span class="p">,</span>
-                    <span class="n">element_basis</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="k">if</span> <span class="n">vec_fld</span><span class="o">.</span><span class="n">order</span> <span class="o">!=</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
-                    <span class="n">vf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">((</span><span class="n">vf</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">vf</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># if vec_fld.order == UnknownFormOrder.FORM_ORDER_1:</span>
-                <span class="n">vf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-                    <span class="p">(</span>
-                        <span class="n">out_xi</span><span class="o">.</span><span class="n">size</span><span class="p">,</span>
-                        <span class="n">out_eta</span><span class="o">.</span><span class="n">size</span><span class="p">,</span>
-                        <span class="mi">2</span><span class="p">,</span>
-                    <span class="p">),</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="c1"># else:</span>
-                <span class="c1">#     vf = np.zeros(</span>
-                <span class="c1">#         (</span>
-                <span class="c1">#             output_basis.basis_xi.order + 1,</span>
-                <span class="c1">#             output_basis.basis_eta.order + 1,</span>
-                <span class="c1">#         ),</span>
-                <span class="c1">#         np.float64,</span>
-                <span class="c1">#     )</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="n">bilinear_interpolate</span><span class="p">(</span>
-                <span class="n">element_corners</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
-                <span class="n">out_xi</span><span class="p">,</span>
-                <span class="n">out_eta</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="n">y</span> <span class="o">=</span> <span class="n">bilinear_interpolate</span><span class="p">(</span>
-                <span class="n">element_corners</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
-                <span class="n">out_xi</span><span class="p">,</span>
-                <span class="n">out_eta</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="n">vf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">vec_fld</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-        <span class="n">vec_field_lists</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vf</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)))</span>
-
-    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">vec_field_lists</span><span class="p">)</span></div>
-
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.solving</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConvergenceSettings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.system</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElementFormSpecification</span><span class="p">,</span> <span class="n">KFormSystem</span>
 
 
 <div class="viewcode-block" id="rhs_2d_element_projection">
 <a class="viewcode-back" href="../../modules/solve_system.html#mfv2d.solve_system.rhs_2d_element_projection">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">rhs_2d_element_projection</span><span class="p">(</span>
-    <span class="n">right</span><span class="p">:</span> <span class="n">KElementProjection</span><span class="p">,</span> <span class="n">element_cache</span><span class="p">:</span> <span class="n">ElementMassMatrixCache</span>
+    <span class="n">right</span><span class="p">:</span> <span class="n">KElementProjection</span><span class="p">,</span> <span class="n">element_space</span><span class="p">:</span> <span class="n">ElementFemSpace2D</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Evaluate the differential form projections on the 1D element.</span>
 
@@ -461,22 +356,12 @@ document.write(`
 
     <span class="c1"># If `fn` is `None`, it is equal to just zeros</span>
     <span class="k">if</span> <span class="n">fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">basis</span> <span class="o">=</span> <span class="n">element_cache</span><span class="o">.</span><span class="n">basis_2d</span>
-        <span class="n">n_dof</span><span class="p">:</span> <span class="nb">int</span>
-        <span class="k">if</span> <span class="n">right</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
-            <span class="n">n_dof</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">right</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
-            <span class="n">n_dof</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span>
-            <span class="p">)</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">*</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">right</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">:</span>
-            <span class="n">n_dof</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid weight order </span><span class="si">{</span><span class="n">right</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+            <span class="n">right</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">full_unknown_count</span><span class="p">(</span><span class="o">*</span><span class="n">element_space</span><span class="o">.</span><span class="n">orders</span><span class="p">),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+        <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_dof</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">element_dual_dofs</span><span class="p">(</span><span class="n">right</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">element_cache</span><span class="p">,</span> <span class="n">fn</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">element_dual_dofs</span><span class="p">(</span><span class="n">right</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">element_space</span><span class="p">,</span> <span class="n">fn</span><span class="p">)</span></div>
 
 
 
@@ -485,7 +370,7 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">_extract_rhs_2d</span><span class="p">(</span>
     <span class="n">proj</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">KExplicit</span><span class="p">]],</span>
     <span class="n">weight</span><span class="p">:</span> <span class="n">KWeight</span><span class="p">,</span>
-    <span class="n">element_cache</span><span class="p">:</span> <span class="n">ElementMassMatrixCache</span><span class="p">,</span>
+    <span class="n">element_space</span><span class="p">:</span> <span class="n">ElementFemSpace2D</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract the rhs resulting from element projections.</span>
 
@@ -510,26 +395,18 @@ document.write(`
 <span class="sd">    array</span>
 <span class="sd">        Array of the resulting projection degrees of freedom.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">n_dof</span><span class="p">:</span> <span class="nb">int</span>
     <span class="c1"># Create empty vector into which to accumulate</span>
-    <span class="n">basis</span> <span class="o">=</span> <span class="n">element_cache</span><span class="o">.</span><span class="n">basis_2d</span>
-    <span class="k">if</span> <span class="n">weight</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
-        <span class="n">n_dof</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">weight</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
-        <span class="n">n_dof</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span>
-        <span class="p">)</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">*</span> <span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">weight</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_2</span><span class="p">:</span>
-        <span class="n">n_dof</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">order</span> <span class="o">*</span> <span class="n">basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">order</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid weight order </span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
-
-    <span class="n">vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_dof</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+        <span class="n">weight</span><span class="o">.</span><span class="n">order</span><span class="o">.</span><span class="n">full_unknown_count</span><span class="p">(</span><span class="o">*</span><span class="n">element_space</span><span class="o">.</span><span class="n">orders</span><span class="p">),</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+    <span class="p">)</span>
 
     <span class="c1"># Loop over all entries that are KElementProjection</span>
-    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">KElementProjection</span><span class="p">),</span> <span class="n">proj</span><span class="p">):</span>
-        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">KElementProjection</span><span class="p">)</span>
-        <span class="n">rhs</span> <span class="o">=</span> <span class="n">rhs_2d_element_projection</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">element_cache</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">proj</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">KElementProjection</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="n">rhs</span> <span class="o">=</span> <span class="n">rhs_2d_element_projection</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">element_space</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
             <span class="n">rhs</span> <span class="o">*=</span> <span class="n">k</span>
         <span class="n">vec</span> <span class="o">+=</span> <span class="n">rhs</span>
@@ -542,7 +419,7 @@ document.write(`
 <a class="viewcode-back" href="../../modules/solve_system.html#mfv2d.solve_system.compute_element_rhs">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_element_rhs</span><span class="p">(</span>
     <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span><span class="p">,</span>
-    <span class="n">elem_cache</span><span class="p">:</span> <span class="n">ElementMassMatrixCache</span><span class="p">,</span>
+    <span class="n">elem_cache</span><span class="p">:</span> <span class="n">ElementFemSpace2D</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute rhs for an element.</span>
 
@@ -557,7 +434,7 @@ document.write(`
 <span class="sd">    system : KFormSystem</span>
 <span class="sd">        System for which to compute the rhs.</span>
 
-<span class="sd">    element_caches : FemCache</span>
+<span class="sd">    element_spaces : FemCache</span>
 <span class="sd">        Cache from which to get the basis from.</span>
 
 <span class="sd">    Returns</span>
@@ -578,74 +455,92 @@ document.write(`
 <div class="viewcode-block" id="reconstruct_mesh_from_solution">
 <a class="viewcode-back" href="../../modules/solve_system.html#mfv2d.solve_system.reconstruct_mesh_from_solution">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">reconstruct_mesh_from_solution</span><span class="p">(</span>
-    <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span><span class="p">,</span>
+    <span class="n">form_spec</span><span class="p">:</span> <span class="n">ElementFormSpecification</span><span class="p">,</span>
     <span class="n">recon_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
-    <span class="n">caches</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
-    <span class="n">leaf_indices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">fem_spaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ElementFemSpace2D</span><span class="p">],</span>
     <span class="n">solution</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">vms_solution</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pv</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Reconstruct the unknown differential forms.&quot;&quot;&quot;</span>
     <span class="n">build</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">KFormUnknown</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">form</span><span class="p">:</span> <span class="nb">list</span><span class="p">()</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span>
+        <span class="n">form</span><span class="p">:</span> <span class="nb">list</span><span class="p">()</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">form_spec</span><span class="o">.</span><span class="n">iter_forms</span><span class="p">()</span>
     <span class="p">}</span>
+    <span class="k">if</span> <span class="n">vms_solution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">vms_build</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">KFormUnknown</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">form</span><span class="p">:</span> <span class="nb">list</span><span class="p">()</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">form_spec</span><span class="o">.</span><span class="n">iter_forms</span><span class="p">()</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">vms_build</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
     <span class="n">xvals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
     <span class="n">yvals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">order_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
 
     <span class="n">node_array</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-    <span class="n">orders_1</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-    <span class="n">orders_2</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
     <span class="n">node_cnt</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">element_offset</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="k">for</span> <span class="n">leaf_index</span><span class="p">,</span> <span class="n">ie</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">leaf_indices</span><span class="p">):</span>
+
+    <span class="n">used_nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">element_space</span> <span class="ow">in</span> <span class="n">fem_spaces</span><span class="p">:</span>
         <span class="c1"># Extract element DoFs</span>
-        <span class="n">offsets</span> <span class="o">=</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">leaf_index</span><span class="p">]</span>
-        <span class="n">element_dofs</span> <span class="o">=</span> <span class="n">solution</span><span class="p">[</span><span class="n">element_offset</span> <span class="p">:</span> <span class="n">element_offset</span> <span class="o">+</span> <span class="n">offsets</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
-        <span class="n">real_orders</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">ie</span><span class="p">)</span>
-        <span class="n">element_order</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">real_orders</span><span class="p">))</span> <span class="k">if</span> <span class="n">recon_order</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">recon_order</span><span class="p">)</span>
-        <span class="n">order_1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">real_orders</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="n">order_2</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">real_orders</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="n">orders_1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">order_1</span><span class="p">)</span>
-        <span class="n">orders_2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">order_2</span><span class="p">)</span>
-        <span class="n">element_basis</span> <span class="o">=</span> <span class="n">caches</span><span class="o">.</span><span class="n">get_basis2d</span><span class="p">(</span><span class="n">element_order</span><span class="p">,</span> <span class="n">element_order</span><span class="p">)</span>
-        <span class="n">ordering</span> <span class="o">=</span> <span class="n">vtk_lagrange_ordering</span><span class="p">(</span><span class="n">element_order</span><span class="p">)</span> <span class="o">+</span> <span class="n">node_cnt</span>
+        <span class="n">orders</span> <span class="o">=</span> <span class="n">element_space</span><span class="o">.</span><span class="n">orders</span>
+        <span class="n">element_dof_count</span> <span class="o">=</span> <span class="n">form_spec</span><span class="o">.</span><span class="n">total_size</span><span class="p">(</span><span class="o">*</span><span class="n">orders</span><span class="p">)</span>
+        <span class="n">element_dofs</span> <span class="o">=</span> <span class="n">solution</span><span class="p">[</span><span class="n">element_offset</span> <span class="p">:</span> <span class="n">element_offset</span> <span class="o">+</span> <span class="n">element_dof_count</span><span class="p">]</span>
+        <span class="n">corners</span> <span class="o">=</span> <span class="n">element_space</span><span class="o">.</span><span class="n">corners</span>
+
+        <span class="n">order_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">orders</span><span class="p">)</span>
+        <span class="n">reconstruction_order</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">orders</span><span class="p">)</span> <span class="k">if</span> <span class="n">recon_order</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">recon_order</span>
+        <span class="k">if</span> <span class="n">reconstruction_order</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">used_nodes</span><span class="p">:</span>
+            <span class="n">used_nodes</span><span class="p">[</span><span class="n">reconstruction_order</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">reconstruction_order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+            <span class="p">)</span>
+        <span class="n">recon_nodes</span> <span class="o">=</span> <span class="n">used_nodes</span><span class="p">[</span><span class="n">reconstruction_order</span><span class="p">]</span>
+
+        <span class="n">ordering</span> <span class="o">=</span> <span class="n">vtk_lagrange_ordering</span><span class="p">(</span><span class="n">reconstruction_order</span><span class="p">)</span> <span class="o">+</span> <span class="n">node_cnt</span>
         <span class="n">node_array</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(((</span><span class="n">ordering</span><span class="o">.</span><span class="n">size</span><span class="p">,),</span> <span class="n">ordering</span><span class="p">)))</span>
         <span class="n">node_cnt</span> <span class="o">+=</span> <span class="n">ordering</span><span class="o">.</span><span class="n">size</span>
-        <span class="n">corners</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_corners</span><span class="p">(</span><span class="n">ie</span><span class="p">)</span>
         <span class="n">ex</span> <span class="o">=</span> <span class="n">bilinear_interpolate</span><span class="p">(</span>
-            <span class="n">corners</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
-            <span class="n">element_basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">roots</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span>
-            <span class="n">element_basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">roots</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span>
+            <span class="n">corners</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">recon_nodes</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="n">recon_nodes</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
         <span class="p">)</span>
         <span class="n">ey</span> <span class="o">=</span> <span class="n">bilinear_interpolate</span><span class="p">(</span>
-            <span class="n">corners</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
-            <span class="n">element_basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">roots</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span>
-            <span class="n">element_basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">roots</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span>
+            <span class="n">corners</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">recon_nodes</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="n">recon_nodes</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
         <span class="p">)</span>
 
         <span class="n">xvals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
         <span class="n">yvals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ey</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
         <span class="c1"># Loop over each of the primal forms</span>
-        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">form</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">):</span>
-            <span class="n">form_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">offsets</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
-            <span class="n">form_offset_end</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">offsets</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">form</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">form_spec</span><span class="o">.</span><span class="n">iter_forms</span><span class="p">()):</span>
+            <span class="n">form_offset</span> <span class="o">=</span> <span class="n">form_spec</span><span class="o">.</span><span class="n">form_offset</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="o">*</span><span class="n">orders</span><span class="p">)</span>
+            <span class="n">form_offset_end</span> <span class="o">=</span> <span class="n">form_offset</span> <span class="o">+</span> <span class="n">form_spec</span><span class="o">.</span><span class="n">form_size</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="o">*</span><span class="n">orders</span><span class="p">)</span>
             <span class="n">form_dofs</span> <span class="o">=</span> <span class="n">element_dofs</span><span class="p">[</span><span class="n">form_offset</span><span class="p">:</span><span class="n">form_offset_end</span><span class="p">]</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">form</span><span class="o">.</span><span class="n">is_primal</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Can not reconstruct a non-primal form.&quot;</span><span class="p">)</span>
             <span class="c1"># Reconstruct unknown</span>
             <span class="n">recon_v</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="p">(</span>
-                <span class="n">corners</span><span class="p">,</span>
+                <span class="n">element_space</span><span class="p">,</span>
                 <span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
                 <span class="n">form_dofs</span><span class="p">,</span>
-                <span class="n">element_basis</span><span class="o">.</span><span class="n">basis_xi</span><span class="o">.</span><span class="n">roots</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span>
-                <span class="n">element_basis</span><span class="o">.</span><span class="n">basis_eta</span><span class="o">.</span><span class="n">roots</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span>
-                <span class="n">caches</span><span class="o">.</span><span class="n">get_basis2d</span><span class="p">(</span><span class="n">order_1</span><span class="p">,</span> <span class="n">order_2</span><span class="p">),</span>
+                <span class="n">recon_nodes</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span>
+                <span class="n">recon_nodes</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span>
             <span class="p">)</span>
             <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span> <span class="k">else</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,)</span>
             <span class="n">build</span><span class="p">[</span><span class="n">form</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">recon_v</span><span class="p">,</span> <span class="n">shape</span><span class="p">))</span>
 
-        <span class="n">element_offset</span> <span class="o">+=</span> <span class="n">offsets</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">vms_solution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">vms_dofs</span> <span class="o">=</span> <span class="n">vms_solution</span><span class="p">[</span>
+                    <span class="n">element_offset</span> <span class="p">:</span> <span class="n">element_offset</span> <span class="o">+</span> <span class="n">element_dof_count</span>
+                <span class="p">][</span><span class="n">form_offset</span><span class="p">:</span><span class="n">form_offset_end</span><span class="p">]</span>
+                <span class="n">vms_dofs</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">element_space</span><span class="o">.</span><span class="n">mass_from_order</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">@</span> <span class="n">vms_dofs</span>
+                <span class="p">)</span>
+                <span class="n">recon_vms</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="p">(</span>
+                    <span class="n">element_space</span><span class="p">,</span>
+                    <span class="n">form</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
+                    <span class="n">vms_dofs</span><span class="p">,</span>
+                    <span class="n">recon_nodes</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span>
+                    <span class="n">recon_nodes</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span>
+                <span class="p">)</span>
+                <span class="n">vms_build</span><span class="p">[</span><span class="n">form</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">recon_vms</span><span class="p">,</span> <span class="n">shape</span><span class="p">))</span>
+
+        <span class="n">element_offset</span> <span class="o">+=</span> <span class="n">element_dof_count</span>
 
     <span class="n">grid</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span>
         <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">node_array</span><span class="p">),</span>
@@ -661,6 +556,12 @@ document.write(`
         <span class="n">vf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">build</span><span class="p">[</span><span class="n">form</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
         <span class="n">grid</span><span class="o">.</span><span class="n">point_data</span><span class="p">[</span><span class="n">form</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">vf</span>
 
+    <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">vms_build</span><span class="p">:</span>
+        <span class="n">vf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">vms_build</span><span class="p">[</span><span class="n">form</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">point_data</span><span class="p">[</span><span class="s2">&quot;vms-&quot;</span> <span class="o">+</span> <span class="n">form</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">vf</span>
+
+    <span class="n">grid</span><span class="o">.</span><span class="n">cell_data</span><span class="p">[</span><span class="s2">&quot;orders&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">order_list</span>
+
     <span class="k">return</span> <span class="n">grid</span></div>
 
 
@@ -668,49 +569,80 @@ document.write(`
 <div class="viewcode-block" id="compute_element_dual">
 <a class="viewcode-back" href="../../modules/solve_system.html#mfv2d.solve_system.compute_element_dual">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_element_dual</span><span class="p">(</span>
-    <span class="n">ordering</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
+    <span class="n">form_specs</span><span class="p">:</span> <span class="n">ElementFormSpecification</span><span class="p">,</span>
     <span class="n">functions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span>
         <span class="n">Callable</span><span class="p">[[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="p">],</span>
-    <span class="n">order_1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">order_2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">element_cache</span><span class="p">:</span> <span class="n">ElementMassMatrixCache</span><span class="p">,</span>
+    <span class="n">element_space</span><span class="p">:</span> <span class="n">ElementFemSpace2D</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute element L2 projection.&quot;&quot;&quot;</span>
     <span class="n">vecs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">order</span><span class="p">,</span> <span class="n">func</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ordering</span><span class="o">.</span><span class="n">form_orders</span><span class="p">,</span> <span class="n">functions</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i_form</span><span class="p">,</span> <span class="n">func</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">functions</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">vecs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">order</span><span class="o">.</span><span class="n">full_unknown_count</span><span class="p">(</span><span class="n">order_1</span><span class="p">,</span> <span class="n">order_2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
+            <span class="n">vecs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                    <span class="n">form_specs</span><span class="o">.</span><span class="n">form_size</span><span class="p">(</span><span class="n">i_form</span><span class="p">,</span> <span class="o">*</span><span class="n">element_space</span><span class="o">.</span><span class="n">orders</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">vecs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">element_dual_dofs</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">element_cache</span><span class="p">,</span> <span class="n">func</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+                    <span class="n">element_dual_dofs</span><span class="p">(</span><span class="n">form_specs</span><span class="p">[</span><span class="n">i_form</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">element_space</span><span class="p">,</span> <span class="n">func</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">vecs</span><span class="p">)</span></div>
 
 
 
-<div class="viewcode-block" id="compute_element_primal">
-<a class="viewcode-back" href="../../modules/solve_system.html#mfv2d.solve_system.compute_element_primal">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_primal</span><span class="p">(</span>
-    <span class="n">ordering</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
-    <span class="n">dual_dofs</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
-    <span class="n">order_1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">order_2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">element_cache</span><span class="p">:</span> <span class="n">ElementMassMatrixCache</span><span class="p">,</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_dual_from_primal</span><span class="p">(</span>
+    <span class="n">form_specs</span><span class="p">:</span> <span class="n">ElementFormSpecification</span><span class="p">,</span>
+    <span class="n">primal</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">element_space</span><span class="p">:</span> <span class="n">ElementFemSpace2D</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute dual dofs from primal.&quot;&quot;&quot;</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">mats</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">UnknownFormOrder</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">dual</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">primal</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i_form</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">form_specs</span><span class="p">)):</span>
+        <span class="n">cnt</span> <span class="o">=</span> <span class="n">form_specs</span><span class="o">.</span><span class="n">form_size</span><span class="p">(</span><span class="n">i_form</span><span class="p">,</span> <span class="o">*</span><span class="n">element_space</span><span class="o">.</span><span class="n">orders</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">primal</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">cnt</span><span class="p">]</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">form_specs</span><span class="p">[</span><span class="n">i_form</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">mats</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">mats</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">element_space</span><span class="o">.</span><span class="n">mass_from_order</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">mats</span><span class="p">[</span><span class="n">order</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span>
+
+        <span class="n">dual</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">cnt</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span> <span class="o">@</span> <span class="n">v</span>
+
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">cnt</span>
+
+    <span class="k">return</span> <span class="n">dual</span>
+
+
+<div class="viewcode-block" id="compute_element_primal_from_dual">
+<a class="viewcode-back" href="../../modules/solve_system.html#mfv2d.solve_system.compute_element_primal_from_dual">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_primal_from_dual</span><span class="p">(</span>
+    <span class="n">form_specs</span><span class="p">:</span> <span class="n">ElementFormSpecification</span><span class="p">,</span>
+    <span class="n">dual</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">element_space</span><span class="p">:</span> <span class="n">ElementFemSpace2D</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute primal dofs from dual.&quot;&quot;&quot;</span>
     <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">mats</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">UnknownFormOrder</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-    <span class="n">primal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">dual_dofs</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">ordering</span><span class="o">.</span><span class="n">form_orders</span><span class="p">:</span>
-        <span class="n">cnt</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">full_unknown_count</span><span class="p">(</span><span class="n">order_1</span><span class="p">,</span> <span class="n">order_2</span><span class="p">)</span>
-        <span class="n">v</span> <span class="o">=</span> <span class="n">dual_dofs</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">cnt</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">mats</span><span class="p">:</span>
-            <span class="n">m</span> <span class="o">=</span> <span class="n">mats</span><span class="p">[</span><span class="n">form</span><span class="p">]</span>
+    <span class="n">primal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">dual</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i_form</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">form_specs</span><span class="p">)):</span>
+        <span class="n">cnt</span> <span class="o">=</span> <span class="n">form_specs</span><span class="o">.</span><span class="n">form_size</span><span class="p">(</span><span class="n">i_form</span><span class="p">,</span> <span class="o">*</span><span class="n">element_space</span><span class="o">.</span><span class="n">orders</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">dual</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">cnt</span><span class="p">]</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="n">form_specs</span><span class="p">[</span><span class="n">i_form</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">mats</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">mats</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">m</span> <span class="o">=</span> <span class="n">element_cache</span><span class="o">.</span><span class="n">mass_from_order</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">mats</span><span class="p">[</span><span class="n">form</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">element_space</span><span class="o">.</span><span class="n">mass_from_order</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">mats</span><span class="p">[</span><span class="n">order</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span>
 
         <span class="n">primal</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">cnt</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span> <span class="o">@</span> <span class="n">v</span>
 
@@ -720,64 +652,35 @@ document.write(`
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">compute_element_primal_to_dual</span><span class="p">(</span>
-    <span class="n">ordering</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
-    <span class="n">primal</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
-    <span class="n">order_1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">order_2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">element_cache</span><span class="p">:</span> <span class="n">ElementMassMatrixCache</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute primal dofs from dual.&quot;&quot;&quot;</span>
-    <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">mats</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">UnknownFormOrder</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-    <span class="n">dual</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">primal</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">ordering</span><span class="o">.</span><span class="n">form_orders</span><span class="p">:</span>
-        <span class="n">cnt</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">full_unknown_count</span><span class="p">(</span><span class="n">order_1</span><span class="p">,</span> <span class="n">order_2</span><span class="p">)</span>
-        <span class="n">v</span> <span class="o">=</span> <span class="n">primal</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">cnt</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">mats</span><span class="p">:</span>
-            <span class="n">m</span> <span class="o">=</span> <span class="n">mats</span><span class="p">[</span><span class="n">form</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">m</span> <span class="o">=</span> <span class="n">element_cache</span><span class="o">.</span><span class="n">mass_from_order</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-            <span class="n">mats</span><span class="p">[</span><span class="n">form</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span>
-
-        <span class="n">dual</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">cnt</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span> <span class="o">@</span> <span class="n">v</span>
-
-        <span class="n">offset</span> <span class="o">+=</span> <span class="n">cnt</span>
-
-    <span class="k">return</span> <span class="n">dual</span>
-
-
 <div class="viewcode-block" id="non_linear_solve_run">
 <a class="viewcode-back" href="../../modules/solve_system.html#mfv2d.solve_system.non_linear_solve_run">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">non_linear_solve_run</span><span class="p">(</span>
-    <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span><span class="p">,</span>
     <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">relax</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">print_residual</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-    <span class="n">unknown_ordering</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
-    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
-    <span class="n">element_caches</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ElementMassMatrixCache</span><span class="p">],</span>
+    <span class="n">form_spec</span><span class="p">:</span> <span class="n">ElementFormSpecification</span><span class="p">,</span>
+    <span class="n">element_fem_spaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ElementFemSpace2D</span><span class="p">],</span>
     <span class="n">compiled_system</span><span class="p">:</span> <span class="n">CompiledSystem</span><span class="p">,</span>
     <span class="n">explicit_vec</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
-    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
     <span class="n">element_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
-    <span class="n">linear_element_matrices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
     <span class="n">time_carry_index_array</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">time_carry_term</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">solution</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
     <span class="n">global_lagrange</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
     <span class="n">max_mag</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-    <span class="n">vector_fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Function2D</span> <span class="o">|</span> <span class="n">KFormUnknown</span><span class="p">],</span>
     <span class="n">system_decomp</span><span class="p">:</span> <span class="n">sla</span><span class="o">.</span><span class="n">SuperLU</span><span class="p">,</span>
     <span class="n">lagrange_mat</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fine_scales</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">sg_operator</span><span class="p">:</span> <span class="n">SuyashGreenOperator</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">return_all_residuals</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
     <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
     <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
     <span class="nb">int</span><span class="p">,</span>
     <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the iterative non-linear solver.</span>
 
@@ -794,6 +697,7 @@ document.write(`
         <span class="k">assert</span> <span class="n">time_carry_index_array</span> <span class="ow">is</span> <span class="kc">None</span>
     <span class="n">residuals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">max_iterations</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
     <span class="n">max_residual</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">unresolved_scales</span> <span class="o">=</span> <span class="n">fine_scales</span>
 
     <span class="k">while</span> <span class="n">iter_cnt</span> <span class="o">&lt;</span> <span class="n">max_iterations</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">compiled_system</span><span class="o">.</span><span class="n">rhs_codes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -802,55 +706,22 @@ document.write(`
             <span class="n">main_vec</span> <span class="o">=</span> <span class="n">base_vec</span>  <span class="c1"># Do not copy</span>
 
         <span class="n">lhs_vectors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-        <span class="n">lhs_matrices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">ie</span><span class="p">,</span> <span class="n">leaf_index</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_indices</span><span class="p">()):</span>
-            <span class="n">element_cache</span> <span class="o">=</span> <span class="n">element_caches</span><span class="p">[</span><span class="n">ie</span><span class="p">]</span>
-            <span class="n">basis</span> <span class="o">=</span> <span class="n">element_cache</span><span class="o">.</span><span class="n">basis_2d</span>
+        <span class="k">for</span> <span class="n">ie</span><span class="p">,</span> <span class="n">element_space</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">element_fem_spaces</span><span class="p">):</span>
             <span class="n">element_solution</span> <span class="o">=</span> <span class="n">solution</span><span class="p">[</span><span class="n">element_offsets</span><span class="p">[</span><span class="n">ie</span><span class="p">]</span> <span class="p">:</span> <span class="n">element_offsets</span><span class="p">[</span><span class="n">ie</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vector_fields</span><span class="p">):</span>
-                <span class="c1"># Recompute vector fields</span>
-                <span class="c1"># Compute vector fields at integration points for leaf elements</span>
-                <span class="n">vec_flds</span> <span class="o">=</span> <span class="n">compute_element_vector_fields_nonlin</span><span class="p">(</span>
-                    <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">,</span>
-                    <span class="n">basis</span><span class="p">,</span>
-                    <span class="n">basis</span><span class="p">,</span>
-                    <span class="n">vector_fields</span><span class="p">,</span>
-                    <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_corners</span><span class="p">(</span><span class="n">leaf_index</span><span class="p">),</span>
-                    <span class="n">dof_offsets</span><span class="p">[</span><span class="n">ie</span><span class="p">],</span>
-                    <span class="n">element_solution</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">vec_flds</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">()</span>
 
             <span class="n">lhs_vec</span> <span class="o">=</span> <span class="n">compute_element_vector</span><span class="p">(</span>
-                <span class="n">unknown_ordering</span><span class="o">.</span><span class="n">form_orders</span><span class="p">,</span>
-                <span class="n">compiled_system</span><span class="o">.</span><span class="n">lhs_full</span><span class="p">,</span>
-                <span class="n">vec_flds</span><span class="p">,</span>
-                <span class="n">element_cache</span><span class="p">,</span>
-                <span class="n">element_solution</span><span class="p">,</span>
+                <span class="n">form_spec</span><span class="p">,</span> <span class="n">compiled_system</span><span class="o">.</span><span class="n">lhs_codes</span><span class="p">,</span> <span class="n">element_space</span><span class="p">,</span> <span class="n">element_solution</span>
             <span class="p">)</span>
-            <span class="n">lhs_vectors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lhs_vec</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">compiled_system</span><span class="o">.</span><span class="n">rhs_codes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">rhs_vec</span> <span class="o">=</span> <span class="n">compute_element_vector</span><span class="p">(</span>
-                    <span class="n">unknown_ordering</span><span class="o">.</span><span class="n">form_orders</span><span class="p">,</span>
-                    <span class="n">compiled_system</span><span class="o">.</span><span class="n">rhs_codes</span><span class="p">,</span>
-                    <span class="n">vec_flds</span><span class="p">,</span>
-                    <span class="n">element_cache</span><span class="p">,</span>
-                    <span class="n">element_solution</span><span class="p">,</span>
+                    <span class="n">form_spec</span><span class="p">,</span> <span class="n">compiled_system</span><span class="o">.</span><span class="n">rhs_codes</span><span class="p">,</span> <span class="n">element_space</span><span class="p">,</span> <span class="n">element_solution</span>
                 <span class="p">)</span>
+                <span class="n">lhs_vec</span> <span class="o">-=</span> <span class="n">rhs_vec</span>
+                <span class="c1"># main_vec[element_offsets[ie] : element_offsets[ie + 1]] += rhs_vec</span>
 
-                <span class="n">main_vec</span><span class="p">[</span><span class="n">element_offsets</span><span class="p">[</span><span class="n">ie</span><span class="p">]</span> <span class="p">:</span> <span class="n">element_offsets</span><span class="p">[</span><span class="n">ie</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="o">+=</span> <span class="n">rhs_vec</span>
                 <span class="k">del</span> <span class="n">rhs_vec</span>
-
-            <span class="k">if</span> <span class="n">compiled_system</span><span class="o">.</span><span class="n">nonlin_codes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">mat</span> <span class="o">=</span> <span class="n">compute_element_matrix</span><span class="p">(</span>
-                    <span class="n">unknown_ordering</span><span class="o">.</span><span class="n">form_orders</span><span class="p">,</span>
-                    <span class="n">compiled_system</span><span class="o">.</span><span class="n">nonlin_codes</span><span class="p">,</span>
-                    <span class="n">vec_flds</span><span class="p">,</span>
-                    <span class="n">element_cache</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="n">lhs_matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">linear_element_matrices</span><span class="p">[</span><span class="n">ie</span><span class="p">]</span> <span class="o">+</span> <span class="n">mat</span><span class="p">)</span>
+            <span class="n">lhs_vectors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lhs_vec</span><span class="p">)</span>
 
         <span class="n">main_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">lhs_vectors</span><span class="p">)</span>
 
@@ -861,6 +732,15 @@ document.write(`
             <span class="p">)</span>
 
         <span class="n">residual</span> <span class="o">=</span> <span class="n">main_vec</span> <span class="o">-</span> <span class="n">main_value</span>
+        <span class="k">if</span> <span class="n">sg_operator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sg_operator</span><span class="o">.</span><span class="n">update_nonlinear_advection</span><span class="p">(</span><span class="n">solution</span><span class="p">)</span>
+            <span class="n">unresolved_scales</span> <span class="o">=</span> <span class="n">sg_operator</span><span class="o">.</span><span class="n">compute_unresolved_contributions</span><span class="p">(</span>
+                <span class="n">solution</span><span class="p">,</span> <span class="n">unresolved_scales</span>
+            <span class="p">)</span>
+            <span class="n">residual</span> <span class="o">-=</span> <span class="n">sg_operator</span><span class="o">.</span><span class="n">fine_results_to_coarse_dofs</span><span class="p">(</span>
+                <span class="n">unresolved_scales</span><span class="p">,</span> <span class="n">dual</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
         <span class="n">max_residual</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
         <span class="n">residuals</span><span class="p">[</span><span class="n">iter_cnt</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_residual</span>
         <span class="k">if</span> <span class="n">print_residual</span><span class="p">:</span>
@@ -875,18 +755,6 @@ document.write(`
 
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">max_residual</span> <span class="o">&gt;</span> <span class="n">atol</span> <span class="ow">and</span> <span class="n">max_residual</span> <span class="o">&gt;</span> <span class="n">max_mag</span> <span class="o">*</span> <span class="n">rtol</span><span class="p">):</span>
             <span class="k">break</span>
-
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lhs_matrices</span><span class="p">):</span>
-            <span class="n">main_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">lhs_matrices</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csr&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">lagrange_mat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">main_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_array</span><span class="p">(</span>
-                    <span class="p">[[</span><span class="n">main_mat</span><span class="p">,</span> <span class="n">lagrange_mat</span><span class="o">.</span><span class="n">T</span><span class="p">],</span> <span class="p">[</span><span class="n">lagrange_mat</span><span class="p">,</span> <span class="kc">None</span><span class="p">]],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csc&quot;</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">main_mat</span> <span class="o">=</span> <span class="n">main_mat</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
-
-            <span class="n">system_decomp</span> <span class="o">=</span> <span class="n">sla</span><span class="o">.</span><span class="n">splu</span><span class="p">(</span><span class="n">main_mat</span><span class="p">)</span>
-            <span class="k">del</span> <span class="n">main_mat</span><span class="p">,</span> <span class="n">lhs_matrices</span>
 
         <span class="n">d_solution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
             <span class="n">system_decomp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">residual</span><span class="p">),</span>
@@ -906,9 +774,15 @@ document.write(`
         <span class="k">del</span> <span class="n">main_vec</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">return_all_residuals</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">solution</span><span class="p">,</span> <span class="n">global_lagrange</span><span class="p">,</span> <span class="n">iter_cnt</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">max_residual</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">solution</span><span class="p">,</span>
+            <span class="n">global_lagrange</span><span class="p">,</span>
+            <span class="n">iter_cnt</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">max_residual</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+            <span class="n">unresolved_scales</span><span class="p">,</span>
+        <span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">solution</span><span class="p">,</span> <span class="n">global_lagrange</span><span class="p">,</span> <span class="n">iter_cnt</span><span class="p">,</span> <span class="n">residuals</span></div>
+    <span class="k">return</span> <span class="n">solution</span><span class="p">,</span> <span class="n">global_lagrange</span><span class="p">,</span> <span class="n">iter_cnt</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">unresolved_scales</span></div>
 
 
 
@@ -967,6 +841,11 @@ document.write(`
 
 <span class="sd">    intial_conditions : Mapping of (KFormUnknown, Callable), optional</span>
 <span class="sd">        Functions which give initial conditions for different forms.</span>
+
+<span class="sd">    over_integration_order : int, default: 3</span>
+<span class="sd">        The order by which the integration rule used to compute mass matrices of the</span>
+<span class="sd">        elements should be greater from the basis used. This is important if a specific</span>
+<span class="sd">        projection to a finer polynomial space is needed later.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span>
@@ -977,7 +856,8 @@ document.write(`
     <span class="n">initial_conditions</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span>
         <span class="n">KFormUnknown</span><span class="p">,</span>
         <span class="n">Callable</span><span class="p">[[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">],</span>
-    <span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span></div>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">over_integration_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span></div>
 
 
 
@@ -1024,28 +904,13 @@ document.write(`
 
 <span class="sd">        \Delta {\vec{u}}^i = \left(\mathbb{I}\left({\vec{u}}^i\right)\right)^{-1} \left(</span>
 <span class="sd">        \vec{E}\left({\vec{u}}^i\right) + \vec{F} + \vec{I}\left({\vec{u}}^i\right)\right)</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    maximum_iterations : int, default: 100</span>
-<span class="sd">        Maximum number of iterations the solver performs.</span>
-
-<span class="sd">    relaxation : float, default: 1.0</span>
-<span class="sd">        Fraction of solution increment to use.</span>
-
-<span class="sd">    absolute_tolerance : float, default: 1e-6</span>
-<span class="sd">        Maximum value of the residual must meet in order for the solution</span>
-<span class="sd">        to be considered converged.</span>
-
-<span class="sd">    relative_tolerance : float, default: 1e-5</span>
-<span class="sd">        Maximum fraction of the maximum of the right side of the equation the residual</span>
-<span class="sd">        must meet in order for the solution to be considered converged.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">maximum_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="n">convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;When should the solution be considered converged&quot;&quot;&quot;</span>
+
     <span class="n">relaxation</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
-    <span class="n">absolute_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span>
-    <span class="n">relative_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span></div>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;What fraction of the new solution should be used.&quot;&quot;&quot;</span></div>
 
 
 
@@ -1053,13 +918,17 @@ document.write(`
 <a class="viewcode-back" href="../../modules/solve_system.html#mfv2d.solve_system.find_time_carry_indices">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">find_time_carry_indices</span><span class="p">(</span>
     <span class="n">unknowns</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">form_specs</span><span class="p">:</span> <span class="n">ElementFormSpecification</span><span class="p">,</span>
+    <span class="n">order_1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">order_2</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Find what are the indices of DoFs that should be carried for the time march.&quot;&quot;&quot;</span>
     <span class="n">output</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">iu</span><span class="p">,</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unknowns</span><span class="p">):</span>
         <span class="k">assert</span> <span class="n">iu</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">unknowns</span><span class="p">[</span><span class="n">iu</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">u</span><span class="p">,</span> <span class="s2">&quot;Unknowns must be sorted.&quot;</span>
-        <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dof_offsets</span><span class="p">[</span><span class="n">u</span><span class="p">],</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">u</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">))</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="n">form_specs</span><span class="o">.</span><span class="n">form_offset</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">order_1</span><span class="p">,</span> <span class="n">order_2</span><span class="p">)</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">form_specs</span><span class="o">.</span><span class="n">form_size</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">order_1</span><span class="p">,</span> <span class="n">order_2</span><span class="p">)</span>
+        <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">offset</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span></div>
 
 
@@ -1082,12 +951,395 @@ document.write(`
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">VmsSettings</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type used for VMS related information.&quot;&quot;&quot;</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">VMSSettings</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate unresolved scales based on the variational multi-scale approach.&quot;&quot;&quot;</span>
 
-    <span class="n">full_system</span><span class="p">:</span> <span class="n">KFormSystem</span>
-    <span class="n">symmetric_part</span><span class="p">:</span> <span class="n">KFormSystem</span>
-    <span class="n">advection_part</span><span class="p">:</span> <span class="n">KFormSystem</span>
+    <span class="n">symmetric_system</span><span class="p">:</span> <span class="n">KFormSystem</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Symmetric system based on which the Green&#39;s function is computed.&quot;&quot;&quot;</span>
+
+    <span class="n">nonsymmetric_system</span><span class="p">:</span> <span class="n">KFormSystem</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Non-symmetric system based on which the fine-scale function is computed.&quot;&quot;&quot;</span>
+
+    <span class="n">order_increase</span><span class="p">:</span> <span class="nb">int</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Increase of order for the fine mesh.&quot;&quot;&quot;</span>
+
+    <span class="n">fine_scale_convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;When are the fine scales considered accurately computed.&quot;&quot;&quot;</span>
+
+    <span class="n">relaxation</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;How much of the computed update to use for the next iteration.&quot;&quot;&quot;</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SuyashGreenOperator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type used to apply the Suyash-Green operator.&quot;&quot;&quot;</span>
+
+    <span class="n">unknown_forms</span><span class="p">:</span> <span class="n">ElementFormSpecification</span>
+    <span class="n">compiled_advection</span><span class="p">:</span> <span class="n">CompiledSystem</span>
+    <span class="n">coarse_decomp</span><span class="p">:</span> <span class="n">sla</span><span class="o">.</span><span class="n">SuperLU</span>
+    <span class="n">fine_decomp</span><span class="p">:</span> <span class="n">sla</span><span class="o">.</span><span class="n">SuperLU</span>
+    <span class="n">fine_spaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ElementFemSpace2D</span><span class="p">]</span>
+    <span class="n">fine_advection_operator</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span>
+    <span class="n">coarse_advection_operator</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span>
+    <span class="n">fine_linear_advection_operator</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">coo_array</span>
+    <span class="n">coarse_linear_advection_operator</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">coo_array</span>
+    <span class="n">projector_c2f</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span>
+    <span class="n">projector_f2c</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span>
+    <span class="n">coarse_padding</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">fine_padding</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">fine_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]</span>
+    <span class="n">fine_forcing</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span>
+    <span class="n">convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span><span class="p">,</span>
+        <span class="n">settings</span><span class="p">:</span> <span class="n">VMSSettings</span><span class="p">,</span>
+        <span class="n">coarse_spaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ElementFemSpace2D</span><span class="p">],</span>
+        <span class="n">basis_cache</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
+        <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+        <span class="n">leaf_indices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">constrained_forms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">KFormUnknown</span><span class="p">]],</span>
+        <span class="n">strong_boundary_conditions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">BoundaryCondition2DSteady</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">convergence</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">fine_scale_convergence</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">symmetric_system</span><span class="o">.</span><span class="n">unknown_forms</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compiled_advection</span> <span class="o">=</span> <span class="n">CompiledSystem</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">nonsymmetric_system</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relaxation</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">relaxation</span>
+        <span class="n">compiled_sym</span> <span class="o">=</span> <span class="n">CompiledSystem</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">symmetric_system</span><span class="p">)</span>
+
+        <span class="n">fine_spaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ElementFemSpace2D</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">projectors_c2f</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">coo_array</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">projectors_f2c</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">coo_array</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">fine_advection_matrices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">coarse_advection_matrices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">coarse_matrices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">fine_matrices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">fine_forcing_vecs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">fem_space</span> <span class="ow">in</span> <span class="n">coarse_spaces</span><span class="p">:</span>
+            <span class="n">fine_space</span> <span class="o">=</span> <span class="n">ElementFemSpace2D</span><span class="p">(</span>
+                <span class="n">basis_cache</span><span class="o">.</span><span class="n">get_basis2d</span><span class="p">(</span>
+                    <span class="n">fem_space</span><span class="o">.</span><span class="n">order_1</span> <span class="o">+</span> <span class="n">settings</span><span class="o">.</span><span class="n">order_increase</span><span class="p">,</span>
+                    <span class="n">fem_space</span><span class="o">.</span><span class="n">order_2</span> <span class="o">+</span> <span class="n">settings</span><span class="o">.</span><span class="n">order_increase</span><span class="p">,</span>
+                    <span class="o">*</span><span class="n">fem_space</span><span class="o">.</span><span class="n">integration_orders</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">fem_space</span><span class="o">.</span><span class="n">corners</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_advection</span><span class="o">.</span><span class="n">nonlin_codes</span><span class="p">:</span>
+                <span class="n">fine_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fine_space</span><span class="p">)</span>
+
+            <span class="n">projector_c2f</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+                <span class="n">sp</span><span class="o">.</span><span class="n">coo_array</span><span class="p">,</span>
+                <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span>
+                    <span class="n">compute_element_projector</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">,</span> <span class="n">fem_space</span><span class="o">.</span><span class="n">basis_2d</span><span class="p">,</span> <span class="n">fine_space</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">projectors_c2f</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">projector_c2f</span><span class="p">)</span>
+
+            <span class="n">projector_f2c</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+                <span class="n">sp</span><span class="o">.</span><span class="n">coo_array</span><span class="p">,</span>
+                <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span>
+                    <span class="n">compute_element_projector</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">,</span> <span class="n">fine_space</span><span class="o">.</span><span class="n">basis_2d</span><span class="p">,</span> <span class="n">fem_space</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">projectors_f2c</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">projector_f2c</span><span class="p">)</span>
+
+            <span class="n">fine_forcing</span> <span class="o">=</span> <span class="n">compute_element_rhs</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">fine_space</span><span class="p">)</span>
+            <span class="n">fine_forcing_vecs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fine_forcing</span><span class="p">)</span>
+
+            <span class="n">fine_advection_matrix</span> <span class="o">=</span> <span class="n">compute_element_matrix</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_advection</span><span class="o">.</span><span class="n">linear_codes</span><span class="p">,</span> <span class="n">fine_space</span>
+            <span class="p">)</span>
+            <span class="n">fine_advection_matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fine_advection_matrix</span><span class="p">)</span>
+
+            <span class="n">coarse_advection_matrix</span> <span class="o">=</span> <span class="n">compute_element_matrix</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_advection</span><span class="o">.</span><span class="n">linear_codes</span><span class="p">,</span> <span class="n">fem_space</span>
+            <span class="p">)</span>
+            <span class="n">coarse_advection_matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coarse_advection_matrix</span><span class="p">)</span>
+
+            <span class="n">fine_matrix</span> <span class="o">=</span> <span class="n">compute_element_matrix</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">,</span> <span class="n">compiled_sym</span><span class="o">.</span><span class="n">lhs_codes</span><span class="p">,</span> <span class="n">fine_space</span>
+            <span class="p">)</span>
+            <span class="n">fine_matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fine_matrix</span><span class="p">)</span>
+
+            <span class="n">coarse_matrix</span> <span class="o">=</span> <span class="n">projector_c2f</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">fine_matrix</span> <span class="o">@</span> <span class="n">projector_c2f</span>
+            <span class="c1"># coarse_matrix = compute_element_matrix(</span>
+            <span class="c1">#     self.unknown_forms, compiled_sym.lhs_codes, fem_space</span>
+            <span class="c1"># )</span>
+            <span class="n">coarse_matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coarse_matrix</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">projector_c2f</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">projectors_c2f</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csr&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">projector_f2c</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">projectors_f2c</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csr&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fine_linear_advection_operator</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">sp</span><span class="o">.</span><span class="n">coo_array</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">fine_advection_matrices</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;coo&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_advection</span><span class="o">.</span><span class="n">nonlin_codes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fine_advection_operator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_linear_advection_operator</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">coarse_linear_advection_operator</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">sp</span><span class="o">.</span><span class="n">coo_array</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">coarse_advection_matrices</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;coo&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_advection</span><span class="o">.</span><span class="n">nonlin_codes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coarse_advection_operator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coarse_linear_advection_operator</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fine_spaces</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">fine_spaces</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">fine_advection_matrices</span>
+
+        <span class="n">mesh</span><span class="o">.</span><span class="n">uniform_p_change</span><span class="p">(</span><span class="o">+</span><span class="n">settings</span><span class="o">.</span><span class="n">order_increase</span><span class="p">,</span> <span class="o">+</span><span class="n">settings</span><span class="o">.</span><span class="n">order_increase</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fine_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="mi">0</span><span class="p">,</span>
+                <span class="o">*</span><span class="p">(</span>
+                    <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span><span class="o">.</span><span class="n">total_size</span><span class="p">(</span><span class="o">*</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">i_leaf</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">i_leaf</span> <span class="ow">in</span> <span class="n">leaf_indices</span>
+                <span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="n">fine_lag_mat</span><span class="p">,</span> <span class="n">fine_lag_vec</span> <span class="o">=</span> <span class="n">add_system_constraints</span><span class="p">(</span>
+            <span class="n">system</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
+            <span class="n">basis_cache</span><span class="p">,</span>
+            <span class="n">constrained_forms</span><span class="p">,</span>
+            <span class="n">strong_boundary_conditions</span><span class="p">,</span>
+            <span class="n">leaf_indices</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fine_offsets</span><span class="p">,</span>
+            <span class="n">fine_forcing_vecs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">mesh</span><span class="o">.</span><span class="n">uniform_p_change</span><span class="p">(</span><span class="o">-</span><span class="n">settings</span><span class="o">.</span><span class="n">order_increase</span><span class="p">,</span> <span class="o">-</span><span class="n">settings</span><span class="o">.</span><span class="n">order_increase</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fine_forcing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">fine_forcing_vecs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">fine_lag_mat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fine_sym_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_array</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">fine_matrices</span><span class="p">),</span> <span class="n">fine_lag_mat</span><span class="o">.</span><span class="n">T</span><span class="p">],</span>
+                    <span class="p">[</span><span class="n">fine_lag_mat</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                <span class="p">],</span>
+                <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csc&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">fine_decomp</span> <span class="o">=</span> <span class="n">sla</span><span class="o">.</span><span class="n">splu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fine_sym_mat</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fine_sym_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">fine_matrices</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csc&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fine_decomp</span> <span class="o">=</span> <span class="n">sla</span><span class="o">.</span><span class="n">splu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fine_sym_mat</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fine_padding</span> <span class="o">=</span> <span class="n">fine_lag_vec</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">del</span> <span class="n">fine_matrices</span><span class="p">,</span> <span class="n">fine_lag_vec</span><span class="p">,</span> <span class="n">fine_lag_mat</span><span class="p">,</span> <span class="n">fine_spaces</span>
+
+        <span class="n">coarse_offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="mi">0</span><span class="p">,</span>
+                <span class="o">*</span><span class="p">(</span>
+                    <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span><span class="o">.</span><span class="n">total_size</span><span class="p">(</span><span class="o">*</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">i_leaf</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">i_leaf</span> <span class="ow">in</span> <span class="n">leaf_indices</span>
+                <span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="n">coarse_lag_mat</span><span class="p">,</span> <span class="n">coarse_lag_vec</span> <span class="o">=</span> <span class="n">add_system_constraints</span><span class="p">(</span>
+            <span class="n">system</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
+            <span class="n">basis_cache</span><span class="p">,</span>
+            <span class="n">constrained_forms</span><span class="p">,</span>
+            <span class="n">strong_boundary_conditions</span><span class="p">,</span>
+            <span class="n">leaf_indices</span><span class="p">,</span>
+            <span class="n">coarse_offsets</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">del</span> <span class="n">coarse_offsets</span>
+
+        <span class="k">if</span> <span class="n">coarse_lag_mat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coarse_sym_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_array</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">coarse_matrices</span><span class="p">),</span> <span class="n">coarse_lag_mat</span><span class="o">.</span><span class="n">T</span><span class="p">],</span>
+                    <span class="p">[</span><span class="n">coarse_lag_mat</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                <span class="p">],</span>
+                <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csc&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coarse_decomp</span> <span class="o">=</span> <span class="n">sla</span><span class="o">.</span><span class="n">splu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coarse_sym_mat</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coarse_sym_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">coarse_matrices</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csc&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coarse_decomp</span> <span class="o">=</span> <span class="n">sla</span><span class="o">.</span><span class="n">splu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coarse_sym_mat</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">coarse_padding</span> <span class="o">=</span> <span class="n">coarse_lag_vec</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">del</span> <span class="n">coarse_matrices</span><span class="p">,</span> <span class="n">coarse_lag_vec</span><span class="p">,</span> <span class="n">coarse_lag_mat</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_unresolved_contributions</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">coarse_solution</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+        <span class="n">initial_guess</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute unresolved scales given the residual vector on the fine mesh.&quot;&quot;&quot;</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_forcing</span> <span class="o">-</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fine_advection_operator</span>
+            <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector_c2f</span>
+            <span class="o">@</span> <span class="n">coarse_solution</span>  <span class="c1"># [: coarse_solution.size - self.coarse_padding]</span>
+        <span class="p">)</span>
+
+        <span class="n">agr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_advection_operator</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_scale_greens_function</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">initial_guess</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">agr</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">initial_guess</span><span class="p">)</span>
+
+        <span class="k">del</span> <span class="n">residual</span>
+
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">convergence</span><span class="o">.</span><span class="n">maximum_iterations</span><span class="p">):</span>
+            <span class="n">u_new</span> <span class="o">=</span> <span class="n">agr</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_advection_operator</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_scale_greens_function</span><span class="p">(</span>
+                <span class="n">u</span>
+            <span class="p">)</span>
+            <span class="n">max_du</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u</span> <span class="o">-</span> <span class="n">u_new</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="n">max_u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">relaxation</span> <span class="o">==</span> <span class="mf">1.0</span><span class="p">:</span>
+                <span class="n">u</span> <span class="o">=</span> <span class="n">u_new</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">u</span> <span class="o">*=</span> <span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">relaxation</span>
+                <span class="n">u</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relaxation</span> <span class="o">*</span> <span class="n">u_new</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">max_u</span> <span class="o">==</span> <span class="mi">0</span>  <span class="c1"># Sometimes we are just that good!</span>
+                <span class="ow">or</span> <span class="n">max_du</span> <span class="o">&lt;</span> <span class="n">max_u</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">convergence</span><span class="o">.</span><span class="n">relative_tolerance</span>
+                <span class="ow">or</span> <span class="n">max_du</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">convergence</span><span class="o">.</span><span class="n">absolute_tolerance</span>
+            <span class="p">):</span>
+                <span class="k">break</span>
+
+        <span class="c1"># return np.pad(u @ self.projector_c2f, (0, self.coarse_padding))</span>
+        <span class="k">return</span> <span class="n">u</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">recover_unresolved</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">coarse_solution</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+        <span class="n">unresolved_contribution</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Recover unresolved scales from unresolved forcing.&quot;&quot;&quot;</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fine_forcing</span>
+            <span class="o">-</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fine_advection_operator</span>
+                <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector_c2f</span>
+                <span class="o">@</span> <span class="n">coarse_solution</span><span class="p">[:</span> <span class="n">coarse_solution</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">coarse_padding</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="o">-</span> <span class="n">unresolved_contribution</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_scale_greens_function</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">fine_results_to_coarse_dofs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">dual</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project fine scale results to coarse scale DoFs and pad for constraints.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dual</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector_c2f</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector_f2c</span> <span class="o">@</span> <span class="n">x</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">coarse_padding</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_nonlinear_advection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coarse_dofs</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update non-linear advection terms if needed.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_advection</span><span class="o">.</span><span class="n">nonlin_codes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fine_spaces</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span>
+
+        <span class="n">fine_dofs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector_c2f</span> <span class="o">@</span> <span class="n">coarse_dofs</span><span class="p">[:</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">coarse_padding</span><span class="p">]</span>
+
+        <span class="n">nonlinear_matrices</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">compute_element_matrix</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">compiled_advection</span><span class="o">.</span><span class="n">nonlin_codes</span><span class="p">,</span>
+                <span class="n">fem_space</span><span class="p">,</span>
+                <span class="n">fine_dofs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">fine_offsets</span><span class="p">[</span><span class="n">ie</span><span class="p">]</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_offsets</span><span class="p">[</span><span class="n">ie</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]],</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">ie</span><span class="p">,</span> <span class="n">fem_space</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fine_spaces</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">nonlin_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">nonlinear_matrices</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;coo&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fine_advection_operator</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fine_linear_advection_operator</span> <span class="o">+</span> <span class="n">nonlin_mat</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">fine_scale_greens_function</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the fine-scale Green&#39;s function to the vector.&quot;&quot;&quot;</span>
+        <span class="n">result_fine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_decomp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fine_padding</span><span class="p">)))[:</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">]</span>
+        <span class="n">coarse_sol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coarse_decomp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">x</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">projector_c2f</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">coarse_padding</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="n">result_coarse</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">projector_c2f</span> <span class="o">@</span> <span class="p">(</span><span class="n">coarse_sol</span><span class="p">[:</span> <span class="n">coarse_sol</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">coarse_padding</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result_fine</span> <span class="o">-</span> <span class="n">result_coarse</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_linear_system</span><span class="p">(</span>
+    <span class="n">element_fem_spaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ElementFemSpace2D</span><span class="p">],</span>
+    <span class="n">element_offset</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">leaf_indices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span><span class="p">,</span>
+    <span class="n">compiled</span><span class="p">:</span> <span class="n">CompiledSystem</span><span class="p">,</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">basis_cache</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
+    <span class="n">constrained_forms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">KFormUnknown</span><span class="p">]],</span>
+    <span class="n">boundary_conditions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">BoundaryCondition2DSteady</span><span class="p">],</span>
+    <span class="n">initial_solution</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
+    <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
+    <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
+    <span class="kc">None</span> <span class="o">|</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span><span class="p">,</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+<span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute system matrix and vector.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dk : int</span>
+<span class="sd">        Order increase from baseline.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">linear_vectors</span> <span class="o">=</span> <span class="p">[</span><span class="n">compute_element_rhs</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">cache</span><span class="p">)</span> <span class="k">for</span> <span class="n">cache</span> <span class="ow">in</span> <span class="n">element_fem_spaces</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">initial_solution</span><span class="p">:</span>
+        <span class="n">linear_matrices</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">compute_element_matrix</span><span class="p">(</span>
+                <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">,</span>
+                <span class="n">compiled</span><span class="o">.</span><span class="n">lhs_codes</span><span class="p">,</span>
+                <span class="n">element_space</span><span class="p">,</span>
+                <span class="n">element_solution</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">element_space</span><span class="p">,</span> <span class="n">element_solution</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="n">element_fem_spaces</span><span class="p">,</span> <span class="n">initial_solution</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">linear_matrices</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">compute_element_matrix</span><span class="p">(</span>
+                <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span><span class="p">,</span> <span class="n">compiled</span><span class="o">.</span><span class="n">lhs_codes</span><span class="p">,</span> <span class="n">element_space</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">element_space</span> <span class="ow">in</span> <span class="n">element_fem_spaces</span>
+        <span class="p">]</span>
+
+    <span class="c1"># Generate constraints that force the specified for to have the (child element) sum</span>
+    <span class="c1"># equal to a prescribed value.</span>
+    <span class="n">lagrange_mat</span><span class="p">,</span> <span class="n">lagrange_vec</span> <span class="o">=</span> <span class="n">add_system_constraints</span><span class="p">(</span>
+        <span class="n">system</span><span class="p">,</span>
+        <span class="n">mesh</span><span class="p">,</span>
+        <span class="n">basis_cache</span><span class="p">,</span>
+        <span class="n">constrained_forms</span><span class="p">,</span>
+        <span class="n">boundary_conditions</span><span class="p">,</span>
+        <span class="n">leaf_indices</span><span class="p">,</span>
+        <span class="n">element_offset</span><span class="p">,</span>
+        <span class="n">linear_vectors</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">linear_vectors</span><span class="p">,</span> <span class="n">linear_matrices</span><span class="p">,</span> <span class="n">lagrange_mat</span><span class="p">,</span> <span class="n">lagrange_vec</span>
 </pre></div>
 
                 </article>

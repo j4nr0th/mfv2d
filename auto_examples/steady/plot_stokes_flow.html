@@ -53,7 +53,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'auto_examples/steady/plot_stokes_flow';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Poisson Equation with Local Refinement" href="plot_direct_poisson_refined_pre.html" />
+    <link rel="next" title="Examples Unsteady" href="../unsteady/index.html" />
     <link rel="prev" title="Poisson Equation in the Direct Formulation" href="plot_direct_poisson.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -164,16 +164,20 @@
 <li class="toctree-l1"><a class="reference internal" href="../index.html">Examples</a></li>
 
 
+
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/examples.html">examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/system.html">system</a></li>
 </ul>
 </details></li>
 </ul>
@@ -378,6 +382,7 @@ system <a class="reference internal" href="#equation-steady-stokes-variational">
 <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <a href="../../modules/boundary.html#mfv2d.boundary.BoundaryCondition2D" title="mfv2d.boundary.BoundaryCondition2D" class="sphx-glr-backref-module-mfv2d-boundary sphx-glr-backref-type-py-class"><span class="n">BoundaryCondition2DSteady</span></a><span class="p">,</span>
+    <span class="n">ConvergenceSettings</span><span class="p">,</span>
     <span class="n">KFormSystem</span><span class="p">,</span>
     <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">,</span>
     <span class="n">SolverSettings</span><span class="p">,</span>
@@ -385,6 +390,7 @@ system <a class="reference internal" href="#equation-steady-stokes-variational">
     <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">mesh_create</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
+    <span class="n">system_as_string</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -445,20 +451,19 @@ section of how the divergence behaves.</p>
 <span class="n">w_div</span> <span class="o">=</span> <span class="n">div</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
-    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">*</span> <span class="n">vel</span> <span class="o">+</span> <span class="n">w_vor</span> <span class="o">*</span> <span class="n">vor</span> <span class="o">==</span> <span class="n">w_vor</span> <span class="o">^</span> <span class="n">vel_exact</span><span class="p">,</span>
-    <span class="n">w_vel</span> <span class="o">*</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">+</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">*</span> <span class="n">prs</span>
-    <span class="o">==</span> <span class="p">(</span><span class="n">w_vel</span> <span class="o">^</span> <span class="n">prs_exact</span><span class="p">)</span> <span class="o">+</span> <span class="n">w_vel</span> <span class="o">*</span> <span class="n">momentum_source</span><span class="p">,</span>
-    <span class="n">w_prs</span> <span class="o">*</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
-    <span class="n">w_div</span> <span class="o">*</span> <span class="n">div</span> <span class="o">-</span> <span class="n">w_div</span> <span class="o">*</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
-    <span class="n">sorting</span><span class="o">=</span><span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
+    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">@</span> <span class="n">vel</span> <span class="o">+</span> <span class="n">w_vor</span> <span class="o">@</span> <span class="n">vor</span> <span class="o">==</span> <span class="n">w_vor</span> <span class="o">^</span> <span class="n">vel_exact</span><span class="p">,</span>
+    <span class="n">w_vel</span> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">+</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">@</span> <span class="n">prs</span>
+    <span class="o">==</span> <span class="p">(</span><span class="n">w_vel</span> <span class="o">^</span> <span class="n">prs_exact</span><span class="p">)</span> <span class="o">+</span> <span class="n">w_vel</span> <span class="o">@</span> <span class="n">momentum_source</span><span class="p">,</span>
+    <span class="n">w_prs</span> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">w_div</span> <span class="o">@</span> <span class="n">div</span> <span class="o">-</span> <span class="n">w_div</span> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">system_as_string</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(0*)]^T  ([          M(0) |  (E(1, 0))^T @ M(0) |                  0 |    0]  [vor(0)]   [                         &lt;vor, vel_exact&gt;])
-[vel(1*)]    ([M(1) @ E(1, 0) |                   0 | (E(2, 1))^T @ M(1) |    0]  [vel(1)]   [&lt;vel, prs_exact&gt; + &lt;vel, momentum_source&gt;])
-[prs(2*)]    ([             0 |      M(2) @ E(2, 1) |                  0 |    0]  [prs(2)] = [                                        0])
-[div(2*)]    ([             0 | -1 * M(2) @ E(2, 1) |                  0 | M(2)]  [div(2)]   [                                        0])
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[M(0)         | (E(1, 0))^T M(1)  | 0                | 0   ] [vor(0)]   [+ B&lt;vor, vel_exact&gt;                          ]   [0 | 0 | 0 | 0] [vor(0)]
+[M(1) E(1, 0) | 0                 | (E(2, 1))^T M(2) | 0   ] [vel(1)]   [+ B&lt;vel, prs_exact&gt; + E&lt;vel, momentum_source&gt;]   [0 | 0 | 0 | 0] [vel(1)]
+[0            | M(2) E(2, 1)      | 0                | 0   ] [prs(2)] = [+ 0                                          ] + [0 | 0 | 0 | 0] [prs(2)]
+[0            | -1.0 M(2) E(2, 1) | 0                | M(2)] [div(2)]   [+ 0                                          ]   [0 | 0 | 0 | 0] [div(2)]
 </pre></div>
 </div>
 </section>
@@ -509,7 +514,7 @@ to machine precision.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.int64" title="numpy.int64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">pval</span></a> <span class="o">=</span> <span class="mi">3</span>
 <span class="n">msh</span> <span class="o">=</span> <span class="n">mesh_create</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.int64" title="numpy.int64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">pval</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.stack.html#numpy.stack" title="numpy.stack" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">stack</span></a><span class="p">((</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_x</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_y</span></a><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">lines</span></a> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">surfaces</span></a><span class="p">)</span>
 
-<a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a><span class="p">,</span> <a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
+<a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a><span class="p">,</span> <span class="n">stats</span><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
     <span class="n">msh</span><span class="p">,</span>
     <span class="n">system_settings</span><span class="o">=</span><span class="n">SystemSettings</span><span class="p">(</span>
         <span class="n">system</span><span class="p">,</span>
@@ -519,7 +524,9 @@ to machine precision.</p>
         <span class="p">],</span>
     <span class="p">),</span>
     <span class="n">solver_settings</span><span class="o">=</span><span class="n">SolverSettings</span><span class="p">(</span>
-        <span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">1</span>
+        <span class="n">ConvergenceSettings</span><span class="p">(</span>
+            <span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">1</span>
+        <span class="p">)</span>
     <span class="p">),</span>
     <span class="n">recon_order</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
 <span class="p">)</span>
@@ -536,7 +543,7 @@ to machine precision.</p>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Highest value of divergence in the domain is </span><span class="si">{</span><a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.DataSet.point_data.html#pyvista.DataSet.point_data" title="pyvista.DataSet.point_data" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-property"><span class="n">sol</span><span class="o">.</span><span class="n">point_data</span></a><span class="p">[</span><span class="s1">&#39;div&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_stokes_flow_002.png" srcset="../../_images/sphx_glr_plot_stokes_flow_002.png" alt="plot stokes flow" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Highest value of divergence in the domain is 9.183e-15
+<img src="../../_images/sphx_glr_plot_stokes_flow_002.png" srcset="../../_images/sphx_glr_plot_stokes_flow_002.png" alt="plot stokes flow" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Highest value of divergence in the domain is 8.773e-15
 </pre></div>
 </div>
 </section>
@@ -545,10 +552,10 @@ to machine precision.</p>
 <p>So we solve for different orders. Before that, we remake the system without the
 divergence form.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
-    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">*</span> <span class="n">vel</span> <span class="o">+</span> <span class="n">w_vor</span> <span class="o">*</span> <span class="n">vor</span> <span class="o">==</span> <span class="n">w_vor</span> <span class="o">^</span> <span class="n">vel_exact</span><span class="p">,</span>
-    <span class="n">w_vel</span> <span class="o">*</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">+</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">*</span> <span class="n">prs</span>
-    <span class="o">==</span> <span class="p">(</span><span class="n">w_vel</span> <span class="o">^</span> <span class="n">prs_exact</span><span class="p">)</span> <span class="o">+</span> <span class="n">w_vel</span> <span class="o">*</span> <span class="n">momentum_source</span><span class="p">,</span>
-    <span class="n">w_prs</span> <span class="o">*</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
+    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">@</span> <span class="n">vel</span> <span class="o">+</span> <span class="n">w_vor</span> <span class="o">@</span> <span class="n">vor</span> <span class="o">==</span> <span class="n">w_vor</span> <span class="o">^</span> <span class="n">vel_exact</span><span class="p">,</span>
+    <span class="n">w_vel</span> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">+</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">@</span> <span class="n">prs</span>
+    <span class="o">==</span> <span class="p">(</span><span class="n">w_vel</span> <span class="o">^</span> <span class="n">prs_exact</span><span class="p">)</span> <span class="o">+</span> <span class="n">w_vel</span> <span class="o">@</span> <span class="n">momentum_source</span><span class="p">,</span>
+    <span class="n">w_prs</span> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
     <span class="n">sorting</span><span class="o">=</span><span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -561,7 +568,7 @@ divergence form.</p>
         <a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.int64" title="numpy.int64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">pval</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.stack.html#numpy.stack" title="numpy.stack" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">stack</span></a><span class="p">((</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_x</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_y</span></a><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">lines</span></a> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">surfaces</span></a>
     <span class="p">)</span>
 
-    <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a><span class="p">,</span> <a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
+    <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a><span class="p">,</span> <span class="n">stats</span><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
         <span class="n">msh</span><span class="p">,</span>
         <span class="n">system_settings</span><span class="o">=</span><span class="n">SystemSettings</span><span class="p">(</span>
             <span class="n">system</span><span class="p">,</span>
@@ -571,7 +578,9 @@ divergence form.</p>
             <span class="p">],</span>
         <span class="p">),</span>
         <span class="n">solver_settings</span><span class="o">=</span><span class="n">SolverSettings</span><span class="p">(</span>
-            <span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">1</span>
+            <span class="n">ConvergenceSettings</span><span class="p">(</span>
+                <span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">1</span>
+            <span class="p">)</span>
         <span class="p">),</span>
         <span class="n">recon_order</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
     <span class="p">)</span>
@@ -632,7 +641,7 @@ Finished pval=6
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_stokes_flow_003.png" srcset="../../_images/sphx_glr_plot_stokes_flow_003.png" alt="plot stokes flow" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 0.00146 * (0.0726) ** p in H1 norm.
+<img src="../../_images/sphx_glr_plot_stokes_flow_003.png" srcset="../../_images/sphx_glr_plot_stokes_flow_003.png" alt="plot stokes flow" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 0.000535 * (0.109) ** p in H1 norm.
 </pre></div>
 </div>
 </section>
@@ -662,10 +671,10 @@ Finished pval=6
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_stokes_flow_004.png" srcset="../../_images/sphx_glr_plot_stokes_flow_004.png" alt="plot stokes flow" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 6.06 * (0.035) ** p in L2 norm.
+<img src="../../_images/sphx_glr_plot_stokes_flow_004.png" srcset="../../_images/sphx_glr_plot_stokes_flow_004.png" alt="plot stokes flow" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 5.99 * (0.0352) ** p in L2 norm.
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.456 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.427 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-steady-plot-stokes-flow-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/e3c00fcf2989820f4cd32647db424751/plot_stokes_flow.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_stokes_flow.ipynb</span></code></a></p>
@@ -703,11 +712,11 @@ Finished pval=6
       </div>
     </a>
     <a class="right-next"
-       href="plot_direct_poisson_refined_pre.html"
+       href="../unsteady/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Poisson Equation with Local Refinement</p>
+        <p class="prev-next-title">Examples Unsteady</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

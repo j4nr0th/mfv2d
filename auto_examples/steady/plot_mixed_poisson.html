@@ -164,16 +164,20 @@
 <li class="toctree-l1"><a class="reference internal" href="../index.html">Examples</a></li>
 
 
+
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/examples.html">examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/system.html">system</a></li>
 </ul>
 </details></li>
 </ul>
@@ -396,6 +400,7 @@ Laplace operator, which the Poisson equation is defined with.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">rmsh</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ConvergenceSettings</span><span class="p">,</span>
     <span class="n">KFormSystem</span><span class="p">,</span>
     <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">,</span>
     <span class="n">SolverSettings</span><span class="p">,</span>
@@ -403,6 +408,7 @@ Laplace operator, which the Poisson equation is defined with.</p>
     <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">mesh_create</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
+    <span class="n">system_as_string</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -457,15 +463,14 @@ introduced throught the boundary integral <code class="docutils literal notransl
 <span class="n">p</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
-    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">p</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">*</span> <span class="n">u</span> <span class="o">-</span> <span class="n">p</span> <span class="o">*</span> <span class="n">q</span> <span class="o">==</span> <span class="n">p</span> <span class="o">^</span> <span class="n">u_exact</span><span class="p">,</span>
-    <span class="n">v</span> <span class="o">*</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">q</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="o">-</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">source_exact</span><span class="p">),</span>
-    <span class="n">sorting</span><span class="o">=</span><span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
+    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">p</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">@</span> <span class="n">u</span> <span class="o">-</span> <span class="n">p</span> <span class="o">@</span> <span class="n">q</span> <span class="o">==</span> <span class="n">p</span> <span class="o">^</span> <span class="n">u_exact</span><span class="p">,</span>
+    <span class="n">v</span> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">q</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="o">-</span><span class="p">(</span><span class="n">v</span> <span class="o">@</span> <span class="n">source_exact</span><span class="p">),</span>
 <span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">system_as_string</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[q(1*)]^T  ([     -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [          &lt;q, u_exact&gt;])
-[u(2*)]    ([M(2) @ E(2, 1) |                  0]  [u(2)] = [-1 * &lt;u, source_exact&gt;])
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[-1.0 M(1)    | (E(2, 1))^T M(2)] [q(1)]   [+ B&lt;q, u_exact&gt;         ]   [0 | 0] [q(1)]
+[M(2) E(2, 1) | 0               ] [u(2)] = [- 1 * E&lt;u, source_exact&gt;] + [0 | 0] [u(2)]
 </pre></div>
 </div>
 </section>
@@ -514,10 +519,12 @@ looks.</p>
 <div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.int64" title="numpy.int64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">pval</span></a> <span class="o">=</span> <span class="mi">3</span>  <span class="c1"># Test polynomial order</span>
 <span class="n">msh</span> <span class="o">=</span> <span class="n">mesh_create</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.int64" title="numpy.int64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">pval</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.stack.html#numpy.stack" title="numpy.stack" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">stack</span></a><span class="p">((</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_x</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_y</span></a><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">lines</span></a> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">surfaces</span></a><span class="p">)</span>
 
-<a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a><span class="p">,</span> <a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
+<a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a><span class="p">,</span> <span class="n">stats</span><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
     <span class="n">msh</span><span class="p">,</span>
     <span class="n">system_settings</span><span class="o">=</span><span class="n">SystemSettings</span><span class="p">(</span><span class="n">system</span><span class="p">),</span>
-    <span class="n">solver_settings</span><span class="o">=</span><span class="n">SolverSettings</span><span class="p">(</span><span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+    <span class="n">solver_settings</span><span class="o">=</span><span class="n">SolverSettings</span><span class="p">(</span>
+        <span class="n">ConvergenceSettings</span><span class="p">(</span><span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="p">),</span>
     <span class="n">print_residual</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">recon_order</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
 <span class="p">)</span>
@@ -558,10 +565,12 @@ looks.</p>
         <a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.int64" title="numpy.int64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">pval</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.stack.html#numpy.stack" title="numpy.stack" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">stack</span></a><span class="p">((</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_x</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_y</span></a><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">lines</span></a> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">surfaces</span></a>
     <span class="p">)</span>
 
-    <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a><span class="p">,</span> <a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
+    <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a><span class="p">,</span> <span class="n">stats</span><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
         <span class="n">msh</span><span class="p">,</span>
         <span class="n">system_settings</span><span class="o">=</span><span class="n">SystemSettings</span><span class="p">(</span><span class="n">system</span><span class="p">),</span>
-        <span class="n">solver_settings</span><span class="o">=</span><span class="n">SolverSettings</span><span class="p">(</span><span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="n">solver_settings</span><span class="o">=</span><span class="n">SolverSettings</span><span class="p">(</span>
+            <span class="n">ConvergenceSettings</span><span class="p">(</span><span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="p">),</span>
         <span class="n">print_residual</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">recon_order</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
     <span class="p">)</span>
@@ -617,7 +626,7 @@ Finished pval=6
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_mixed_poisson_003.png" srcset="../../_images/sphx_glr_plot_mixed_poisson_003.png" alt="plot mixed poisson" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 30.5 * (0.0479) ** p in H1 norm.
+<img src="../../_images/sphx_glr_plot_mixed_poisson_003.png" srcset="../../_images/sphx_glr_plot_mixed_poisson_003.png" alt="plot mixed poisson" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 30.1 * (0.0482) ** p in H1 norm.
 </pre></div>
 </div>
 </section>
@@ -646,10 +655,10 @@ Finished pval=6
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_mixed_poisson_004.png" srcset="../../_images/sphx_glr_plot_mixed_poisson_004.png" alt="plot mixed poisson" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 12.9 * (0.0533) ** p in L2 norm.
+<img src="../../_images/sphx_glr_plot_mixed_poisson_004.png" srcset="../../_images/sphx_glr_plot_mixed_poisson_004.png" alt="plot mixed poisson" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Solution converges with p as: 12.4 * (0.0545) ** p in L2 norm.
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.483 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.471 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-steady-plot-mixed-poisson-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/057b288d41b24842867a950b7d10dbfb/plot_mixed_poisson.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_mixed_poisson.ipynb</span></code></a></p>

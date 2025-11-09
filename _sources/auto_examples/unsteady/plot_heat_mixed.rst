@@ -25,7 +25,7 @@ This example is exactly the same as
 :ref:`sphx_glr_auto_examples_unsteady_plot_heat_direct.py`. As such, only
 differences from that one will be mentioned.
 
-.. GENERATED FROM PYTHON SOURCE LINES 9-26
+.. GENERATED FROM PYTHON SOURCE LINES 9-28
 
 .. code-block:: Python
 
@@ -35,6 +35,7 @@ differences from that one will be mentioned.
     import rmsh
     from matplotlib import pyplot as plt
     from mfv2d import (
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -43,6 +44,7 @@ differences from that one will be mentioned.
         UnknownFormOrder,
         mesh_create,
         solve_system_2d,
+        system_as_string,
     )
     from scipy.integrate import trapezoid
 
@@ -53,7 +55,7 @@ differences from that one will be mentioned.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 27-36
+.. GENERATED FROM PYTHON SOURCE LINES 29-38
 
 Setup
 -----
@@ -65,7 +67,7 @@ it is also computed here.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 37-144
+.. GENERATED FROM PYTHON SOURCE LINES 39-148
 
 .. code-block:: Python
 
@@ -95,12 +97,12 @@ it is also computed here.
     p = q.weight
 
     system = KFormSystem(
-        p.derivative * u - p * q == p ^ steady_u,
-        ALPHA * (v * q.derivative)
-        == BETA * (v * steady_u) - (BETA - ALPHA * np.pi**2 / 2) * (v * u),
+        p.derivative @ u - p @ q == p ^ steady_u,
+        ALPHA * (v @ q.derivative)
+        == BETA * (v @ steady_u) - (BETA - ALPHA * np.pi**2 / 2) * (v @ u),
         sorting=lambda f: f.order,
     )
-    print(system)
+    print(system_as_string(system))
 
     N = 13
     P = 3
@@ -136,7 +138,9 @@ it is also computed here.
             mesh,
             system_settings=SystemSettings(system),
             solver_settings=SolverSettings(
-                maximum_iterations=20, relative_tolerance=0, absolute_tolerance=1e-13
+                ConvergenceSettings(
+                    maximum_iterations=20, relative_tolerance=0, absolute_tolerance=1e-13
+                )
             ),
             time_settings=TimeSettings(dt=dt, nt=nt, time_march_relations={v: u}),
             recon_order=25,
@@ -184,19 +188,19 @@ it is also computed here.
 
  .. code-block:: none
 
-    [q(1*)]^T  ([            -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [<q, steady_u>])   [q(1*)]^T  ([0 |                0]  [q(1)] 
-    [u(2*)]    ([0.02 * M(2) @ E(2, 1) |                  0]  [u(2)] = [<u, steady_u>]) + [u(2*)]    ([0 | -0.901304 * M(2)]  [u(2)] 
+    [-1.0 M(1)         | (E(2, 1))^T M(2)] [q(1)]   [+ B<q, steady_u>]   [0 | 0                       ] [q(1)]
+    [0.02 M(2) E(2, 1) | 0               ] [u(2)] = [+ E<u, steady_u>] + [0 | -0.9013039559891064 M(2)] [u(2)]
     For dt=1 total error was 1.986e-01.
     For dt=0.667 total error was 9.133e-02.
     For dt=0.333 total error was 2.327e-02.
     For dt=0.2 total error was 8.415e-03.
     For dt=0.111 total error was 2.613e-03.
-    For dt=0.0625 total error was 8.619e-04.
+    For dt=0.0625 total error was 8.627e-04.
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 145-155
+.. GENERATED FROM PYTHON SOURCE LINES 149-159
 
 Plotting the Error
 ------------------
@@ -209,7 +213,7 @@ is symplectic.
 :math:`H^1` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 156-180
+.. GENERATED FROM PYTHON SOURCE LINES 160-184
 
 .. code-block:: Python
 
@@ -249,12 +253,12 @@ is symplectic.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 181-183
+.. GENERATED FROM PYTHON SOURCE LINES 185-187
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 184-207
+.. GENERATED FROM PYTHON SOURCE LINES 188-211
 
 .. code-block:: Python
 
@@ -296,7 +300,7 @@ is symplectic.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 10.895 seconds)
+   **Total running time of the script:** (0 minutes 10.991 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_heat_mixed.py:

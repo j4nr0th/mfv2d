@@ -62,7 +62,7 @@ please refer back to :ref:`sphx_glr_auto_examples_steady_plot_mixed_poisson.py`.
 As with the mixed Poisson, error for this case will be measured in two ways - with the
 :math:`L^2` norm and with the :math:`H^1` norm.
 
-.. GENERATED FROM PYTHON SOURCE LINES 46-62
+.. GENERATED FROM PYTHON SOURCE LINES 46-64
 
 .. code-block:: Python
 
@@ -73,6 +73,7 @@ As with the mixed Poisson, error for this case will be measured in two ways - wi
     import rmsh
     from matplotlib import pyplot as plt
     from mfv2d import (
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -80,6 +81,7 @@ As with the mixed Poisson, error for this case will be measured in two ways - wi
         UnknownFormOrder,
         mesh_create,
         solve_system_2d,
+        system_as_string,
     )
 
 
@@ -89,7 +91,7 @@ As with the mixed Poisson, error for this case will be measured in two ways - wi
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 63-75
+.. GENERATED FROM PYTHON SOURCE LINES 65-77
 
 Problem Setup
 -------------
@@ -104,7 +106,7 @@ The presence of the advection term is also changes the source term of the equati
     \vec{a} = \begin{bmatrix} 3 y - x \\ 2 - y \end{bmatrix}
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 76-108
+.. GENERATED FROM PYTHON SOURCE LINES 78-110
 
 .. code-block:: Python
 
@@ -147,7 +149,7 @@ The presence of the advection term is also changes the source term of the equati
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 109-115
+.. GENERATED FROM PYTHON SOURCE LINES 111-117
 
 System Setup
 ------------
@@ -156,7 +158,7 @@ As expected, the system now has the interior product term added, together with t
 diffusion coefficient :math:`\nu` being added.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 116-129
+.. GENERATED FROM PYTHON SOURCE LINES 118-130
 
 .. code-block:: Python
 
@@ -167,11 +169,10 @@ diffusion coefficient :math:`\nu` being added.
     p = q.weight
 
     system = KFormSystem(
-        p.derivative * u - p * q == p ^ u_exact,
-        NU * (v * q.derivative) - (v * (a_field * ~q)) == -(v * source_exact),
-        sorting=lambda f: f.order,
+        p.derivative @ u - p @ q == p ^ u_exact,
+        NU * (v @ q.derivative) - (a_field * v @ q) == -(v @ source_exact),
     )
-    print(system)
+    print(system_as_string(system))
 
 
 
@@ -181,20 +182,20 @@ diffusion coefficient :math:`\nu` being added.
 
  .. code-block:: none
 
-    [q(1*)]^T  ([                                                    -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [          <q, u_exact>])
-    [u(2*)]    ([(-0.05 * M(2) @ E(2, 1) - 1 * M(2) @ M(0, 1; a_field) @ M(2)) |                  0]  [u(2)] = [-1 * <u, source_exact>])
+    [-1.0 M(1)                                            | (E(2, 1))^T M(2)] [q(1)]   [+ B<q, u_exact>         ]   [0 | 0] [q(1)]
+    [+ (-0.05 M(2) E(2, 1)) + (-1.0 (P(1, 2, a_field))^T) | 0               ] [u(2)] = [- 1 * E<u, source_exact>] + [0 | 0] [u(2)]
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 130-134
+.. GENERATED FROM PYTHON SOURCE LINES 131-135
 
 Making the Mesh
 ---------------
 
 The mesh is exactly the same as was the case for the mixed Poisson example.
 
-.. GENERATED FROM PYTHON SOURCE LINES 135-165
+.. GENERATED FROM PYTHON SOURCE LINES 136-166
 
 .. code-block:: Python
 
@@ -240,7 +241,7 @@ The mesh is exactly the same as was the case for the mixed Poisson example.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 166-171
+.. GENERATED FROM PYTHON SOURCE LINES 167-172
 
 Check the Result
 ----------------
@@ -248,7 +249,7 @@ Check the Result
 Before checking the convergence, let us first just check on how the solution
 looks.
 
-.. GENERATED FROM PYTHON SOURCE LINES 172-206
+.. GENERATED FROM PYTHON SOURCE LINES 173-209
 
 .. code-block:: Python
 
@@ -258,7 +259,9 @@ looks.
     solution, stats, mesh = solve_system_2d(
         msh,
         system_settings=SystemSettings(system),
-        solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+        solver_settings=SolverSettings(
+            ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+        ),
         print_residual=False,
         recon_order=25,
     )
@@ -298,14 +301,14 @@ looks.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 207-211
+.. GENERATED FROM PYTHON SOURCE LINES 210-214
 
 Solve for Different Orders
 --------------------------
 
 So we solve for different orders.
 
-.. GENERATED FROM PYTHON SOURCE LINES 212-244
+.. GENERATED FROM PYTHON SOURCE LINES 215-249
 
 .. code-block:: Python
 
@@ -322,7 +325,9 @@ So we solve for different orders.
         solution, stats, mesh = solve_system_2d(
             msh,
             system_settings=SystemSettings(system),
-            solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+            solver_settings=SolverSettings(
+                ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+            ),
             print_residual=False,
             recon_order=25,
         )
@@ -359,7 +364,7 @@ So we solve for different orders.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 245-253
+.. GENERATED FROM PYTHON SOURCE LINES 250-258
 
 Plot Results
 ------------
@@ -370,7 +375,7 @@ Here we plot the results.
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 254-277
+.. GENERATED FROM PYTHON SOURCE LINES 259-282
 
 .. code-block:: Python
 
@@ -410,18 +415,18 @@ Here we plot the results.
 
  .. code-block:: none
 
-    Solution converges with p as: 32.6 * (0.0472) ** p in H1 norm
+    Solution converges with p as: 32.2 * (0.0475) ** p in H1 norm
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 278-281
+.. GENERATED FROM PYTHON SOURCE LINES 283-286
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 282-304
+.. GENERATED FROM PYTHON SOURCE LINES 287-309
 
 .. code-block:: Python
 
@@ -460,7 +465,7 @@ Here we plot the results.
 
  .. code-block:: none
 
-    Solution converges with p as: 12 * (0.0541) ** p in L2 norm.
+    Solution converges with p as: 11.6 * (0.0553) ** p in L2 norm.
 
 
 
@@ -468,7 +473,7 @@ Here we plot the results.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.562 seconds)
+   **Total running time of the script:** (0 minutes 1.573 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_linear_adv_dif.py:

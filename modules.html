@@ -54,7 +54,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="_mfv2d" href="modules/_mfv2d.html" />
-    <link rel="prev" title="Reaction Equation" href="auto_examples/unsteady/plot_reaction.html" />
+    <link rel="prev" title="Approximating Error from Projections with Advection-Diffusion" href="auto_examples/refinement/plot_advdif_post_hp_projection.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -164,16 +164,20 @@
 <li class="toctree-l1"><a class="reference internal" href="auto_examples/index.html">Examples</a></li>
 
 
+
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Modules</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/examples.html">examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/system.html">system</a></li>
 </ul>
 </details></li>
 </ul>
@@ -339,7 +343,10 @@ module can be used, but rather how it works internally.</p>
 <li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html#basis">Basis</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html#topology">Topology</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html#evaluating-terms">Evaluating Terms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html#enum-values">Enum Values</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html#projections">Projections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html#solver-types">Solver Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html#test-functions">Test Functions</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/boundary.html">boundary</a><ul>
@@ -353,6 +360,7 @@ module can be used, but rather how it works internally.</p>
 <li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity.connect_edge_based"><code class="docutils literal notranslate"><span class="pre">connect_edge_based()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity.connect_element_inner"><code class="docutils literal notranslate"><span class="pre">connect_element_inner()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity.connect_elements"><code class="docutils literal notranslate"><span class="pre">connect_elements()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity.add_system_constraints"><code class="docutils literal notranslate"><span class="pre">add_system_constraints()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity._find_surface_boundary_id_node"><code class="docutils literal notranslate"><span class="pre">_find_surface_boundary_id_node()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity._get_corner_dof"><code class="docutils literal notranslate"><span class="pre">_get_corner_dof()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/continuity.html#mfv2d.continuity._get_side_dof_nodes"><code class="docutils literal notranslate"><span class="pre">_get_side_dof_nodes()</span></code></a></li>
@@ -364,13 +372,18 @@ module can be used, but rather how it works internally.</p>
 <li class="toctree-l2"><a class="reference internal" href="modules/eval.html#ast-translation">AST Translation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/eval.html#bytecode-simplifictaion">Bytecode Simplifictaion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/eval.html#conversion-to-c-bytecode">Conversion to C Bytecode</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/eval.html#putting-it-all-togehter">Putting it All Togehter</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/examples.html">examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/examples.html#mfv2d.examples.unit_square_mesh"><code class="docutils literal notranslate"><span class="pre">unit_square_mesh()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/kform.html">kform</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="modules/kform.html#different-k-form-types">Different <span class="math notranslate nohighlight">\(k\)</span>-Form Types</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/kform.html#forming-expressions">Forming Expressions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/kform.html#equations-and-systems">Equations and Systems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/kform.html#supporting-functions">Supporting Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/kform.html#operations">Operations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/mimetic2d.html">mimetic2d</a><ul>
@@ -379,7 +392,6 @@ module can be used, but rather how it works internally.</p>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#caching-basis">Caching Basis</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#mesh-geometry">Mesh Geometry</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#lagrange-multipliers-and-constraints">Lagrange Multipliers and Constraints</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#degree-of-freedom-counts">Degree of Freedom Counts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#element-geometry">Element Geometry</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#element-projection">Element Projection</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html#reconstruction">Reconstruction</a></li>
@@ -400,8 +412,18 @@ module can be used, but rather how it works internally.</p>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#computing-the-explicit-terms">Computing the Explicit Terms</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#global-reconstruction">Global Reconstruction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#time-march-support">Time March Support</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#supporting-calculations">Supporting Calculations</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html#the-actual-solver">The Actual Solver</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/solving.html">solving</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/solving.html#support-types">Support Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/solving.html#core-solvers">Core Solvers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/solving.html#system-solvers">System Solvers</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/system.html">system</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/system.html#mfv2d.system.KFormSystem"><code class="docutils literal notranslate"><span class="pre">KFormSystem</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/system.html#mfv2d.system.ElementFormSpecification"><code class="docutils literal notranslate"><span class="pre">ElementFormSpecification</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -420,12 +442,12 @@ module can be used, but rather how it works internally.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="auto_examples/unsteady/plot_reaction.html"
+       href="auto_examples/refinement/plot_advdif_post_hp_projection.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Reaction Equation</p>
+        <p class="prev-next-title">Approximating Error from Projections with Advection-Diffusion</p>
       </div>
     </a>
     <a class="right-next"

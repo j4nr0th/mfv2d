@@ -70,7 +70,7 @@ Laplace operator, which the Poisson equation is defined with.
     \varepsilon_{H^1}(u) = \int_\Omega \left|\left|
     \nabla \times u_\mathrm{exact} - \nabla \times u \right|\right| {\mathrm{d}\Omega}
 
-.. GENERATED FROM PYTHON SOURCE LINES 56-73
+.. GENERATED FROM PYTHON SOURCE LINES 56-75
 
 .. code-block:: Python
 
@@ -82,6 +82,7 @@ Laplace operator, which the Poisson equation is defined with.
     from matplotlib import pyplot as plt
     from mfv2d import (
         BoundaryCondition2DSteady,
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -89,6 +90,7 @@ Laplace operator, which the Poisson equation is defined with.
         UnknownFormOrder,
         mesh_create,
         solve_system_2d,
+        system_as_string,
     )
 
 
@@ -98,7 +100,7 @@ Laplace operator, which the Poisson equation is defined with.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 74-104
+.. GENERATED FROM PYTHON SOURCE LINES 76-106
 
 Setup
 -----
@@ -131,7 +133,7 @@ The source term on the right side of the equation is thus given by equation
     \cos\left(\frac{\pi y}{2}\right)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 105-128
+.. GENERATED FROM PYTHON SOURCE LINES 107-130
 
 .. code-block:: Python
 
@@ -165,7 +167,7 @@ The source term on the right side of the equation is thus given by equation
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 129-145
+.. GENERATED FROM PYTHON SOURCE LINES 131-147
 
 System Setup
 ------------
@@ -184,7 +186,7 @@ is needed to compute the error given by the :math:`H^1`.
     \int_\Omega p^{(1)} \wedge \star \mathrm{d} u^{(0)} - \int_\Omega p^{(1)} \wedge
     \star q^{(1)} = 0
 
-.. GENERATED FROM PYTHON SOURCE LINES 146-159
+.. GENERATED FROM PYTHON SOURCE LINES 148-161
 
 .. code-block:: Python
 
@@ -195,11 +197,11 @@ is needed to compute the error given by the :math:`H^1`.
     p = q.weight
 
     system = KFormSystem(
-        v.derivative * u.derivative == -(v * source_exact) + (v ^ q_exact),
-        p * u.derivative - p * q == 0,
+        v.derivative @ u.derivative == -(v @ source_exact) + (v ^ q_exact),
+        p @ u.derivative - p @ q == 0,
         sorting=lambda f: f.order,
     )
-    print(system)
+    print(system_as_string(system))
 
 
 
@@ -209,13 +211,13 @@ is needed to compute the error given by the :math:`H^1`.
 
  .. code-block:: none
 
-    [u(0*)]^T  ([(E(1, 0))^T @ M(0) @ E(1, 0) |         0]  [u(0)]   [-1 * <u, source_exact> + <u, q_exact>])
-    [q(1*)]    ([              M(1) @ E(1, 0) | -1 * M(1)]  [q(1)] = [                                    0])
+    [(E(1, 0))^T M(1) E(1, 0) | 0        ] [u(0)]   [- 1 * E<u, source_exact> + B<u, q_exact>]   [0 | 0] [u(0)]
+    [M(1) E(1, 0)             | -1.0 M(1)] [q(1)] = [+ 0                                     ] + [0 | 0] [q(1)]
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 160-167
+.. GENERATED FROM PYTHON SOURCE LINES 162-169
 
 Making The Mesh
 ---------------
@@ -225,7 +227,7 @@ The boundaries of the mesh are defined by B-splines with 4 knots, meaning they
 are cubic splines. The mesh is presented in the plot bellow.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 168-200
+.. GENERATED FROM PYTHON SOURCE LINES 170-202
 
 .. code-block:: Python
 
@@ -273,7 +275,7 @@ are cubic splines. The mesh is presented in the plot bellow.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 201-206
+.. GENERATED FROM PYTHON SOURCE LINES 203-208
 
 Check the Result
 ----------------
@@ -281,7 +283,7 @@ Check the Result
 Before checking the convergence, let us first just check on how the solution
 looks.
 
-.. GENERATED FROM PYTHON SOURCE LINES 207-248
+.. GENERATED FROM PYTHON SOURCE LINES 209-252
 
 .. code-block:: Python
 
@@ -294,7 +296,9 @@ looks.
             system,
             boundary_conditions=[BoundaryCondition2DSteady(u, msh.boundary_indices, u_exact)],
         ),
-        solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+        solver_settings=SolverSettings(
+            ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+        ),
         print_residual=False,
         recon_order=25,
     )
@@ -338,14 +342,14 @@ looks.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 249-253
+.. GENERATED FROM PYTHON SOURCE LINES 253-257
 
 Solve for Different Orders
 --------------------------
 
 So we solve for different orders.
 
-.. GENERATED FROM PYTHON SOURCE LINES 254-290
+.. GENERATED FROM PYTHON SOURCE LINES 258-296
 
 .. code-block:: Python
 
@@ -367,7 +371,9 @@ So we solve for different orders.
                     BoundaryCondition2DSteady(u, msh.boundary_indices, u_exact)
                 ],
             ),
-            solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+            solver_settings=SolverSettings(
+                ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+            ),
             print_residual=False,
             recon_order=25,
         )
@@ -403,7 +409,7 @@ So we solve for different orders.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 291-299
+.. GENERATED FROM PYTHON SOURCE LINES 297-305
 
 Plot Results
 ------------
@@ -414,7 +420,7 @@ Here we plot the results.
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 300-324
+.. GENERATED FROM PYTHON SOURCE LINES 306-330
 
 .. code-block:: Python
 
@@ -455,18 +461,18 @@ Here we plot the results.
 
  .. code-block:: none
 
-    Solution converges with p as: 36.9 * (0.0493) ** p in H1 norm
+    Solution converges with p as: 36.5 * (0.0497) ** p in H1 norm
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 325-328
+.. GENERATED FROM PYTHON SOURCE LINES 331-334
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 329-351
+.. GENERATED FROM PYTHON SOURCE LINES 335-357
 
 .. code-block:: Python
 
@@ -513,7 +519,7 @@ Here we plot the results.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.371 seconds)
+   **Total running time of the script:** (0 minutes 1.383 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_direct_poisson.py:

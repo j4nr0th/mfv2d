@@ -44,7 +44,7 @@ equation :eq:`unsteady-heat-direct-variational`.
     \int_{\partial\Omega} v^{(0)} \wedge \star \mathrm{d} u^{(0)}
     - \left(v^{(0)}, f\right)_\Omega
 
-.. GENERATED FROM PYTHON SOURCE LINES 28-46
+.. GENERATED FROM PYTHON SOURCE LINES 28-48
 
 .. code-block:: Python
 
@@ -55,6 +55,7 @@ equation :eq:`unsteady-heat-direct-variational`.
     from matplotlib import pyplot as plt
     from mfv2d import (
         BoundaryCondition2DSteady,
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -63,6 +64,7 @@ equation :eq:`unsteady-heat-direct-variational`.
         UnknownFormOrder,
         mesh_create,
         solve_system_2d,
+        system_as_string,
     )
     from scipy.integrate import trapezoid
 
@@ -73,7 +75,7 @@ equation :eq:`unsteady-heat-direct-variational`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 47-83
+.. GENERATED FROM PYTHON SOURCE LINES 49-85
 
 Setup
 -----
@@ -112,7 +114,7 @@ fixed-point iteration.
 
     f = \beta (u_s - u) + \frac{\alpha \pi^2}{2} u
 
-.. GENERATED FROM PYTHON SOURCE LINES 84-95
+.. GENERATED FROM PYTHON SOURCE LINES 86-97
 
 .. code-block:: Python
 
@@ -134,7 +136,7 @@ fixed-point iteration.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 96-102
+.. GENERATED FROM PYTHON SOURCE LINES 98-104
 
 System Setup
 ------------
@@ -143,7 +145,7 @@ System setup is what was discussed above. What should be noted is the
 fact that since now there are involving the solution itself on the
 right side of the equation, this is now an iterative solve.
 
-.. GENERATED FROM PYTHON SOURCE LINES 103-114
+.. GENERATED FROM PYTHON SOURCE LINES 105-115
 
 .. code-block:: Python
 
@@ -153,11 +155,10 @@ right side of the equation, this is now an iterative solve.
     v = u.weight
 
     system = KFormSystem(
-        ALPHA * (v.derivative * u.derivative)
-        == BETA * (v * steady_u) - (BETA - ALPHA * np.pi**2 / 2) * (v * u),
-        sorting=lambda f: f.order,
+        ALPHA * (v.derivative @ u.derivative)
+        == BETA * (v @ steady_u) - (BETA - ALPHA * np.pi**2 / 2) * (v @ u),
     )
-    print(system)
+    print(system_as_string(system))
 
 
 
@@ -166,12 +167,12 @@ right side of the equation, this is now an iterative solve.
 
  .. code-block:: none
 
-    [u(0*)]^T  ([0.02 * (E(1, 0))^T @ M(0) @ E(1, 0)]  [u(0)] = [<u, steady_u>]) + [u(0*)]^T  ([-0.901304 * M(0)]  [u(0)] 
+    [0.02 (E(1, 0))^T M(1) E(1, 0)] [u(0)] = [+ E<u, steady_u>] + [-0.9013039559891064 M(0)] [u(0)]
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 115-122
+.. GENERATED FROM PYTHON SOURCE LINES 116-123
 
 Making the Mesh
 ---------------
@@ -181,7 +182,7 @@ before. As for the time steps, values of 2, 4, 8, 16, 32, 64, and 128 are used.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 123-151
+.. GENERATED FROM PYTHON SOURCE LINES 124-152
 
 .. code-block:: Python
 
@@ -220,14 +221,14 @@ before. As for the time steps, values of 2, 4, 8, 16, 32, 64, and 128 are used.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 152-156
+.. GENERATED FROM PYTHON SOURCE LINES 153-157
 
 Running the Calculations
 ------------------------
 
 Now we run the calculations and get the error.
 
-.. GENERATED FROM PYTHON SOURCE LINES 157-198
+.. GENERATED FROM PYTHON SOURCE LINES 158-201
 
 .. code-block:: Python
 
@@ -243,7 +244,9 @@ Now we run the calculations and get the error.
                 ],
             ),
             solver_settings=SolverSettings(
-                maximum_iterations=20, relative_tolerance=0, absolute_tolerance=1e-10
+                ConvergenceSettings(
+                    maximum_iterations=20, relative_tolerance=0, absolute_tolerance=1e-10
+                )
             ),
             time_settings=TimeSettings(dt=dt, nt=nt, time_march_relations={v: u}),
             recon_order=25,
@@ -284,14 +287,14 @@ Now we run the calculations and get the error.
     For dt=0.6666666666666666 total error was 3.478e-02.
     For dt=0.3333333333333333 total error was 8.861e-03.
     For dt=0.18181818181818182 total error was 2.648e-03.
-    For dt=0.1 total error was 8.020e-04.
-    For dt=0.05714285714285714 total error was 2.620e-04.
-    For dt=0.03125 total error was 7.840e-05.
+    For dt=0.1 total error was 8.019e-04.
+    For dt=0.05714285714285714 total error was 2.619e-04.
+    For dt=0.03125 total error was 7.832e-05.
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 199-206
+.. GENERATED FROM PYTHON SOURCE LINES 202-209
 
 Plotting the Error
 ------------------
@@ -301,7 +304,7 @@ another order of accuracy out of fucking thin air. If I had
 to guess it is related to the fact that the time integration
 is symplectic.
 
-.. GENERATED FROM PYTHON SOURCE LINES 207-230
+.. GENERATED FROM PYTHON SOURCE LINES 210-233
 
 .. code-block:: Python
 
@@ -343,7 +346,7 @@ is symplectic.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 7.502 seconds)
+   **Total running time of the script:** (0 minutes 7.834 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_heat_direct.py:

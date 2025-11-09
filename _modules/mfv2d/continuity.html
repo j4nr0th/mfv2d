@@ -162,16 +162,20 @@
 <li class="toctree-l1"><a class="reference internal" href="../../auto_examples/index.html">Examples</a></li>
 
 
+
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/examples.html">examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/system.html">system</a></li>
 </ul>
 </details></li>
 </ul>
@@ -294,23 +298,27 @@ document.write(`
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">accumulate</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">compute_gll</span><span class="p">,</span> <span class="n">lagrange1d</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnknownFormOrder</span><span class="p">,</span> <span class="n">UnknownOrderings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.boundary</span><span class="w"> </span><span class="kn">import</span> <span class="n">BoundaryCondition2DSteady</span><span class="p">,</span> <span class="n">mesh_boundary_conditions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.kform</span><span class="w"> </span><span class="kn">import</span> <span class="n">KFormUnknown</span><span class="p">,</span> <span class="n">UnknownFormOrder</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.mimetic2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Constraint</span><span class="p">,</span>
     <span class="n">ElementConstraint</span><span class="p">,</span>
     <span class="n">ElementSide</span><span class="p">,</span>
+    <span class="n">FemCache</span><span class="p">,</span>
     <span class="n">element_boundary_dofs</span><span class="p">,</span>
     <span class="n">element_node_children_on_side</span><span class="p">,</span>
     <span class="n">find_surface_boundary_id_line</span><span class="p">,</span>
     <span class="n">get_side_order</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.system</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElementFormSpecification</span><span class="p">,</span> <span class="n">KFormSystem</span>
 
 
 <div class="viewcode-block" id="_find_surface_boundary_id_node">
@@ -465,7 +473,11 @@ document.write(`
     <span class="n">side_orders</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
     <span class="n">side_order</span> <span class="o">=</span> <span class="n">side_orders</span><span class="p">[(</span><span class="n">side</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">]</span>
 
-    <span class="k">return</span> <span class="p">[</span><span class="n">ElementConstraint</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">compute_gll</span><span class="p">(</span><span class="n">side_order</span><span class="p">)[</span><span class="mi">0</span><span class="p">])]</span></div>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="n">ElementConstraint</span><span class="p">(</span>
+            <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_index</span><span class="p">(</span><span class="n">element</span><span class="p">),</span> <span class="n">indices</span><span class="p">,</span> <span class="n">compute_gll</span><span class="p">(</span><span class="n">side_order</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="p">]</span></div>
 
 
 
@@ -517,7 +529,9 @@ document.write(`
             <span class="n">Constraint</span><span class="p">(</span>
                 <span class="mf">0.0</span><span class="p">,</span>
                 <span class="n">ElementConstraint</span><span class="p">(</span>
-                    <span class="n">element</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">idx</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                    <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_index</span><span class="p">(</span><span class="n">element</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">idx</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
                 <span class="p">),</span>
             <span class="p">)</span>
             <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">indices</span>
@@ -634,10 +648,14 @@ document.write(`
             <span class="n">Constraint</span><span class="p">(</span>
                 <span class="mf">0.0</span><span class="p">,</span>
                 <span class="n">ElementConstraint</span><span class="p">(</span>
-                    <span class="n">l1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">d1</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                    <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_index</span><span class="p">(</span><span class="n">l1</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">d1</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
                 <span class="p">),</span>
                 <span class="n">ElementConstraint</span><span class="p">(</span>
-                    <span class="n">l2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">d2</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                    <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_index</span><span class="p">(</span><span class="n">l2</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">d2</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
                 <span class="p">),</span>
             <span class="p">)</span>
         <span class="p">)</span>
@@ -899,23 +917,17 @@ document.write(`
 <div class="viewcode-block" id="connect_elements">
 <a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity.connect_elements">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">connect_elements</span><span class="p">(</span>
-    <span class="n">unknowns</span><span class="p">:</span> <span class="n">UnknownOrderings</span><span class="p">,</span>
-    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
-    <span class="n">leaf_index_mapping</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
-    <span class="n">dof_offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">form_specs</span><span class="p">:</span> <span class="n">ElementFormSpecification</span><span class="p">,</span> <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate constraints for all elements and unknowns.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    unknowns : UnknownOrderings</span>
+<span class="sd">    form_specs : ElementFormSpecification</span>
 <span class="sd">        Orders of unknown forms defined for all elements.</span>
 
 <span class="sd">    mesh : Mesh</span>
 <span class="sd">        Mesh with primal and dual topology of root elements.</span>
-
-<span class="sd">    dof_offsets : FixedElementArray[np.uint32]</span>
-<span class="sd">        Array of offsets for degrees of freedom in the elements.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -923,8 +935,8 @@ document.write(`
 <span class="sd">        List with constraints which enforce continuity between degrees of freedom</span>
 <span class="sd">        for unknown forms defined between all elements.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">has_0</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">form</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">unknowns</span><span class="o">.</span><span class="n">form_orders</span><span class="p">)</span>
-    <span class="n">has_1</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">form</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">unknowns</span><span class="o">.</span><span class="n">form_orders</span><span class="p">)</span>
+    <span class="n">has_0</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">form</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">form_specs</span><span class="o">.</span><span class="n">orders</span><span class="p">)</span>
+    <span class="n">has_1</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">form</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">form_specs</span><span class="o">.</span><span class="n">orders</span><span class="p">)</span>
 
     <span class="n">intra_element_0</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>  <span class="c1"># for 0-forms</span>
     <span class="n">intra_element_1</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>  <span class="c1"># for 1-forms</span>
@@ -1020,7 +1032,7 @@ document.write(`
     <span class="n">real_constraints</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Constraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
 
     <span class="c1"># First does not need offsets, since there is nothing before it</span>
-    <span class="k">for</span> <span class="n">i_form</span><span class="p">,</span> <span class="n">form</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unknowns</span><span class="o">.</span><span class="n">form_orders</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i_form</span><span class="p">,</span> <span class="n">form</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">form_specs</span><span class="o">.</span><span class="n">orders</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">form</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">:</span>
             <span class="n">base</span> <span class="o">=</span> <span class="n">combined_0</span>
         <span class="k">elif</span> <span class="n">form</span> <span class="o">==</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_1</span><span class="p">:</span>
@@ -1038,7 +1050,11 @@ document.write(`
                     <span class="o">*</span><span class="p">(</span>
                         <span class="n">ElementConstraint</span><span class="p">(</span>
                             <span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">,</span>
-                            <span class="n">ec</span><span class="o">.</span><span class="n">dofs</span> <span class="o">+</span> <span class="n">dof_offsets</span><span class="p">[</span><span class="n">leaf_index_mapping</span><span class="p">[</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">],</span> <span class="n">i_form</span><span class="p">],</span>
+                            <span class="n">ec</span><span class="o">.</span><span class="n">dofs</span>
+                            <span class="o">+</span> <span class="n">form_specs</span><span class="o">.</span><span class="n">form_offset</span><span class="p">(</span>
+                                <span class="n">i_form</span><span class="p">,</span>
+                                <span class="o">*</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">find_leaf_by_index</span><span class="p">(</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">)),</span>
+                            <span class="p">),</span>
                             <span class="n">ec</span><span class="o">.</span><span class="n">coeffs</span><span class="p">,</span>
                         <span class="p">)</span>
                         <span class="k">for</span> <span class="n">ec</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">element_constraints</span>
@@ -1050,6 +1066,122 @@ document.write(`
             <span class="n">real_constraints</span> <span class="o">+=</span> <span class="n">base</span>
 
     <span class="k">return</span> <span class="n">real_constraints</span></div>
+
+
+
+<div class="viewcode-block" id="add_system_constraints">
+<a class="viewcode-back" href="../../modules/continuity.html#mfv2d.continuity.add_system_constraints">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_system_constraints</span><span class="p">(</span>
+    <span class="n">system</span><span class="p">:</span> <span class="n">KFormSystem</span><span class="p">,</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">basis_cache</span><span class="p">:</span> <span class="n">FemCache</span><span class="p">,</span>
+    <span class="n">constrained_forms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">KFormUnknown</span><span class="p">]],</span>
+    <span class="n">boundary_conditions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">BoundaryCondition2DSteady</span><span class="p">],</span>
+    <span class="n">leaf_indices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">element_offset</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+    <span class="n">linear_vectors</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute constraints for the system and vectors with weak boundary conditions.&quot;&quot;&quot;</span>
+    <span class="n">constrained_form_constaints</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">KFormUnknown</span><span class="p">,</span> <span class="n">Constraint</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">form_specs</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">constrained_forms</span><span class="p">:</span>
+        <span class="n">i_unknown</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">unknown_forms</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+        <span class="n">constrained_form_constaints</span><span class="p">[</span><span class="n">form</span><span class="p">]</span> <span class="o">=</span> <span class="n">Constraint</span><span class="p">(</span>
+            <span class="n">k</span><span class="p">,</span>
+            <span class="o">*</span><span class="p">(</span>
+                <span class="n">ElementConstraint</span><span class="p">(</span>
+                    <span class="n">i</span><span class="p">,</span>
+                    <span class="n">form_specs</span><span class="o">.</span><span class="n">form_offset</span><span class="p">(</span><span class="n">i_unknown</span><span class="p">,</span> <span class="o">*</span><span class="n">orders</span><span class="p">)</span>
+                    <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
+                        <span class="n">form_specs</span><span class="o">.</span><span class="n">form_size</span><span class="p">(</span><span class="n">i_unknown</span><span class="p">,</span> <span class="o">*</span><span class="n">orders</span><span class="p">),</span>
+                        <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+                    <span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">form_specs</span><span class="o">.</span><span class="n">form_size</span><span class="p">(</span><span class="n">i_unknown</span><span class="p">,</span> <span class="o">*</span><span class="n">orders</span><span class="p">)),</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">orders</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">leaf_idx</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">leaf_idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">leaf_indices</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">boundary_conditions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">boundary_conditions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+    <span class="n">strong_bc_constraints</span><span class="p">,</span> <span class="n">weak_bc_constraints</span> <span class="o">=</span> <span class="n">mesh_boundary_conditions</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">eq</span><span class="o">.</span><span class="n">right</span> <span class="k">for</span> <span class="n">eq</span> <span class="ow">in</span> <span class="n">system</span><span class="o">.</span><span class="n">equations</span><span class="p">],</span>
+        <span class="n">form_specs</span><span class="p">,</span>
+        <span class="n">mesh</span><span class="p">,</span>
+        <span class="p">[</span>
+            <span class="p">[</span><span class="n">bc</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">boundary_conditions</span> <span class="k">if</span> <span class="n">bc</span><span class="o">.</span><span class="n">form</span> <span class="o">==</span> <span class="n">eq</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">base_form</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">eq</span> <span class="ow">in</span> <span class="n">system</span><span class="o">.</span><span class="n">equations</span>
+        <span class="p">],</span>
+        <span class="n">basis_cache</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">continuity_constraints</span> <span class="o">=</span> <span class="n">connect_elements</span><span class="p">(</span><span class="n">form_specs</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span>
+
+    <span class="n">constraint_rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">constraint_cols</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">constraint_coef</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">constraint_vals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="c1"># Continuity constraints</span>
+    <span class="n">ic</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="n">continuity_constraints</span><span class="p">:</span>
+        <span class="n">constraint_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">constraint</span><span class="o">.</span><span class="n">rhs</span><span class="p">)</span>
+        <span class="c1"># print(f&quot;Continuity constraint {ic=}:&quot;)</span>
+        <span class="k">for</span> <span class="n">ec</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">element_constraints</span><span class="p">:</span>
+            <span class="n">offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">element_offset</span><span class="p">[</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">])</span>
+            <span class="n">constraint_cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ec</span><span class="o">.</span><span class="n">dofs</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span>
+            <span class="n">constraint_rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">ec</span><span class="o">.</span><span class="n">dofs</span><span class="p">,</span> <span class="n">ic</span><span class="p">))</span>
+            <span class="n">constraint_coef</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ec</span><span class="o">.</span><span class="n">coeffs</span><span class="p">)</span>
+        <span class="c1">#     print(ec)</span>
+        <span class="c1"># print(&quot;&quot;)</span>
+        <span class="n">ic</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="c1"># Form constraining</span>
+    <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">constrained_form_constaints</span><span class="p">:</span>
+        <span class="n">constraint</span> <span class="o">=</span> <span class="n">constrained_form_constaints</span><span class="p">[</span><span class="n">form</span><span class="p">]</span>
+        <span class="n">constraint_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">constraint</span><span class="o">.</span><span class="n">rhs</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ec</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">element_constraints</span><span class="p">:</span>
+            <span class="n">offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">element_offset</span><span class="p">[</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">])</span>
+            <span class="n">constraint_cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ec</span><span class="o">.</span><span class="n">dofs</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span>
+            <span class="n">constraint_rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">ec</span><span class="o">.</span><span class="n">dofs</span><span class="p">,</span> <span class="n">ic</span><span class="p">))</span>
+            <span class="n">constraint_coef</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ec</span><span class="o">.</span><span class="n">coeffs</span><span class="p">)</span>
+        <span class="n">ic</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="c1"># Strong BC constraints</span>
+    <span class="k">for</span> <span class="n">ec</span> <span class="ow">in</span> <span class="n">strong_bc_constraints</span><span class="p">:</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">element_offset</span><span class="p">[</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">ci</span><span class="p">,</span> <span class="n">cv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ec</span><span class="o">.</span><span class="n">dofs</span><span class="p">,</span> <span class="n">ec</span><span class="o">.</span><span class="n">coeffs</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">constraint_rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ic</span><span class="p">]))</span>
+            <span class="n">constraint_cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ci</span> <span class="o">+</span> <span class="n">offset</span><span class="p">]))</span>
+            <span class="n">constraint_coef</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">]))</span>
+            <span class="n">constraint_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">cv</span><span class="p">))</span>
+
+            <span class="n">ic</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="c1"># Weak BC constraints/additions</span>
+    <span class="k">if</span> <span class="n">linear_vectors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">ec</span> <span class="ow">in</span> <span class="n">weak_bc_constraints</span><span class="p">:</span>
+            <span class="n">linear_vectors</span><span class="p">[</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">][</span><span class="n">ec</span><span class="o">.</span><span class="n">dofs</span><span class="p">]</span> <span class="o">+=</span> <span class="n">ec</span><span class="o">.</span><span class="n">coeffs</span>
+
+    <span class="k">if</span> <span class="n">constraint_coef</span><span class="p">:</span>
+        <span class="n">lagrange_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">constraint_coef</span><span class="p">),</span>
+                <span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">constraint_rows</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">intp</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">constraint_cols</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">intp</span><span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">lagrange_mat</span><span class="o">.</span><span class="n">resize</span><span class="p">((</span><span class="n">ic</span><span class="p">,</span> <span class="n">element_offset</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">lagrange_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">constraint_vals</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">lagrange_mat</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">lagrange_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">lagrange_mat</span><span class="p">,</span> <span class="n">lagrange_vec</span></div>
 
 </pre></div>
 

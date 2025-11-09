@@ -164,16 +164,20 @@
 <li class="toctree-l1"><a class="reference internal" href="../index.html">Examples</a></li>
 
 
+
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/examples.html">examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/system.html">system</a></li>
 </ul>
 </details></li>
 </ul>
@@ -356,6 +360,7 @@ differences from that one will be mentioned.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">rmsh</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ConvergenceSettings</span><span class="p">,</span>
     <span class="n">KFormSystem</span><span class="p">,</span>
     <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">,</span>
     <span class="n">SolverSettings</span><span class="p">,</span>
@@ -364,6 +369,7 @@ differences from that one will be mentioned.</p>
     <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">mesh_create</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
+    <span class="n">system_as_string</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.trapezoid.html#scipy.integrate.trapezoid" title="scipy.integrate.trapezoid" class="sphx-glr-backref-module-scipy-integrate sphx-glr-backref-type-py-function"><span class="n">trapezoid</span></a>
 </pre></div>
@@ -398,12 +404,12 @@ it is also computed here.</p>
 <span class="n">p</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
-    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">p</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">*</span> <span class="n">u</span> <span class="o">-</span> <span class="n">p</span> <span class="o">*</span> <span class="n">q</span> <span class="o">==</span> <span class="n">p</span> <span class="o">^</span> <span class="n">steady_u</span><span class="p">,</span>
-    <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">ALPHA</span></a> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">*</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">q</span><span class="o">.</span><span class="n">derivative</span></a><span class="p">)</span>
-    <span class="o">==</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BETA</span></a> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">steady_u</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BETA</span></a> <span class="o">-</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">ALPHA</span></a> <span class="o">*</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">pi</span></a><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">u</span><span class="p">),</span>
+    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">p</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">@</span> <span class="n">u</span> <span class="o">-</span> <span class="n">p</span> <span class="o">@</span> <span class="n">q</span> <span class="o">==</span> <span class="n">p</span> <span class="o">^</span> <span class="n">steady_u</span><span class="p">,</span>
+    <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">ALPHA</span></a> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">q</span><span class="o">.</span><span class="n">derivative</span></a><span class="p">)</span>
+    <span class="o">==</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BETA</span></a> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">@</span> <span class="n">steady_u</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BETA</span></a> <span class="o">-</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">ALPHA</span></a> <span class="o">*</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">pi</span></a><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">@</span> <span class="n">u</span><span class="p">),</span>
     <span class="n">sorting</span><span class="o">=</span><span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">system_as_string</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
 
 <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">N</span></a> <span class="o">=</span> <span class="mi">13</span>
 <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">P</span></a> <span class="o">=</span> <span class="mi">3</span>
@@ -435,11 +441,13 @@ it is also computed here.</p>
 
 <span class="k">for</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">i_nt</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.uint32" title="numpy.uint32" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">nt</span></a> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">nt_vals</span></a><span class="p">):</span>
     <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">dt</span></a> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">T_END</span></a> <span class="o">/</span> <a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.uint32" title="numpy.uint32" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">nt</span></a><span class="p">)</span>
-    <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">,</span> <a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
+    <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">,</span> <span class="n">stats</span><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
         <span class="n">mesh</span><span class="p">,</span>
         <span class="n">system_settings</span><span class="o">=</span><span class="n">SystemSettings</span><span class="p">(</span><span class="n">system</span><span class="p">),</span>
         <span class="n">solver_settings</span><span class="o">=</span><span class="n">SolverSettings</span><span class="p">(</span>
-            <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-13</span>
+            <span class="n">ConvergenceSettings</span><span class="p">(</span>
+                <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-13</span>
+            <span class="p">)</span>
         <span class="p">),</span>
         <span class="n">time_settings</span><span class="o">=</span><span class="n">TimeSettings</span><span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">dt</span></a><span class="o">=</span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">dt</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.uint32" title="numpy.uint32" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">nt</span></a><span class="o">=</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.uint32" title="numpy.uint32" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">nt</span></a><span class="p">,</span> <span class="n">time_march_relations</span><span class="o">=</span><span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">u</span><span class="p">}),</span>
         <span class="n">recon_order</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
@@ -480,14 +488,14 @@ it is also computed here.</p>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;For </span><span class="si">{</span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">dt</span></a><span class="si">=:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> total error was </span><span class="si">{</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">h1_total_error</span></a><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[q(1*)]^T  ([            -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [&lt;q, steady_u&gt;])   [q(1*)]^T  ([0 |                0]  [q(1)]
-[u(2*)]    ([0.02 * M(2) @ E(2, 1) |                  0]  [u(2)] = [&lt;u, steady_u&gt;]) + [u(2*)]    ([0 | -0.901304 * M(2)]  [u(2)]
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[-1.0 M(1)         | (E(2, 1))^T M(2)] [q(1)]   [+ B&lt;q, steady_u&gt;]   [0 | 0                       ] [q(1)]
+[0.02 M(2) E(2, 1) | 0               ] [u(2)] = [+ E&lt;u, steady_u&gt;] + [0 | -0.9013039559891064 M(2)] [u(2)]
 For dt=1 total error was 1.986e-01.
 For dt=0.667 total error was 9.133e-02.
 For dt=0.333 total error was 2.327e-02.
 For dt=0.2 total error was 8.415e-03.
 For dt=0.111 total error was 2.613e-03.
-For dt=0.0625 total error was 8.619e-04.
+For dt=0.0625 total error was 8.627e-04.
 </pre></div>
 </div>
 </section>
@@ -550,7 +558,7 @@ is symplectic.</p>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_heat_mixed_002.png" srcset="../../_images/sphx_glr_plot_heat_mixed_002.png" alt="plot heat mixed" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 10.895 seconds)</p>
+<img src="../../_images/sphx_glr_plot_heat_mixed_002.png" srcset="../../_images/sphx_glr_plot_heat_mixed_002.png" alt="plot heat mixed" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 10.991 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-unsteady-plot-heat-mixed-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/c9772d35c598678eb773e70a04290d7a/plot_heat_mixed.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_heat_mixed.ipynb</span></code></a></p>

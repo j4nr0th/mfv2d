@@ -41,8 +41,6 @@ bellow.
 
 .. autoclass:: Push
 
-.. autoclass:: MatMul
-
 .. autoclass:: Scale
 
 .. autoclass:: Sum
@@ -54,24 +52,45 @@ AST Translation
 ---------------
 
 The translation from the AST form into the Python bytecode
-is performed by :func:`translate_equation` function. This
-is a thin wrapper around :func:`_translate_equation` function,
-which produces very sub-optimal bytecode. As such, the function
-will (when specified) call :func:`simplify_expression` to simplify
-the bytecode before returning.
+is performed by :func:`translate_implicit_ksum` function. This
+calls :func:`_translate_inner_prod` function, which in turn relies on
+:func:`_translate_form`. The bytecode these produce may be sub-optimal.
+As such, the function will (when specified) call
+:func:`simplify_expression` to simplify the bytecode before returning.
+This mainly has do deal with eliminating matrices followed by their inverse.
+
+.. autofunction:: translate_implicit_ksum
+
+.. autofunction:: _translate_inner_prod
+
+.. autofunction:: _translate_form
 
 
-.. autofunction:: translate_equation
+To cache these translation results and to be able to explicitly
+choose only linear, nonlinear, or explicit terms the type
+:class:`CompiledSystem` is provided.
 
-.. autofunction:: _translate_equation
+.. autoclass:: CompiledSystem
 
 
 To check if the AST was correctly translated, or when debugging,
 the expected result can be obtained by a call to
-:func:`print_eval_procedure` which will convert the iterable of
-:class:`MatOp` into a :class:`str`.
+:func:`system_as_string` which will convert the system into instructions,
+then print the resulting (simplified) code, exactly as the evaluation code
+would. To support this function, support functions
+:func:`_translate_expr_to_str`,
+:func:`_translate_codes_to_str`, :func:`bytecode_matrix_as_rows`, and
+:func:`explicit_ksum_as_string` are available.
 
-.. autofunction:: print_eval_procedure
+.. autofunction:: system_as_string
+
+.. autofunction:: _translate_expr_to_str
+
+.. autofunction:: _translate_codes_to_str
+
+.. autofunction:: bytecode_matrix_as_rows
+
+.. autofunction:: explicit_ksum_as_string
 
 
 Bytecode Simplifictaion
@@ -96,24 +115,7 @@ values into :class:`MatOpCode`, :class:`int`, or :class:`float` values.
     :member-order: bysource
 
 The actual translation is handled by the :func:`translate_to_c_instructions`
-function.
+function. Some basic type hits are introduced to allow for type hinting the
+output of :func:`translate_to_c_instructions`.
 
 .. autofunction:: translate_to_c_instructions
-
-
-Putting it All Togehter
------------------------
-
-Since the steps and related function and types are never used outside of
-converting AST code into C bytecode, the functionality is wrapped
-by the :func:`translate_system` function, which performs the conversion
-of an entire :class:`mfv2d.kform.KFormSystem` into the bytecode.
-
-.. autofunction:: translate_system
-
-
-This is abstracted further into a :class:`CompiledSystem` type, which
-automatically extracts linear, non-linear, right implicit, and left
-implicit terms, which is what the solver actually needs.
-
-.. autoclass:: CompiledSystem

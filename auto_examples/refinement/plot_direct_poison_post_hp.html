@@ -1,0 +1,2460 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Post-Solver Combined hp-refinement with Direct Poisson &#8212; mfv2d  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/thebelab-helper.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'auto_examples/refinement/plot_direct_poison_post_hp';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Approximating Error from Projections with Advection-Diffusion" href="plot_advdif_post_hp_projection.html" />
+    <link rel="prev" title="Post-Solver p-Refinement" href="plot_direct_poisson_refined_post_p.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mfv2d  documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../basis.html">Mimetic Spectral Elements Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Examples</a></li>
+
+
+
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/examples.html">examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/system.html">system</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../_sources/auto_examples/refinement/plot_direct_poison_post_hp.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Post-Solver Combined hp-refinement with Direct Poisson</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#problem-description">Problem Description</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#system-setup">System Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#making-the-mesh">Making the Mesh</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#initialize-the-mesh">Initialize the Mesh</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#refinement-settings">Refinement Settings</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluating-a-refinement-strategy">Evaluating a Refinement Strategy</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#baseline-data">Baseline Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-hp-refinement">Running hp-Refinement</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#baseline">Baseline</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#more-permissive-h-refinement">More Permissive h-refinement</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#more-strict-h-refinement">More Strict h-refinement</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#more-confident-refinement">More Confident Refinement</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pure-local-p-refinement">Pure Local p-refinement</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plotting-results">Plotting Results</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="#sphx-glr-download-auto-examples-refinement-plot-direct-poison-post-hp-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="post-solver-combined-hp-refinement-with-direct-poisson">
+<span id="sphx-glr-auto-examples-refinement-plot-direct-poison-post-hp-py"></span><h1>Post-Solver Combined hp-refinement with Direct Poisson<a class="headerlink" href="#post-solver-combined-hp-refinement-with-direct-poisson" title="Link to this heading">#</a></h1>
+<p>This solver showcases refinement process using post-solver refinement.
+The idea here is to use both h-refinement and p-refinement, which allows
+for much more efficient convergence for locally sharp solutions.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyvista</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pv</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rmsh</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">PolyCollection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <a href="../../modules/boundary.html#mfv2d.boundary.BoundaryCondition2D" title="mfv2d.boundary.BoundaryCondition2D" class="sphx-glr-backref-module-mfv2d-boundary sphx-glr-backref-type-py-class"><span class="n">BoundaryCondition2DSteady</span></a><span class="p">,</span>
+    <span class="n">ErrorEstimateExplicit</span><span class="p">,</span>
+    <span class="n">KFormSystem</span><span class="p">,</span>
+    <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">,</span>
+    <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">RefinementLimitElementCount</span><span class="p">,</span>  <span class="c1"># Need a refinement limit</span>
+    <span class="n">RefinementSettings</span><span class="p">,</span>  <span class="c1"># Need refinement settings</span>
+    <span class="n">SystemSettings</span><span class="p">,</span>
+    <span class="n">UnknownFormOrder</span><span class="p">,</span>
+    <span class="n">mesh_create</span><span class="p">,</span>
+    <span class="n">solve_system_2d</span><span class="p">,</span>
+    <span class="n">system_as_string</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<section id="problem-description">
+<h2>Problem Description<a class="headerlink" href="#problem-description" title="Link to this heading">#</a></h2>
+<p>The model problem that is to be solved here is the direct Poisson equation
+on a deformed square domain, with the solution given by equation
+<a class="reference internal" href="#equation-refine-direct-poisson-post-hp-2">(2)</a>, where the function <span class="math notranslate nohighlight">\(s\)</span> is
+specified by equation <a class="reference internal" href="#equation-refine-direct-poisson-post-hp-1">(1)</a>.</p>
+<div class="math notranslate nohighlight" id="equation-refine-direct-poisson-post-hp-1">
+<span class="eqno">(1)<a class="headerlink" href="#equation-refine-direct-poisson-post-hp-1" title="Link to this equation">#</a></span>\[s(r, t_0; t) = e^{-r (t - t_0)^2}\]</div>
+<div class="math notranslate nohighlight" id="equation-refine-direct-poisson-post-hp-2">
+<span class="eqno">(2)<a class="headerlink" href="#equation-refine-direct-poisson-post-hp-2" title="Link to this equation">#</a></span>\[u(x, y) = s(40, 0.75; x) \cdot s(40, 0.75; y)\]</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a> <span class="o">=</span> <span class="mf">40.0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">s</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">np</span><span class="o">.</span><span class="n">float64</span></a><span class="p">],</span> <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">t0</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.floating" title="numpy.floating" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class"><span class="n">np</span><span class="o">.</span><span class="n">floating</span></a><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute source term.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">exp</span></a><span class="p">(</span><span class="o">-</span><span class="n">r</span> <span class="o">*</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">dsdt</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">np</span><span class="o">.</span><span class="n">float64</span></a><span class="p">],</span> <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">t0</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.floating" title="numpy.floating" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class"><span class="n">np</span><span class="o">.</span><span class="n">floating</span></a><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute derivative source term.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">r</span> <span class="o">*</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">*</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">exp</span></a><span class="p">(</span><span class="o">-</span><span class="n">r</span> <span class="o">*</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">d2sdt2</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">np</span><span class="o">.</span><span class="n">float64</span></a><span class="p">],</span> <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">t0</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.floating" title="numpy.floating" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class"><span class="n">np</span><span class="o">.</span><span class="n">floating</span></a><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute second derivative source term.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">r</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">r</span> <span class="o">*</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">exp</span></a><span class="p">(</span><span class="o">-</span><span class="n">r</span> <span class="o">*</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">u_exact</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">np</span><span class="o">.</span><span class="n">float64</span></a><span class="p">],</span> <span class="n">y</span><span class="p">:</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">np</span><span class="o">.</span><span class="n">float64</span></a><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exact solution.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">s</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">)</span> <span class="o">*</span> <span class="n">s</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">q_exact</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">np</span><span class="o">.</span><span class="n">float64</span></a><span class="p">],</span> <span class="n">y</span><span class="p">:</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">np</span><span class="o">.</span><span class="n">float64</span></a><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exact curl of solution.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.stack.html#numpy.stack" title="numpy.stack" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">stack</span></a><span class="p">(</span>
+        <span class="p">(</span>
+            <span class="n">s</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">)</span> <span class="o">*</span> <span class="n">dsdt</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">),</span>
+            <span class="o">-</span><span class="n">dsdt</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">)</span> <span class="o">*</span> <span class="n">s</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">),</span>
+        <span class="p">),</span>
+        <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">source_exact</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">np</span><span class="o">.</span><span class="n">float64</span></a><span class="p">],</span> <span class="n">y</span><span class="p">:</span> <a href="https://docs.python.org/3/library/types.html#types.GenericAlias" title="types.GenericAlias" class="sphx-glr-backref-module-types sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64" title="numpy.float64" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-attribute"><span class="n">np</span><span class="o">.</span><span class="n">float64</span></a><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exact heat flux divergence.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">s</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">)</span> <span class="o">*</span> <span class="n">d2sdt2</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">)</span> <span class="o">+</span> <span class="n">d2sdt2</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">)</span> <span class="o">*</span> <span class="n">s</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">R</span></a><span class="p">,</span> <span class="mf">0.75</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="system-setup">
+<h2>System Setup<a class="headerlink" href="#system-setup" title="Link to this heading">#</a></h2>
+<p>System setup for this is exactly the same as it was for other examples,
+with the system and weak boundary conditions specified.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">u</span> <span class="o">=</span> <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="n">UnknownFormOrder</span><span class="o">.</span><span class="n">FORM_ORDER_0</span><span class="p">)</span>
+<span class="n">v</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">weight</span>
+
+<span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
+    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">v</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">u</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="o">-</span><span class="p">(</span><span class="n">v</span> <span class="o">@</span> <span class="n">source_exact</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">v</span> <span class="o">^</span> <span class="n">q_exact</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">system_as_string</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[(E(1, 0))^T M(1) E(1, 0)] [u(0)] = [- 1 * E&lt;u, source_exact&gt; + B&lt;u, q_exact&gt;] + [0] [u(0)]
+</pre></div>
+</div>
+</section>
+<section id="making-the-mesh">
+<h2>Making the Mesh<a class="headerlink" href="#making-the-mesh" title="Link to this heading">#</a></h2>
+<p>The mesh is a deformed square, as mentioned before. Its corners
+match the unit square, but the sides are curved. There are
+five elements in every direction.</p>
+<p>Initial mesh can be seen bellow.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">N</span></a> <span class="o">=</span> <span class="mi">6</span>
+<a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">n1</span></a> <span class="o">=</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">N</span></a>
+<a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">n2</span></a> <span class="o">=</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">N</span></a>
+
+
+<span class="n">m</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">rx</span></a><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">ry</span></a> <span class="o">=</span> <span class="n">rmsh</span><span class="o">.</span><span class="n">create_elliptical_mesh</span><span class="p">(</span>
+    <span class="n">rmsh</span><span class="o">.</span><span class="n">MeshBlock</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rmsh</span><span class="o">.</span><span class="n">BoundaryCurve</span><span class="o">.</span><span class="n">from_knots</span><span class="p">(</span>
+            <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">n1</span></a><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.1</span><span class="p">),</span> <span class="p">(</span><span class="o">+</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.6</span><span class="p">),</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">),</span>  <span class="c1"># bottom</span>
+        <span class="n">rmsh</span><span class="o">.</span><span class="n">BoundaryCurve</span><span class="o">.</span><span class="n">from_knots</span><span class="p">(</span>
+            <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">n2</span></a><span class="p">,</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="o">+</span><span class="mf">1.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7</span><span class="p">),</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">),</span>  <span class="c1"># right</span>
+        <span class="n">rmsh</span><span class="o">.</span><span class="n">BoundaryCurve</span><span class="o">.</span><span class="n">from_knots</span><span class="p">(</span>
+            <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">n1</span></a><span class="p">,</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">),</span>  <span class="c1"># top</span>
+        <span class="n">rmsh</span><span class="o">.</span><span class="n">BoundaryCurve</span><span class="o">.</span><span class="n">from_knots</span><span class="p">(</span>
+            <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">n2</span></a><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.33</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">),</span>  <span class="c1"># left</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+<span class="k">assert</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">rx</span></a> <span class="o">&lt;</span> <span class="mf">1e-6</span> <span class="ow">and</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">ry</span></a> <span class="o">&lt;</span> <span class="mf">1e-6</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+<span class="n">m</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ax</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;$y$&quot;</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_plot_direct_poison_post_hp_001.png" srcset="../../_images/sphx_glr_plot_direct_poison_post_hp_001.png" alt="plot direct poison post hp" class = "sphx-glr-single-img"/><section id="initialize-the-mesh">
+<h3>Initialize the Mesh<a class="headerlink" href="#initialize-the-mesh" title="Link to this heading">#</a></h3>
+<p>With geometry created, it is converted into suitable form to use with <code class="xref py py-mod docutils literal notranslate"><span class="pre">mfv2d</span></code>.
+Also a convinience function <code class="docutils literal notranslate"><span class="pre">plot_mesh_comparisons</span></code> is defined here, to allow for
+simple comparison of meshes.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">PSTART</span></a> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Test polynomial order</span>
+<span class="n">mesh_initial</span> <span class="o">=</span> <span class="n">mesh_create</span><span class="p">(</span>
+    <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">PSTART</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.stack.html#numpy.stack" title="numpy.stack" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">stack</span></a><span class="p">((</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_x</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">pos_y</span></a><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">lines</span></a> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">m</span><span class="o">.</span><span class="n">surfaces</span></a>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_mesh_comparisons</span><span class="p">(</span><span class="o">*</span><span class="n">meshes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mesh</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot one or more meshes with given titles.&quot;&quot;&quot;</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">meshes</span><span class="p">),</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">meshes</span><span class="p">),</span> <span class="mi">5</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">meshes</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">vertices</span> <span class="o">=</span> <span class="p">[</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_corners</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_indices</span><span class="p">()]</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">add_collection</span><span class="p">(</span><span class="n">PolyCollection</span><span class="p">(</span><span class="n">vertices</span><span class="p">,</span> <span class="n">facecolors</span><span class="o">=</span><span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="n">antialiased</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">quad</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_indices</span><span class="p">(),</span> <span class="n">vertices</span><span class="p">):</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+                <span class="o">*</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.mean.html#numpy.mean" title="numpy.mean" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">mean</span></a><span class="p">(</span><span class="n">quad</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">idx</span><span class="p">)),</span>
+                <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+                <span class="n">va</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span>
+                <span class="n">fontsize</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">()</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">aspect</span><span class="o">=</span><span class="s2">&quot;equal&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="refinement-settings">
+<h2>Refinement Settings<a class="headerlink" href="#refinement-settings" title="Link to this heading">#</a></h2>
+<p>Post-solver refinement is controlled with the <code class="xref py py-class docutils literal notranslate"><span class="pre">RefinementSettings</span></code> type.
+The main setting is it is the <code class="docutils literal notranslate"><span class="pre">error_calculation_function</span></code>, which should be
+set to a function which computes two values:</p>
+<ul class="simple">
+<li><p>Error in some norm or semi-norm,</p></li>
+<li><p>Cost of h-refinement in that norm,</p></li>
+</ul>
+<p>If the ratio of the cost of h-refinement and error is bellow the value specified
+as the <code class="docutils literal notranslate"><span class="pre">h_refinement_ratio</span></code>, then the element will be h-refined. Otherwise it
+will be a candidate for p-refinement.</p>
+<p>For this example, the error measure is exact <span class="math notranslate nohighlight">\(L^2\)</span> norm (since the
+manufactured solution is known), and measure of h-refinement cost is given as just
+an arbitrary constant, since <code class="docutils literal notranslate"><span class="pre">h_refinement_ratio</span> <span class="pre">=</span> <span class="pre">0</span></code>, meaning it will never happen.</p>
+<p>To specify when the refinement should stop, <code class="docutils literal notranslate"><span class="pre">refinement_limit</span></code> should be given.
+In this case, <code class="xref py py-class docutils literal notranslate"><span class="pre">RefinementLimitElementCount</span></code> is used to specify that at
+either 10 elements or 100 % of the elements, whichever is lower, can be refined
+each iteration.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">N_ROUNDS</span></a> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">system_settings</span> <span class="o">=</span> <span class="n">SystemSettings</span><span class="p">(</span>
+    <span class="n">system</span><span class="o">=</span><span class="n">system</span><span class="p">,</span>
+    <span class="n">boundary_conditions</span><span class="o">=</span><span class="p">[</span>
+        <a href="../../modules/boundary.html#mfv2d.boundary.BoundaryCondition2D" title="mfv2d.boundary.BoundaryCondition2D" class="sphx-glr-backref-module-mfv2d-boundary sphx-glr-backref-type-py-class"><span class="n">BoundaryCondition2DSteady</span></a><span class="p">(</span><span class="n">u</span><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">mesh_initial</span><span class="o">.</span><span class="n">boundary_indices</span></a><span class="p">,</span> <span class="n">u_exact</span><span class="p">)</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<section id="evaluating-a-refinement-strategy">
+<h3>Evaluating a Refinement Strategy<a class="headerlink" href="#evaluating-a-refinement-strategy" title="Link to this heading">#</a></h3>
+<p>To evaluate a refinement strategy, the problem will be solved <code class="docutils literal notranslate"><span class="pre">N_ROUNDS</span></code>
+times, with post-solve refinement being run after each of these. At each
+square of the error in the <span class="math notranslate nohighlight">\(L^2\)</span> norm is computed, to be able to
+compare with all other strategies.</p>
+<p>The difference between these strategies is how they decide between
+h-refinement and p-refinemenet, as well as how many elements they
+modify each round.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">RUN_COUNT</span></a> <span class="o">=</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">run_refinement_strategy</span><span class="p">(</span><span class="n">h_ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_elements</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute errors and resulting mesh for a refinement strategy.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">RUN_COUNT</span></a>
+    <span class="n">errors_local</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">new_mesh</span> <span class="o">=</span> <span class="n">mesh</span>
+    <span class="n">plotter</span> <span class="o">=</span> <a href="https://docs.pyvista.org/api/plotting/_autosummary/pyvista.Plotter.html#pyvista.Plotter" title="pyvista.Plotter" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class"><span class="n">pv</span><span class="o">.</span><span class="n">Plotter</span></a><span class="p">(</span><span class="n">off_screen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="p">(</span><span class="mi">1600</span><span class="p">,</span> <span class="mi">900</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">open_gif</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;direct-poisson-post-hp-</span><span class="si">{</span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">RUN_COUNT</span></a><span class="si">:</span><span class="s2">d</span><span class="si">}</span><span class="s2">.gif&quot;</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">RUN_COUNT</span></a> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">for</span> <span class="n">i_round</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">N_ROUNDS</span></a><span class="p">):</span>
+        <span class="n">mesh</span> <span class="o">=</span> <span class="n">new_mesh</span>
+        <span class="n">refinement_settings</span> <span class="o">=</span> <span class="n">RefinementSettings</span><span class="p">(</span>
+            <span class="c1"># Specifying how the error is estimated</span>
+            <span class="n">error_estimate</span><span class="o">=</span><span class="n">ErrorEstimateExplicit</span><span class="p">(</span>
+                <span class="c1"># Required by the error function</span>
+                <span class="n">target_form</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+                <span class="c1"># The error (estimation) function</span>
+                <span class="n">solution_estimate</span><span class="o">=</span><span class="n">u_exact</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="c1"># H-refinement when ratio of h-cost and error less than this</span>
+            <span class="n">h_refinement_ratio</span><span class="o">=</span><span class="n">h_ratio</span><span class="p">,</span>
+            <span class="c1"># When to stop refining</span>
+            <span class="n">refinement_limit</span><span class="o">=</span><span class="n">RefinementLimitElementCount</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">max_elements</span><span class="p">),</span>
+            <span class="c1"># Print error distribution to terminal</span>
+            <span class="n">report_error_distribution</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="c1"># Print element order distribution to terminal</span>
+            <span class="n">report_order_distribution</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">,</span> <span class="n">statistics</span><span class="p">,</span> <span class="n">new_mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
+            <span class="n">mesh</span><span class="p">,</span>
+            <span class="n">system_settings</span><span class="o">=</span><span class="n">system_settings</span><span class="p">,</span>
+            <span class="n">refinement_settings</span><span class="o">=</span><span class="n">refinement_settings</span><span class="p">,</span>
+            <span class="n">recon_order</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.UnstructuredGrid.html#pyvista.UnstructuredGrid" title="pyvista.UnstructuredGrid" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a> <span class="o">=</span> <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u_computed</span></a> <span class="o">=</span> <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.DataSet.point_data.html#pyvista.DataSet.point_data" title="pyvista.DataSet.point_data" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-property"><span class="n">solution</span><span class="o">.</span><span class="n">point_data</span></a><span class="p">[</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u</span><span class="o">.</span><span class="n">label</span></a><span class="p">]</span>
+        <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u_real</span></a> <span class="o">=</span> <span class="n">u_exact</span><span class="p">(</span><a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.UnstructuredGridFilters.points.html#pyvista.UnstructuredGridFilters.points" title="pyvista.UnstructuredGridFilters.points" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-attribute"><span class="n">solution</span><span class="o">.</span><span class="n">points</span></a><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.UnstructuredGridFilters.points.html#pyvista.UnstructuredGridFilters.points" title="pyvista.UnstructuredGridFilters.points" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-attribute"><span class="n">solution</span><span class="o">.</span><span class="n">points</span></a><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+        <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">l2_err2</span></a> <span class="o">=</span> <span class="p">(</span><a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u_real</span></a> <span class="o">-</span> <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u_computed</span></a><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.DataSet.point_data.html#pyvista.DataSet.point_data" title="pyvista.DataSet.point_data" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-property"><span class="n">solution</span><span class="o">.</span><span class="n">point_data</span></a><span class="p">[</span><span class="s2">&quot;l2_error2&quot;</span><span class="p">]</span> <span class="o">=</span> <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">l2_err2</span></a>
+
+        <span class="n">errors_local</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">(</span>
+                <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">statistics</span><span class="o">.</span><span class="n">n_total_dofs</span></a><span class="p">,</span>
+                <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span></a><span class="p">(</span><a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.DataSetFilters.integrate_data.html#pyvista.DataSetFilters.integrate_data" title="pyvista.DataSetFilters.integrate_data" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">solution</span><span class="o">.</span><span class="n">integrate_data</span></a><span class="p">()</span><span class="o">.</span><span class="n">point_data</span><span class="p">[</span><span class="s2">&quot;l2_error2&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Plotting code here</span>
+        <span class="n">plotter</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span>
+            <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.UnstructuredGrid.html#pyvista.UnstructuredGrid" title="pyvista.UnstructuredGrid" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a><span class="p">,</span>
+            <span class="n">scalars</span><span class="o">=</span><span class="s2">&quot;l2_error2&quot;</span><span class="p">,</span>
+            <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="s2">&quot;$L^2$ error&quot;</span><span class="p">,</span>
+            <span class="n">clim</span><span class="o">=</span><span class="p">(</span><span class="mf">1e-20</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">),</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;solution&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span>
+            <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.DataObjectFilters.extract_all_edges.html#pyvista.DataObjectFilters.extract_all_edges" title="pyvista.DataObjectFilters.extract_all_edges" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">solution</span><span class="o">.</span><span class="n">extract_all_edges</span></a><span class="p">(),</span> <span class="n">scalars</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;boundaries&quot;</span>
+        <span class="p">)</span>
+        <span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span><span class="p">()</span>
+
+        <span class="n">plotter</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">sol</span> <span class="o">=</span> <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.DataObject.copy.html#pyvista.DataObject.copy" title="pyvista.DataObject.copy" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">solution</span><span class="o">.</span><span class="n">copy</span></a><span class="p">()</span>
+        <span class="n">sol</span><span class="o">.</span><span class="n">cell_data</span><span class="p">[</span><span class="s2">&quot;geometrical order&quot;</span><span class="p">]</span> <span class="o">=</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html#numpy.linalg.norm" title="numpy.linalg.norm" class="sphx-glr-backref-module-numpy-linalg sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span></a><span class="p">(</span>
+            <span class="p">[</span><span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_orders</span><span class="p">(</span><span class="n">ie</span><span class="p">)</span> <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="n">mesh</span><span class="o">.</span><span class="n">get_leaf_indices</span><span class="p">()],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span>
+        <span class="p">)</span> <span class="o">/</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span></a><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="s2">&quot;geometrical order&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;orders&quot;</span><span class="p">,</span> <span class="n">clim</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">))</span>
+        <span class="n">plotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Round </span><span class="si">{</span><span class="n">i_round</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">:</span><span class="s2">d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;title&quot;</span><span class="p">)</span>
+        <span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span><span class="p">()</span>
+
+        <span class="n">plotter</span><span class="o">.</span><span class="n">write_frame</span><span class="p">()</span>
+
+    <span class="n">plotter</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">errors_local</span><span class="p">,</span> <span class="n">mesh</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="baseline-data">
+<h2>Baseline Data<a class="headerlink" href="#baseline-data" title="Link to this heading">#</a></h2>
+<p>To show benefits of local hp-refinement, first consider uniform p-refinement.
+This is the baseline, which is very effective for very smooth solutions.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_uniform</span></a><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+<span class="n">uniform_mesh</span> <span class="o">=</span> <span class="n">mesh_initial</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="k">for</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">pval</span></a> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">PSTART</span></a><span class="p">,</span> <span class="mi">9</span><span class="p">):</span>
+    <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">,</span> <span class="n">statistics</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
+        <span class="n">uniform_mesh</span><span class="p">,</span>
+        <span class="n">system_settings</span><span class="o">=</span><span class="n">system_settings</span><span class="p">,</span>
+        <span class="n">refinement_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">recon_order</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+    <span class="p">)</span>
+    <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.UnstructuredGrid.html#pyvista.UnstructuredGrid" title="pyvista.UnstructuredGrid" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solution</span></a> <span class="o">=</span> <a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u_computed</span></a> <span class="o">=</span> <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.DataSet.point_data.html#pyvista.DataSet.point_data" title="pyvista.DataSet.point_data" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-property"><span class="n">solution</span><span class="o">.</span><span class="n">point_data</span></a><span class="p">[</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u</span><span class="o">.</span><span class="n">label</span></a><span class="p">]</span>
+    <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u_real</span></a> <span class="o">=</span> <span class="n">u_exact</span><span class="p">(</span><a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.UnstructuredGridFilters.points.html#pyvista.UnstructuredGridFilters.points" title="pyvista.UnstructuredGridFilters.points" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-attribute"><span class="n">solution</span><span class="o">.</span><span class="n">points</span></a><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.UnstructuredGridFilters.points.html#pyvista.UnstructuredGridFilters.points" title="pyvista.UnstructuredGridFilters.points" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-attribute"><span class="n">solution</span><span class="o">.</span><span class="n">points</span></a><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+    <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">l2_err2</span></a> <span class="o">=</span> <span class="p">(</span><a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u_real</span></a> <span class="o">-</span> <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">u_computed</span></a><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+    <a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.DataSet.point_data.html#pyvista.DataSet.point_data" title="pyvista.DataSet.point_data" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-property"><span class="n">solution</span><span class="o">.</span><span class="n">point_data</span></a><span class="p">[</span><span class="s2">&quot;l2_error2&quot;</span><span class="p">]</span> <span class="o">=</span> <a href="https://docs.pyvista.org/api/utilities/_autosummary/pyvista.pyvista_ndarray.html#pyvista.pyvista_ndarray" title="pyvista.pyvista_ndarray" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">l2_err2</span></a>
+    <a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_uniform</span></a><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="p">(</span>
+            <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">statistics</span><span class="o">.</span><span class="n">n_total_dofs</span></a><span class="p">,</span>
+            <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span></a><span class="p">(</span><a href="https://docs.pyvista.org/api/core/_autosummary/pyvista.DataSetFilters.integrate_data.html#pyvista.DataSetFilters.integrate_data" title="pyvista.DataSetFilters.integrate_data" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">solution</span><span class="o">.</span><span class="n">integrate_data</span></a><span class="p">()</span><span class="o">.</span><span class="n">point_data</span><span class="p">[</span><span class="s2">&quot;l2_error2&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">uniform_mesh</span><span class="o">.</span><span class="n">uniform_p_change</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># Up the mesh orders</span>
+</pre></div>
+</div>
+</section>
+<section id="running-hp-refinement">
+<h2>Running hp-Refinement<a class="headerlink" href="#running-hp-refinement" title="Link to this heading">#</a></h2>
+<p>Now different hp-adaptive strategies can be run.</p>
+<section id="baseline">
+<h3>Baseline<a class="headerlink" href="#baseline" title="Link to this heading">#</a></h3>
+<p>As baseline for the hp-runs, the values of 0.1 and 10 were taken as
+h-refinement ratio and element limit count.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_H_RATIO</span></a> <span class="o">=</span> <span class="mf">0.1</span>
+<a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a> <span class="o">=</span> <span class="mi">10</span>
+<a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_1</span></a><span class="p">,</span> <span class="n">local_mesh_1</span> <span class="o">=</span> <span class="n">run_refinement_strategy</span><span class="p">(</span>
+    <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_H_RATIO</span></a><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">,</span> <span class="n">mesh_initial</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">err_name</span><span class="p">(</span><span class="n">h</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Format name for error plots.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;(h=</span><span class="si">{</span><span class="n">h</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">, n=</span><span class="si">{</span><span class="n">n</span><span class="si">:</span><span class="s2">d</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+
+<a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_1</span></a> <span class="o">=</span> <span class="n">err_name</span><span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_H_RATIO</span></a><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_plot_direct_poison_post_hp_002.gif" srcset="../../_images/sphx_glr_plot_direct_poison_post_hp_002.gif" alt="plot direct poison post hp" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Initial mesh order distribution
+============================================================
+                              █
+                              █
+                              █
+                              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+0.5          0.7            1.0            1.2           1.5
+============================================================
+Error estimate distribution
+============================================================
+                     █
+                █    █              █
+                █    █              █
+█  █       █    ██  ██     █  █    ███  █     ██    ████  ██
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-7.2) 10^(-6.3)      10^(-5.4)      10^(-4.5)  10^(-3.6)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Error estimate distribution
+============================================================
+                 █
+         █       █ █
+         █       █ █
+█  █     █ ██ █  ███    █ ████  █ ██      █         █  █   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-10)  10^(-8.6)      10^(-6.9)      10^(-5.1)  10^(-3.4)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Error estimate distribution
+============================================================
+                    █
+          ██  █ █   █ █ █
+          ██  █ █   █ █ █
+█ █  █ █  ██  ███ ███ ███  █         █    █    █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-13)  10^(-11)       10^(-8.4)      10^(-6.2)    10^(-4)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                   █                                      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                   █                                      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Error estimate distribution
+============================================================
+        █
+        ██     █ ███
+        ██     █ ███
+█ █    ███ ██ ██████ █ ██      █ █     █           █       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-14)  10^(-12)       10^(-9.4)      10^(-7.2)    10^(-5)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█              █
+█              █                                           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█              █
+█              █                                           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Error estimate distribution
+============================================================
+                █
+              █████
+        █     ██████
+█  █   ██████ ██████         ██     █            █         █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-14)  10^(-12)       10^(-10)        10^(-8)   10^(-5.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█           █                                              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█           █                                              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Error estimate distribution
+============================================================
+           ██
+           ███
+        █  ███
+    ███ ██████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-17)  10^(-14)       10^(-12)       10^(-9.3)  10^(-6.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█         █                                                █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█         █                                                █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Error estimate distribution
+============================================================
+       █
+       ██
+       ███
+    ████████ █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-18)  10^(-16)       10^(-13)       10^(-10)   10^(-7.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Error estimate distribution
+============================================================
+          █
+         ██
+       ████
+█    █ ██████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-19)  10^(-16)       10^(-14)       10^(-11)   10^(-8.6)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Error estimate distribution
+============================================================
+       █ ██
+       ████
+      █████
+██   ████████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-22)  10^(-19)       10^(-16)       10^(-13)   10^(-9.8)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█     █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█     █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Error estimate distribution
+============================================================
+         █
+       ███
+      █████
+    █ ██████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-21)  10^(-19)       10^(-16)       10^(-13)    10^(-11)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.3            5.8            8.3          10.8
+============================================================
+</pre></div>
+</div>
+</section>
+<section id="more-permissive-h-refinement">
+<h3>More Permissive h-refinement<a class="headerlink" href="#more-permissive-h-refinement" title="Link to this heading">#</a></h3>
+<p>By increasing the value of h-refinement error ratio, the refinement stragegy
+can be made more prone to h-refinement over p-refinement.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_2</span></a><span class="p">,</span> <span class="n">local_mesh_2</span> <span class="o">=</span> <span class="n">run_refinement_strategy</span><span class="p">(</span>
+    <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_H_RATIO</span></a> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">,</span> <span class="n">mesh_initial</span>
+<span class="p">)</span>
+<a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_2</span></a> <span class="o">=</span> <span class="n">err_name</span><span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_H_RATIO</span></a> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_plot_direct_poison_post_hp_003.gif" srcset="../../_images/sphx_glr_plot_direct_poison_post_hp_003.gif" alt="plot direct poison post hp" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Initial mesh order distribution
+============================================================
+                              █
+                              █
+                              █
+                              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+0.5          0.7            1.0            1.2           1.5
+============================================================
+Error estimate distribution
+============================================================
+                     █
+                █    █              █
+                █    █              █
+█  █       █    ██  ██     █  █    ███  █     ██    ████  ██
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-7.2) 10^(-6.3)      10^(-5.4)      10^(-4.5)  10^(-3.6)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Error estimate distribution
+============================================================
+                 █
+         █       █ █
+         █       █ █
+█  █     █ ██ █  ███    █ ████  █ ██      █         █  █   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-10)  10^(-8.6)      10^(-6.9)      10^(-5.1)  10^(-3.4)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Error estimate distribution
+============================================================
+                    █
+                █   █
+          ██    █  ██   █
+█ █  █ █  ███████ ███ ███  █         █    █    █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-13)  10^(-11)       10^(-8.4)      10^(-6.2)    10^(-4)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█                   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█                   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Error estimate distribution
+============================================================
+                     ██          █
+█             █ █ █  ██   █  █ █ █       █
+█             █ █ █  ██   █  █ █ █       █
+█  █    █   ███ █ █ ██████████ ███   █  ██    ███    █     █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-15)  10^(-13)       10^(-10)       10^(-7.7)  10^(-5.1)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█              █
+█              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█              █
+█              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Error estimate distribution
+============================================================
+                ██
+       █      █ ██      █
+      ██ █    ████ █    █
+████  ██ █████████ ██   ███ █  █ █  █  █        █          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-14)  10^(-12)       10^(-9.8)      10^(-7.8)  10^(-5.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█           █
+█           █
+█           █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█           █
+█           █
+█           █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Error estimate distribution
+============================================================
+            █
+          █ █ █   ██
+         ██ ███   █████     ██            █
+█  █ █ ████████  ██████  █ ███  █  █ █    █    █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-18)  10^(-15)       10^(-12)       10^(-9.5)  10^(-6.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█         █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█         █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Error estimate distribution
+============================================================
+                  █
+            █     █
+       █   ██   ███  █   █
+█ ███ ████████ ████ ██ ████    █ █              █          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-16)  10^(-14)       10^(-12)       10^(-9.9)  10^(-7.6)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█       █
+█       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█       █
+█       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Error estimate distribution
+============================================================
+             █
+             ██
+█      █   █████   █
+█   █ ███  █████   ██ █  █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-17)  10^(-15)       10^(-13)       10^(-11)   10^(-8.5)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█      █
+█      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█      █
+█      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Error estimate distribution
+============================================================
+                 █
+             █ █ █  █
+    ██  █ ████ ████ ██   ███ █
+██  ██ ███████████████ █ ███ █ █  █           █            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-20)  10^(-18)       10^(-15)       10^(-12)   10^(-9.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█     █
+█     █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█     █
+█     █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Error estimate distribution
+============================================================
+                        █
+                        █
+            ██  █ ██    █
+      █ ██████ ██████   █ █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-20)  10^(-18)       10^(-15)       10^(-13)    10^(-11)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█     █
+█     █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.3            5.8            8.3          10.8
+============================================================
+</pre></div>
+</div>
+</section>
+<section id="more-strict-h-refinement">
+<h3>More Strict h-refinement<a class="headerlink" href="#more-strict-h-refinement" title="Link to this heading">#</a></h3>
+<p>Inversly, the refinement can be made more prone towards p-refinement only by
+lowering the allowed h-refinement error fraction.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_3</span></a><span class="p">,</span> <span class="n">local_mesh_3</span> <span class="o">=</span> <span class="n">run_refinement_strategy</span><span class="p">(</span>
+    <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_H_RATIO</span></a> <span class="o">/</span> <span class="mi">10</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">,</span> <span class="n">mesh_initial</span>
+<span class="p">)</span>
+<a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_3</span></a> <span class="o">=</span> <span class="n">err_name</span><span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_H_RATIO</span></a> <span class="o">/</span> <span class="mi">10</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_plot_direct_poison_post_hp_004.gif" srcset="../../_images/sphx_glr_plot_direct_poison_post_hp_004.gif" alt="plot direct poison post hp" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Initial mesh order distribution
+============================================================
+                              █
+                              █
+                              █
+                              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+0.5          0.7            1.0            1.2           1.5
+============================================================
+Error estimate distribution
+============================================================
+                     █
+                █    █              █
+                █    █              █
+█  █       █    ██  ██     █  █    ███  █     ██    ████  ██
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-7.2) 10^(-6.3)      10^(-5.4)      10^(-4.5)  10^(-3.6)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Error estimate distribution
+============================================================
+                 █
+         █       █ █
+         █       █ █
+█  █     █ ██ █  ███    █ ████  █ ██      █         █  █   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-10)  10^(-8.6)      10^(-6.9)      10^(-5.1)  10^(-3.4)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Error estimate distribution
+============================================================
+           █
+           █  █ █   █   █
+           █  █ █   █   █
+█ █  █  █ ██  ███ █ █ █ █ ██         █    █    █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-13)  10^(-11)       10^(-8.4)      10^(-6.2)    10^(-4)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                   █                  █                   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                   █                  █                   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Error estimate distribution
+============================================================
+        █
+        ██     █       █
+        ██     █       █
+█ █    ███ ██ █████  █ ██      █ █     █           █       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-14)  10^(-12)       10^(-9.4)      10^(-7.2)    10^(-5)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█              █                                           █
+█              █                             █             █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█              █                                           █
+█              █                             █             █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Error estimate distribution
+============================================================
+                    █
+        █         █ █
+        ██    █   █ █
+█ █    ███ █████ ██ █ █      ██     █            █         █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-14)  10^(-12)       10^(-10)       10^(-7.9)  10^(-5.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█           █
+█           █
+█           █                                              █
+█           █           █                                  █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Initial mesh order distribution
+============================================================
+█           █
+█           █
+█           █                                              █
+█           █           █                                  █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Error estimate distribution
+============================================================
+             █
+             █
+      █ ██ ███ █
+██ █████████████  █      █ █        █        █             █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-17)  10^(-14)       10^(-12)       10^(-9.3)  10^(-6.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█         █
+█         █                                                █
+█         █        █          █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█         █
+█         █                                                █
+█         █        █          █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Error estimate distribution
+============================================================
+          █
+         ███
+    █    ███
+█  █████████ █  █        █   █    █               █        █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-18)  10^(-16)       10^(-13)       10^(-10)   10^(-7.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█       █
+█       █                                                  █
+█       █        █       █                                 █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█       █
+█       █                                                  █
+█       █        █       █                                 █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Error estimate distribution
+============================================================
+            █
+            █
+     █ █    █
+█   ███████████  █    █ █    █                 █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-19)  10^(-16)       10^(-14)       10^(-11)   10^(-8.6)
+============================================================
+Refined mesh order distribution
+============================================================
+       █
+█      █
+█      █              █
+█      █              █                                    █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Initial mesh order distribution
+============================================================
+       █
+█      █
+█      █              █
+█      █              █                                    █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Error estimate distribution
+============================================================
+          █
+         ███
+     ███ ███
+█    ███ ███
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-22)  10^(-19)       10^(-16)       10^(-13)   10^(-9.8)
+============================================================
+Refined mesh order distribution
+============================================================
+      █
+      █
+█     █
+█     █             █                                      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Initial mesh order distribution
+============================================================
+      █
+      █
+█     █
+█     █             █                                      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Error estimate distribution
+============================================================
+         █ █
+        ██ █
+      █ ████
+█   █ █ ████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-22)  10^(-19)       10^(-16)       10^(-13)    10^(-11)
+============================================================
+Refined mesh order distribution
+============================================================
+      █
+      █
+      █
+█     █                                                    █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.3            5.8            8.3          10.8
+============================================================
+</pre></div>
+</div>
+</section>
+<section id="more-confident-refinement">
+<h3>More Confident Refinement<a class="headerlink" href="#more-confident-refinement" title="Link to this heading">#</a></h3>
+<p>By increasing the number of elements that can be changed during each
+refienemnt round, the effectiveness may drop, since error will be
+affected by each refinement step.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_4</span></a><span class="p">,</span> <span class="n">local_mesh_4</span> <span class="o">=</span> <span class="n">run_refinement_strategy</span><span class="p">(</span>
+    <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_H_RATIO</span></a><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">,</span> <span class="n">mesh_initial</span>
+<span class="p">)</span>
+<a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_4</span></a> <span class="o">=</span> <span class="n">err_name</span><span class="p">(</span><a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_H_RATIO</span></a><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_plot_direct_poison_post_hp_005.gif" srcset="../../_images/sphx_glr_plot_direct_poison_post_hp_005.gif" alt="plot direct poison post hp" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Initial mesh order distribution
+============================================================
+                              █
+                              █
+                              █
+                              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+0.5          0.7            1.0            1.2           1.5
+============================================================
+Error estimate distribution
+============================================================
+                     █
+                █    █              █
+                █    █              █
+█  █       █    ██  ██     █  █    ███  █     ██    ████  ██
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-7.2) 10^(-6.3)      10^(-5.4)      10^(-4.5)  10^(-3.6)
+============================================================
+Refined mesh order distribution
+============================================================
+                                                           █
+                                                           █
+                                                           █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Initial mesh order distribution
+============================================================
+                                                           █
+                                                           █
+                                                           █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Error estimate distribution
+============================================================
+                  █
+         █        █
+         █        █
+█   █    █ ███  █ ███   █ ██ ██  █ ██     █         █  █   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-10)  10^(-8.7)      10^(-6.9)      10^(-5.2)  10^(-3.4)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Error estimate distribution
+============================================================
+         █    ███ █
+        ██   ████ █     █
+        ██   ████ █     █
+█     ███████████ ███ ████ █          █   █    █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-13)  10^(-11)       10^(-8.4)      10^(-6.2)    10^(-4)
+============================================================
+Refined mesh order distribution
+============================================================
+█                   █
+█                   █                                      █
+█                   █                                      █
+█                   █                  █                   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Initial mesh order distribution
+============================================================
+█                   █
+█                   █                                      █
+█                   █                                      █
+█                   █                  █                   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Error estimate distribution
+============================================================
+              █
+        █  ██ █ █
+       ██ ███████
+█   ██ ██████████ ██████ █      ██     █            █      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-14)  10^(-12)       10^(-9.5)      10^(-7.2)    10^(-5)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█              █
+█              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█              █
+█              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Error estimate distribution
+============================================================
+           █
+          ██  █ █
+        █ █████ █
+       ███████████ █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-15)  10^(-12)       10^(-10)        10^(-8)   10^(-5.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Error estimate distribution
+============================================================
+        █
+      ███ █
+    █████████
+    █████████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-17)  10^(-14)       10^(-12)       10^(-9.3)  10^(-6.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█         █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█         █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Error estimate distribution
+============================================================
+     █
+     █
+     ████
+    ████████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-19)  10^(-16)       10^(-13)       10^(-10)   10^(-7.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Error estimate distribution
+============================================================
+      ██
+      ██
+     ████
+   █ ██████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-19)  10^(-16)       10^(-14)       10^(-11)   10^(-8.6)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Error estimate distribution
+============================================================
+       ██
+       ███
+      █████
+     ██████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-22)  10^(-19)       10^(-16)       10^(-13)   10^(-9.8)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█     █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█
+█     █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Error estimate distribution
+============================================================
+      █
+     ██
+     ███
+     ████
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-22)  10^(-19)       10^(-16)       10^(-13)    10^(-11)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█
+█     █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.3            5.8            8.3          10.8
+============================================================
+</pre></div>
+</div>
+</section>
+<section id="pure-local-p-refinement">
+<h3>Pure Local p-refinement<a class="headerlink" href="#pure-local-p-refinement" title="Link to this heading">#</a></h3>
+<p>By setting h-refinement error ratio to zero and with an error estimation
+function, which returns strictly positive values for estimation of h-refinement
+error increase, it can be guaranteed that h-refinement will never occur. This
+can be a good comparison to how does hp-refinement work compared to purely p-refinement.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_5</span></a><span class="p">,</span> <span class="n">local_mesh_5</span> <span class="o">=</span> <span class="n">run_refinement_strategy</span><span class="p">(</span>
+    <span class="mf">0.0</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">,</span> <span class="n">mesh_initial</span>
+<span class="p">)</span>
+<a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_5</span></a> <span class="o">=</span> <span class="n">err_name</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">BASE_ELEMENT_LIMIT</span></a><span class="p">)</span>
+</pre></div>
+</div>
+<img src="../../_images/sphx_glr_plot_direct_poison_post_hp_006.gif" srcset="../../_images/sphx_glr_plot_direct_poison_post_hp_006.gif" alt="plot direct poison post hp" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Initial mesh order distribution
+============================================================
+                              █
+                              █
+                              █
+                              █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+0.5          0.7            1.0            1.2           1.5
+============================================================
+Error estimate distribution
+============================================================
+                     █
+                █    █              █
+                █    █              █
+█  █       █    ██  ██     █  █    ███  █     ██    ████  ██
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-7.2) 10^(-6.3)      10^(-5.4)      10^(-4.5)  10^(-3.6)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█                                                          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.2            1.5            1.7           2.0
+============================================================
+Error estimate distribution
+============================================================
+                 █
+         █       █ █
+         █       █ █
+█  █     █ ██ █  ███    █ ████  █ ██      █         █  █   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-10)  10^(-8.6)      10^(-6.9)      10^(-5.1)  10^(-3.4)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                             █                            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.5            2.0            2.5           3.0
+============================================================
+Error estimate distribution
+============================================================
+           █
+           █  █ █   █   █
+           █  █ █   █   █
+█ █  █  █ ██  ███ █ █ █ █ ██         █    █    █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-13)  10^(-11)       10^(-8.4)      10^(-6.2)    10^(-4)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                   █                  █                   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█                   █                  █                   █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.7            2.5            3.2           4.0
+============================================================
+Error estimate distribution
+============================================================
+        █
+        ██     █       █
+        ██     █       █
+█ █    ███ ██ █████  █ ██      █ █     █           █       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-14)  10^(-12)       10^(-9.4)      10^(-7.2)    10^(-5)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█              █                             █             █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█              █                             █             █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          1.9            2.9            3.9           4.9
+============================================================
+Error estimate distribution
+============================================================
+        █
+        ██    █     █
+        ██    █     █
+█ █    ███ █████ ██ █ ██     ██     █            █         █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-14)  10^(-12)       10^(-10)       10^(-7.9)  10^(-5.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█           █                                   █          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█           █                                   █          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.2            3.4            4.7           5.9
+============================================================
+Error estimate distribution
+============================================================
+      █ █   █
+      █ █   ██    █
+      █ █   ██    █
+██   ██████ ██  █ █      █ █        █        █             █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-17)  10^(-14)       10^(-12)       10^(-9.3)  10^(-6.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█         █                                      █         █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█
+█                                                          █
+█         █                                      █         █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.4            3.9            5.4           6.9
+============================================================
+Error estimate distribution
+============================================================
+█   ██ █  ██ █
+█   ██ █  ██ █
+█  ██████ █████ █        █   █    █               █        █
+█  ██████ █████ █        █   █    █               █        █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-18)  10^(-16)       10^(-13)       10^(-10)   10^(-7.7)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█       █                                          █       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█       █                                          █       █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.6            4.4            6.1           7.9
+============================================================
+Error estimate distribution
+============================================================
+            █
+       █    █
+█    █ █ █  █
+█   ██████  ██ ███    █ █    █                 █           █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-19)  10^(-16)       10^(-14)       10^(-11)   10^(-8.6)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█      █                                            █      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█      █                                            █      █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          2.9            4.9            6.9           8.9
+============================================================
+Error estimate distribution
+============================================================
+     ██  █
+     ███ ██   █
+     ███ ██   █
+██ █ ███ ███  ██        █   █        █          █          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-22)  10^(-19)       10^(-16)       10^(-13)   10^(-9.8)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█     █                                       █            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Initial mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█     █                                       █            █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.1            5.3            7.6           9.8
+============================================================
+Error estimate distribution
+============================================================
+           █
+    █ █    █
+█   █ █ █  █
+█   ███ ██ ██ ███    █ █       █                █          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+10^(-22)  10^(-19)       10^(-16)       10^(-13)    10^(-11)
+============================================================
+Refined mesh order distribution
+============================================================
+█
+█                                                          █
+█                                                          █
+█     █                                         █          █
+████████████████████████████████████████████████████████████
+|             |              |              |              |
+1.0          3.3            5.8            8.3          10.8
+============================================================
+</pre></div>
+</div>
+</section>
+</section>
+<section id="plotting-results">
+<h2>Plotting Results<a class="headerlink" href="#plotting-results" title="Link to this heading">#</a></h2>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">plot_error_rates</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="numpy.typing.ArrayLike" class="sphx-glr-backref-module-numpy-typing sphx-glr-backref-type-py-data"><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span></a><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot a comparison of convergence rates with their names.&quot;&quot;&quot;</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+        <span class="n">el</span> <span class="o">=</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.array.html#numpy.array" title="numpy.array" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">array</span></a><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">el</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">ns</span> <span class="o">=</span> <span class="n">el</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">100</span>
+        <span class="n">kl1</span><span class="p">,</span> <span class="n">kl0</span> <span class="o">=</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.polyfit.html#numpy.polyfit" title="numpy.polyfit" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-function"><span class="n">np</span><span class="o">.</span><span class="n">polyfit</span></a><span class="p">(</span><span class="n">ns</span><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">log</span></a><span class="p">(</span><span class="n">err</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">kl1</span><span class="p">,</span> <span class="n">kl0</span> <span class="o">=</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">exp</span></a><span class="p">(</span><span class="n">kl1</span><span class="p">),</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html#numpy.ufunc" title="numpy.ufunc" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">np</span><span class="o">.</span><span class="n">exp</span></a><span class="p">(</span><span class="n">kl0</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">el</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">err</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+            <span class="n">el</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="n">kl0</span> <span class="o">*</span> <span class="n">kl1</span> <span class="o">**</span> <span class="p">(</span><span class="n">ns</span><span class="p">),</span>
+            <span class="n">label</span><span class="o">=</span><span class="n">label</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;: $</span><span class="si">{</span><span class="n">kl0</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2"> </span><span class="se">\\</span><span class="s2">cdot </span><span class="se">{{</span><span class="si">{</span><span class="n">kl1</span><span class="si">:</span><span class="s2">.3g</span><span class="se">}}</span><span class="si">}</span><span class="s2">^</span><span class="se">{{\\</span><span class="s2">frac</span><span class="se">{{</span><span class="s2">N_</span><span class="se">\\</span><span class="s2">mathrm</span><span class="se">{{</span><span class="s2">dofs</span><span class="se">}}}}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="se">{{</span><span class="s2">100</span><span class="se">}}}}</span><span class="s2">$&quot;</span><span class="p">,</span>
+            <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;dashed&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
+        <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$N_</span><span class="se">\\</span><span class="s2">mathrm</span><span class="si">{dofs}</span><span class="s2">$&quot;</span><span class="p">,</span>
+        <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">left|</span><span class="se">\\</span><span class="s2">left| u - </span><span class="se">\\</span><span class="s2">bar</span><span class="si">{u}</span><span class="s2"> </span><span class="se">\\</span><span class="s2">right|</span><span class="se">\\</span><span class="s2">right|_{L^2}$&quot;</span><span class="p">,</span>
+        <span class="n">yscale</span><span class="o">=</span><span class="s2">&quot;log&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+
+<span class="n">plot_error_rates</span><span class="p">(</span>
+    <span class="p">(</span><span class="s2">&quot;uniform&quot;</span><span class="p">,</span> <a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_uniform</span></a><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_1</span></a><span class="p">,</span> <a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_1</span></a><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_2</span></a><span class="p">,</span> <a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_2</span></a><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_3</span></a><span class="p">,</span> <a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_3</span></a><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_4</span></a><span class="p">,</span> <a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_4</span></a><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_5</span></a><span class="p">,</span> <a href="https://docs.python.org/3/library/stdtypes.html#list" title="builtins.list" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_5</span></a><span class="p">),</span>
+<span class="p">)</span>
+
+
+<span class="n">plot_mesh_comparisons</span><span class="p">(</span>
+    <span class="p">(</span><span class="s2">&quot;Baseline&quot;</span><span class="p">,</span> <span class="n">mesh_initial</span><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_1</span></a><span class="p">,</span> <span class="n">local_mesh_1</span><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_2</span></a><span class="p">,</span> <span class="n">local_mesh_2</span><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_3</span></a><span class="p">,</span> <span class="n">local_mesh_3</span><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_4</span></a><span class="p">,</span> <span class="n">local_mesh_4</span><span class="p">),</span>
+    <span class="p">(</span><a href="https://docs.python.org/3/library/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">errors_local_name_5</span></a><span class="p">,</span> <span class="n">local_mesh_5</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<ul class="sphx-glr-horizontal">
+<li><img src="../../_images/sphx_glr_plot_direct_poison_post_hp_007.png" srcset="../../_images/sphx_glr_plot_direct_poison_post_hp_007.png" alt="plot direct poison post hp" class = "sphx-glr-multi-img"/></li>
+<li><img src="../../_images/sphx_glr_plot_direct_poison_post_hp_008.png" srcset="../../_images/sphx_glr_plot_direct_poison_post_hp_008.png" alt="Baseline, (h=0.1, n=10), (h=1, n=10), (h=0.01, n=10), (h=0.1, n=20), (h=0, n=10)" class = "sphx-glr-multi-img"/></li>
+</ul>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 52.351 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-refinement-plot-direct-poison-post-hp-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/35186daba8bc2a1fd78ec501bc87818d/plot_direct_poison_post_hp.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_direct_poison_post_hp.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/dce27cc32c525bde338c0489bc10316c/plot_direct_poison_post_hp.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">plot_direct_poison_post_hp.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../../_downloads/62d0f7ac0517007d40487129b380f567/plot_direct_poison_post_hp.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">plot_direct_poison_post_hp.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="plot_direct_poisson_refined_post_p.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Post-Solver p-Refinement</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="plot_advdif_post_hp_projection.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Approximating Error from Projections with Advection-Diffusion</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#problem-description">Problem Description</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#system-setup">System Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#making-the-mesh">Making the Mesh</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#initialize-the-mesh">Initialize the Mesh</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#refinement-settings">Refinement Settings</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluating-a-refinement-strategy">Evaluating a Refinement Strategy</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#baseline-data">Baseline Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-hp-refinement">Running hp-Refinement</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#baseline">Baseline</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#more-permissive-h-refinement">More Permissive h-refinement</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#more-strict-h-refinement">More Strict h-refinement</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#more-confident-refinement">More Confident Refinement</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pure-local-p-refinement">Pure Local p-refinement</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#plotting-results">Plotting Results</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Jan Roth
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Jan Roth.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

@@ -164,16 +164,20 @@
 <li class="toctree-l1"><a class="reference internal" href="../index.html">Examples</a></li>
 
 
+
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/examples.html">examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/system.html">system</a></li>
 </ul>
 </details></li>
 </ul>
@@ -354,6 +358,7 @@ on a fairly coarse grid.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">rmsh</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <a href="../../modules/boundary.html#mfv2d.boundary.BoundaryCondition2D" title="mfv2d.boundary.BoundaryCondition2D" class="sphx-glr-backref-module-mfv2d-boundary sphx-glr-backref-type-py-class"><span class="n">BoundaryCondition2DSteady</span></a><span class="p">,</span>
+    <span class="n">ConvergenceSettings</span><span class="p">,</span>
     <span class="n">KFormSystem</span><span class="p">,</span>
     <a href="../../modules/kform.html#mfv2d.kform.KForm" title="mfv2d.kform.KForm" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-class"><span class="n">KFormUnknown</span></a><span class="p">,</span>
     <span class="n">SolverSettings</span><span class="p">,</span>
@@ -362,6 +367,7 @@ on a fairly coarse grid.</p>
     <span class="n">UnknownFormOrder</span><span class="p">,</span>
     <span class="n">mesh_create</span><span class="p">,</span>
     <span class="n">solve_system_2d</span><span class="p">,</span>
+    <span class="n">system_as_string</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -396,14 +402,12 @@ on the normal velocity mean that they would not be used either way.</p>
 <span class="n">w_vor</span> <span class="o">=</span> <span class="n">vor</span><span class="o">.</span><span class="n">weight</span>
 
 <span class="n">system</span> <span class="o">=</span> <span class="n">KFormSystem</span><span class="p">(</span>
-    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">*</span> <span class="n">vel</span> <span class="o">-</span> <span class="n">w_vor</span> <span class="o">*</span> <span class="n">vor</span> <span class="o">==</span> <span class="n">w_vor</span> <span class="o">^</span> <span class="n">boundary_velocty</span><span class="p">,</span>
+    <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vor</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">@</span> <span class="n">vel</span> <span class="o">-</span> <span class="n">w_vor</span> <span class="o">@</span> <span class="n">vor</span> <span class="o">==</span> <span class="n">w_vor</span> <span class="o">^</span> <span class="n">boundary_velocty</span><span class="p">,</span>
     <span class="c1"># No weak BC for pressure, since normal velocity is given</span>
-    <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">RE</span></a><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">w_vel</span> <span class="o">*</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vor</span><span class="o">.</span><span class="n">derivative</span></a><span class="p">)</span> <span class="o">+</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">*</span> <span class="n">pre</span>
-    <span class="o">==</span> <span class="o">-</span><span class="p">(</span><span class="n">w_vel</span> <span class="o">*</span> <span class="p">(</span><span class="n">vel</span> <span class="o">^</span> <span class="p">(</span><span class="o">~</span><span class="n">vor</span><span class="p">))),</span>
-    <span class="n">w_pre</span> <span class="o">*</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
-    <span class="n">sorting</span><span class="o">=</span><span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span><span class="o">.</span><span class="n">order</span><span class="p">,</span>
+    <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <a href="https://docs.python.org/3/library/functions.html#float" title="builtins.float" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">RE</span></a><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">w_vel</span> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vor</span><span class="o">.</span><span class="n">derivative</span></a><span class="p">)</span> <span class="o">+</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">w_vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">@</span> <span class="n">pre</span> <span class="o">==</span> <span class="o">-</span><span class="p">(</span><span class="n">vel</span> <span class="o">*</span> <span class="n">w_vel</span> <span class="o">@</span> <span class="n">vor</span><span class="p">),</span>
+    <span class="n">w_pre</span> <span class="o">@</span> <a href="../../modules/kform.html#mfv2d.kform.KForm.derivative" title="mfv2d.kform.KForm.derivative" class="sphx-glr-backref-module-mfv2d-kform sphx-glr-backref-type-py-property"><span class="n">vel</span><span class="o">.</span><span class="n">derivative</span></a> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">system_as_string</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
 
 <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">N</span></a> <span class="o">=</span> <span class="mi">6</span>
 <a href="https://docs.python.org/3/library/functions.html#int" title="builtins.int" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">P</span></a> <span class="o">=</span> <span class="mi">3</span>
@@ -429,7 +433,7 @@ on the normal velocity mean that they would not be used either way.</p>
     <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">rect_mesh</span><span class="o">.</span><span class="n">surfaces</span></a><span class="p">,</span>
 <span class="p">)</span>
 
-<a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">,</span> <a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
+<a href="https://docs.python.org/3/library/stdtypes.html#tuple" title="builtins.tuple" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">solutions</span></a><span class="p">,</span> <span class="n">stats</span><span class="p">,</span> <span class="n">mesh</span> <span class="o">=</span> <span class="n">solve_system_2d</span><span class="p">(</span>
     <span class="n">mesh</span><span class="p">,</span>
     <span class="n">SystemSettings</span><span class="p">(</span>
         <span class="n">system</span><span class="p">,</span>
@@ -437,26 +441,26 @@ on the normal velocity mean that they would not be used either way.</p>
         <span class="p">[(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">pre</span><span class="p">)],</span>
     <span class="p">),</span>
     <span class="n">solver_settings</span><span class="o">=</span><span class="n">SolverSettings</span><span class="p">(</span>
-        <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-        <span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span>
-        <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">ConvergenceSettings</span><span class="p">(</span>
+            <span class="n">maximum_iterations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">absolute_tolerance</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">relative_tolerance</span><span class="o">=</span><span class="mi">0</span>
+        <span class="p">)</span>
     <span class="p">),</span>
     <span class="n">time_settings</span><span class="o">=</span><span class="n">TimeSettings</span><span class="p">(</span><span class="n">dt</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">nt</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">time_march_relations</span><span class="o">=</span><span class="p">{</span><span class="n">w_vel</span><span class="p">:</span> <span class="n">vel</span><span class="p">}),</span>
     <span class="n">print_residual</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">recon_order</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><a href="../../modules/solve_system.html#mfv2d.solve_system.SolutionStatistics" title="mfv2d.solve_system.SolutionStatistics" class="sphx-glr-backref-module-mfv2d-solve_system sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">stats</span></a><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[vor(0*)]^T  ([           -1 * M(0) | (E(1, 0))^T @ M(0) |                  0]  [vor(0)]   [&lt;vor, boundary_velocty&gt;])   [vor(0*)]^T  ([                              0 |                        0 | 0]  [vor(0)]
-[vel(1*)]    ([0.1 * M(1) @ E(1, 0) |                  0 | (E(2, 1))^T @ M(1)]  [vel(1)] = [                       ]) + [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(1) | -1 * M(1) @ N(1, 2; vor) | 0]  [vel(1)]
-[pre(2*)]    ([                   0 |     M(2) @ E(2, 1) |                  0]  [pre(2)]   [                      0])   [pre(2*)]    ([                              0 |                        0 | 0]  [pre(2)]
-SolutionStatistics(element_orders={(3, 3): 25}, n_total_dofs=1550, n_leaf_dofs=np.uint64(1225), n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 20, 20, 20, 20, 20, 20, 20, 20,
-       20, 20, 20], dtype=uint32), residual_history=array([4.73040218e-11, 3.78859860e-11, 4.94556202e-11, 4.77373419e-11,
-       6.63145788e-11, 4.92627328e-11, 6.85677765e-11, 4.04782319e-11,
-       7.24523080e-11, 9.98627847e-11, 7.65691122e-11, 9.79617637e-11,
-       7.69061897e-11, 9.11821313e-11, 7.17330223e-11, 8.28753177e-11,
-       7.86609111e-11, 9.14862630e-11, 8.53559723e-11, 9.54867019e-11]))
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>[-1.0 M(0)        | (E(1, 0))^T M(1) | 0               ] [vor(0)]   [+ B&lt;vor, boundary_velocty&gt;]   [0                     | 0 | 0] [vor(0)]
+[0.1 M(1) E(1, 0) | 0                | (E(2, 1))^T M(2)] [vel(1)] = [+ 0                       ] + [-1.0 (P(0, 1, vel))^T | 0 | 0] [vel(1)]
+[0                | M(2) E(2, 1)     | 0               ] [pre(2)]   [+ 0                       ]   [0                     | 0 | 0] [pre(2)]
+SolutionStatistics(element_orders={(3, 3): 25}, n_total_dofs=1550, n_leaf_dofs=np.int64(1225), n_lagrange=325, n_elems=25, n_leaves=25, iter_history=array([20, 24, 20, 22, 20, 21, 20, 21, 20, 21, 20, 21, 20, 20, 20, 20, 20,
+       20, 20, 21], dtype=uint32), residual_history=array([5.17096366e-11, 4.13753129e-11, 5.32816135e-11, 5.16224528e-11,
+       7.14699445e-11, 5.31673768e-11, 7.41279677e-11, 4.40298006e-11,
+       7.86667086e-11, 4.21390908e-11, 8.34286563e-11, 3.90289398e-11,
+       8.40019304e-11, 9.96673959e-11, 7.84921902e-11, 9.02426640e-11,
+       8.57943716e-11, 9.98889547e-11, 9.32962266e-11, 3.53547712e-11]))
 </pre></div>
 </div>
 </section>
@@ -485,7 +489,7 @@ SolutionStatistics(element_orders={(3, 3): 25}, n_total_dofs=1550, n_leaf_dofs=n
 <a href="https://docs.pyvista.org/api/plotting/_autosummary/pyvista.Plotter.view_xy.html#pyvista.Plotter.view_xy" title="pyvista.Plotter.view_xy" class="sphx-glr-backref-module-pyvista sphx-glr-backref-type-py-method"><span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<img src="../../_images/sphx_glr_plot_cavity_flow_001.png" srcset="../../_images/sphx_glr_plot_cavity_flow_001.png" alt="plot cavity flow" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 4.587 seconds)</p>
+<img src="../../_images/sphx_glr_plot_cavity_flow_001.png" srcset="../../_images/sphx_glr_plot_cavity_flow_001.png" alt="plot cavity flow" class = "sphx-glr-single-img"/><p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 2.589 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-unsteady-plot-cavity-flow-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/0a495aa1f69b1d0cb94824dca19aacaa/plot_cavity_flow.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">plot_cavity_flow.ipynb</span></code></a></p>

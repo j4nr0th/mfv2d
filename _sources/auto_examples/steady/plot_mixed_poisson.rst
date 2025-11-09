@@ -87,7 +87,7 @@ Laplace operator, which the Poisson equation is defined with.
     \int_\Omega \left|\left| \nabla  u_\mathrm{exact} - q \right|\right|
     {\mathrm{d}\Omega}
 
-.. GENERATED FROM PYTHON SOURCE LINES 73-89
+.. GENERATED FROM PYTHON SOURCE LINES 73-91
 
 .. code-block:: Python
 
@@ -98,6 +98,7 @@ Laplace operator, which the Poisson equation is defined with.
     import rmsh
     from matplotlib import pyplot as plt
     from mfv2d import (
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -105,6 +106,7 @@ Laplace operator, which the Poisson equation is defined with.
         UnknownFormOrder,
         mesh_create,
         solve_system_2d,
+        system_as_string,
     )
 
 
@@ -114,7 +116,7 @@ Laplace operator, which the Poisson equation is defined with.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 90-120
+.. GENERATED FROM PYTHON SOURCE LINES 92-122
 
 Setup
 -----
@@ -147,7 +149,7 @@ The source term on the right side of the equation is thus given by equation
     \cos\left(\frac{\pi y}{2}\right)
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 121-144
+.. GENERATED FROM PYTHON SOURCE LINES 123-146
 
 .. code-block:: Python
 
@@ -181,7 +183,7 @@ The source term on the right side of the equation is thus given by equation
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 145-151
+.. GENERATED FROM PYTHON SOURCE LINES 147-153
 
 System Setup
 ------------
@@ -190,7 +192,7 @@ Here the system is set up. The equations in the system bellow together represnt
 system :eq:`steady-mixed-poisson-var`. Note that the weak boundary conditions are
 introduced throught the boundary integral ``p ^ u_exact``.
 
-.. GENERATED FROM PYTHON SOURCE LINES 152-165
+.. GENERATED FROM PYTHON SOURCE LINES 154-166
 
 .. code-block:: Python
 
@@ -201,11 +203,10 @@ introduced throught the boundary integral ``p ^ u_exact``.
     p = q.weight
 
     system = KFormSystem(
-        p.derivative * u - p * q == p ^ u_exact,
-        v * q.derivative == -(v * source_exact),
-        sorting=lambda f: f.order,
+        p.derivative @ u - p @ q == p ^ u_exact,
+        v @ q.derivative == -(v @ source_exact),
     )
-    print(system)
+    print(system_as_string(system))
 
 
 
@@ -215,13 +216,13 @@ introduced throught the boundary integral ``p ^ u_exact``.
 
  .. code-block:: none
 
-    [q(1*)]^T  ([     -1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [          <q, u_exact>])
-    [u(2*)]    ([M(2) @ E(2, 1) |                  0]  [u(2)] = [-1 * <u, source_exact>])
+    [-1.0 M(1)    | (E(2, 1))^T M(2)] [q(1)]   [+ B<q, u_exact>         ]   [0 | 0] [q(1)]
+    [M(2) E(2, 1) | 0               ] [u(2)] = [- 1 * E<u, source_exact>] + [0 | 0] [u(2)]
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 166-173
+.. GENERATED FROM PYTHON SOURCE LINES 167-174
 
 Making The Mesh
 ---------------
@@ -231,7 +232,7 @@ The boundaries of the mesh are defined by B-splines with 4 knots, meaning they
 are cubic splines. The mesh is presented in the plot bellow.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 174-205
+.. GENERATED FROM PYTHON SOURCE LINES 175-206
 
 .. code-block:: Python
 
@@ -278,7 +279,7 @@ are cubic splines. The mesh is presented in the plot bellow.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 206-211
+.. GENERATED FROM PYTHON SOURCE LINES 207-212
 
 Check the Result
 ----------------
@@ -286,7 +287,7 @@ Check the Result
 Before checking the convergence, let us first just check on how the solution
 looks.
 
-.. GENERATED FROM PYTHON SOURCE LINES 212-246
+.. GENERATED FROM PYTHON SOURCE LINES 213-249
 
 .. code-block:: Python
 
@@ -296,7 +297,9 @@ looks.
     solution, stats, mesh = solve_system_2d(
         msh,
         system_settings=SystemSettings(system),
-        solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+        solver_settings=SolverSettings(
+            ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+        ),
         print_residual=False,
         recon_order=25,
     )
@@ -336,14 +339,14 @@ looks.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 247-251
+.. GENERATED FROM PYTHON SOURCE LINES 250-254
 
 Solve for Different Orders
 --------------------------
 
 So we solve for different orders.
 
-.. GENERATED FROM PYTHON SOURCE LINES 252-283
+.. GENERATED FROM PYTHON SOURCE LINES 255-288
 
 .. code-block:: Python
 
@@ -360,7 +363,9 @@ So we solve for different orders.
         solution, stats, mesh = solve_system_2d(
             msh,
             system_settings=SystemSettings(system),
-            solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+            solver_settings=SolverSettings(
+                ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+            ),
             print_residual=False,
             recon_order=25,
         )
@@ -396,7 +401,7 @@ So we solve for different orders.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 284-292
+.. GENERATED FROM PYTHON SOURCE LINES 289-297
 
 Plot Results
 ------------
@@ -407,7 +412,7 @@ Here we plot the results.
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 293-316
+.. GENERATED FROM PYTHON SOURCE LINES 298-321
 
 .. code-block:: Python
 
@@ -447,18 +452,18 @@ Here we plot the results.
 
  .. code-block:: none
 
-    Solution converges with p as: 30.5 * (0.0479) ** p in H1 norm.
+    Solution converges with p as: 30.1 * (0.0482) ** p in H1 norm.
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 317-320
+.. GENERATED FROM PYTHON SOURCE LINES 322-325
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 321-343
+.. GENERATED FROM PYTHON SOURCE LINES 326-348
 
 .. code-block:: Python
 
@@ -497,7 +502,7 @@ Here we plot the results.
 
  .. code-block:: none
 
-    Solution converges with p as: 12.9 * (0.0533) ** p in L2 norm.
+    Solution converges with p as: 12.4 * (0.0545) ** p in L2 norm.
 
 
 
@@ -505,7 +510,7 @@ Here we plot the results.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.483 seconds)
+   **Total running time of the script:** (0 minutes 1.471 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_mixed_poisson.py:

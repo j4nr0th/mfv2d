@@ -27,7 +27,7 @@ difference being that now :math:`u` is taken to be a 2-form instead of a
 0-form. As such, there is now a real necessety to introduce a 1-form for
 its derivative.
 
-.. GENERATED FROM PYTHON SOURCE LINES 11-29
+.. GENERATED FROM PYTHON SOURCE LINES 11-31
 
 .. code-block:: Python
 
@@ -38,6 +38,7 @@ its derivative.
     import rmsh
     from matplotlib import pyplot as plt
     from mfv2d import (
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -46,6 +47,7 @@ its derivative.
         UnknownFormOrder,
         mesh_create,
         solve_system_2d,
+        system_as_string,
     )
     from scipy.integrate import trapezoid
 
@@ -56,7 +58,7 @@ its derivative.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 30-54
+.. GENERATED FROM PYTHON SOURCE LINES 32-56
 
 Setup
 -----
@@ -83,7 +85,7 @@ Also, for the value of the reaction coefficient the value of :math:`\alpha = 1` 
 taken. As for the duration, the time slice :math:`t \in [0, 5]` was chosen.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 55-93
+.. GENERATED FROM PYTHON SOURCE LINES 57-95
 
 .. code-block:: Python
 
@@ -132,7 +134,7 @@ taken. As for the duration, the time slice :math:`t \in [0, 5]` was chosen.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 94-101
+.. GENERATED FROM PYTHON SOURCE LINES 96-103
 
 System Setup
 ------------
@@ -142,7 +144,7 @@ second equation pertaining to the gradient of the solution no longer being optio
 Since it includes integration by parts, it also includes weak boundary conditions.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 102-116
+.. GENERATED FROM PYTHON SOURCE LINES 104-117
 
 .. code-block:: Python
 
@@ -154,11 +156,10 @@ Since it includes integration by parts, it also includes weak boundary condition
     p = q.weight
 
     system = KFormSystem(
-        ALPHA * (v * u) == ALPHA * (v * final_u),
-        p.derivative * u - p * q == p ^ final_u,
-        sorting=lambda f: f.order,
+        ALPHA * (v @ u) == ALPHA * (v @ final_u),
+        p.derivative @ u - p @ q == p ^ final_u,
     )
-    print(system)
+    print(system_as_string(system))
 
 
 
@@ -168,13 +169,13 @@ Since it includes integration by parts, it also includes weak boundary condition
 
  .. code-block:: none
 
-    [q(1*)]^T  ([-1 * M(1) | (E(2, 1))^T @ M(1)]  [q(1)]   [<q, final_u>])
-    [u(2*)]    ([        0 |               M(2)]  [u(2)] = [<u, final_u>])
+    [M(2)             | 0        ] [u(2)]   [+ E<u, final_u>]   [0 | 0] [u(2)]
+    [(E(2, 1))^T M(2) | -1.0 M(1)] [q(1)] = [+ B<q, final_u>] + [0 | 0] [q(1)]
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 117-123
+.. GENERATED FROM PYTHON SOURCE LINES 118-124
 
 Make the Mesh
 -------------
@@ -183,13 +184,13 @@ As mentioned above, the mesh used for this example is the
 :math:`(x, y) \in [-1, +1] \times [-1, +1]` square.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 124-149
+.. GENERATED FROM PYTHON SOURCE LINES 125-150
 
 .. code-block:: Python
 
 
     N = 6
-    P = 3
+    P = 4
 
     n1 = N
     n2 = N
@@ -219,20 +220,20 @@ As mentioned above, the mesh used for this example is the
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 150-155
+.. GENERATED FROM PYTHON SOURCE LINES 151-156
 
 Run Unsteady Simulations
 ------------------------
 
 With the mesh and system defined, the simulations can be run. The run is done for
-10, 20, 50, 100, and 200 time steps.
+10, 20, 50, and 100 time steps.
 
-.. GENERATED FROM PYTHON SOURCE LINES 156-212
+.. GENERATED FROM PYTHON SOURCE LINES 157-215
 
 .. code-block:: Python
 
 
-    nt_vals = np.array((10, 20, 50, 100, 200))
+    nt_vals = np.array((10, 20, 50, 100))
     h1_err = np.zeros(nt_vals.size)
     l2_err = np.zeros(nt_vals.size)
     dt_vals = np.zeros(nt_vals.size)
@@ -245,10 +246,12 @@ With the mesh and system defined, the simulations can be run. The run is done fo
                 system, initial_conditions={u: initial_u, q: initial_q}
             ),
             solver_settings=SolverSettings(
-                maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+                ConvergenceSettings(
+                    maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+                )
             ),
             time_settings=TimeSettings(dt=dt, nt=nt, time_march_relations={v: u}),
-            recon_order=25,
+            recon_order=10,
         )
 
         n_sol = len(solutions)
@@ -294,7 +297,7 @@ With the mesh and system defined, the simulations can be run. The run is done fo
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 213-220
+.. GENERATED FROM PYTHON SOURCE LINES 216-223
 
 Plot the Time Error
 -------------------
@@ -304,7 +307,7 @@ The total integrated time error in the two norms is now examined.
 :math:`H^1` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 221-245
+.. GENERATED FROM PYTHON SOURCE LINES 224-248
 
 .. code-block:: Python
 
@@ -344,12 +347,12 @@ The total integrated time error in the two norms is now examined.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 246-248
+.. GENERATED FROM PYTHON SOURCE LINES 249-251
 
 :math:`L^2` Norm
 ~~~~~~~~~~~~~~~~
 
-.. GENERATED FROM PYTHON SOURCE LINES 249-274
+.. GENERATED FROM PYTHON SOURCE LINES 252-277
 
 .. code-block:: Python
 
@@ -390,14 +393,14 @@ The total integrated time error in the two norms is now examined.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 275-279
+.. GENERATED FROM PYTHON SOURCE LINES 278-282
 
 Plot Solution's Evolution
 -------------------------
 
 With :mod:`pyvista` the unsteady solution can even be plotted.
 
-.. GENERATED FROM PYTHON SOURCE LINES 280-292
+.. GENERATED FROM PYTHON SOURCE LINES 283-295
 
 .. code-block:: Python
 
@@ -428,7 +431,7 @@ With :mod:`pyvista` the unsteady solution can even be plotted.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (1 minutes 26.018 seconds)
+   **Total running time of the script:** (0 minutes 33.175 seconds)
 
 
 .. _sphx_glr_download_auto_examples_unsteady_plot_reaction_mixed.py:

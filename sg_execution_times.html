@@ -163,16 +163,20 @@
 <li class="toctree-l1"><a class="reference internal" href="auto_examples/index.html">Examples</a></li>
 
 
+
 <li class="toctree-l1 has-children"><a class="reference internal" href="modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="modules/_mfv2d.html">_mfv2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/boundary.html">boundary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/continuity.html">continuity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/examples.html">examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/kform.html">kform</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/mimetic2d.html">mimetic2d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/progress.html">progress</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/refinement.html">refinement</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/system.html">system</a></li>
 </ul>
 </details></li>
 </ul>
@@ -327,7 +331,7 @@ document.write(`
                   
   <section id="computation-times">
 <span id="sphx-glr-sg-execution-times"></span><h1>Computation times<a class="headerlink" href="#computation-times" title="Link to this heading">#</a></h1>
-<p><strong>03:45.740</strong> total execution time for 13 files <strong>from all galleries</strong>:</p>
+<p><strong>04:51.687</strong> total execution time for 15 files <strong>from all galleries</strong>:</p>
 <div class="docutils container">
 <style scoped>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
@@ -348,56 +352,64 @@ $(document).ready( function () {
 </tr>
 </thead>
 <tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="auto_examples/refinement/plot_advdif_post_hp_projection.html#sphx-glr-auto-examples-refinement-plot-advdif-post-hp-projection-py"><span class="std std-ref">Approximating Error from Projections with Advection-Diffusion</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/refinement/plot_advdif_post_hp_projection.py</span></code>)</p></td>
+<td><p>01:44.986</p></td>
+<td><p>0.0</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/refinement/plot_direct_poison_post_hp.html#sphx-glr-auto-examples-refinement-plot-direct-poison-post-hp-py"><span class="std std-ref">Post-Solver Combined hp-refinement with Direct Poisson</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/refinement/plot_direct_poison_post_hp.py</span></code>)</p></td>
+<td><p>00:52.351</p></td>
+<td><p>0.0</p></td>
+</tr>
 <tr class="row-even"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_reaction_mixed.html#sphx-glr-auto-examples-unsteady-plot-reaction-mixed-py"><span class="std std-ref">Mixed Reaction Equation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_reaction_mixed.py</span></code>)</p></td>
-<td><p>01:26.018</p></td>
+<td><p>00:33.175</p></td>
 <td><p>0.0</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_reaction.html#sphx-glr-auto-examples-unsteady-plot-reaction-py"><span class="std std-ref">Reaction Equation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_reaction.py</span></code>)</p></td>
-<td><p>01:18.353</p></td>
+<td><p>00:32.835</p></td>
 <td><p>0.0</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="auto_examples/steady/plot_direct_poisson_refined_post_p.html#sphx-glr-auto-examples-steady-plot-direct-poisson-refined-post-p-py"><span class="std std-ref">Post-Solver p-Refinement</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/steady/plot_direct_poisson_refined_post_p.py</span></code>)</p></td>
-<td><p>00:12.889</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="auto_examples/refinement/plot_direct_poisson_refined_pre.html#sphx-glr-auto-examples-refinement-plot-direct-poisson-refined-pre-py"><span class="std std-ref">Poisson Equation with Local Refinement</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/refinement/plot_direct_poisson_refined_pre.py</span></code>)</p></td>
+<td><p>00:13.568</p></td>
 <td><p>0.0</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/steady/plot_direct_poisson_refined_pre.html#sphx-glr-auto-examples-steady-plot-direct-poisson-refined-pre-py"><span class="std std-ref">Poisson Equation with Local Refinement</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/steady/plot_direct_poisson_refined_pre.py</span></code>)</p></td>
-<td><p>00:12.568</p></td>
-<td><p>0.0</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_heat_mixed.html#sphx-glr-auto-examples-unsteady-plot-heat-mixed-py"><span class="std std-ref">Unsteady Heat Equations in Mixed Formulation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_heat_mixed.py</span></code>)</p></td>
-<td><p>00:10.895</p></td>
-<td><p>0.0</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_heat_direct.html#sphx-glr-auto-examples-unsteady-plot-heat-direct-py"><span class="std std-ref">Unsteady Heat Equations in Direct Formulation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_heat_direct.py</span></code>)</p></td>
-<td><p>00:07.502</p></td>
-<td><p>0.0</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_cavity_flow.html#sphx-glr-auto-examples-unsteady-plot-cavity-flow-py"><span class="std std-ref">Navier-Stokes: Cavity Flow</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_cavity_flow.py</span></code>)</p></td>
-<td><p>00:04.587</p></td>
-<td><p>0.0</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_vector_reaction.html#sphx-glr-auto-examples-unsteady-plot-vector-reaction-py"><span class="std std-ref">Vector Reaction Equation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_vector_reaction.py</span></code>)</p></td>
-<td><p>00:03.899</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/refinement/plot_direct_poisson_refined_post_p.html#sphx-glr-auto-examples-refinement-plot-direct-poisson-refined-post-p-py"><span class="std std-ref">Post-Solver p-Refinement</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/refinement/plot_direct_poisson_refined_post_p.py</span></code>)</p></td>
+<td><p>00:13.552</p></td>
 <td><p>0.0</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="auto_examples/steady/plot_navier_stokes.html#sphx-glr-auto-examples-steady-plot-navier-stokes-py"><span class="std std-ref">Incompressible Navier-Stokes Equation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/steady/plot_navier_stokes.py</span></code>)</p></td>
-<td><p>00:03.157</p></td>
+<td><p>00:11.259</p></td>
+<td><p>0.0</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_heat_mixed.html#sphx-glr-auto-examples-unsteady-plot-heat-mixed-py"><span class="std std-ref">Unsteady Heat Equations in Mixed Formulation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_heat_mixed.py</span></code>)</p></td>
+<td><p>00:10.991</p></td>
+<td><p>0.0</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_heat_direct.html#sphx-glr-auto-examples-unsteady-plot-heat-direct-py"><span class="std std-ref">Unsteady Heat Equations in Direct Formulation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_heat_direct.py</span></code>)</p></td>
+<td><p>00:07.834</p></td>
+<td><p>0.0</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_vector_reaction.html#sphx-glr-auto-examples-unsteady-plot-vector-reaction-py"><span class="std std-ref">Vector Reaction Equation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_vector_reaction.py</span></code>)</p></td>
+<td><p>00:02.694</p></td>
+<td><p>0.0</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="auto_examples/unsteady/plot_cavity_flow.html#sphx-glr-auto-examples-unsteady-plot-cavity-flow-py"><span class="std std-ref">Navier-Stokes: Cavity Flow</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/unsteady/plot_cavity_flow.py</span></code>)</p></td>
+<td><p>00:02.589</p></td>
 <td><p>0.0</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/steady/plot_linear_adv_dif.html#sphx-glr-auto-examples-steady-plot-linear-adv-dif-py"><span class="std std-ref">Linear Advection-Diffusion</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/steady/plot_linear_adv_dif.py</span></code>)</p></td>
-<td><p>00:01.562</p></td>
+<td><p>00:01.573</p></td>
 <td><p>0.0</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="auto_examples/steady/plot_mixed_poisson.html#sphx-glr-auto-examples-steady-plot-mixed-poisson-py"><span class="std std-ref">Poisson Equation in the Mixed Formulation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/steady/plot_mixed_poisson.py</span></code>)</p></td>
-<td><p>00:01.483</p></td>
+<td><p>00:01.471</p></td>
 <td><p>0.0</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="auto_examples/steady/plot_stokes_flow.html#sphx-glr-auto-examples-steady-plot-stokes-flow-py"><span class="std std-ref">Stokes Flow</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/steady/plot_stokes_flow.py</span></code>)</p></td>
-<td><p>00:01.456</p></td>
+<td><p>00:01.427</p></td>
 <td><p>0.0</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="auto_examples/steady/plot_direct_poisson.html#sphx-glr-auto-examples-steady-plot-direct-poisson-py"><span class="std std-ref">Poisson Equation in the Direct Formulation</span></a> (<code class="docutils literal notranslate"><span class="pre">../examples/steady/plot_direct_poisson.py</span></code>)</p></td>
-<td><p>00:01.371</p></td>
+<td><p>00:01.383</p></td>
 <td><p>0.0</p></td>
 </tr>
 </tbody>

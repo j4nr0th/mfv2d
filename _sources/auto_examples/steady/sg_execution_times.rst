@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:34.486** total execution time for 7 files **from auto_examples/steady**:
+**00:17.113** total execution time for 5 files **from auto_examples/steady**:
 
 .. container::
 
@@ -32,24 +32,18 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_post_p.py` (``plot_direct_poisson_refined_post_p.py``)
-     - 00:12.889
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_pre.py` (``plot_direct_poisson_refined_pre.py``)
-     - 00:12.568
-     - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_navier_stokes.py` (``plot_navier_stokes.py``)
-     - 00:03.157
+     - 00:11.259
      - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_linear_adv_dif.py` (``plot_linear_adv_dif.py``)
-     - 00:01.562
+     - 00:01.573
      - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_mixed_poisson.py` (``plot_mixed_poisson.py``)
-     - 00:01.483
+     - 00:01.471
      - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_stokes_flow.py` (``plot_stokes_flow.py``)
-     - 00:01.456
+     - 00:01.427
      - 0.0
    * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson.py` (``plot_direct_poisson.py``)
-     - 00:01.371
+     - 00:01.383
      - 0.0

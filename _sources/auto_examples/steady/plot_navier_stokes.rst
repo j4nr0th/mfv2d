@@ -61,7 +61,7 @@ system :eq:`steady-ns-variational`.
 
     \left(r^{(2)}, \mathrm{d} u^{(1)}\right)_\Omega = 0 \quad\forall r^{(2)} \in \Lambda^{(2)}(\mathcal{M})
 
-.. GENERATED FROM PYTHON SOURCE LINES 45-60
+.. GENERATED FROM PYTHON SOURCE LINES 45-62
 
 .. code-block:: Python
 
@@ -71,6 +71,7 @@ system :eq:`steady-ns-variational`.
     import rmsh
     from mfv2d import (
         BoundaryCondition2DSteady,
+        ConvergenceSettings,
         KFormSystem,
         KFormUnknown,
         SolverSettings,
@@ -78,6 +79,7 @@ system :eq:`steady-ns-variational`.
         UnknownFormOrder,
         mesh_create,
         solve_system_2d,
+        system_as_string,
     )
 
 
@@ -87,7 +89,7 @@ system :eq:`steady-ns-variational`.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 61-87
+.. GENERATED FROM PYTHON SOURCE LINES 63-89
 
 Setup
 -----
@@ -116,7 +118,7 @@ Forcing given for that solution is given by equation :eq:`steady-ns-forcing`.
 The Reynolds number is also chosen to be :math:`\mathrm{Re} = 1000`, at which point
 the advection term is very strongly dominant.
 
-.. GENERATED FROM PYTHON SOURCE LINES 88-113
+.. GENERATED FROM PYTHON SOURCE LINES 90-115
 
 .. code-block:: Python
 
@@ -152,7 +154,7 @@ the advection term is very strongly dominant.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 114-123
+.. GENERATED FROM PYTHON SOURCE LINES 116-125
 
 System Setup
 ------------
@@ -164,7 +166,7 @@ addition of the advection term on the right side of the momentum equations.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 124-145
+.. GENERATED FROM PYTHON SOURCE LINES 126-146
 
 .. code-block:: Python
 
@@ -179,15 +181,14 @@ addition of the advection term on the right side of the momentum equations.
     w_div = div.weight
 
     system = KFormSystem(
-        w_vor.derivative * vel - w_vor * vor == w_vor ^ exact_velocty,
+        w_vor.derivative @ vel - w_vor @ vor == w_vor ^ exact_velocty,
         # No weak BC for pressure, since normal velocity is given
-        (1 / RE) * (w_vel * vor.derivative) + w_vel.derivative * pre
-        == w_vel * exact_forcing - (w_vel * (vel ^ (~vor))),
-        w_pre * vel.derivative == 0,
-        w_div * div - w_div * vel.derivative == 0,  # Divergence extraction.
-        sorting=lambda f: f.order,
+        (1 / RE) * (w_vel @ vor.derivative) + w_vel.derivative @ pre
+        == w_vel @ exact_forcing - (vel * w_vel @ vor),
+        (w_pre @ vel.derivative) == 0,
+        w_div @ div - w_div @ vel.derivative == 0,  # Divergence extraction.
     )
-    print(system)
+    print(system_as_string(system))
 
 
 
@@ -197,15 +198,15 @@ addition of the advection term on the right side of the momentum equations.
 
  .. code-block:: none
 
-    [vor(0*)]^T  ([             -1 * M(0) |  (E(1, 0))^T @ M(0) |                  0 |    0]  [vor(0)]   [<vor, exact_velocty>])   [vor(0*)]^T  ([                              0 |                        0 | 0 | 0]  [vor(0)] 
-    [vel(1*)]    ([0.001 * M(1) @ E(1, 0) |                   0 | (E(2, 1))^T @ M(1) |    0]  [vel(1)]   [<vel, exact_forcing>])   [vel(1*)]    ([-1 * M(1) @ M(1, 2; vel) @ M(1) | -1 * M(1) @ N(1, 2; vor) | 0 | 0]  [vel(1)] 
-    [pre(2*)]    ([                     0 |      M(2) @ E(2, 1) |                  0 |    0]  [pre(2)] = [                   0]) + [pre(2*)]    ([                              0 |                        0 | 0 | 0]  [pre(2)] 
-    [div(2*)]    ([                     0 | -1 * M(2) @ E(2, 1) |                  0 | M(2)]  [div(2)]   [                   0])   [div(2*)]    ([                              0 |                        0 | 0 | 0]  [div(2)] 
+    [-1.0 M(0)          | (E(1, 0))^T M(1)  | 0                | 0   ] [vor(0)]   [+ B<vor, exact_velocty>]   [0                     | 0 | 0 | 0] [vor(0)]
+    [0.001 M(1) E(1, 0) | 0                 | (E(2, 1))^T M(2) | 0   ] [vel(1)]   [+ E<vel, exact_forcing>]   [-1.0 (P(0, 1, vel))^T | 0 | 0 | 0] [vel(1)]
+    [0                  | M(2) E(2, 1)      | 0                | 0   ] [pre(2)] = [+ 0                    ] + [0                     | 0 | 0 | 0] [pre(2)]
+    [0                  | -1.0 M(2) E(2, 1) | 0                | M(2)] [div(2)]   [+ 0                    ]   [0                     | 0 | 0 | 0] [div(2)]
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 146-153
+.. GENERATED FROM PYTHON SOURCE LINES 147-154
 
 Make the Mesh
 -------------
@@ -215,7 +216,7 @@ elements. Since the problem is non-linear with no initial guess, it can be
 a bit unstable to compute when under-resolved.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 154-180
+.. GENERATED FROM PYTHON SOURCE LINES 155-181
 
 .. code-block:: Python
 
@@ -252,7 +253,7 @@ a bit unstable to compute when under-resolved.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 181-186
+.. GENERATED FROM PYTHON SOURCE LINES 182-187
 
 Solve the System
 ----------------
@@ -260,7 +261,7 @@ Solve the System
 Here we solve the system.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 187-206
+.. GENERATED FROM PYTHON SOURCE LINES 188-209
 
 .. code-block:: Python
 
@@ -274,9 +275,11 @@ Here we solve the system.
             [(0.0, pre)],
         ),
         solver_settings=SolverSettings(
-            maximum_iterations=20,
-            absolute_tolerance=1e-10,
-            relative_tolerance=0,
+            ConvergenceSettings(
+                maximum_iterations=20,
+                absolute_tolerance=1e-10,
+                relative_tolerance=0,
+            )
         ),
         print_residual=False,
         recon_order=25,
@@ -291,12 +294,12 @@ Here we solve the system.
 
  .. code-block:: none
 
-    SolutionStatistics(element_orders={(6, 6): 49}, n_total_dofs=11270, n_leaf_dofs=np.uint64(10045), n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([6.96336197e-02, 9.02580252e-02, 1.81090247e-11]))
+    SolutionStatistics(element_orders={(6, 6): 49}, n_total_dofs=11270, n_leaf_dofs=np.int64(10045), n_lagrange=1225, n_elems=49, n_leaves=49, iter_history=array([2], dtype=uint32), residual_history=array([0.06963362, 0.09025803]))
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 207-213
+.. GENERATED FROM PYTHON SOURCE LINES 210-216
 
 Print Statistics
 ----------------
@@ -305,7 +308,7 @@ Quick statistics for this solution, such as velocity and vorticity erros are
 extracted from there.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 214-239
+.. GENERATED FROM PYTHON SOURCE LINES 217-242
 
 .. code-block:: Python
 
@@ -342,14 +345,14 @@ extracted from there.
 
  .. code-block:: none
 
-    Integrated pressure is 2.261e-12
-    err_vel=8.228e-10
-    err_vor=1.497e-10
+    Integrated pressure is 1.427e-12
+    err_vel=8.555e-10
+    err_vor=1.511e-10
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 240-249
+.. GENERATED FROM PYTHON SOURCE LINES 243-252
 
 Check the Divergence
 --------------------
@@ -361,7 +364,7 @@ divergence flow. This guarantees that the pressure solution is sensible.
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 250-262
+.. GENERATED FROM PYTHON SOURCE LINES 253-265
 
 .. code-block:: Python
 
@@ -390,12 +393,12 @@ divergence flow. This guarantees that the pressure solution is sensible.
 
  .. code-block:: none
 
-    Highest value of divergence in the domain is 7.142e-16
+    Highest value of divergence in the domain is 2.762e-15
 
 
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 263-268
+.. GENERATED FROM PYTHON SOURCE LINES 266-271
 
 Plot Streamlines
 ----------------
@@ -403,7 +406,7 @@ Plot Streamlines
 Pyvista allows for very simple 2D streamline plots.
 
 
-.. GENERATED FROM PYTHON SOURCE LINES 269-289
+.. GENERATED FROM PYTHON SOURCE LINES 272-292
 
 .. code-block:: Python
 
@@ -442,7 +445,7 @@ Pyvista allows for very simple 2D streamline plots.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 3.157 seconds)
+   **Total running time of the script:** (0 minutes 11.259 seconds)
 
 
 .. _sphx_glr_download_auto_examples_steady_plot_navier_stokes.py:

@@ -1,0 +1,1093 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mfv2d.solving &#8212; mfv2d  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../../_static/jupyter-sphinx.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/thebelab-helper.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mfv2d/solving';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mfv2d  documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../basis.html">Mimetic Spectral Elements Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../auto_examples/index.html">Examples</a></li>
+
+
+
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">Modules</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/_mfv2d.html">_mfv2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/boundary.html">boundary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/continuity.html">continuity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/eval.html">eval</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/examples.html">examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/kform.html">kform</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/mimetic2d.html">mimetic2d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/progress.html">progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/refinement.html">refinement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solve_system.html">solve_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/solving.html">solving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/system.html">system</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mfv2d.solving</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Code related to solving the system of equations.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">linalg</span> <span class="k">as</span> <span class="n">la</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sp</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">DenseVector</span><span class="p">,</span> <span class="n">MatrixCRS</span><span class="p">,</span> <span class="n">SparseVector</span><span class="p">,</span> <span class="n">TraceVector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d._mfv2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">LinearSystem</span> <span class="k">as</span> <span class="n">CLinearSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.mimetic2d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Constraint</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mfv2d.system</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElementFormSpecification</span>
+
+
+<div class="viewcode-block" id="LinearSystem">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.LinearSystem">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LinearSystem</span><span class="p">(</span><span class="n">CLinearSystem</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class used to represent a linear system with element equations and constraints.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n_elem : int</span>
+<span class="sd">        Number of elements in the system.</span>
+
+<span class="sd">    form_spec : ElementFormSpecification</span>
+<span class="sd">        Specification of forms in the element system.</span>
+
+<span class="sd">    orders : array</span>
+<span class="sd">        Array of element orders.</span>
+
+<span class="sd">    element_matrices : Sequence of arrays</span>
+<span class="sd">        Sequence of element matrices.</span>
+
+<span class="sd">    constraints : Sequence of Constraint</span>
+<span class="sd">        Sequences of constraints the element systems are subject to.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="LinearSystem.__new__">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.LinearSystem.__new__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">n_elem</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">form_spec</span><span class="p">:</span> <span class="n">ElementFormSpecification</span><span class="p">,</span>
+        <span class="n">orders</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span>
+        <span class="n">element_matrices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
+        <span class="n">constraints</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Constraint</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new LinearSystem.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">n_elem</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">element_matrices</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">orders</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">n_elem</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_elem</span><span class="p">):</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="n">form_spec</span><span class="o">.</span><span class="n">total_size</span><span class="p">(</span><span class="o">*</span><span class="n">orders</span><span class="p">[</span><span class="n">ie</span><span class="p">])</span>
+            <span class="k">assert</span> <span class="n">element_matrices</span><span class="p">[</span><span class="n">ie</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
+
+        <span class="n">element_constraint_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_elem</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uintc</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">con</span> <span class="ow">in</span> <span class="n">constraints</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ec</span> <span class="ow">in</span> <span class="n">con</span><span class="o">.</span><span class="n">element_constraints</span><span class="p">:</span>
+                <span class="n">element_constraint_counts</span><span class="p">[</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">system_blocks</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">element_matrices</span><span class="p">[</span><span class="n">ie</span><span class="p">],</span>
+                <span class="n">MatrixCRS</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">constraints</span><span class="p">),</span> <span class="n">element_matrices</span><span class="p">[</span><span class="n">ie</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_elem</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">c_vals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">c_elems</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+        <span class="n">c_lens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">ic</span><span class="p">,</span> <span class="n">con</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">constraints</span><span class="p">):</span>
+            <span class="n">present_elements</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">ec</span> <span class="ow">in</span> <span class="n">con</span><span class="o">.</span><span class="n">element_constraints</span><span class="p">:</span>
+                <span class="n">present_elements</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">)</span>
+                <span class="n">system</span> <span class="o">=</span> <span class="n">system_blocks</span><span class="p">[</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span><span class="p">]</span>
+                <span class="n">system</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">build_row</span><span class="p">(</span>
+                    <span class="n">ic</span><span class="p">,</span>
+                    <span class="n">SparseVector</span><span class="o">.</span><span class="n">from_entries</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ec</span><span class="o">.</span><span class="n">dofs</span><span class="p">,</span> <span class="n">ec</span><span class="o">.</span><span class="n">coeffs</span><span class="p">),</span>
+                <span class="p">)</span>
+
+            <span class="n">c_elems</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ec</span><span class="o">.</span><span class="n">i_e</span> <span class="k">for</span> <span class="n">ec</span> <span class="ow">in</span> <span class="n">con</span><span class="o">.</span><span class="n">element_constraints</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">c_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">con</span><span class="o">.</span><span class="n">rhs</span><span class="p">)</span>
+            <span class="n">c_lens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c_elems</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="p">(</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_elem</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">present_elements</span><span class="p">):</span>
+                <span class="n">system_blocks</span><span class="p">[</span><span class="n">ie</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">build_row</span><span class="p">(</span><span class="n">ic</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span>
+            <span class="n">system_blocks</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">c_lens</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">c_elems</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LinearSystem.apply_full_trace_system">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.LinearSystem.apply_full_trace_system">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_full_trace_system</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="o">/</span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="n">tmp1</span><span class="p">:</span> <span class="n">DenseVector</span><span class="p">,</span> <span class="n">tmp2</span><span class="p">:</span> <span class="n">DenseVector</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the Schur&#39;s trace system.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        TraceVector</span>
+<span class="sd">            Trace vector to which this is applied to.</span>
+
+<span class="sd">        out : TraceVector</span>
+<span class="sd">            Trace vector, which receives output. Can be the same as input.</span>
+
+<span class="sd">        tmp1 : DenseVector</span>
+<span class="sd">            Dense vector used to store intermediate result. Must be unique.</span>
+
+<span class="sd">        tmp2 : DenseVector</span>
+<span class="sd">            Dense vector used to store intermediate result. Must be unique.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">tmp1</span> <span class="ow">is</span> <span class="n">tmp2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Temporary dense vectors must not be the same.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_trace_transpose</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">tmp1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_diagonal_inverse</span><span class="p">(</span><span class="n">tmp1</span><span class="p">,</span> <span class="n">tmp2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_trace</span><span class="p">(</span><span class="n">tmp2</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LinearSystem.combined_system_matrix">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.LinearSystem.combined_system_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">combined_system_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Combine the system matrix into a scipy CSR array.&quot;&quot;&quot;</span>
+        <span class="n">diagonal_part</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_dense_blocks</span><span class="p">())</span>
+        <span class="n">lagrange_block</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">block_array</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">[</span>
+                    <span class="n">sp</span><span class="o">.</span><span class="n">csc_array</span><span class="p">(</span>
+                        <span class="p">(</span>
+                            <span class="n">constraint_matrix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                            <span class="p">(</span>
+                                <span class="n">constraint_matrix</span><span class="o">.</span><span class="n">row_indices</span><span class="p">,</span>
+                                <span class="n">constraint_matrix</span><span class="o">.</span><span class="n">column_indices</span><span class="p">,</span>
+                            <span class="p">),</span>
+                        <span class="p">),</span>
+                        <span class="n">shape</span><span class="o">=</span><span class="n">constraint_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">constraint_matrix</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_constraint_blocks</span><span class="p">()</span>
+                <span class="p">]</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">sp</span><span class="o">.</span><span class="n">csr_array</span><span class="p">,</span>
+            <span class="n">sp</span><span class="o">.</span><span class="n">block_array</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="p">[</span><span class="n">diagonal_part</span><span class="p">,</span> <span class="n">lagrange_block</span><span class="o">.</span><span class="n">T</span><span class="p">],</span>
+                    <span class="p">[</span><span class="n">lagrange_block</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                <span class="p">],</span>
+                <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csr&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConvergenceSettings</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Settings used to specify convergence of an iterative solver.&quot;&quot;&quot;</span>
+
+    <span class="n">maximum_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Maximum number of iterations to improve the solution.&quot;&quot;&quot;</span>
+
+    <span class="n">absolute_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;When the largest update in the solution drops bellow this value,</span>
+<span class="sd">    consider it converged.&quot;&quot;&quot;</span>
+
+    <span class="n">relative_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;When the largest update in the solution drops bellow the largest</span>
+<span class="sd">    value of solution degrees of freedom scaled by this value, consider</span>
+<span class="sd">    it converged.&quot;&quot;&quot;</span>
+
+
+<span class="n">_Mat</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;_Mat&quot;</span><span class="p">)</span>
+<span class="n">_Vec</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;_Vec&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="gmres_general">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.gmres_general">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gmres_general</span><span class="p">(</span>
+    <span class="n">mat</span><span class="p">:</span> <span class="n">_Mat</span><span class="p">,</span>
+    <span class="n">rhs</span><span class="p">:</span> <span class="n">_Vec</span><span class="p">,</span>
+    <span class="n">initial_guess</span><span class="p">:</span> <span class="n">_Vec</span><span class="p">,</span>
+    <span class="n">convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span><span class="p">,</span>
+    <span class="n">system_application_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Mat</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_dot_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">vec_add_to_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_sub_from_scaled_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_scale_by_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_copy_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">],</span> <span class="n">_Vec</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;General implementation of GMRES to use for any data type with operators.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    _Vec</span>
+<span class="sd">        Computed solution.</span>
+
+<span class="sd">    float</span>
+<span class="sd">        Estimated residual.</span>
+
+<span class="sd">    int</span>
+<span class="sd">        Iterations done.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">convergence</span><span class="o">.</span><span class="n">maximum_iterations</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">sk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">ck</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">m</span><span class="p">,</span> <span class="n">m</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">p_vecs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_Vec</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+    <span class="c1"># Find stopping criterion</span>
+    <span class="n">rhs_mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">vec_dot_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">rhs_mag</span> <span class="o">*</span> <span class="n">convergence</span><span class="o">.</span><span class="n">relative_tolerance</span> <span class="o">&gt;</span> <span class="n">convergence</span><span class="o">.</span><span class="n">absolute_tolerance</span><span class="p">:</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="n">convergence</span><span class="o">.</span><span class="n">absolute_tolerance</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="n">rhs_mag</span> <span class="o">*</span> <span class="n">convergence</span><span class="o">.</span><span class="n">relative_tolerance</span>
+
+    <span class="n">res</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span>
+    <span class="n">system_application_function</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">initial_guess</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+    <span class="n">vec_sub_from_scaled_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="c1"># First residual</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">res</span>
+    <span class="c1"># Get magnitude of the residual</span>
+    <span class="n">r_mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">vec_dot_function</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span>
+    <span class="c1"># Normalize the vector</span>
+    <span class="n">vec_scale_by_function</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">r_mag</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="c1"># Add it to the current collection of basis and LSQR state</span>
+    <span class="n">p_vecs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="n">g</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">r_mag</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="c1"># Make a new basis vector</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+        <span class="n">system_application_function</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="c1"># Make it orthogonal to other basis</span>
+        <span class="k">for</span> <span class="n">li</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+            <span class="n">p_old</span> <span class="o">=</span> <span class="n">p_vecs</span><span class="p">[</span><span class="n">li</span><span class="p">]</span>
+            <span class="n">pp_dp</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p_old</span><span class="p">)</span>
+            <span class="n">h</span><span class="p">[</span><span class="n">li</span><span class="p">]</span> <span class="o">=</span> <span class="n">pp_dp</span>
+            <span class="n">vec_sub_from_scaled_function</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p_old</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">pp_dp</span><span class="p">)</span>
+
+        <span class="c1"># Get the magnitude and normalize it</span>
+        <span class="n">p_mag2</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>  <span class="c1"># Surprise tool for later</span>
+        <span class="n">p_mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">p_mag2</span><span class="p">)</span>
+        <span class="n">vec_scale_by_function</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">p_mag</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="n">p_vecs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+        <span class="c1"># Apply previous Givens rotations to the new column</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">tmp</span> <span class="o">=</span> <span class="n">ck</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">sk</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">h</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">sk</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">ck</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">h</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">tmp</span>
+
+        <span class="c1"># Find new Givens rotation</span>
+        <span class="n">rho</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">p_mag2</span> <span class="o">+</span> <span class="n">h</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">c_new</span> <span class="o">=</span> <span class="n">h</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">rho</span>
+        <span class="n">s_new</span> <span class="o">=</span> <span class="n">p_mag</span> <span class="o">/</span> <span class="n">rho</span>
+        <span class="n">ck</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">c_new</span>
+        <span class="n">sk</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">s_new</span>
+        <span class="n">h</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">c_new</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">s_new</span> <span class="o">*</span> <span class="n">p_mag</span>
+        <span class="n">r</span><span class="p">[:</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">h</span><span class="p">[:</span><span class="n">k</span><span class="p">]</span>
+        <span class="n">g</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">s_new</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">g</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">c_new</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">r_mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">r_mag</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="c1"># k += 1</span>
+            <span class="k">break</span>
+
+    <span class="c1"># Iterations are done, time to solve the LSQR problem</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">la</span><span class="o">.</span><span class="n">solve_triangular</span><span class="p">(</span><span class="n">r</span><span class="p">[:</span><span class="n">k</span><span class="p">,</span> <span class="p">:</span><span class="n">k</span><span class="p">],</span> <span class="n">g</span><span class="p">[:</span><span class="n">k</span><span class="p">])</span>
+    <span class="n">sol</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">initial_guess</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+        <span class="n">vec_add_to_function</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="n">p_vecs</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">sol</span><span class="p">,</span> <span class="n">alpha</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">sol</span><span class="p">,</span> <span class="n">r_mag</span><span class="p">,</span> <span class="n">k</span></div>
+
+
+
+<div class="viewcode-block" id="pcg_general">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.pcg_general">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pcg_general</span><span class="p">(</span>
+    <span class="n">mat</span><span class="p">:</span> <span class="n">_Mat</span><span class="p">,</span>
+    <span class="n">rhs</span><span class="p">:</span> <span class="n">_Vec</span><span class="p">,</span>
+    <span class="n">initial_guess</span><span class="p">:</span> <span class="n">_Vec</span><span class="p">,</span>
+    <span class="n">convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span><span class="p">,</span>
+    <span class="n">system_application_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Mat</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">precondition_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Mat</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_dot_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">vec_add_to_scaled_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_sub_from_scaled_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_copy_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">],</span> <span class="n">_Vec</span><span class="p">],</span>
+    <span class="n">degen_limit</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-12</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;General implementation of GMRES to use for any data type with operators.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    _Vec</span>
+<span class="sd">        Computed solution.</span>
+
+<span class="sd">    float</span>
+<span class="sd">        Estimated residual.</span>
+
+<span class="sd">    int</span>
+<span class="sd">        Iterations done.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Find stopping criterion</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">initial_guess</span><span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">initial_guess</span><span class="p">)</span>
+    <span class="n">system_application_function</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+    <span class="n">vec_sub_from_scaled_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+    <span class="n">precondition_function</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="n">ap</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span>
+
+    <span class="n">res_mag2</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">res_mag2</span><span class="p">)</span> <span class="o">*</span> <span class="n">convergence</span><span class="o">.</span><span class="n">relative_tolerance</span>
+        <span class="o">&gt;</span> <span class="n">convergence</span><span class="o">.</span><span class="n">absolute_tolerance</span>
+    <span class="p">):</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="n">convergence</span><span class="o">.</span><span class="n">absolute_tolerance</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">res_mag2</span><span class="p">)</span> <span class="o">*</span> <span class="n">convergence</span><span class="o">.</span><span class="n">relative_tolerance</span>
+
+    <span class="n">rz_dp</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+
+    <span class="n">iter_cnt</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">iter_cnt</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">convergence</span><span class="o">.</span><span class="n">maximum_iterations</span><span class="p">):</span>
+        <span class="n">system_application_function</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">ap</span><span class="p">)</span>
+        <span class="n">apa</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">ap</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">apa</span><span class="p">))</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">res_mag2</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">degen_limit</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;System degenerated (matrix was probably not SPD).&quot;</span><span class="p">)</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">rz_dp</span> <span class="o">/</span> <span class="n">apa</span>
+        <span class="n">vec_add_to_scaled_function</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">vec_sub_from_scaled_function</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">ap</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="n">res_mag2</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">res_mag2</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="o">**</span><span class="mi">2</span><span class="p">:</span>
+            <span class="k">break</span>
+
+        <span class="n">precondition_function</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+        <span class="n">new_rz_dp</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+
+        <span class="n">beta</span> <span class="o">=</span> <span class="n">new_rz_dp</span> <span class="o">/</span> <span class="n">rz_dp</span>
+        <span class="n">rz_dp</span> <span class="o">=</span> <span class="n">new_rz_dp</span>
+        <span class="n">vec_add_to_scaled_function</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">res_mag2</span><span class="p">),</span> <span class="n">iter_cnt</span></div>
+
+
+
+<div class="viewcode-block" id="cg_general">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.cg_general">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cg_general</span><span class="p">(</span>
+    <span class="n">mat</span><span class="p">:</span> <span class="n">_Mat</span><span class="p">,</span>
+    <span class="n">rhs</span><span class="p">:</span> <span class="n">_Vec</span><span class="p">,</span>
+    <span class="n">initial_guess</span><span class="p">:</span> <span class="n">_Vec</span><span class="p">,</span>
+    <span class="n">convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span><span class="p">,</span>
+    <span class="n">system_application_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Mat</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_dot_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">vec_add_to_scaled_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_sub_from_scaled_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">vec_copy_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">],</span> <span class="n">_Vec</span><span class="p">],</span>
+    <span class="n">vec_set_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_Vec</span><span class="p">,</span> <span class="n">_Vec</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">_Vec</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;General implementation of GMRES to use for any data type with operators.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    m : int</span>
+<span class="sd">        Number of basis to use for the solution.</span>
+
+<span class="sd">    mat : _Mat</span>
+<span class="sd">        System matrix state.</span>
+
+<span class="sd">    rhs : _Vec</span>
+<span class="sd">        Right side of the system.</span>
+
+<span class="sd">    convergence : ConvergenceSettings</span>
+<span class="sd">        Settings to use for convergence.</span>
+
+<span class="sd">    system_application_function : (_Mat, _Vec) -&gt; _Vec</span>
+<span class="sd">        Function that applies the system to the input vector.</span>
+
+<span class="sd">    vec_dot_function : (_Vec, _Vec) -&gt; float</span>
+<span class="sd">        Function that computes the dot product of system vectors.</span>
+
+<span class="sd">    vec_add_function : (_Vec, _Vec) -&gt; _Vec</span>
+<span class="sd">        Function that adds two vectors together.</span>
+
+<span class="sd">    vec_sub_function : (_Vec, _Vec) -&gt; _Vec</span>
+<span class="sd">        Function which subtracts two vectors.</span>
+
+<span class="sd">    vec_scale_function : (float, _Vec) -&gt; _Vec</span>
+<span class="sd">        Function which scales a vector by a constant</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    _Vec</span>
+<span class="sd">        Computed solution.</span>
+
+<span class="sd">    float</span>
+<span class="sd">        Estimated residual.</span>
+
+<span class="sd">    int</span>
+<span class="sd">        Iterations done.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Find stopping criterion</span>
+    <span class="n">res_mag2</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">res_mag2</span><span class="p">)</span> <span class="o">*</span> <span class="n">convergence</span><span class="o">.</span><span class="n">relative_tolerance</span>
+        <span class="o">&gt;</span> <span class="n">convergence</span><span class="o">.</span><span class="n">absolute_tolerance</span>
+    <span class="p">):</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="n">convergence</span><span class="o">.</span><span class="n">absolute_tolerance</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">res_mag2</span><span class="p">)</span> <span class="o">*</span> <span class="n">convergence</span><span class="o">.</span><span class="n">relative_tolerance</span>
+
+    <span class="n">ap</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">vec_copy_function</span><span class="p">(</span><span class="n">initial_guess</span><span class="p">)</span>
+
+    <span class="n">iter_cnt</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">iter_cnt</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">convergence</span><span class="o">.</span><span class="n">maximum_iterations</span><span class="p">):</span>
+        <span class="n">system_application_function</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">ap</span><span class="p">)</span>
+        <span class="n">apa</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">ap</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">res_mag2</span> <span class="o">/</span> <span class="n">apa</span>
+        <span class="n">vec_add_to_scaled_function</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+        <span class="n">vec_sub_from_scaled_function</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">ap</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+        <span class="n">new_res_mag2</span> <span class="o">=</span> <span class="n">vec_dot_function</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_res_mag2</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="o">**</span><span class="mi">2</span><span class="p">:</span>
+            <span class="n">res_mag2</span> <span class="o">=</span> <span class="n">new_res_mag2</span>
+            <span class="k">break</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="n">new_res_mag2</span> <span class="o">/</span> <span class="n">res_mag2</span>
+        <span class="n">res_mag2</span> <span class="o">=</span> <span class="n">new_res_mag2</span>
+        <span class="n">vec_set_function</span><span class="p">(</span><span class="n">ap</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="n">vec_add_to_scaled_function</span><span class="p">(</span><span class="n">ap</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+        <span class="n">vec_set_function</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">ap</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">res_mag2</span><span class="p">),</span> <span class="n">iter_cnt</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_schur_iterative</span><span class="p">(</span>
+    <span class="n">system</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">,</span>
+    <span class="n">rhs</span><span class="p">:</span> <span class="n">DenseVector</span><span class="p">,</span>
+    <span class="n">constraints</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span>
+    <span class="n">convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">DenseVector</span><span class="p">,</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Solve the system using Schur&#39;s compliment but iteratively.&quot;&quot;&quot;</span>
+    <span class="c1"># Compute rhs forcing for the Lagrange multipliers</span>
+
+    <span class="c1">### A^{-1} y</span>
+    <span class="n">inv_a_y</span> <span class="o">=</span> <span class="n">DenseVector</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+    <span class="n">system</span><span class="o">.</span><span class="n">apply_diagonal_inverse</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">inv_a_y</span><span class="p">)</span>
+    <span class="c1">### N A^{-1} y - phi</span>
+    <span class="n">trace_rhs</span> <span class="o">=</span> <span class="n">TraceVector</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+    <span class="n">system</span><span class="o">.</span><span class="n">apply_trace</span><span class="p">(</span><span class="n">inv_a_y</span><span class="p">,</span> <span class="n">trace_rhs</span><span class="p">)</span>
+    <span class="n">TraceVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">trace_rhs</span><span class="p">,</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">trace_rhs</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+    <span class="n">tmp_d1</span> <span class="o">=</span> <span class="n">DenseVector</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+    <span class="n">tmp_d2</span> <span class="o">=</span> <span class="n">DenseVector</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_apply_system</span><span class="p">(</span><span class="n">system</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the trace system in a wrapped way.&quot;&quot;&quot;</span>
+        <span class="n">system</span><span class="o">.</span><span class="n">apply_full_trace_system</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">tmp_d1</span><span class="p">,</span> <span class="n">tmp_d2</span><span class="p">)</span>
+
+    <span class="c1"># Iteratively solve the system for trace lambda</span>
+    <span class="c1"># trace_lhs, tr, itr_cnt = gmres_general(</span>
+    <span class="c1">#     system,</span>
+    <span class="c1">#     trace_rhs,</span>
+    <span class="c1">#     convergence,</span>
+    <span class="c1">#     wrapped_apply_system,</span>
+    <span class="c1">#     TraceVector.dot,</span>
+    <span class="c1">#     TraceVector.add_to,</span>
+    <span class="c1">#     TraceVector.subtract_from_scaled,</span>
+    <span class="c1">#     TraceVector.scale_by,</span>
+    <span class="c1">#     TraceVector.copy,</span>
+    <span class="c1"># )</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_wrap_add</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_wrap_sub</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="n">trace_lhs</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">itr_cnt</span> <span class="o">=</span> <span class="n">cg_general</span><span class="p">(</span>
+        <span class="n">system</span><span class="p">,</span>
+        <span class="n">trace_rhs</span><span class="p">,</span>
+        <span class="n">TraceVector</span><span class="p">(</span><span class="n">system</span><span class="p">),</span>
+        <span class="n">convergence</span><span class="p">,</span>
+        <span class="n">wrapped_apply_system</span><span class="p">,</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">dot</span><span class="p">,</span>
+        <span class="n">_wrap_add</span><span class="p">,</span>
+        <span class="n">_wrap_sub</span><span class="p">,</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">set_from</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Apply contribution of trace to the system x = A^{-1} y - A^{-1} N^T lambda</span>
+    <span class="n">system</span><span class="o">.</span><span class="n">apply_trace_transpose</span><span class="p">(</span><span class="n">trace_lhs</span><span class="p">,</span> <span class="n">tmp_d1</span><span class="p">)</span>
+    <span class="n">system</span><span class="o">.</span><span class="n">apply_diagonal_inverse</span><span class="p">(</span><span class="n">tmp_d1</span><span class="p">,</span> <span class="n">tmp_d2</span><span class="p">)</span>
+    <span class="n">DenseVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">inv_a_y</span><span class="p">,</span> <span class="n">tmp_d2</span><span class="p">,</span> <span class="n">inv_a_y</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">inv_a_y</span><span class="p">,</span> <span class="n">trace_lhs</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">itr_cnt</span>
+
+
+<div class="viewcode-block" id="FullVector">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.FullVector">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FullVector</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class contaning a dense and trace vector.&quot;&quot;&quot;</span>
+
+    <span class="n">dense</span><span class="p">:</span> <span class="n">DenseVector</span>
+    <span class="n">trace</span><span class="p">:</span> <span class="n">TraceVector</span>
+
+<div class="viewcode-block" id="FullVector.__post_init__">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.FullVector.__post_init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check both are from the same parent.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dense</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both parts must have the same parent.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FullVector.make_empty">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.FullVector.make_empty">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_empty</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">system</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an empty vector.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">DenseVector</span><span class="p">(</span><span class="n">system</span><span class="p">),</span> <span class="n">TraceVector</span><span class="p">(</span><span class="n">system</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="FullVector.dot">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.FullVector.dot">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dot</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute dot product of two vectors.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">DenseVector</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">dense</span><span class="p">)</span> <span class="o">+</span> <span class="n">TraceVector</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">trace</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FullVector.copy">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.FullVector.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FullVector</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a copy of itself.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">FullVector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dense</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="FullVector.set_from">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.FullVector.set_from">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the vector from another.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense</span><span class="o">.</span><span class="n">set_from</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">dense</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">set_from</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">trace</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FullVector.add">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.FullVector.add">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v_out</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add two vectors.&quot;&quot;&quot;</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FullVector.subtract">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.FullVector.subtract">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subtract</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v_out</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subtracts two vectors.&quot;&quot;&quot;</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FullVector.scale">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.FullVector.scale">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scale</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">v_out</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Scale the vector by a constant.&quot;&quot;&quot;</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">)</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">trace</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="solve_gmres_iterative">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.solve_gmres_iterative">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_gmres_iterative</span><span class="p">(</span>
+    <span class="n">system</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">,</span>
+    <span class="n">rhs</span><span class="p">:</span> <span class="n">DenseVector</span><span class="p">,</span>
+    <span class="n">constraints</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span>
+    <span class="n">convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">DenseVector</span><span class="p">,</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Solve the system using GMRES.&quot;&quot;&quot;</span>
+    <span class="c1"># Set up the right side</span>
+
+    <span class="n">rhs_full</span> <span class="o">=</span> <span class="n">FullVector</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+
+    <span class="n">dense_buffer1</span> <span class="o">=</span> <span class="n">DenseVector</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_apply_system</span><span class="p">(</span>
+        <span class="n">sys</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">,</span> <span class="n">v_in</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v_out</span><span class="p">:</span> <span class="n">FullVector</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_diagonal</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">dense_buffer1</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_trace_transpose</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_trace</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">trace</span><span class="p">)</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">dense_buffer1</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+    <span class="n">solution</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">itr_cnt</span> <span class="o">=</span> <span class="n">gmres_general</span><span class="p">(</span>
+        <span class="n">system</span><span class="p">,</span>
+        <span class="n">rhs_full</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">make_empty</span><span class="p">(</span><span class="n">system</span><span class="p">),</span>
+        <span class="n">convergence</span><span class="p">,</span>
+        <span class="n">wrapped_apply_system</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">dot</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">add</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">solution</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">solution</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">itr_cnt</span></div>
+
+
+
+<div class="viewcode-block" id="solve_cg_iterative">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.solve_cg_iterative">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_cg_iterative</span><span class="p">(</span>
+    <span class="n">system</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">,</span>
+    <span class="n">rhs</span><span class="p">:</span> <span class="n">DenseVector</span><span class="p">,</span>
+    <span class="n">constraints</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span>
+    <span class="n">convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">DenseVector</span><span class="p">,</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Solve the system using CG.&quot;&quot;&quot;</span>
+    <span class="c1"># Set up the right side</span>
+
+    <span class="n">rhs_full</span> <span class="o">=</span> <span class="n">FullVector</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+
+    <span class="n">dense_buffer1</span> <span class="o">=</span> <span class="n">DenseVector</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+    <span class="n">dense_buffer2</span> <span class="o">=</span> <span class="n">DenseVector</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_apply_system</span><span class="p">(</span><span class="n">sys</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">,</span> <span class="n">v_in</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_diagonal</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">dense_buffer1</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_trace_transpose</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">dense_buffer2</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_trace</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v_in</span><span class="o">.</span><span class="n">trace</span><span class="p">)</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dense_buffer1</span><span class="p">,</span> <span class="n">dense_buffer2</span><span class="p">,</span> <span class="n">v_in</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_add</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_sub</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="n">solution</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">itr_cnt</span> <span class="o">=</span> <span class="n">cg_general</span><span class="p">(</span>
+        <span class="n">system</span><span class="p">,</span>
+        <span class="n">rhs_full</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">make_empty</span><span class="p">(</span><span class="n">system</span><span class="p">),</span>
+        <span class="n">convergence</span><span class="p">,</span>
+        <span class="n">wrapped_apply_system</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">dot</span><span class="p">,</span>
+        <span class="n">wrapped_add</span><span class="p">,</span>
+        <span class="n">wrapped_sub</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">set_from</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">solution</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">solution</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">itr_cnt</span></div>
+
+
+
+<div class="viewcode-block" id="solve_pcg_iterative">
+<a class="viewcode-back" href="../../modules/solving.html#mfv2d.solving.solve_pcg_iterative">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_pcg_iterative</span><span class="p">(</span>
+    <span class="n">system</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">,</span>
+    <span class="n">rhs</span><span class="p">:</span> <span class="n">DenseVector</span><span class="p">,</span>
+    <span class="n">constraints</span><span class="p">:</span> <span class="n">TraceVector</span><span class="p">,</span>
+    <span class="n">convergence</span><span class="p">:</span> <span class="n">ConvergenceSettings</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">DenseVector</span><span class="p">,</span> <span class="n">TraceVector</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Solve the system using preconditioned CG.&quot;&quot;&quot;</span>
+    <span class="c1"># Set up the right side</span>
+
+    <span class="n">rhs_full</span> <span class="o">=</span> <span class="n">FullVector</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
+
+    <span class="n">dense_buffer1</span> <span class="o">=</span> <span class="n">DenseVector</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+    <span class="n">dense_buffer2</span> <span class="o">=</span> <span class="n">DenseVector</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_apply_system</span><span class="p">(</span>
+        <span class="n">sys</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">,</span> <span class="n">v_in</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v_out</span><span class="p">:</span> <span class="n">FullVector</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_diagonal</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">dense_buffer1</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_trace_transpose</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">dense_buffer2</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_trace</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">trace</span><span class="p">)</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dense_buffer1</span><span class="p">,</span> <span class="n">dense_buffer2</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">precondition_block_jacobi</span><span class="p">(</span>
+        <span class="n">sys</span><span class="p">:</span> <span class="n">LinearSystem</span><span class="p">,</span> <span class="n">v_in</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v_out</span><span class="p">:</span> <span class="n">FullVector</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Block Jacobi precondition</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">apply_diagonal_inverse</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">)</span>
+        <span class="n">v_out</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">set_from</span><span class="p">(</span><span class="n">v_in</span><span class="o">.</span><span class="n">trace</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_add</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">v_out</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_sub</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">v_out</span><span class="p">:</span> <span class="n">FullVector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">DenseVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+        <span class="n">TraceVector</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">v1</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v2</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">v_out</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="n">solution</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">itr_cnt</span> <span class="o">=</span> <span class="n">pcg_general</span><span class="p">(</span>
+        <span class="n">system</span><span class="p">,</span>
+        <span class="n">rhs_full</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">make_empty</span><span class="p">(</span><span class="n">system</span><span class="p">),</span>
+        <span class="n">convergence</span><span class="p">,</span>
+        <span class="n">wrapped_apply_system</span><span class="p">,</span>
+        <span class="n">precondition_block_jacobi</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">dot</span><span class="p">,</span>
+        <span class="n">wrapped_add</span><span class="p">,</span>
+        <span class="n">wrapped_sub</span><span class="p">,</span>
+        <span class="n">FullVector</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">solution</span><span class="o">.</span><span class="n">dense</span><span class="p">,</span> <span class="n">solution</span><span class="o">.</span><span class="n">trace</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">itr_cnt</span></div>
+
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Jan Roth
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Jan Roth.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

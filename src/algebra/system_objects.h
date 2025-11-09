@@ -10,7 +10,8 @@ typedef struct
 } system_object_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject system_object_type;
+// extern PyTypeObject system_object_type;
+extern PyType_Spec system_object_spec;
 
 static inline const system_t *system_object_as_system(const system_object_t *const this)
 {
@@ -26,7 +27,8 @@ typedef struct
 } dense_vector_object_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject dense_vector_object_type;
+// extern PyTypeObject dense_vector_object_type;
+extern PyType_Spec dense_vector_object_type_spec;
 
 static inline dense_vector_t dense_vector_object_as_dense_vector(const dense_vector_object_t *const this)
 {
@@ -42,7 +44,8 @@ typedef struct
 } trace_vector_object_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject trace_vector_object_type;
+// extern PyTypeObject trace_vector_object_type;
+extern PyType_Spec trace_vector_type_spec;
 
 static inline trace_vector_t trace_vector_object_as_trace_vector(const trace_vector_object_t *const this)
 {

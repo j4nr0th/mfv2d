@@ -72,6 +72,10 @@ static mfv2d_result_t system_fill_out(system_object_t *const this, const unsigne
 
 static PyObject *system_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(type);
+    if (!state)
+        return NULL;
+
     PyTupleObject *tuple_blocks;
     PyArrayObject *array_offsets;
     PyArrayObject *array_indices;
@@ -156,7 +160,7 @@ static PyObject *system_new(PyTypeObject *type, PyObject *args, PyObject *kwargs
             return NULL;
         }
         const crs_matrix_t *const constraints = (crs_matrix_t *)PyTuple_GET_ITEM(block_info, 1);
-        if (!PyObject_TypeCheck(constraints, &crs_matrix_type_object))
+        if (!PyObject_TypeCheck(constraints, state->type_crs_matrix))
         {
             PyErr_Format(PyExc_TypeError, "Constraints must be a crs_matrix, got %R for block %u", Py_TYPE(constraints),
                          i);
@@ -219,6 +223,16 @@ static void system_dealloc(PyObject *self)
 
 static PyObject *system_str(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_system))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", state->type_system->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     const system_object_t *const this = (const system_object_t *)self;
     return PyUnicode_FromFormat("<LinearSystem (%u DoFs, %u Const.) with %u blocks>", this->total_dense,
                                 this->system.n_trace, this->system.n_blocks);
@@ -228,8 +242,20 @@ PyDoc_STRVAR(system_get_dense_blocks_docstring,
              "get_system_dense_blocks() -> tuple[numpy.typing.NDArray[numpy.float64], ...]\n"
              "Get the dense blocks of the system.\n");
 
-static PyObject *system_get_dense_blocks(PyObject *self, PyObject *Py_UNUSED(args))
+static PyObject *system_get_dense_blocks(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                                         const Py_ssize_t nargs, PyObject *Py_UNUSED(kwnames))
 {
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", defining_class->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected no arguments, got %zd", nargs);
+        return NULL;
+    }
+
     const system_object_t *const system = (system_object_t *)self;
     const unsigned n_blocks = system->system.n_blocks;
     PyTupleObject *const res = (PyTupleObject *)PyTuple_New(n_blocks);
@@ -266,8 +292,25 @@ static PyObject *system_get_dense_blocks(PyObject *self, PyObject *Py_UNUSED(arg
 PyDoc_STRVAR(system_get_constraint_blocks_docstring, "get_system_constraint_blocks() -> tuple[MatrixCRS, ...]\n"
                                                      "Get the constraint blocks of the system.\n");
 
-static PyObject *system_get_constraint_blocks(PyObject *self, PyObject *Py_UNUSED(args))
+static PyObject *system_get_constraint_blocks(PyObject *self, PyTypeObject *defining_class,
+                                              PyObject *const *Py_UNUSED(args), const Py_ssize_t nargs,
+                                              PyObject *Py_UNUSED(kwnames))
 {
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", defining_class->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected no arguments, got %zd", nargs);
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
     const system_object_t *const system = (system_object_t *)self;
     const unsigned n_blocks = system->system.n_blocks;
     PyTupleObject *const res = (PyTupleObject *)PyTuple_New(n_blocks);
@@ -285,7 +328,7 @@ static PyObject *system_get_constraint_blocks(PyObject *self, PyObject *Py_UNUSE
             Py_DECREF(res);
             return NULL;
         }
-        crs_matrix_t *const crs = (crs_matrix_t *)crs_matrix_type_object.tp_alloc(&crs_matrix_type_object, 0);
+        crs_matrix_t *const crs = (crs_matrix_t *)state->type_crs_matrix->tp_alloc(state->type_crs_matrix, 0);
         if (!crs)
         {
             jmtxd_matrix_crs_destroy(copy);
@@ -311,8 +354,24 @@ PyDoc_STRVAR(system_apply_diagonal_docstring, "apply_diagonal(x: DenseVector, ou
                                               "DenseVector\n"
                                               "    Dense vector to which the output is returned.\n");
 
-static PyObject *system_apply_diagonal(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *system_apply_diagonal(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                       const Py_ssize_t nargs, PyObject *kwnames)
 {
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", defining_class->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "apply_diagonal() takes no keyword arguments");
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
     if (nargs != 2)
     {
         PyErr_Format(PyExc_TypeError, "Expected 2 arguments, got %zd", nargs);
@@ -320,12 +379,12 @@ static PyObject *system_apply_diagonal(PyObject *self, PyObject *const *args, co
     }
 
     const system_object_t *const system = (system_object_t *)self;
-    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Expected first argument to be a DenseVector, got %s", Py_TYPE(args[0])->tp_name);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Expected second argument to be a DenseVector, got %s",
                      Py_TYPE(args[1])->tp_name);
@@ -368,8 +427,24 @@ PyDoc_STRVAR(system_apply_diagonal_inverse_docstring,
              "DenseVector\n"
              "    Dense vector to which the output is returned.\n");
 
-static PyObject *system_apply_diagonal_inverse(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *system_apply_diagonal_inverse(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                               const Py_ssize_t nargs, PyObject *kwnames)
 {
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", defining_class->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "apply_diagonal_inverse() takes no keyword arguments");
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
     if (nargs != 2)
     {
         PyErr_Format(PyExc_TypeError, "Expected 2 arguments, got %zd", nargs);
@@ -377,12 +452,12 @@ static PyObject *system_apply_diagonal_inverse(PyObject *self, PyObject *const *
     }
 
     const system_object_t *const system = (system_object_t *)self;
-    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Expected first argument to be a DenseVector, got %s", Py_TYPE(args[0])->tp_name);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Expected second argument to be a DenseVector, got %s",
                      Py_TYPE(args[1])->tp_name);
@@ -424,8 +499,24 @@ PyDoc_STRVAR(system_apply_trace_docstring, "apply_trace(x: DenseVector, out: Tra
                                            "TraceVector\n"
                                            "    Trace vector to which the output is returned.\n");
 
-static PyObject *system_apply_trace(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *system_apply_trace(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                    const Py_ssize_t nargs, PyObject *kwnames)
 {
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", defining_class->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "apply_trace() takes no keyword arguments");
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
     if (nargs != 2)
     {
         PyErr_Format(PyExc_TypeError, "Expected 2 arguments, got %zd", nargs);
@@ -433,12 +524,12 @@ static PyObject *system_apply_trace(PyObject *self, PyObject *const *args, const
     }
 
     const system_object_t *const system = (system_object_t *)self;
-    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Expected first argument to be a DenseVector, got %s", Py_TYPE(args[0])->tp_name);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "Expected first argument to be a TraceVector, got %s", Py_TYPE(args[1])->tp_name);
         return NULL;
@@ -480,20 +571,36 @@ PyDoc_STRVAR(system_apply_trace_transpose_docstring,
              "DenseVector\n"
              "    Dense vector to which the output is returned.\n");
 
-static PyObject *system_apply_trace_transpose(PyObject *self, PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *system_apply_trace_transpose(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                              const Py_ssize_t nargs, PyObject *kwnames)
 {
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", defining_class->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "apply_trace_transpose() takes no keyword arguments");
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
     if (nargs != 2)
     {
         PyErr_Format(PyExc_TypeError, "Expected 2 arguments, got %zd", nargs);
     }
 
     const system_object_t *const system = (system_object_t *)self;
-    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "Expected first argument to be a TraceVector, got %s", Py_TYPE(args[0])->tp_name);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Expected first argument to be a DenseVector, got %s", Py_TYPE(args[1])->tp_name);
         return NULL;
@@ -527,37 +634,37 @@ static PyMethodDef system_methods[] = {
     {
         .ml_name = "get_dense_blocks",
         .ml_meth = (void *)system_get_dense_blocks,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = system_get_dense_blocks_docstring,
     },
     {
         .ml_name = "get_constraint_blocks",
         .ml_meth = (void *)system_get_constraint_blocks,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = system_get_constraint_blocks_docstring,
     },
     {
         .ml_name = "apply_diagonal",
         .ml_meth = (void *)system_apply_diagonal,
-        .ml_flags = METH_FASTCALL,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = system_apply_diagonal_docstring,
     },
     {
         .ml_name = "apply_diagonal_inverse",
         .ml_meth = (void *)system_apply_diagonal_inverse,
-        .ml_flags = METH_FASTCALL,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = system_apply_diagonal_inverse_docstring,
     },
     {
         .ml_name = "apply_trace",
         .ml_meth = (void *)system_apply_trace,
-        .ml_flags = METH_FASTCALL,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = system_apply_trace_docstring,
     },
     {
         .ml_name = "apply_trace_transpose",
         .ml_meth = (void *)system_apply_trace_transpose,
-        .ml_flags = METH_FASTCALL,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = system_apply_trace_transpose_docstring,
     },
     {}, // Sentinel
@@ -581,22 +688,40 @@ PyDoc_STRVAR(system_object_docstring,
              "    Packed array of element indices for each trace variable, denoting to which elements\n"
              "    the variable must be added to.\n");
 
-PyTypeObject system_object_type = {
-    PyVarObject_HEAD_INIT(NULL, 0) //
-        .tp_name = "mfv2d._mfv2d.LinearSystem",
-    .tp_basicsize = sizeof(system_object_t),
-    .tp_itemsize = 0,
-    .tp_str = system_str,
-    .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .tp_doc = system_object_docstring,
-    .tp_methods = system_methods,
-    // .tp_getset = ,
-    .tp_new = system_new,
-    .tp_dealloc = system_dealloc,
+// PyTypeObject system_object_type = {
+//     PyVarObject_HEAD_INIT(NULL, 0) //
+//         .tp_name = "mfv2d._mfv2d.LinearSystem",
+//     .tp_basicsize = sizeof(system_object_t),
+//     .tp_itemsize = 0,
+//     .tp_str = system_str,
+//     .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+//     .tp_doc = system_object_docstring,
+//     .tp_methods = system_methods,
+//     // .tp_getset = ,
+//     .tp_new = system_new,
+//     .tp_dealloc = system_dealloc,
+// };
+
+static PyType_Slot system_object_slots[] = {
+    {.slot = Py_tp_str, .pfunc = system_str},         {.slot = Py_tp_doc, .pfunc = (void *)system_object_docstring},
+    {.slot = Py_tp_methods, .pfunc = system_methods}, {.slot = Py_tp_new, .pfunc = system_new},
+    {.slot = Py_tp_dealloc, .pfunc = system_dealloc}, {}, // sentinel
+};
+
+PyType_Spec system_object_spec = {
+    .name = "mfv2d._mfv2d.LinearSystem",
+    .basicsize = sizeof(system_object_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = system_object_slots,
 };
 
 static PyObject *dense_vector_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(type);
+    if (!state)
+        return NULL;
+
     if (kwargs != NULL)
     {
         PyErr_SetString(PyExc_TypeError, "DenseVector does not accept keyword arguments");
@@ -608,7 +733,7 @@ static PyObject *dense_vector_new(PyTypeObject *type, PyObject *args, PyObject *
     }
 
     system_object_t *const system = (system_object_t *)PyTuple_GET_ITEM(args, 0);
-    if (!PyObject_TypeCheck(system, &system_object_type))
+    if (!PyObject_TypeCheck(system, state->type_system))
     {
         PyErr_Format(PyExc_TypeError, "Expected first argument to be a LinearSystem, got %s", Py_TYPE(system)->tp_name);
         return NULL;
@@ -712,6 +837,15 @@ static void dense_vector_destroy(PyObject *self)
 
 static PyObject *dense_vector_str(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_dense_vector))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", state->type_dense_vector->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const dense_vector_object_t *const this = (dense_vector_object_t *)self;
     return PyUnicode_FromFormat("<DenseVector with parent at %p>", this->parent);
 }
@@ -719,8 +853,22 @@ static PyObject *dense_vector_str(PyObject *self)
 PyDoc_STRVAR(dense_vector_as_merged_docstring, "as_merged() -> numpy.typing.NDArray[numpy.float64]\n"
                                                "Return the dense vector as a single merged array.\n");
 
-static PyObject *dense_vector_as_merged(PyObject *self, PyObject *Py_UNUSED(args))
+static PyObject *dense_vector_as_merged(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                                        const Py_ssize_t nargs, PyObject *Py_UNUSED(kwnames))
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_dense_vector))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", defining_class->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "DenseVector.as_merged() takes no arguments");
+        return NULL;
+    }
     const dense_vector_object_t *const this = (dense_vector_object_t *)self;
     const npy_intp dim = this->parent->total_dense;
     PyArrayObject *const res = (PyArrayObject *)PyArray_SimpleNew(1, &dim, NPY_DOUBLE);
@@ -738,8 +886,23 @@ static PyObject *dense_vector_as_merged(PyObject *self, PyObject *Py_UNUSED(args
 PyDoc_STRVAR(dense_vector_as_split_docstring, "as_split() -> tuple[numpy.typing.NDArray[numpy.float64], ...]\n"
                                               "Return the dense vector as a tuple of individual block arrays.\n");
 
-static PyObject *dense_vector_as_split(PyObject *self, PyObject *Py_UNUSED(args))
+static PyObject *dense_vector_as_split(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                                       const Py_ssize_t nargs, PyObject *Py_UNUSED(kwnames))
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_dense_vector))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got %s", defining_class->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "DenseVector.as_merged() takes no arguments");
+        return NULL;
+    }
     const dense_vector_object_t *const this = (dense_vector_object_t *)self;
     PyTupleObject *const res = (PyTupleObject *)PyTuple_New(this->parent->system.n_blocks);
     if (!res)
@@ -772,19 +935,30 @@ static PyObject *dense_vector_as_split(PyObject *self, PyObject *Py_UNUSED(args)
 PyDoc_STRVAR(dense_vector_dot_docstring, "dot(v1: DenseVector, v2: DenseVector, /) -> float\n"
                                          "Compute the dot product of two dense vectors.\n");
 
-static PyObject *dense_vector_dot(PyObject *Py_UNUSED(mod), PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *dense_vector_dot(PyObject *Py_UNUSED(self), PyTypeObject *defining_class, PyObject *const *args,
+                                  const Py_ssize_t nargs, const PyObject *kwnames)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "DenseVector.dot() does not accept keyword arguments");
+        return NULL;
+    }
+
     if (nargs != 2)
     {
         PyErr_Format(PyExc_TypeError, "dot() takes exactly 2 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "dot() first argument must be a DenseVector, not %R", Py_TYPE(args[0]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "dot() second argument must be a DenseVector, not %R", Py_TYPE(args[1]));
         return NULL;
@@ -826,24 +1000,35 @@ PyDoc_STRVAR(dense_vector_add_docstring,
              "DenseVector\n"
              "    The vector to which the result is written.\n");
 
-static PyObject *dense_vector_add(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *dense_vector_add(PyObject *Py_UNUSED(self), PyTypeObject *defining_class, PyObject *const *args,
+                                  const Py_ssize_t nargs, const PyObject *kwnames)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "DenseVector.add() does not accept keyword arguments");
+        return NULL;
+    }
+
     if (nargs != 4)
     {
         PyErr_Format(PyExc_TypeError, "add() takes exactly 4 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "First add() argument must be a DenseVector, not %R", Py_TYPE(args[0]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Second add() argument must be a DenseVector, not %R", Py_TYPE(args[1]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[2], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[2], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Third add() argument must be a DenseVector, not %R", Py_TYPE(args[2]));
         return NULL;
@@ -889,24 +1074,34 @@ PyDoc_STRVAR(dense_vector_subtract_docstring,
              "DenseVector\n"
              "    The vector to which the result is written.\n");
 
-static PyObject *dense_vector_subtract(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *dense_vector_subtract(PyObject *Py_UNUSED(self), PyTypeObject *defining_class, PyObject *const *args,
+                                       const Py_ssize_t nargs, const PyObject *kwnames)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "DenseVector.subtract() does not accept keyword arguments");
+        return NULL;
+    }
+
     if (nargs != 4)
     {
         PyErr_Format(PyExc_TypeError, "subtract() takes exactly 4 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "First subtract() argument must be a DenseVector, not %R", Py_TYPE(args[0]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Second subtract() argument must be a DenseVector, not %R", Py_TYPE(args[1]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[2], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[2], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Third subtract() argument must be a DenseVector, not %R", Py_TYPE(args[2]));
         return NULL;
@@ -948,14 +1143,26 @@ PyDoc_STRVAR(dense_vector_scale_docstring, "scale(v: DenseVector, x: float, out:
                                            "DenseVector\n"
                                            "The vector to which the result is written.\n");
 
-static PyObject *dense_vector_scale(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *dense_vector_scale(PyObject *Py_UNUSED(self), PyTypeObject *defining_class, PyObject *const *args,
+                                    const Py_ssize_t nargs, const PyObject *kwnames)
 {
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "DenseVector.scale() does not accept keyword arguments");
+        return NULL;
+    }
+
     if (nargs != 3)
     {
         PyErr_Format(PyExc_TypeError, "scale() takes exactly 3 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[0], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "First scale() argument must be a DenseVector, not %R", Py_TYPE(args[0]));
         return NULL;
@@ -963,7 +1170,7 @@ static PyObject *dense_vector_scale(PyObject *Py_UNUSED(self), PyObject *const *
     const double k = PyFloat_AsDouble(args[1]);
     if (PyErr_Occurred())
         return NULL;
-    if (!PyObject_TypeCheck(args[2], &dense_vector_object_type))
+    if (!PyObject_TypeCheck(args[2], state->type_dense_vector))
     {
         PyErr_Format(PyExc_TypeError, "Third scale() argument must be a DenseVector, not %R", Py_TYPE(args[2]));
         return NULL;
@@ -996,11 +1203,23 @@ static PyObject *dense_vector_scale(PyObject *Py_UNUSED(self), PyObject *const *
 PyDoc_STRVAR(dense_vector_copy_docstring, "copy() -> DenseVector\n"
                                           "Create a copy of itself.");
 
-static PyObject *dense_vector_copy(PyObject *self, PyObject *Py_UNUSED(other))
+static PyObject *dense_vector_copy(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                                   const Py_ssize_t nargs, const PyObject *Py_UNUSED(kwnames))
 {
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "set() argument must be called on a TraceVector, not %R", Py_TYPE(self));
+        return NULL;
+    }
+
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "DenseVector.copy() takes no arguments");
+        return NULL;
+    }
     const dense_vector_object_t *const this = (dense_vector_object_t *)self;
-    dense_vector_object_t *const res =
-        (dense_vector_object_t *)dense_vector_object_type.tp_alloc(&dense_vector_object_type, 0);
+
+    dense_vector_object_t *const res = (dense_vector_object_t *)defining_class->tp_alloc(defining_class, 0);
     if (!res)
         return NULL;
     res->parent = this->parent;
@@ -1028,10 +1247,28 @@ static PyObject *dense_vector_copy(PyObject *self, PyObject *Py_UNUSED(other))
 PyDoc_STRVAR(dense_vector_set_from_docstring, "set(other: DenseVector) -> None\n"
                                               "Sets the value of the vector from another.");
 
-static PyObject *dense_vector_set_from(PyObject *self, PyObject *other)
+static PyObject *dense_vector_set_from(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                       const Py_ssize_t nargs, const PyObject *kwnames)
 {
+    if (nargs != 1)
+    {
+        PyErr_Format(PyExc_TypeError, "DenseVector.set() takes exactly 1 argument (%u given)", (unsigned)nargs);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "DenseVector.set() does not accept keyword arguments");
+        return NULL;
+    }
+    PyObject *const other = args[0];
+
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "set() argument must be called on a TraceVector, not %R", Py_TYPE(self));
+        return NULL;
+    }
     const dense_vector_object_t *const this = (dense_vector_object_t *)self;
-    if (!PyObject_TypeCheck(other, &dense_vector_object_type))
+    if (!PyObject_TypeCheck(other, defining_class))
     {
         PyErr_Format(PyExc_TypeError, "set() argument must be a TraceVector, not %R", Py_TYPE(other));
         return NULL;
@@ -1061,49 +1298,49 @@ static PyMethodDef dense_vector_methods[] = {
     {
         .ml_name = "as_merged",
         .ml_meth = (void *)dense_vector_as_merged,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = dense_vector_as_merged_docstring,
     },
     {
         .ml_name = "as_split",
         .ml_meth = (void *)dense_vector_as_split,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = dense_vector_as_split_docstring,
     },
     {
         .ml_name = "dot",
         .ml_meth = (void *)dense_vector_dot,
-        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS | METH_CLASS,
         .ml_doc = dense_vector_dot_docstring,
     },
     {
         .ml_name = "add",
         .ml_meth = (void *)dense_vector_add,
-        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS | METH_CLASS,
         .ml_doc = dense_vector_add_docstring,
     },
     {
         .ml_name = "subtract",
         .ml_meth = (void *)dense_vector_subtract,
-        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS | METH_CLASS,
         .ml_doc = dense_vector_subtract_docstring,
     },
     {
         .ml_name = "scale",
         .ml_meth = (void *)dense_vector_scale,
-        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS | METH_CLASS,
         .ml_doc = dense_vector_scale_docstring,
     },
     {
         .ml_name = "copy",
         .ml_meth = (void *)dense_vector_copy,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = dense_vector_copy_docstring,
     },
     {
         .ml_name = "set_from",
         .ml_meth = (void *)dense_vector_set_from,
-        .ml_flags = METH_O,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = dense_vector_set_from_docstring,
     },
     {}, // sentinel
@@ -1127,22 +1364,44 @@ static PyGetSetDef dense_vector_getset[] = {
 PyDoc_STRVAR(dense_vector_object_type_docstring,
              "Type used to represent the \"dense\" system variables associated with one element.\n");
 
-PyTypeObject dense_vector_object_type = {
-    PyVarObject_HEAD_INIT(NULL, 0) //
-        .tp_name = "mfv2d._mfv2d.DenseVector",
-    .tp_basicsize = sizeof(dense_vector_object_t),
-    .tp_itemsize = 0,
-    .tp_str = dense_vector_str,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
-    .tp_doc = dense_vector_object_type_docstring,
-    .tp_methods = dense_vector_methods,
-    .tp_getset = dense_vector_getset,
-    .tp_dealloc = dense_vector_destroy,
-    .tp_new = dense_vector_new,
+// PyTypeObject dense_vector_object_type = {
+//     PyVarObject_HEAD_INIT(NULL, 0) //
+//         .tp_name = "mfv2d._mfv2d.DenseVector",
+//     .tp_basicsize = sizeof(dense_vector_object_t),
+//     .tp_itemsize = 0,
+//     .tp_str = dense_vector_str,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
+//     .tp_doc = dense_vector_object_type_docstring,
+//     .tp_methods = dense_vector_methods,
+//     .tp_getset = dense_vector_getset,
+//     .tp_dealloc = dense_vector_destroy,
+//     .tp_new = dense_vector_new,
+// };
+
+static PyType_Slot dense_vector_slots[] = {
+    {.slot = Py_tp_str, .pfunc = dense_vector_str},
+    {.slot = Py_tp_doc, .pfunc = (void *)dense_vector_object_type_docstring},
+    {.slot = Py_tp_methods, .pfunc = dense_vector_methods},
+    {.slot = Py_tp_getset, .pfunc = dense_vector_getset},
+    {.slot = Py_tp_dealloc, .pfunc = dense_vector_destroy},
+    {.slot = Py_tp_new, .pfunc = dense_vector_new},
+    {}, // sentinel
+};
+
+PyType_Spec dense_vector_object_type_spec = {
+    .name = "mfv2d._mfv2d.DenseVector",
+    .basicsize = sizeof(dense_vector_object_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = dense_vector_slots,
 };
 
 static PyObject *trace_vector_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(type);
+    if (!state)
+        return NULL;
+
     if (kwargs != NULL)
     {
         PyErr_SetString(PyExc_TypeError, "TraceVector does not accept keyword arguments");
@@ -1154,7 +1413,7 @@ static PyObject *trace_vector_new(PyTypeObject *type, PyObject *args, PyObject *
     }
 
     system_object_t *const system = (system_object_t *)PyTuple_GET_ITEM(args, 0);
-    if (!PyObject_TypeCheck(system, &system_object_type))
+    if (!PyObject_TypeCheck(system, state->type_system))
     {
         PyErr_Format(PyExc_TypeError, "Expected first argument to be a LinearSystem, got %s", Py_TYPE(system)->tp_name);
         return NULL;
@@ -1256,6 +1515,14 @@ static PyObject *trace_vector_new(PyTypeObject *type, PyObject *args, PyObject *
 
 static PyObject *trace_vector_str(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_trace_vector))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a TraceVector, got %s", Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const trace_vector_object_t *const this = (trace_vector_object_t *)self;
     return PyUnicode_FromFormat("<TraceVector with parent at %p>", this->parent);
 }
@@ -1277,8 +1544,21 @@ static void trace_vector_destroy(PyObject *self)
 PyDoc_STRVAR(trace_vector_as_merged_docstring, "as_merged() -> numpy.typing.NDArray[numpy.float64]\n"
                                                "Return the trace vector as a single merged array.");
 
-static PyObject *trace_vector_as_merged(PyObject *self, PyObject *Py_UNUSED(args))
+static PyObject *trace_vector_as_merged(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                                        const Py_ssize_t nargs, PyObject *Py_UNUSED(kwnames))
 {
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "TraceVector.as_merged() must be called on a TraceVector, not %R", Py_TYPE(self));
+        return NULL;
+    }
+
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "TraceVector.as_merged() takes no arguments");
+        return NULL;
+    }
+
     const trace_vector_object_t *const this = (trace_vector_object_t *)self;
     const npy_intp dim = this->parent->system.n_trace;
     PyArrayObject *const array = (PyArrayObject *)PyArray_SimpleNew(1, &dim, NPY_DOUBLE);
@@ -1302,15 +1582,30 @@ static PyObject *trace_vector_as_merged(PyObject *self, PyObject *Py_UNUSED(args
 PyDoc_STRVAR(trace_vector_as_split_docstring, "as_split() -> tuple[SparseVector, ...]\n"
                                               "Return the trace vector as a tuple of individual block traces.\n");
 
-static PyObject *trace_vector_as_split(PyObject *self, PyObject *Py_UNUSED(args))
+static PyObject *trace_vector_as_split(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                                       const Py_ssize_t nargs, PyObject *Py_UNUSED(kwnames))
 {
+    if (!PyObject_TypeCheck(self, defining_class))
+    {
+        PyErr_Format(PyExc_TypeError, "TraceVector.as_split() argument must be called on a TraceVector, not %R",
+                     Py_TYPE(self));
+        return NULL;
+    }
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "TraceVector.as_split() takes no arguments");
+        return NULL;
+    }
+
     const trace_vector_object_t *const this = (trace_vector_object_t *)self;
     PyTupleObject *const res = (PyTupleObject *)PyTuple_New(this->parent->system.n_blocks);
     if (!res)
         return NULL;
     for (unsigned i = 0; i < this->parent->system.n_blocks; ++i)
     {
-        svec_object_t *const svec = sparse_vector_to_python(this->values + i);
+        svec_object_t *const svec = sparse_vector_to_python(state->type_svec, this->values + i);
         if (!svec)
         {
             Py_DECREF(res);
@@ -1326,19 +1621,29 @@ static PyObject *trace_vector_as_split(PyObject *self, PyObject *Py_UNUSED(args)
 PyDoc_STRVAR(trace_vector_dot_docstring, "dot(v1: TraceVector, v2: TraceVector, /) -> float\n"
                                          "Compute the dot product of two trace vectors.\n");
 
-static PyObject *trace_vector_dot(PyObject *Py_UNUSED(mod), PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *trace_vector_dot(PyObject *Py_UNUSED(self), PyTypeObject *defining_class, PyObject *const *args,
+                                  const Py_ssize_t nargs, PyObject *kwnames)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "TraceVector.dot() does not accept keyword arguments");
+        return NULL;
+    }
+
     if (nargs != 2)
     {
         PyErr_Format(PyExc_TypeError, "dot() takes exactly 2 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "dot() first argument must be a TraceVector, not %R", Py_TYPE(args[0]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "dot() second argument must be a TraceVector, not %R", Py_TYPE(args[1]));
         return NULL;
@@ -1395,24 +1700,34 @@ PyDoc_STRVAR(trace_vector_add_docstring,
              "TraceVector\n"
              "    The vector to which the result is written.\n");
 
-static PyObject *trace_vector_add(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *trace_vector_add(PyObject *Py_UNUSED(self), PyTypeObject *defining_class, PyObject *const *args,
+                                  const Py_ssize_t nargs, PyObject *kwnames)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "TraceVector.add() does not accept keyword arguments");
+        return NULL;
+    }
+
     if (nargs != 4)
     {
         PyErr_Format(PyExc_TypeError, "add() takes exactly 4 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "First add() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "Second add() argument must be a TraceVector, not %R", Py_TYPE(args[1]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[2], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[2], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "Third add() argument must be a TraceVector, not %R", Py_TYPE(args[2]));
         return NULL;
@@ -1475,24 +1790,34 @@ PyDoc_STRVAR(trace_vector_subtract_docstring,
              "TraceVector\n"
              "    The vector to which the result is written.\n");
 
-static PyObject *trace_vector_subtract(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *trace_vector_subtract(PyObject *Py_UNUSED(self), PyTypeObject *defining_class, PyObject *const *args,
+                                       const Py_ssize_t nargs, PyObject *kwnames)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "TraceVector.subtract() does not accept keyword arguments");
+        return NULL;
+    }
+
     if (nargs != 4)
     {
         PyErr_Format(PyExc_TypeError, "subtract() takes exactly 4 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "First subtract() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[1], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[1], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "Second subtract() argument must be a TraceVector, not %R", Py_TYPE(args[1]));
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[2], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[2], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "Third subtract() argument must be a TraceVector, not %R", Py_TYPE(args[2]));
         return NULL;
@@ -1551,14 +1876,24 @@ PyDoc_STRVAR(trace_vector_scale_docstring, "scale(v1: TraceVector, x: float, out
                                            "TraceVector\n"
                                            "    The vector to which the result is written.\n");
 
-static PyObject *trace_vector_scale(PyObject *Py_UNUSED(self), PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *trace_vector_scale(PyObject *Py_UNUSED(self), PyTypeObject *defining_class, PyObject *const *args,
+                                    const Py_ssize_t nargs, PyObject *kwnames)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "TraceVector.scale() does not accept keyword arguments");
+        return NULL;
+    }
+
     if (nargs != 3)
     {
         PyErr_Format(PyExc_TypeError, "scale() takes exactly 3 arguments (%u given)", (unsigned)nargs);
         return NULL;
     }
-    if (!PyObject_TypeCheck(args[0], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[0], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "First scale() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
         return NULL;
@@ -1566,7 +1901,7 @@ static PyObject *trace_vector_scale(PyObject *Py_UNUSED(self), PyObject *const *
     const double k = PyFloat_AsDouble(args[1]);
     if (PyErr_Occurred())
         return NULL;
-    if (!PyObject_TypeCheck(args[2], &trace_vector_object_type))
+    if (!PyObject_TypeCheck(args[2], state->type_trace_vector))
     {
         PyErr_Format(PyExc_TypeError, "Third scale() argument must be a TraceVector, not %R", Py_TYPE(args[2]));
         return NULL;
@@ -1607,11 +1942,26 @@ static PyObject *trace_vector_scale(PyObject *Py_UNUSED(self), PyObject *const *
 PyDoc_STRVAR(trace_vector_copy_docstring, "copy() -> TraceVector\n"
                                           "Create a copy of itself.");
 
-static PyObject *trace_vector_copy(PyObject *self, PyObject *Py_UNUSED(other))
+static PyObject *trace_vector_copy(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                                   const Py_ssize_t nargs, PyObject *Py_UNUSED(kwnames))
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "copy() takes no arguments (%u given)", (unsigned)nargs);
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(self, state->type_trace_vector))
+    {
+        PyErr_Format(PyExc_TypeError, "copy() argument must be a TraceVector, not %R", Py_TYPE(self));
+        return NULL;
+    }
+
     const trace_vector_object_t *const this = (trace_vector_object_t *)self;
-    trace_vector_object_t *const res =
-        (trace_vector_object_t *)trace_vector_object_type.tp_alloc(&trace_vector_object_type, 0);
+    PyTypeObject *const type = state->type_trace_vector;
+    trace_vector_object_t *const res = (trace_vector_object_t *)type->tp_alloc(type, 0);
     if (!res)
         return NULL;
     res->parent = this->parent;
@@ -1641,15 +1991,35 @@ static PyObject *trace_vector_copy(PyObject *self, PyObject *Py_UNUSED(other))
 PyDoc_STRVAR(trace_vector_set_from_docstring, "set(other: TraceVector) -> None\n"
                                               "Sets the value of the vector from another.");
 
-static PyObject *trace_vector_set_from(PyObject *self, PyObject *other)
+static PyObject *trace_vector_set_from(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                       const Py_ssize_t nargs, PyObject *kwnames)
 {
-    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
-    if (!PyObject_TypeCheck(other, &trace_vector_object_type))
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+    if (nargs != 1)
     {
-        PyErr_Format(PyExc_TypeError, "set() argument must be a TraceVector, not %R", Py_TYPE(other));
+        PyErr_Format(PyExc_TypeError, "set() takes exactly 1 argument (%u given)", (unsigned)nargs);
         return NULL;
     }
-    const trace_vector_object_t *const that = (trace_vector_object_t *)other;
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "set() does not accept keyword arguments");
+        return NULL;
+    }
+    if (!PyObject_TypeCheck(self, state->type_trace_vector))
+    {
+        PyErr_Format(PyExc_TypeError, "set() argument must be a TraceVector, not %R", Py_TYPE(self));
+        return NULL;
+    }
+    const trace_vector_object_t *const this = (trace_vector_object_t *)self;
+
+    if (!PyObject_TypeCheck(args[0], Py_TYPE(this)))
+    {
+        PyErr_Format(PyExc_TypeError, "set() argument must be a TraceVector, not %R", Py_TYPE(args[0]));
+        return NULL;
+    }
+    const trace_vector_object_t *const that = (trace_vector_object_t *)args[0];
     if (this->parent != that->parent)
     {
         PyErr_SetString(PyExc_ValueError, "Cannot set vectors from different systems.");
@@ -1684,49 +2054,49 @@ static PyMethodDef trace_vector_methods[] = {
     {
         .ml_name = "as_merged",
         .ml_meth = (void *)trace_vector_as_merged,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = trace_vector_as_merged_docstring,
     },
     {
         .ml_name = "as_split",
         .ml_meth = (void *)trace_vector_as_split,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = trace_vector_as_split_docstring,
     },
     {
         .ml_name = "dot",
         .ml_meth = (void *)trace_vector_dot,
-        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS | METH_CLASS,
         .ml_doc = trace_vector_dot_docstring,
     },
     {
         .ml_name = "add",
         .ml_meth = (void *)trace_vector_add,
-        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS | METH_CLASS,
         .ml_doc = trace_vector_add_docstring,
     },
     {
         .ml_name = "subtract",
         .ml_meth = (void *)trace_vector_subtract,
-        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS | METH_CLASS,
         .ml_doc = trace_vector_subtract_docstring,
     },
     {
         .ml_name = "scale",
         .ml_meth = (void *)trace_vector_scale,
-        .ml_flags = METH_FASTCALL | METH_STATIC,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS | METH_CLASS,
         .ml_doc = trace_vector_scale_docstring,
     },
     {
         .ml_name = "copy",
         .ml_meth = (void *)trace_vector_copy,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = trace_vector_copy_docstring,
     },
     {
         .ml_name = "set_from",
         .ml_meth = (void *)trace_vector_set_from,
-        .ml_flags = METH_O,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = trace_vector_set_from_docstring,
     },
     {}, // sentinel
@@ -1750,16 +2120,34 @@ static PyGetSetDef trace_vector_getset[] = {
 PyDoc_STRVAR(trace_vector_object_type_docstring,
              "Type used to represent the \"trace\" system variables associated with constraints.\n");
 
-PyTypeObject trace_vector_object_type = {
-    PyVarObject_HEAD_INIT(NULL, 0) //
-        .tp_name = "mfv2d._mfv2d.TraceVector",
-    .tp_basicsize = sizeof(trace_vector_object_t),
-    .tp_itemsize = 0,
-    .tp_str = trace_vector_str,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
-    .tp_doc = trace_vector_object_type_docstring,
-    .tp_methods = trace_vector_methods,
-    .tp_getset = trace_vector_getset,
-    .tp_new = trace_vector_new,
-    .tp_dealloc = trace_vector_destroy,
+// PyTypeObject trace_vector_object_type = {
+//     PyVarObject_HEAD_INIT(NULL, 0) //
+//         .tp_name = "mfv2d._mfv2d.TraceVector",
+//     .tp_basicsize = sizeof(trace_vector_object_t),
+//     .tp_itemsize = 0,
+//     .tp_str = trace_vector_str,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
+//     .tp_doc = trace_vector_object_type_docstring,
+//     .tp_methods = trace_vector_methods,
+//     .tp_getset = trace_vector_getset,
+//     .tp_new = trace_vector_new,
+//     .tp_dealloc = trace_vector_destroy,
+// };
+
+static PyType_Slot trace_vector_slots[] = {
+    {.slot = Py_tp_str, .pfunc = trace_vector_str},
+    {.slot = Py_tp_doc, .pfunc = (void *)trace_vector_object_type_docstring},
+    {.slot = Py_tp_methods, .pfunc = trace_vector_methods},
+    {.slot = Py_tp_getset, .pfunc = trace_vector_getset},
+    {.slot = Py_tp_new, .pfunc = trace_vector_new},
+    {.slot = Py_tp_dealloc, .pfunc = trace_vector_destroy},
+    {}, // sentinel
+};
+
+PyType_Spec trace_vector_type_spec = {
+    .name = "mfv2d._mfv2d.TraceVector",
+    .basicsize = sizeof(trace_vector_object_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = trace_vector_slots,
 };

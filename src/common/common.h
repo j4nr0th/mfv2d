@@ -135,4 +135,20 @@ typedef struct
     PyTypeObject *type_dense_vector;
 } mfv2d_module_state_t;
 
+/**
+ * @brief Retrieves the module state associated with a given Python type.
+ *
+ * This function extracts the module state associated with a Python type object.
+ * It first retrieves the module corresponding to the provided type and then
+ * accesses the module state. If the module cannot be resolved or the state is
+ * unavailable, the function returns `NULL` and raises a Python TypeError.
+ *
+ *
+ * @param type Pointer to the Python type object for which the module state is to be retrieved.
+ * @return A pointer to the module state structure (`mfv2d_module_state_t`) if successful,
+ *         or `NULL` if the module or its state could not be accessed.
+ */
+MFV2D_INTERNAL
+const mfv2d_module_state_t *mfv2d_state_from_type(PyTypeObject *type);
+
 #endif // COMMON_H

@@ -11,7 +11,8 @@ typedef struct
 } crs_matrix_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject crs_matrix_type_object;
+// extern PyTypeObject crs_matrix_type_object;
+extern PyType_Spec crs_matrix_type_spec;
 
 static inline int check_jmtx_call(const jmtx_result res, const char *file, const int line, const char *func,
                                   const char *call)

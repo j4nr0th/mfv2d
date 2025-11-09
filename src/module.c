@@ -131,7 +131,7 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL, 0, NULL}, // sentinel
 };
 
-static PyModuleDef module = {
+static PyModuleDef mfv2d_module_def = {
     .m_base = PyModuleDef_HEAD_INIT,
     .m_name = "mfv2d._mfv2d",
     .m_doc = "Internal C-extension implementing required functionality.",
@@ -139,13 +139,28 @@ static PyModuleDef module = {
     .m_methods = module_methods,
 };
 
+const mfv2d_module_state_t *mfv2d_state_from_type(PyTypeObject *type)
+{
+    PyObject *module = PyType_GetModuleByDef(type, &mfv2d_module_def);
+    if (!module)
+    {
+        return NULL;
+    }
+    return (const mfv2d_module_state_t *)PyModule_GetState(module);
+}
+
 static PyTypeObject *add_type_to_the_module(PyObject *mod, PyType_Spec *specs, PyObject *bases)
 {
+    // printf("Creating type: %s\n", specs->name);
     PyObject *const type = PyType_FromModuleAndSpec(mod, specs, bases);
     if (type == NULL)
+    {
+        // printf("Type creation failed.\n");
         return NULL;
+    }
     if (PyType_Ready((PyTypeObject *)type) < 0)
     {
+        // printf("Type ready failed.\n");
         Py_DECREF(type);
         return NULL;
     }
@@ -160,13 +175,15 @@ static PyTypeObject *add_type_to_the_module(PyObject *mod, PyType_Spec *specs, P
     {
         pos += 1;
     }
-
+    // printf("Adding type to module as \"%s\"\n", pos);
     const int res = PyModule_AddObjectRef(mod, pos, type);
     Py_DECREF(type);
     if (res < 0)
     {
+        // printf("Failed to add type to module.\n");
         return NULL;
     }
+    // printf("Successfully added type to module.\n\n");
     return (PyTypeObject *)type;
 }
 
@@ -179,7 +196,7 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
     }
 
     PyObject *mod = NULL;
-    if (!((mod = PyModule_Create(&module))))
+    if (!((mod = PyModule_Create(&mfv2d_module_def))))
         return NULL;
     mfv2d_module_state_t *const state = PyModule_GetState(mod);
 
@@ -194,15 +211,17 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
         (state->type_fem_space = add_type_to_the_module(mod, &element_fem_space_2d_type_spec, NULL)) == NULL ||
         (state->type_form_spec = add_type_to_the_module(mod, &element_form_spec_type_spec, NULL)) == NULL ||
         (state->type_form_spec_iter = add_type_to_the_module(mod, &element_form_spec_iter_type_spec, NULL)) == NULL ||
-        PyModule_AddType(mod, &svec_type_object) < 0 || PyModule_AddType(mod, &crs_matrix_type_object) < 0 ||
-        PyModule_AddType(mod, &system_object_type) < 0 || PyModule_AddType(mod, &trace_vector_object_type) < 0 ||
-        PyModule_AddType(mod, &dense_vector_object_type) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 ||
-        PyModule_AddIntMacro(mod, ELEMENT_SIDE_RIGHT) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_TOP) < 0 ||
-        PyModule_AddIntMacro(mod, ELEMENT_SIDE_LEFT) < 0 || PyModule_AddIntMacro(mod, MATOP_INVALID) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_IDENTITY) < 0 || PyModule_AddIntMacro(mod, MATOP_MASS) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_INCIDENCE) < 0 || PyModule_AddIntMacro(mod, MATOP_PUSH) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_SCALE) < 0 || PyModule_AddIntMacro(mod, MATOP_SUM) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_INTERPROD) < 0)
+        (state->type_svec = add_type_to_the_module(mod, &svec_type_spec, NULL)) == NULL ||
+        (state->type_crs_matrix = add_type_to_the_module(mod, &crs_matrix_type_spec, NULL)) == NULL ||
+        (state->type_system = add_type_to_the_module(mod, &system_object_spec, NULL)) == NULL ||
+        (state->type_dense_vector = add_type_to_the_module(mod, &dense_vector_object_type_spec, NULL)) == NULL ||
+        (state->type_trace_vector = add_type_to_the_module(mod, &trace_vector_type_spec, NULL)) == NULL ||
+        PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_RIGHT) < 0 ||
+        PyModule_AddIntMacro(mod, ELEMENT_SIDE_TOP) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_LEFT) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_INVALID) < 0 || PyModule_AddIntMacro(mod, MATOP_IDENTITY) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_MASS) < 0 || PyModule_AddIntMacro(mod, MATOP_INCIDENCE) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_PUSH) < 0 || PyModule_AddIntMacro(mod, MATOP_SCALE) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_SUM) < 0 || PyModule_AddIntMacro(mod, MATOP_INTERPROD) < 0)
     {
         Py_XDECREF(mod);
         return NULL;

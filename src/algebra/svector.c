@@ -63,9 +63,9 @@ mfv2d_result_t sparse_vector_append(svector_t *this, const entry_t e, const allo
     return MFV2D_SUCCESS;
 }
 
-svec_object_t *sparse_vector_to_python(const svector_t *this)
+svec_object_t *sparse_vector_to_python(PyTypeObject *svec_type_object, const svector_t *this)
 {
-    svec_object_t *const self = (svec_object_t *)svec_type_object.tp_alloc(&svec_type_object, (Py_ssize_t)this->count);
+    svec_object_t *const self = (svec_object_t *)svec_type_object->tp_alloc(svec_type_object, (Py_ssize_t)this->count);
     if (!self)
         return NULL;
 
@@ -413,13 +413,17 @@ static PyObject *svec_array(const svec_object_t *this, PyObject *args, PyObject 
 
 static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+    if (!state)
+        return NULL;
+
     if (PySlice_Check(py_idx))
     {
         // Quick check for an empty vector
         if (this->count == 0)
         {
             const svector_t v = {.n = this->n, .count = 0, .capacity = 0, .entries = NULL};
-            return (PyObject *)sparse_vector_to_python(&v);
+            return (PyObject *)sparse_vector_to_python(state->type_svec, &v);
         }
         Py_ssize_t start, stop, step;
         // Slice
@@ -442,12 +446,12 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
         {
             // Nothing in the range
             fake = (svector_t){.n = stop - start, .count = 0, .capacity = 0, .entries = NULL};
-            return (PyObject *)sparse_vector_to_python(&fake);
+            return (PyObject *)sparse_vector_to_python(state->type_svec, &fake);
         }
         const uint64_t end = sparse_vector_find_first_geq(&self, stop, begin);
         fake = (svector_t){
             .n = seq_len, .count = end - begin, .capacity = 0, .entries = (entry_t *)(this->entries + begin)};
-        svec_object_t *const vec = sparse_vector_to_python(&fake);
+        svec_object_t *const vec = sparse_vector_to_python(state->type_svec, &fake);
         for (uint64_t i = 0; i < vec->count; ++i)
         {
             vec->entries[i].index -= start;
@@ -491,9 +495,13 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
 
 static PyObject *svec_concatenate(PyTypeObject *type, PyObject *const *args, const Py_ssize_t nargs)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(type);
+    if (!state)
+        return NULL;
+
     for (unsigned i = 0; i < nargs; ++i)
     {
-        if (!Py_IS_TYPE(args[i], &svec_type_object))
+        if (!Py_IS_TYPE(args[i], state->type_svec))
         {
             PyErr_Format(PyExc_TypeError, "Argument %u was not a sparse vector but was instead %R.", i,
                          Py_TYPE(args[i]));
@@ -610,7 +618,26 @@ static PyObject *svec_from_pairs(PyTypeObject *type, PyObject *args, PyObject *k
 
 static PyObject *svec_dot(const svec_object_t *this, const svec_object_t *that)
 {
-    if (!PyObject_TypeCheck(that, &svec_type_object) || !PyObject_TypeCheck(this, &svec_type_object))
+    PyObject *const current_exception = PyErr_GetHandledException();
+    PyErr_SetHandledException(NULL);
+    PyObject *mod = PyType_GetModule(Py_TYPE(this));
+    if (!mod)
+    {
+        PyErr_Clear();
+        mod = PyType_GetModule(Py_TYPE(that));
+        if (!mod)
+        {
+            Py_XDECREF(current_exception);
+            return NULL;
+        }
+    }
+    PyErr_SetHandledException(current_exception);
+
+    mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(that, state->type_svec) || !PyObject_TypeCheck(this, state->type_svec))
     {
         PyErr_Format(PyExc_TypeError, "Method requires two sparse vectors, but got a %R and %R.", Py_TYPE(this),
                      Py_TYPE(that));
@@ -680,7 +707,7 @@ static int svec_parse_merge_mode(const char name[], svec_merge_mode_t *out)
     return -1;
 }
 
-static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(self), PyObject *const args[], Py_ssize_t nargs,
+static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(mod), PyObject *const args[], const Py_ssize_t nargs,
                                      PyObject *kwnames)
 {
     svec_merge_mode_t merge_mode = MERGE_MODE_LAST;
@@ -735,9 +762,13 @@ static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(self), PyObject *const 
         return NULL;
     }
 
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(args[0]));
+    if (!state)
+        return NULL;
+
     for (unsigned i = 0; i < nargs; ++i)
     {
-        if (!PyObject_TypeCheck(args[i], &svec_type_object))
+        if (!PyObject_TypeCheck(args[i], state->type_svec))
         {
             PyErr_Format(PyExc_TypeError, "Argument %u was not a sparse vector but was instead %R.", i,
                          Py_TYPE(args[i]));
@@ -1071,13 +1102,17 @@ static PyObject *return_py_bool(const int v)
 
 static PyObject *svec_richcompare(const svec_object_t *self, PyObject *other, int op)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
     if (op != Py_EQ && op != Py_NE)
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
 
     const int want_equal = (op == Py_EQ);
-    if (Py_IS_TYPE(other, &svec_type_object))
+    if (Py_IS_TYPE(other, state->type_svec))
     {
         const svec_object_t *const other_vec = (const svec_object_t *)other;
 
@@ -1195,13 +1230,20 @@ static PyObject *svec_richcompare(const svec_object_t *self, PyObject *other, in
     Py_RETURN_BOOL(want_equal);
 }
 
-static PyMappingMethods svec_mapping = {
-    .mp_subscript = (binaryfunc)svec_get,
-};
+// static PyMappingMethods svec_mapping = {
+//     .mp_subscript = (binaryfunc)svec_get,
+// };
 
 static PyObject *svec_add(const svec_object_t *self, const svec_object_t *other)
 {
-    if (!PyObject_TypeCheck(self, &svec_type_object) || !PyObject_TypeCheck(other, &svec_type_object))
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+    {
+        PyErr_Clear();
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    if (!PyObject_TypeCheck(self, state->type_svec) || !PyObject_TypeCheck(other, state->type_svec))
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
@@ -1218,7 +1260,7 @@ static PyObject *svec_add(const svec_object_t *self, const svec_object_t *other)
     res = sparse_vector_add_inplace(&sum_vector, &that_vector, &SYSTEM_ALLOCATOR);
     if (res == MFV2D_SUCCESS)
     {
-        out = sparse_vector_to_python(&sum_vector);
+        out = sparse_vector_to_python(state->type_svec, &sum_vector);
     }
     sparse_vector_del(&sum_vector, &SYSTEM_ALLOCATOR);
     return (PyObject *)out;
@@ -1226,7 +1268,13 @@ static PyObject *svec_add(const svec_object_t *self, const svec_object_t *other)
 
 static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
 {
-    if (!PyObject_TypeCheck(self, &svec_type_object) || !PyObject_TypeCheck(other, &svec_type_object))
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+    {
+        PyErr_Clear();
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+    if (!PyObject_TypeCheck(self, state->type_svec) || !PyObject_TypeCheck(other, state->type_svec))
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
@@ -1251,7 +1299,7 @@ static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
     res = sparse_vector_add_inplace(&sum_vector, &this_vector, &SYSTEM_ALLOCATOR);
     if (res == MFV2D_SUCCESS)
     {
-        out = sparse_vector_to_python(&sum_vector);
+        out = sparse_vector_to_python(state->type_svec, &sum_vector);
     }
     sparse_vector_del(&sum_vector, &SYSTEM_ALLOCATOR);
     return (PyObject *)out;
@@ -1259,6 +1307,12 @@ static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
 
 static PyObject *svec_mul(const svec_object_t *self, PyObject *other)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+    {
+        PyErr_Clear();
+        Py_RETURN_NOTIMPLEMENTED;
+    }
     const double v = PyFloat_AsDouble(other);
     if (PyErr_Occurred())
     {
@@ -1278,31 +1332,46 @@ static PyObject *svec_mul(const svec_object_t *self, PyObject *other)
         prod_vector.entries[i].value *= v;
     }
 
-    svec_object_t *const out = sparse_vector_to_python(&prod_vector);
+    svec_object_t *const out = sparse_vector_to_python(state->type_svec, &prod_vector);
     sparse_vector_del(&prod_vector, &SYSTEM_ALLOCATOR);
     return (PyObject *)out;
 }
 
-static PyNumberMethods svec_as_number = {
-    .nb_add = (binaryfunc)svec_add,
-    .nb_subtract = (binaryfunc)svec_sub,
-    .nb_multiply = (binaryfunc)svec_mul,
+// static PyNumberMethods svec_as_number = {
+//     .nb_add = (binaryfunc)svec_add,
+//     .nb_subtract = (binaryfunc)svec_sub,
+//     .nb_multiply = (binaryfunc)svec_mul,
+// };
+//
+// PyTypeObject svec_type_object = {
+//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.SparseVector",
+//     .tp_basicsize = sizeof(svec_object_t),
+//     .tp_itemsize = sizeof(entry_t),
+//     .tp_repr = (reprfunc)svec_repr,
+//     .tp_as_mapping = &svec_mapping,
+//     .tp_flags = Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_DEFAULT,
+//     .tp_richcompare = (richcmpfunc)svec_richcompare,
+//     .tp_methods = svec_methods,
+//     .tp_getset = svec_get_set,
+//     .tp_as_number = &svec_as_number,
+// };
+
+static PyType_Slot svec_type_slots[] = {
+    {.slot = Py_tp_repr, .pfunc = svec_repr},
+    {.slot = Py_mp_subscript, .pfunc = svec_get},
+    {.slot = Py_tp_richcompare, .pfunc = svec_richcompare},
+    {.slot = Py_tp_methods, .pfunc = svec_methods},
+    {.slot = Py_tp_getset, .pfunc = svec_get_set},
+    {.slot = Py_nb_add, .pfunc = svec_add},
+    {.slot = Py_nb_subtract, .pfunc = svec_sub},
+    {.slot = Py_nb_multiply, .pfunc = svec_mul},
+    {}, // sentinel
 };
 
-PyTypeObject svec_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.SparseVector",
-    .tp_basicsize = sizeof(svec_object_t),
-    .tp_itemsize = sizeof(entry_t),
-    .tp_repr = (reprfunc)svec_repr,
-    .tp_as_mapping = &svec_mapping,
-    // .tp_hash = ,
-    // .tp_str = ,
-    .tp_flags = Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_DEFAULT,
-    // .tp_doc = ,
-    .tp_richcompare = (richcmpfunc)svec_richcompare,
-    // .tp_iter = ,
-    // .tp_iternext = ,
-    .tp_methods = svec_methods,
-    .tp_getset = svec_get_set,
-    .tp_as_number = &svec_as_number,
+PyType_Spec svec_type_spec = {
+    .name = "mfv2d._mfv2d.SparseVector",
+    .basicsize = sizeof(svec_object_t),
+    .itemsize = sizeof(entry_t),
+    .flags = Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE,
+    .slots = svec_type_slots,
 };

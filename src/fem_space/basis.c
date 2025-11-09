@@ -316,6 +316,7 @@ static PyType_Slot basis_1d_slots[] = {
     {.slot = Py_tp_repr, .pfunc = basis_1d_repr},
     {.slot = Py_tp_getset, .pfunc = basis_1d_getsets},
     {.slot = Py_tp_doc, .pfunc = (void *)basis_1d_doc},
+    {.slot = Py_tp_dealloc, .pfunc = (void *)basis_1d_dealloc},
     {}, // sentinel
 };
 

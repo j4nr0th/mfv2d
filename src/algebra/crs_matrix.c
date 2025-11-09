@@ -57,7 +57,7 @@ static PyObject *crs_matrix_new(PyTypeObject *type, PyObject *args, PyObject *kw
     return (PyObject *)this;
 }
 
-static void crs_matrix_del(crs_matrix_t *this)
+static void crs_matrix_dealloc(crs_matrix_t *this)
 {
     jmtxd_matrix_crs_destroy(this->matrix);
     this->matrix = NULL;
@@ -66,9 +66,11 @@ static void crs_matrix_del(crs_matrix_t *this)
 
 static PyObject *crs_matrix_build_row(crs_matrix_t *this, PyObject *args, PyObject *kwargs)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+
     unsigned row;
     svec_object_t *entries = NULL;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|O!", (char *[]){"row", "entries", NULL}, &row, &svec_type_object,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|O!", (char *[]){"row", "entries", NULL}, &row, state->type_svec,
                                      &entries))
     {
         return NULL;
@@ -154,7 +156,8 @@ static PyObject *crs_matrix_toarray(const crs_matrix_t *this, PyObject *Py_UNUSE
     return (PyObject *)array;
 }
 
-static PyObject *crs_matrix_matmul_left_svec(const crs_matrix_t *this, const svec_object_t *other)
+static PyObject *crs_matrix_matmul_left_svec(const mfv2d_module_state_t *const state, const crs_matrix_t *this,
+                                             const svec_object_t *other)
 {
     // if (!crs_matrix_check_build(this))
     //     return NULL;
@@ -215,12 +218,13 @@ static PyObject *crs_matrix_matmul_left_svec(const crs_matrix_t *this, const sve
         }
     }
 
-    svec_object_t *out = sparse_vector_to_python(&svec);
+    svec_object_t *out = sparse_vector_to_python(state->type_svec, &svec);
     sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
     return (PyObject *)out;
 }
 
-static PyObject *crs_matrix_matmul_right_svec(const crs_matrix_t *this, const svec_object_t *other)
+static PyObject *crs_matrix_matmul_right_svec(const mfv2d_module_state_t *const state, const crs_matrix_t *this,
+                                              const svec_object_t *other)
 {
     // if (!crs_matrix_check_build(this))
     //     return NULL;
@@ -282,7 +286,7 @@ static PyObject *crs_matrix_matmul_right_svec(const crs_matrix_t *this, const sv
 
     sparse_vector_del(&temporary, &SYSTEM_ALLOCATOR);
 
-    svec_object_t *out = sparse_vector_to_python(&svec);
+    svec_object_t *out = sparse_vector_to_python(state->type_svec, &svec);
     sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
     return (PyObject *)out;
 }
@@ -302,7 +306,9 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
         return NULL;
     }
 
-    crs_matrix_t *const new = (crs_matrix_t *)crs_matrix_type_object.tp_alloc(&crs_matrix_type_object, 0);
+    PyTypeObject *const crs_matrix_type_object = (PyTypeObject *)Py_TYPE(this);
+
+    crs_matrix_t *const new = (crs_matrix_t *)crs_matrix_type_object->tp_alloc(crs_matrix_type_object, 0);
     if (!new)
         return NULL;
 
@@ -441,15 +447,16 @@ static crs_matrix_t *crs_matrix_matmul_double(const crs_matrix_t *this, const cr
     return new;
 }
 
-static PyObject *crs_matrix_matmul_left(const crs_matrix_t *this, PyObject *other)
+static PyObject *crs_matrix_matmul_left(const mfv2d_module_state_t *const state, const crs_matrix_t *this,
+                                        PyObject *other)
 {
     if (!crs_matrix_check_build(this))
         return NULL;
-    if (PyObject_TypeCheck(other, &svec_type_object))
+    if (PyObject_TypeCheck(other, state->type_svec))
     {
-        return crs_matrix_matmul_left_svec(this, (svec_object_t *)other);
+        return crs_matrix_matmul_left_svec(state, this, (svec_object_t *)other);
     }
-    if (PyObject_TypeCheck(other, &crs_matrix_type_object))
+    if (PyObject_TypeCheck(other, state->type_crs_matrix))
     {
         return (PyObject *)crs_matrix_matmul_double(this, (crs_matrix_t *)other);
     }
@@ -467,8 +474,8 @@ static PyObject *crs_matrix_matmul_left(const crs_matrix_t *this, PyObject *othe
     {
         in_dims[1] = 1;
     }
-    const npy_intp rows = (npy_intp)this->matrix->base.rows;
-    const npy_intp cols = (npy_intp)this->matrix->base.cols;
+    const npy_intp rows = this->matrix->base.rows;
+    const npy_intp cols = this->matrix->base.cols;
     if (in_dims[0] != this->matrix->base.cols)
     {
         PyErr_Format(
@@ -513,16 +520,17 @@ static PyObject *crs_matrix_matmul_left(const crs_matrix_t *this, PyObject *othe
     return (PyObject *)out;
 }
 
-static PyObject *crs_matrix_matmul_right(const crs_matrix_t *this, PyObject *other)
+static PyObject *crs_matrix_matmul_right(const mfv2d_module_state_t *const state, const crs_matrix_t *this,
+                                         PyObject *other)
 {
     if (!crs_matrix_check_build(this))
         return NULL;
 
-    if (PyObject_TypeCheck(other, &svec_type_object))
+    if (PyObject_TypeCheck(other, state->type_svec))
     {
-        return crs_matrix_matmul_right_svec(this, (svec_object_t *)other);
+        return crs_matrix_matmul_right_svec(state, this, (svec_object_t *)other);
     }
-    if (PyObject_TypeCheck(other, &crs_matrix_type_object))
+    if (PyObject_TypeCheck(other, state->type_crs_matrix))
     {
         return (PyObject *)crs_matrix_matmul_double((crs_matrix_t *)other, this);
     }
@@ -594,14 +602,32 @@ static PyObject *crs_matrix_matmul_right(const crs_matrix_t *this, PyObject *oth
 
 static PyObject *crs_matrix_matmul(PyObject *self, PyObject *other)
 {
-    if (PyObject_TypeCheck(self, &crs_matrix_type_object))
+    PyObject *const exc_state = PyErr_GetHandledException();
+    PyErr_SetHandledException(NULL);
+    PyObject *mod = PyType_GetModule(Py_TYPE(self));
+    if (!mod)
     {
-        return crs_matrix_matmul_left((const crs_matrix_t *)self, other);
+        PyErr_Clear();
+        mod = PyType_GetModule(Py_TYPE(other));
+        PyErr_Clear();
+        PyErr_SetHandledException(exc_state);
+        if (!mod)
+        {
+            Py_RETURN_NOTIMPLEMENTED;
+        }
+    }
+    const mfv2d_module_state_t *const state = PyModule_GetState(mod);
+    if (!state)
+        return NULL;
+
+    if (PyObject_TypeCheck(self, state->type_crs_matrix))
+    {
+        return crs_matrix_matmul_left(state, (const crs_matrix_t *)self, other);
     }
 
-    if (PyObject_TypeCheck(other, &crs_matrix_type_object))
+    if (PyObject_TypeCheck(other, state->type_crs_matrix))
     {
-        return crs_matrix_matmul_right((const crs_matrix_t *)other, self);
+        return crs_matrix_matmul_right(state, (const crs_matrix_t *)other, self);
     }
 
     Py_RETURN_NOTIMPLEMENTED;
@@ -772,8 +798,8 @@ static PyObject *crs_matrix_transpose(const crs_matrix_t *this, PyObject *Py_UNU
 {
     if (!crs_matrix_check_build(this))
         return NULL;
-
-    crs_matrix_t *const new = (crs_matrix_t *)crs_matrix_type_object.tp_alloc(&crs_matrix_type_object, 0);
+    PyTypeObject *const type = Py_TYPE(this);
+    crs_matrix_t *const new = (crs_matrix_t *)type->tp_alloc(type, 0);
     if (!new)
         return NULL;
 
@@ -894,6 +920,10 @@ static unsigned count_non_empty_rows(const crs_matrix_t *this)
 
 static PyObject *crs_matrix_multiply_to_sparse(const crs_matrix_t *this, PyObject *arg)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+    if (!state)
+        return NULL;
+
     if (!crs_matrix_check_build(this))
         return NULL;
     const PyArrayObject *const array =
@@ -939,7 +969,7 @@ static PyObject *crs_matrix_multiply_to_sparse(const crs_matrix_t *this, PyObjec
         }
     }
     Py_DECREF(array);
-    svec_object_t *const out = sparse_vector_to_python(&svector);
+    svec_object_t *const out = sparse_vector_to_python(state->type_svec, &svector);
     sparse_vector_del(&svector, &SYSTEM_ALLOCATOR);
     return (PyObject *)out;
 }
@@ -1159,6 +1189,10 @@ static PyMethodDef crs_matrix_methods[] = {
 
 static PyObject *crs_matrix_get_row(const crs_matrix_t *this, PyObject *key)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+    if (!state)
+        return NULL;
+
     if (!crs_matrix_check_build(this))
         return NULL;
 
@@ -1204,7 +1238,7 @@ static PyObject *crs_matrix_get_row(const crs_matrix_t *this, PyObject *key)
         svec.entries[i] = (entry_t){.index = indices[i], .value = values[i]};
     }
     svec.count = n;
-    svec_object_t *const out = sparse_vector_to_python(&svec);
+    svec_object_t *const out = sparse_vector_to_python(state->type_svec, &svec);
     sparse_vector_del(&svec, &SYSTEM_ALLOCATOR);
 
     return (PyObject *)out;
@@ -1346,13 +1380,13 @@ PyDoc_STRVAR(crs_matrix_docstring, "MatrixCRS(rows: int, cols: int)\n"
                                    "    Type used to store sparse matrices and allow for building them in\n"
                                    "    an efficient way.\n");
 
-static PyNumberMethods crs_matrix_as_number = {
-    .nb_matrix_multiply = (binaryfunc)crs_matrix_matmul,
-};
-
-static PyMappingMethods crs_matrix_as_mapping = {
-    .mp_subscript = (binaryfunc)crs_matrix_get_row,
-};
+// static PyNumberMethods crs_matrix_as_number = {
+//     .nb_matrix_multiply = (binaryfunc)crs_matrix_matmul,
+// };
+//
+// static PyMappingMethods crs_matrix_as_mapping = {
+//     .mp_subscript = (binaryfunc)crs_matrix_get_row,
+// };
 
 static PyGetSetDef crs_matrix_getset[] = {
     {
@@ -1414,18 +1448,38 @@ static PyGetSetDef crs_matrix_getset[] = {
     {},
 };
 
-MFV2D_INTERNAL
-PyTypeObject crs_matrix_type_object = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.MatrixCRS",
-    .tp_new = (newfunc)crs_matrix_new,
-    .tp_str = (reprfunc)crs_matrix_str,
-    .tp_basicsize = sizeof(crs_matrix_t),
-    .tp_itemsize = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = crs_matrix_docstring,
-    .tp_methods = crs_matrix_methods,
-    .tp_as_number = &crs_matrix_as_number,
-    .tp_as_mapping = &crs_matrix_as_mapping,
-    .tp_getset = crs_matrix_getset,
-    .tp_del = (destructor)crs_matrix_del,
+// MFV2D_INTERNAL
+// PyTypeObject crs_matrix_type_object = {
+//     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.MatrixCRS",
+//     .tp_new = (newfunc)crs_matrix_new,
+//     .tp_str = (reprfunc)crs_matrix_str,
+//     .tp_basicsize = sizeof(crs_matrix_t),
+//     .tp_itemsize = 0,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+//     .tp_doc = crs_matrix_docstring,
+//     .tp_methods = crs_matrix_methods,
+//     .tp_as_number = &crs_matrix_as_number,
+//     .tp_as_mapping = &crs_matrix_as_mapping,
+//     .tp_getset = crs_matrix_getset,
+//     .tp_dealloc = (destructor)crs_matrix_dealloc,
+// };
+
+static PyType_Slot crs_matrix_type_slots[] = {
+    {.slot = Py_tp_new, .pfunc = crs_matrix_new},
+    {.slot = Py_tp_str, .pfunc = crs_matrix_str},
+    {.slot = Py_tp_doc, .pfunc = (void *)crs_matrix_docstring},
+    {.slot = Py_tp_methods, .pfunc = crs_matrix_methods},
+    {.slot = Py_tp_getset, .pfunc = crs_matrix_getset},
+    {.slot = Py_tp_dealloc, .pfunc = crs_matrix_dealloc},
+    {.slot = Py_nb_matrix_multiply, .pfunc = crs_matrix_matmul},
+    {.slot = Py_mp_subscript, .pfunc = crs_matrix_get_row},
+    {}, // sentinel
+};
+
+PyType_Spec crs_matrix_type_spec = {
+    .name = "mfv2d._mfv2d.MatrixCRS",
+    .basicsize = sizeof(crs_matrix_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = crs_matrix_type_slots,
 };

@@ -67,9 +67,9 @@ static PyGetSetDef geoid_getset[] = {
 };
 
 MFV2D_INTERNAL
-geo_id_object_t *geo_id_object_from_value(const geo_id_t id)
+geo_id_object_t *geo_id_object_from_value(PyTypeObject *geo_id_type_object, const geo_id_t id)
 {
-    geo_id_object_t *const this = (geo_id_object_t *)geo_id_type_object.tp_alloc(&geo_id_type_object, 0);
+    geo_id_object_t *const this = (geo_id_object_t *)geo_id_type_object->tp_alloc(geo_id_type_object, 0);
     if (!this)
         return NULL;
 
@@ -110,7 +110,7 @@ static PyObject *geoid_rich_compare(PyObject *self, PyObject *other, const int o
     }
     const geo_id_object_t *const this = (geo_id_object_t *)self;
     geo_id_t that;
-    if (geo_id_from_object(other, &that) < 0)
+    if (geo_id_from_object(Py_TYPE(self), other, &that) < 0)
     {
         PyErr_Clear();
         Py_RETURN_NOTIMPLEMENTED;
@@ -135,13 +135,14 @@ static int geoid_bool(PyObject *self)
 static PyObject *geoid_negative(PyObject *self)
 {
     const geo_id_object_t *const this = (geo_id_object_t *)self;
-    return (PyObject *)geo_id_object_from_value((geo_id_t){.index = this->id.index, .reverse = !this->id.reverse});
+    return (PyObject *)geo_id_object_from_value(Py_TYPE(self),
+                                                (geo_id_t){.index = this->id.index, .reverse = !this->id.reverse});
 }
 
-static PyNumberMethods geo_id_number_methods = {
-    .nb_bool = geoid_bool,
-    .nb_negative = geoid_negative,
-};
+// static PyNumberMethods geo_id_number_methods = {
+//     .nb_bool = geoid_bool,
+//     .nb_negative = geoid_negative,
+// };
 
 PyDoc_STRVAR(geoid_type_docstring,
              "GeoID(index: int, reverse=False)\n"
@@ -177,24 +178,44 @@ PyDoc_STRVAR(geoid_type_docstring,
              "    True\n"
              "\n");
 
-PyTypeObject geo_id_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.GeoID",
-    .tp_basicsize = sizeof(geo_id_object_t),
-    .tp_itemsize = 0,
-    .tp_getset = geoid_getset,
-    .tp_repr = geoid_repr,
-    .tp_str = geoid_str,
-    .tp_doc = geoid_type_docstring,
-    .tp_new = geoid_new,
-    .tp_richcompare = geoid_rich_compare,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .tp_as_number = &geo_id_number_methods,
+// PyTypeObject geo_id_type_object = {
+//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.GeoID",
+//     .tp_basicsize = sizeof(geo_id_object_t),
+//     .tp_itemsize = 0,
+//     .tp_getset = geoid_getset,
+//     .tp_repr = geoid_repr,
+//     .tp_str = geoid_str,
+//     .tp_doc = geoid_type_docstring,
+//     .tp_new = geoid_new,
+//     .tp_richcompare = geoid_rich_compare,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+//     .tp_as_number = &geo_id_number_methods,
+// };
+
+static PyType_Slot geo_id_type_slots[] = {
+    {.slot = Py_tp_getset, .pfunc = geoid_getset},
+    {.slot = Py_tp_repr, .pfunc = geoid_repr},
+    {.slot = Py_tp_str, .pfunc = geoid_str},
+    {.slot = Py_tp_doc, .pfunc = (void *)geoid_type_docstring},
+    {.slot = Py_tp_new, .pfunc = geoid_new},
+    {.slot = Py_tp_richcompare, .pfunc = geoid_rich_compare},
+    {.slot = Py_nb_bool, .pfunc = geoid_bool},
+    {.slot = Py_nb_negative, .pfunc = geoid_negative},
+    {}, // sentinel
+};
+
+PyType_Spec geo_id_type_spec = {
+    .name = "mfv2d._mfv2d.GeoID",
+    .basicsize = sizeof(geo_id_object_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = geo_id_type_slots,
 };
 
 MFV2D_INTERNAL
-int geo_id_from_object(PyObject *o, geo_id_t *p_out)
+int geo_id_from_object(PyTypeObject *geoid_type, PyObject *o, geo_id_t *p_out)
 {
-    if (PyObject_TypeCheck(o, &geo_id_type_object))
+    if (PyObject_TypeCheck(o, geoid_type))
     {
         const geo_id_object_t *this = (geo_id_object_t *)o;
         *p_out = this->id;

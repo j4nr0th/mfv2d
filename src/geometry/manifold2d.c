@@ -141,9 +141,13 @@ static PyGetSetDef manifold2d_getset[] = {
 
 static PyObject *manifold2d_get_line(PyObject *self, PyObject *arg)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
     const manifold2d_object_t *this = (manifold2d_object_t *)self;
     geo_id_t id;
-    if (geo_id_from_object(arg, &id) < 0)
+    if (geo_id_from_object(state->type_geoid, arg, &id) < 0)
         return NULL;
     if (id.index == GEO_ID_INVALID)
     {
@@ -157,7 +161,8 @@ static PyObject *manifold2d_get_line(PyObject *self, PyObject *arg)
         return NULL;
     }
 
-    line_object_t *const line = line_from_indices(this->lines[id.index].begin, this->lines[id.index].end);
+    line_object_t *const line =
+        line_from_indices(state->type_line, this->lines[id.index].begin, this->lines[id.index].end);
     if (!line)
         return NULL;
 
@@ -173,10 +178,14 @@ static PyObject *manifold2d_get_line(PyObject *self, PyObject *arg)
 
 static PyObject *manifold2d_get_surface(PyObject *self, PyObject *arg)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
     const manifold2d_object_t *this = (manifold2d_object_t *)self;
     geo_id_t id;
 
-    if (geo_id_from_object(arg, &id) < 0)
+    if (geo_id_from_object(state->type_geoid, arg, &id) < 0)
     {
         return NULL;
     }
@@ -195,7 +204,8 @@ static PyObject *manifold2d_get_surface(PyObject *self, PyObject *arg)
 
     const size_t offset_0 = this->surf_counts[id.index];
     const size_t offset_1 = this->surf_counts[id.index + 1];
-    surface_object_t *surf = surface_object_from_value(offset_1 - offset_0, this->surf_lines + offset_0);
+    surface_object_t *surf =
+        surface_object_from_value(state->type_surface, offset_1 - offset_0, this->surf_lines + offset_0);
     if (!surf)
     {
         return NULL;
@@ -287,8 +297,8 @@ static int mesh_dual_from_primal(const manifold2d_object_t *const primal, manifo
         for (unsigned i_ln = 0; i_ln < primal->n_lines; ++i_ln)
         {
             const line_t *ln = primal->lines + i_ln;
-            acc_cnt += (ln->begin.index == pt_idx);
-            acc_cnt += (ln->end.index == pt_idx);
+            acc_cnt += ln->begin.index == pt_idx;
+            acc_cnt += ln->end.index == pt_idx;
         }
         surf_counts[pt_idx + 1] = acc_cnt;
     }
@@ -325,7 +335,11 @@ static int mesh_dual_from_primal(const manifold2d_object_t *const primal, manifo
 
 static PyObject *manifold2d_compute_dual(PyObject *self, PyObject *Py_UNUSED(arg))
 {
-    manifold2d_object_t *that = (manifold2d_object_t *)manifold2d_type_object.tp_alloc(&manifold2d_type_object, 0);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    manifold2d_object_t *that = (manifold2d_object_t *)state->type_man2d->tp_alloc(state->type_man2d, 0);
     if (!that)
     {
         return NULL;
@@ -526,7 +540,7 @@ static PyObject *maifold2d_from_irregular(PyObject *type, PyObject *args, PyObje
             }
             end = new_end;
         }
-        same_size = same_size && (len == first_size);
+        same_size = same_size && len == first_size;
     }
     Py_DECREF(seq);
     if (same_size)
@@ -816,16 +830,33 @@ static PyMethodDef manifold2d_object_methods[] = {
     {0},
 };
 
-MFV2D_INTERNAL
-PyTypeObject manifold2d_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Manifold2D",
-    .tp_basicsize = sizeof(manifold2d_object_t),
-    .tp_itemsize = 0,
-    .tp_str = manifold2d_str,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
-    .tp_doc = manifold2d_type_docstring,
-    .tp_methods = manifold2d_object_methods,
-    .tp_getset = manifold2d_getset,
-    .tp_dealloc = manifold2d_dealloc,
-    .tp_base = NULL,
+// MFV2D_INTERNAL
+// PyTypeObject manifold2d_type_object = {
+//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Manifold2D",
+//     .tp_basicsize = sizeof(manifold2d_object_t),
+//     .tp_itemsize = 0,
+//     .tp_str = manifold2d_str,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
+//     .tp_doc = manifold2d_type_docstring,
+//     .tp_methods = manifold2d_object_methods,
+//     .tp_getset = manifold2d_getset,
+//     .tp_dealloc = manifold2d_dealloc,
+//     .tp_base = NULL,
+// };
+
+static PyType_Slot manifold2d_slots[] = {
+    {.slot = Py_tp_str, .pfunc = manifold2d_str},
+    {.slot = Py_tp_doc, .pfunc = (void *)manifold2d_type_docstring},
+    {.slot = Py_tp_methods, .pfunc = manifold2d_object_methods},
+    {.slot = Py_tp_getset, .pfunc = manifold2d_getset},
+    {.slot = Py_tp_dealloc, .pfunc = manifold2d_dealloc},
+    {}, // sentinel
+};
+
+PyType_Spec manifold2d_type_spec = {
+    .name = "mfv2d._mfv2d.Manifold2D",
+    .basicsize = sizeof(manifold2d_object_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = manifold2d_slots,
 };

@@ -24,9 +24,9 @@ static PyObject *line_object_str(PyObject *self)
                                 this->value.end.reverse ? '-' : '+', this->value.end.index);
 }
 
-line_object_t *line_from_indices(geo_id_t begin, geo_id_t end)
+line_object_t *line_from_indices(PyTypeObject *line_type_object, const geo_id_t begin, const geo_id_t end)
 {
-    line_object_t *const this = (line_object_t *)line_type_object.tp_alloc(&line_type_object, 0);
+    line_object_t *const this = (line_object_t *)line_type_object->tp_alloc(line_type_object, 0);
     if (!this)
         return NULL;
     this->value.begin = begin;
@@ -43,7 +43,11 @@ static PyObject *line_object_new(PyTypeObject *type, PyObject *args, PyObject *k
         return NULL;
     }
     geo_id_t begin, end;
-    if (geo_id_from_object(a1, &begin) < 0 || geo_id_from_object(a2, &end) < 0)
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(type);
+    if (!state)
+        return NULL;
+
+    if (geo_id_from_object(state->type_geoid, a1, &begin) < 0 || geo_id_from_object(state->type_geoid, a2, &end) < 0)
         return NULL;
 
     line_object_t *const this = (line_object_t *)type->tp_alloc(type, 0);
@@ -62,7 +66,7 @@ static PyObject *line_object_rich_compare(PyObject *self, PyObject *other, const
         Py_RETURN_NOTIMPLEMENTED;
     }
     const line_object_t *const this = (line_object_t *)self;
-    if (!PyObject_TypeCheck(other, &line_type_object))
+    if (!PyObject_TypeCheck(other, Py_TYPE(self)))
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
@@ -109,13 +113,19 @@ PyDoc_STRVAR(line_object_type_docstring, "Line(begin: GeoID | int, end: GeoID | 
 static PyObject *line_object_get_begin(PyObject *self, void *Py_UNUSED(closure))
 {
     const line_object_t *this = (line_object_t *)self;
-    return (PyObject *)geo_id_object_from_value(this->value.begin);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    return (PyObject *)geo_id_object_from_value(state->type_geoid, this->value.begin);
 }
 
 static PyObject *line_object_get_end(PyObject *self, void *Py_UNUSED(closure))
 {
     const line_object_t *this = (line_object_t *)self;
-    return (PyObject *)geo_id_object_from_value(this->value.end);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    return (PyObject *)geo_id_object_from_value(state->type_geoid, this->value.end);
 }
 
 static PyGetSetDef line_object_getset[] = {
@@ -176,16 +186,35 @@ static PyMethodDef line_methods[] = {
     {},
 };
 
-PyTypeObject line_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Line",
-    .tp_basicsize = sizeof(line_object_t),
-    .tp_itemsize = 0,
-    .tp_repr = line_object_repr,
-    .tp_str = line_object_str,
-    .tp_doc = line_object_type_docstring,
-    .tp_new = line_object_new,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .tp_richcompare = line_object_rich_compare,
-    .tp_getset = line_object_getset,
-    .tp_methods = line_methods,
+// PyTypeObject line_type_object = {
+//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Line",
+//     .tp_basicsize = sizeof(line_object_t),
+//     .tp_itemsize = 0,
+//     .tp_repr = line_object_repr,
+//     .tp_str = line_object_str,
+//     .tp_doc = line_object_type_docstring,
+//     .tp_new = line_object_new,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+//     .tp_richcompare = line_object_rich_compare,
+//     .tp_getset = line_object_getset,
+//     .tp_methods = line_methods,
+// };
+
+static PyType_Slot line_type_slots[] = {
+    {.slot = Py_tp_repr, .pfunc = line_object_repr},
+    {.slot = Py_tp_str, .pfunc = line_object_str},
+    {.slot = Py_tp_doc, .pfunc = (void *)line_object_type_docstring},
+    {.slot = Py_tp_new, .pfunc = line_object_new},
+    {.slot = Py_tp_richcompare, .pfunc = line_object_rich_compare},
+    {.slot = Py_tp_getset, .pfunc = line_object_getset},
+    {.slot = Py_tp_methods, .pfunc = line_methods},
+    {}, // sentinel
+};
+
+PyType_Spec line_type_spec = {
+    .name = "mfv2d._mfv2d.Line",
+    .basicsize = sizeof(line_object_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = line_type_slots,
 };

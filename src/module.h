@@ -1,5 +1,5 @@
-#ifndef MIMETIC_MODULE_H
-#define MIMETIC_MODULE_H
+#ifndef MFV2D_MODULE_H
+#define MFV2D_MODULE_H
 
 typedef unsigned index_t;
 _Static_assert(sizeof(index_t) == 4, "This must be for the geo_id_t to make sense");
@@ -29,4 +29,4 @@ typedef struct
     geo_id_t *values;
 } surface_t;
 
-#endif // MIMETIC_MODULE_H
+#endif // MFV2D_MODULE_H

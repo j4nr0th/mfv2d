@@ -18,6 +18,7 @@ typedef struct
 } manifold2d_object_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject manifold2d_type_object;
+// extern PyTypeObject manifold2d_type_object;
+extern PyType_Spec manifold2d_type_spec;
 
 #endif // MANIFOLD2D_H

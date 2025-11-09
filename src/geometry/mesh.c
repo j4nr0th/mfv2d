@@ -247,10 +247,14 @@ static PyObject *mesh_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     PyArrayObject *corners;
     PyArrayObject *orders;
     PyArrayObject *boundary;
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(type);
+    if (!state)
+        return NULL;
+
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!O!O!O!",
                                      (char *[6]){"primal", "dual", "corners", "orders", "boundary", NULL},
-                                     &manifold2d_type_object, &primal, &manifold2d_type_object, &dual, &PyArray_Type,
-                                     &corners, &PyArray_Type, &orders, &PyArray_Type, &boundary))
+                                     state->type_man2d, &primal, state->type_man2d, &dual, &PyArray_Type, &corners,
+                                     &PyArray_Type, &orders, &PyArray_Type, &boundary))
     {
         return NULL;
     }
@@ -568,7 +572,8 @@ static PyObject *mesh_get_leaf_indices(const mesh_t *const this, PyObject *Py_UN
 
 static PyObject *mesh_copy(const mesh_t *const this, PyObject *Py_UNUSED(args))
 {
-    mesh_t *const that = (mesh_t *)mesh_type_object.tp_alloc(&mesh_type_object, 0);
+    PyTypeObject *const mesh_type_object = Py_TYPE(this);
+    mesh_t *const that = (mesh_t *)mesh_type_object->tp_alloc(mesh_type_object, 0);
     if (!that)
         return NULL;
 
@@ -1426,13 +1431,30 @@ PyDoc_STRVAR(mesh_type_docstr,
              "boundary : (N,) array\n"
              "    Array of boundary edge indices.\n");
 
-PyTypeObject mesh_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Mesh",
-    .tp_new = mesh_new,
-    .tp_dealloc = (destructor)mesh_dealloc,
-    .tp_getset = mesh_getset,
-    .tp_methods = mesh_methods,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_IMMUTABLETYPE,
-    .tp_basicsize = sizeof(mesh_t),
-    .tp_doc = mesh_type_docstr,
+// PyTypeObject mesh_type_object = {
+//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Mesh",
+//     .tp_new = mesh_new,
+//     .tp_dealloc = (destructor)mesh_dealloc,
+//     .tp_getset = mesh_getset,
+//     .tp_methods = mesh_methods,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_IMMUTABLETYPE,
+//     .tp_basicsize = sizeof(mesh_t),
+//     .tp_doc = mesh_type_docstr,
+// };
+
+static PyType_Slot mesh_type_slots[] = {
+    {.slot = Py_tp_new, .pfunc = mesh_new},
+    {.slot = Py_tp_dealloc, .pfunc = mesh_dealloc},
+    {.slot = Py_tp_getset, .pfunc = mesh_getset},
+    {.slot = Py_tp_methods, .pfunc = mesh_methods},
+    {.slot = Py_tp_doc, .pfunc = (void *)mesh_type_docstr},
+    {}, // sentinel
+};
+
+PyType_Spec mesh_type_spec = {
+    .name = "mfv2d._mfv2d.Mesh",
+    .basicsize = sizeof(mesh_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = mesh_type_slots,
 };

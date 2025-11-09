@@ -131,15 +131,44 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL, 0, NULL}, // sentinel
 };
 
-static PyModuleDef module = {.m_base = PyModuleDef_HEAD_INIT,
-                             .m_name = "mfv2d._mfv2d",
-                             .m_doc = "Internal C-extension implementing required functionality.",
-                             .m_size = -1,
-                             .m_methods = module_methods,
-                             .m_slots = NULL,
-                             .m_traverse = NULL,
-                             .m_clear = NULL,
-                             .m_free = NULL};
+static PyModuleDef module = {
+    .m_base = PyModuleDef_HEAD_INIT,
+    .m_name = "mfv2d._mfv2d",
+    .m_doc = "Internal C-extension implementing required functionality.",
+    .m_size = sizeof(mfv2d_module_state_t),
+    .m_methods = module_methods,
+};
+
+static PyTypeObject *add_type_to_the_module(PyObject *mod, PyType_Spec *specs, PyObject *bases)
+{
+    PyObject *const type = PyType_FromModuleAndSpec(mod, specs, bases);
+    if (type == NULL)
+        return NULL;
+    if (PyType_Ready((PyTypeObject *)type) < 0)
+    {
+        Py_DECREF(type);
+        return NULL;
+    }
+
+    const char *const name = specs->name;
+    const char *pos = strrchr(name, '.');
+    if (pos == NULL)
+    {
+        pos = name;
+    }
+    else
+    {
+        pos += 1;
+    }
+
+    const int res = PyModule_AddObjectRef(mod, pos, type);
+    Py_DECREF(type);
+    if (res < 0)
+    {
+        return NULL;
+    }
+    return (PyTypeObject *)type;
+}
 
 PyMODINIT_FUNC PyInit__mfv2d(void)
 {
@@ -150,11 +179,17 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
     }
 
     PyObject *mod = NULL;
-    if (!((mod = PyModule_Create(&module))) || PyModule_AddType(mod, &geo_id_type_object) < 0 ||
-        PyModule_AddType(mod, &line_type_object) < 0 || PyModule_AddType(mod, &surface_type_object) < 0 ||
-        PyModule_AddType(mod, &manifold2d_type_object) < 0 || PyModule_AddType(mod, &integration_rule_1d_type) < 0 ||
-        PyModule_AddType(mod, &basis_1d_type) < 0 || PyModule_AddType(mod, &basis_2d_type) < 0 ||
-        PyModule_AddType(mod, &element_fem_space_2d_type) < 0 || PyModule_AddType(mod, &mesh_type_object) < 0 ||
+    if (!((mod = PyModule_Create(&module))))
+        return NULL;
+    mfv2d_module_state_t *const state = PyModule_GetState(mod);
+
+    if ((state->type_geoid = add_type_to_the_module(mod, &geo_id_type_spec, NULL)) == NULL ||
+        (state->type_line = add_type_to_the_module(mod, &line_type_spec, NULL)) == NULL ||
+        (state->type_surface = add_type_to_the_module(mod, &surface_type_spec, NULL)) == NULL ||
+        (state->type_man2d = add_type_to_the_module(mod, &manifold2d_type_spec, NULL)) == NULL ||
+        (state->type_mesh = add_type_to_the_module(mod, &mesh_type_spec, NULL)) == NULL ||
+        PyModule_AddType(mod, &integration_rule_1d_type) < 0 || PyModule_AddType(mod, &basis_1d_type) < 0 ||
+        PyModule_AddType(mod, &basis_2d_type) < 0 || PyModule_AddType(mod, &element_fem_space_2d_type) < 0 ||
         PyModule_AddType(mod, &element_form_spec_type) < 0 || PyModule_AddType(mod, &element_form_spec_iter_type) < 0 ||
         PyModule_AddType(mod, &svec_type_object) < 0 || PyModule_AddType(mod, &crs_matrix_type_object) < 0 ||
         PyModule_AddType(mod, &system_object_type) < 0 || PyModule_AddType(mod, &trace_vector_object_type) < 0 ||

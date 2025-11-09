@@ -14,9 +14,10 @@ typedef struct
 } line_object_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject line_type_object;
+// extern PyTypeObject line_type_object;
+extern PyType_Spec line_type_spec;
 
 MFV2D_INTERNAL
-line_object_t *line_from_indices(geo_id_t begin, geo_id_t end);
+line_object_t *line_from_indices(PyTypeObject *line_type_object, geo_id_t begin, geo_id_t end);
 
 #endif // LINEOBJECT_H

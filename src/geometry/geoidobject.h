@@ -14,10 +14,11 @@ typedef struct
 } geo_id_object_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject geo_id_type_object;
+// extern PyTypeObject geo_id_type_object;
+extern PyType_Spec geo_id_type_spec;
 
 MFV2D_INTERNAL
-geo_id_object_t *geo_id_object_from_value(geo_id_t id);
+geo_id_object_t *geo_id_object_from_value(PyTypeObject *geo_id_type_object, geo_id_t id);
 
 /**
  * @brief Try to convert PyObject into a geo_id_t value.
@@ -27,12 +28,13 @@ geo_id_object_t *geo_id_object_from_value(geo_id_t id);
  * conversion fails, it will set the Python exception state and function will return -1. If it succeeded instead,
  * 0 is returned.
  *
+ * @param geoid_type Type object for the GeoID type.
  * @param o Object that should be converted.
  * @param p_out Pointer which receives the converted value.
  * @return 0 if successful, -1 if conversion failed.
  */
 MFV2D_INTERNAL
-int geo_id_from_object(PyObject *o, geo_id_t *p_out);
+int geo_id_from_object(PyTypeObject *geoid_type, PyObject *o, geo_id_t *p_out);
 
 static inline int geo_id_compare(const geo_id_t id1, const geo_id_t id2)
 {

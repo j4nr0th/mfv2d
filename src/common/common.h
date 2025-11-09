@@ -115,4 +115,13 @@ typedef struct
     double x3, y3;
 } quad_info_t;
 
+typedef struct
+{
+    PyTypeObject *type_geoid;
+    PyTypeObject *type_line;
+    PyTypeObject *type_surface;
+    PyTypeObject *type_man2d;
+    PyTypeObject *type_mesh;
+} mfv2d_module_state_t;
+
 #endif // COMMON_H

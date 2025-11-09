@@ -14,6 +14,7 @@ import numpy.typing as npt
 import rmsh
 from matplotlib import pyplot as plt
 from mfv2d import (
+    ConvergenceSettings,
     KFormSystem,
     KFormUnknown,
     SolverSettings,
@@ -83,7 +84,7 @@ u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_1)
 v = u.weight
 
 system = KFormSystem(
-    ALPHA * (v * u) == ALPHA * (v * final_u),
+    ALPHA * (v @ u) == ALPHA * (v @ final_u),
     sorting=lambda f: f.order,
 )
 
@@ -152,7 +153,9 @@ for i_nt, nt in enumerate(nt_vals):
         mesh,
         system_settings=SystemSettings(system, initial_conditions={u: initial_u}),
         solver_settings=SolverSettings(
-            maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+            ConvergenceSettings(
+                maximum_iterations=10, relative_tolerance=0, absolute_tolerance=1e-10
+            )
         ),
         time_settings=TimeSettings(dt=dt, nt=nt, time_march_relations={v: u}),
         recon_order=10,

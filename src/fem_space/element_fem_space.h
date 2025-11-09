@@ -1,8 +1,8 @@
 #ifndef ELEMENT_CACHE_H
 #define ELEMENT_CACHE_H
 
+#include "../algebra/matrix.h"
 #include "../common/common.h"
-#include "../evaluation/matrix.h"
 #include "../fem_space/fem_space.h"
 #include "basis.h"
 

@@ -4,6 +4,8 @@ if (NOT DEFINED SKBUILD_PROJECT_NAME)
     set(SKBUILD_PROJECT_NAME "mfv2d")
 endif ()
 
+add_subdirectory(jmtx)
+
 project(${SKBUILD_PROJECT_NAME} LANGUAGES C)
 find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
 find_package(OpenMP)
@@ -17,6 +19,12 @@ execute_process(
 
 set(MFV2D_SOURCE_FILES
         src/module.c
+        # algebra
+        src/algebra/crs_matrix.c
+        src/algebra/matrix.c
+        src/algebra/sparse_system.c
+        src/algebra/svector.c
+        src/algebra/system_objects.c
         # common
         src/common/allocator.c
         src/common/common.c
@@ -28,7 +36,6 @@ set(MFV2D_SOURCE_FILES
         src/evaluation/forms.c
         src/evaluation/incidence.c
         src/evaluation/integrating_fields.c
-        src/evaluation/matrix.c
         src/evaluation/system_template.c
         # fem_space
         src/fem_space/basis.c
@@ -48,6 +55,12 @@ set(MFV2D_SOURCE_FILES
 )
 set(MFV2D_HEADER_FILES
         src/module.h
+        # algebra
+        src/algebra/crs_matrix.h
+        src/algebra/matrix.h
+        src/algebra/sparse_system.h
+        src/algebra/svector.h
+        src/algebra/system_objects.h
         # common
         src/common/allocator.h
         src/common/common.h
@@ -59,7 +72,6 @@ set(MFV2D_HEADER_FILES
         src/evaluation/forms.h
         src/evaluation/incidence.h
         src/evaluation/integrating_fields.h
-        src/evaluation/matrix.h
         src/evaluation/system_template.h
         # fem_space
         src/fem_space/basis.h
@@ -86,14 +98,16 @@ Python_add_library(_mfv2d
 install(TARGETS _mfv2d DESTINATION ${SKBUILD_PROJECT_NAME})
 set_property(TARGET _mfv2d PROPERTY C_STANDARD 17)
 
+target_link_libraries(_mfv2d PRIVATE jmtx)
 target_compile_definitions(_mfv2d PRIVATE MFV2D_ASSERTS)
 if ("${NumPy_INCLUDE_DIRS}" STREQUAL "")
     message(FATAL_ERROR "NumPy_INCLUDE_DIRS was empty.")
 endif ()
-target_include_directories(_mfv2d PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
+target_include_directories(_mfv2d PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS} jmtx/include)
 
-if (CMAKE_C_COMPILER_ID EQUAL "GNU")
-    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -fanalyzer)# -g -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -fanalyzer)
+    target_link_options(_mfv2d PRIVATE "-Wl,--exclude-libs,ALL")
 endif ()
 
 if (OPENMP_FOUND)

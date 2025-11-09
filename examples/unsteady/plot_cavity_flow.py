@@ -13,6 +13,7 @@ import pyvista as pv
 import rmsh
 from mfv2d import (
     BoundaryCondition2DSteady,
+    ConvergenceSettings,
     KFormSystem,
     KFormUnknown,
     SolverSettings,
@@ -21,6 +22,7 @@ from mfv2d import (
     UnknownFormOrder,
     mesh_create,
     solve_system_2d,
+    system_as_string,
 )
 
 # %%
@@ -60,14 +62,12 @@ vor = KFormUnknown("vor", UnknownFormOrder.FORM_ORDER_0)
 w_vor = vor.weight
 
 system = KFormSystem(
-    w_vor.derivative * vel - w_vor * vor == w_vor ^ boundary_velocty,
+    w_vor.derivative @ vel - w_vor @ vor == w_vor ^ boundary_velocty,
     # No weak BC for pressure, since normal velocity is given
-    (1 / RE) * (w_vel * vor.derivative) + w_vel.derivative * pre
-    == -(w_vel * (vel ^ (~vor))),
-    w_pre * vel.derivative == 0,
-    sorting=lambda f: f.order,
+    (1 / RE) * (w_vel @ vor.derivative) + w_vel.derivative @ pre == -(vel * w_vel @ vor),
+    w_pre @ vel.derivative == 0,
 )
-print(system)
+print(system_as_string(system))
 
 N = 6
 P = 3
@@ -101,9 +101,9 @@ solutions, stats, mesh = solve_system_2d(
         [(0.0, pre)],
     ),
     solver_settings=SolverSettings(
-        maximum_iterations=100,
-        absolute_tolerance=1e-10,
-        relative_tolerance=0,
+        ConvergenceSettings(
+            maximum_iterations=100, absolute_tolerance=1e-10, relative_tolerance=0
+        )
     ),
     time_settings=TimeSettings(dt=5, nt=20, time_march_relations={w_vel: vel}),
     print_residual=False,

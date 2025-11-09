@@ -31,6 +31,7 @@ from mfv2d import (
     UnknownFormOrder,
     mesh_create,
     solve_system_2d,
+    system_as_string,
 )
 
 # %%
@@ -94,11 +95,11 @@ u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
 v = u.weight
 
 system = KFormSystem(
-    v.derivative * u.derivative == -(v * source_exact) + (v ^ q_exact),
-    p * u.derivative - p * q == 0,
+    v.derivative @ u.derivative == -(v @ source_exact) + (v ^ q_exact),
+    p @ u.derivative - p @ q == 0,
     sorting=lambda f: f.order,
 )
-print(system)
+print(system_as_string(system))
 
 # %%
 #

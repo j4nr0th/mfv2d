@@ -13,35 +13,28 @@ import pyvista as pv
 import scipy.sparse as sp
 from scipy.sparse import linalg as sla
 
-from mfv2d._mfv2d import (
-    # Basis2D,
-    ElementFemSpace2D,
-    Mesh,
-    # compute_element_matrix,
-    # compute_element_projector,
-)
-
-# from mfv2d.boundary import BoundaryCondition2DSteady
+from mfv2d._mfv2d import ElementFemSpace2D, Mesh
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KEquation  # ,  KFormUnknown
+from mfv2d.kform import KEquation
 from mfv2d.mimetic2d import FemCache
 from mfv2d.progress import HistogramFormat
 from mfv2d.refinement import RefinementSettings, perform_mesh_refinement
 from mfv2d.solve_system import (
     SolutionStatistics,
     SolverSettings,
+    SuyashGreenOperator,
     SystemSettings,
     TimeSettings,
+    VMSSettings,
     compute_element_dual,
-    compute_element_primal,
-    compute_element_primal_to_dual,
-    # _add_system_constraints,
+    compute_element_dual_from_primal,
+    compute_element_primal_from_dual,
     compute_linear_system,
-    # compute_element_rhs,
     find_time_carry_indices,
     non_linear_solve_run,
     reconstruct_mesh_from_solution,
 )
+from mfv2d.solving import ConvergenceSettings
 from mfv2d.system import KFormSystem
 
 
@@ -49,13 +42,14 @@ def solve_system_2d(
     mesh: Mesh,
     system_settings: SystemSettings,
     solver_settings: SolverSettings = SolverSettings(
-        maximum_iterations=100,
-        relaxation=1,
-        absolute_tolerance=1e-6,
-        relative_tolerance=1e-5,
+        convergence=ConvergenceSettings(
+            maximum_iterations=100, absolute_tolerance=1e-6, relative_tolerance=1e-5
+        ),
+        relaxation=1.0,
     ),
     time_settings: TimeSettings | None = None,
     refinement_settings: RefinementSettings | None = None,
+    vms_settings: VMSSettings | None = None,
     *,
     recon_order: int | None = None,
     print_residual: bool = False,
@@ -102,6 +96,37 @@ def solve_system_2d(
         refinement is returned. If the settings are left as unspecified, then the original
         mesh is returned.
     """
+    # Check the VMS settings
+    if vms_settings is not None:
+        if (
+            vms_settings.symmetric_system.unknown_forms
+            != system_settings.system.unknown_forms
+        ):
+            raise ValueError(
+                "VMS settings specified a symmetric part which does not contain the same"
+                " forms in the matching order as the full system (specified symmetric:"
+                f" {vms_settings.symmetric_system.unknown_forms}, full system "
+                f"{system_settings.system.unknown_forms})."
+            )
+
+        if (
+            vms_settings.nonsymmetric_system.unknown_forms
+            != system_settings.system.unknown_forms
+        ):
+            raise ValueError(
+                "VMS settings specified a non-symmetric part which does not contain the"
+                " same forms in the matching order as the full system (specified "
+                "symmetric:"
+                f" {vms_settings.nonsymmetric_system.unknown_forms}, full system "
+                f"{system_settings.system.unknown_forms})."
+            )
+        if vms_settings.order_increase > system_settings.over_integration_order:
+            raise ValueError(
+                "VMS settings specified an order increase of "
+                f"{vms_settings.order_increase}, which is higher than order "
+                f"increase for over-integration {system_settings.over_integration_order}."
+            )
+
     system = system_settings.system
 
     constrained_forms = system_settings.constrained_forms
@@ -120,7 +145,7 @@ def solve_system_2d(
             )
 
     # Make element matrices and vectors
-    cache_2d = FemCache(order_difference=2)
+    basis_cache = FemCache(order_difference=system_settings.over_integration_order)
 
     # Create modified system to make it work with time marching.
     if time_settings is not None:
@@ -153,15 +178,15 @@ def solve_system_2d(
 
     for leaf_idx in leaf_indices:
         order_1, order_2 = mesh.get_leaf_orders(leaf_idx)
-        element_cache = ElementFemSpace2D(
-            cache_2d.get_basis2d(order_1, order_2),
+        element_space = ElementFemSpace2D(
+            basis_cache.get_basis2d(order_1, order_2),
             np.astype(mesh.get_leaf_corners(leaf_idx), np.float64, copy=False),
         )
 
-        element_fem_spaces.append(element_cache)
+        element_fem_spaces.append(element_space)
         element_sizes.append(system.unknown_forms.total_size(order_1, order_2))
 
-    _element_offsets = np.pad(np.cumsum(element_sizes), (1, 0))
+    element_offsets = np.pad(np.cumsum(element_sizes), (1, 0))
 
     # Prepare for evaluation of matrices/vectors
 
@@ -175,13 +200,15 @@ def solve_system_2d(
 
             initial_vectors.append(dual_dofs)
             initial_solution.append(
-                compute_element_primal(system.unknown_forms, dual_dofs, element_space)
+                compute_element_primal_from_dual(
+                    system.unknown_forms, dual_dofs, element_space
+                )
             )
 
     if initial_solution:
         solution = np.concatenate(initial_solution)
     else:
-        solution = np.zeros(_element_offsets[-1])
+        solution = np.zeros(element_offsets[-1])
 
     time_carry_index_array: npt.NDArray[np.uint32] | None = None
     if time_settings is not None:
@@ -197,7 +224,7 @@ def solve_system_2d(
                     system.unknown_forms,
                     *space.orders,
                 )
-                + _element_offsets[i]
+                + element_offsets[i]
                 for i, space in enumerate(element_fem_spaces)
             ]
         )
@@ -215,12 +242,12 @@ def solve_system_2d(
     linear_vectors, linear_element_matrices, lagrange_mat, lagrange_vec = (
         compute_linear_system(
             element_fem_spaces,
-            _element_offsets,
+            element_offsets,
             leaf_indices,
             system,
             compiled_system,
             mesh,
-            cache_2d,
+            basis_cache,
             constrained_forms,
             boundary_conditions if boundary_conditions is not None else list(),
             initial_solution,
@@ -229,6 +256,7 @@ def solve_system_2d(
     del initial_vectors, initial_solution
 
     main_mat = sp.block_diag(linear_element_matrices, format="csr")
+    del linear_element_matrices
     main_vec = np.concatenate(linear_vectors, dtype=np.float64)
 
     if lagrange_mat is not None:
@@ -239,14 +267,6 @@ def solve_system_2d(
             ),
         )
         main_vec = np.concatenate((main_vec, lagrange_vec))
-
-    # TODO: Delet dis
-    # from matplotlib import pyplot as plt
-
-    # plt.figure()
-    # # plt.imshow(main_mat.toarray())
-    # plt.spy(main_mat)
-    # plt.show()
 
     linear_matrix = sp.csc_array(main_mat)
     explicit_vec = main_vec
@@ -264,7 +284,7 @@ def solve_system_2d(
     resulting_grids: list[pv.UnstructuredGrid] = list()
 
     grid = reconstruct_mesh_from_solution(
-        system.unknown_forms, recon_order, element_fem_spaces, solution
+        system.unknown_forms, recon_order, element_fem_spaces, solution, None
     )
     grid.field_data["time"] = (0.0,)
     resulting_grids.append(grid)
@@ -272,13 +292,29 @@ def solve_system_2d(
     global_lagrange = np.zeros_like(lagrange_vec)
     max_mag = np.abs(explicit_vec).max()
 
-    max_iterations = solver_settings.maximum_iterations
+    max_iterations = solver_settings.convergence.maximum_iterations
     relax = solver_settings.relaxation
-    atol = solver_settings.absolute_tolerance
-    rtol = solver_settings.relative_tolerance
+    atol = solver_settings.convergence.absolute_tolerance
+    rtol = solver_settings.convergence.relative_tolerance
 
     changes: npt.NDArray[np.float64]
     iters: npt.NDArray[np.uint32]
+
+    if vms_settings is not None:
+        sg_operator = SuyashGreenOperator(
+            system,
+            vms_settings,
+            element_fem_spaces,
+            basis_cache,
+            mesh,
+            leaf_indices,
+            constrained_forms,
+            boundary_conditions,
+        )
+    else:
+        sg_operator = None
+
+    fine_scales = None
 
     if time_settings is not None:
         nt = time_settings.nt
@@ -291,36 +327,38 @@ def solve_system_2d(
             assert old_solution_carry is not None and time_carry_term is not None
             current_carry = 2 / dt * old_solution_carry + time_carry_term
 
-            new_solution, global_lagrange, iter_cnt, max_residual = non_linear_solve_run(
-                max_iterations,
-                relax,
-                atol,
-                rtol,
-                print_residual,
-                system.unknown_forms,
-                element_fem_spaces,
-                compiled_system,
-                explicit_vec,
-                _element_offsets,
-                linear_element_matrices,
-                time_carry_index_array,
-                current_carry,
-                solution,
-                global_lagrange,
-                max_mag,
-                system_decomp,
-                lagrange_mat,
-                False,
+            new_solution, global_lagrange, iter_cnt, max_residual, fine_scales = (
+                non_linear_solve_run(
+                    max_iterations,
+                    relax,
+                    atol,
+                    rtol,
+                    print_residual,
+                    system.unknown_forms,
+                    element_fem_spaces,
+                    compiled_system,
+                    explicit_vec,
+                    element_offsets,
+                    time_carry_index_array,
+                    current_carry,
+                    solution,
+                    global_lagrange,
+                    max_mag,
+                    system_decomp,
+                    lagrange_mat,
+                    fine_scales,
+                    sg_operator,
+                    False,
+                )
             )
 
             changes[time_index] = float(max_residual[()])
             iters[time_index] = iter_cnt
             projected_solution = np.concatenate(
                 [
-                    compute_element_primal_to_dual(
+                    compute_element_dual_from_primal(
                         system.unknown_forms,
-                        new_solution[_element_offsets[ie] : _element_offsets[ie + 1]],
-                        *mesh.get_leaf_orders(leaf_idx),
+                        new_solution[element_offsets[ie] : element_offsets[ie + 1]],
                         element_fem_spaces[ie],
                     )
                     for ie, leaf_idx in enumerate(leaf_indices)
@@ -343,7 +381,11 @@ def solve_system_2d(
                 # Prepare to build up the 1D Splines
 
                 grid = reconstruct_mesh_from_solution(
-                    system.unknown_forms, recon_order, element_fem_spaces, solution
+                    system.unknown_forms,
+                    recon_order,
+                    element_fem_spaces,
+                    solution,
+                    fine_scales,
                 )
                 grid.field_data["time"] = (float((time_index + 1) * dt),)
                 resulting_grids.append(grid)
@@ -354,29 +396,32 @@ def solve_system_2d(
                     f" residual of {max_residual:.5e}"
                 )
     else:
-        new_solution, global_lagrange, iter_cnt, changes = non_linear_solve_run(
-            max_iterations,
-            relax,
-            atol,
-            rtol,
-            print_residual,
-            system.unknown_forms,
-            element_fem_spaces,
-            compiled_system,
-            explicit_vec,
-            _element_offsets,
-            linear_element_matrices,
-            None,
-            None,
-            solution,
-            global_lagrange,
-            max_mag,
-            system_decomp,
-            lagrange_mat,
-            True,
+        new_solution, global_lagrange, iter_cnt, changes, fine_scales = (
+            non_linear_solve_run(
+                max_iterations,
+                relax,
+                atol,
+                rtol,
+                print_residual,
+                system.unknown_forms,
+                element_fem_spaces,
+                compiled_system,
+                explicit_vec,
+                element_offsets,
+                None,
+                None,
+                solution,
+                global_lagrange,
+                max_mag,
+                system_decomp,
+                lagrange_mat,
+                fine_scales,
+                sg_operator,
+                True,
+            )
         )
 
-        changes = np.asarray(changes, np.float64)[: iter_cnt + 1]
+        changes = np.asarray(changes, np.float64)[:iter_cnt]
         iters = np.array((iter_cnt,), np.uint32)
 
         solution = new_solution
@@ -385,7 +430,7 @@ def solve_system_2d(
         # Prepare to build up the 1D Splines
 
         grid = reconstruct_mesh_from_solution(
-            system.unknown_forms, recon_order, element_fem_spaces, solution
+            system.unknown_forms, recon_order, element_fem_spaces, solution, fine_scales
         )
 
         resulting_grids.append(grid)
@@ -401,7 +446,7 @@ def solve_system_2d(
         n_lagrange=int(lagrange_vec.size),
         n_elems=mesh.element_count,
         n_leaves=mesh.leaf_count,
-        n_leaf_dofs=_element_offsets[-1],
+        n_leaf_dofs=element_offsets[-1],
         iter_history=iters,
         residual_history=np.asarray(changes, np.float64),
     )
@@ -419,7 +464,7 @@ def solve_system_2d(
         output_mesh, error_estimates, h_ref_cost_estimate = perform_mesh_refinement(
             mesh,
             solution,
-            _element_offsets,
+            element_offsets,
             system,
             refinement_settings.error_estimate,
             refinement_settings.h_refinement_ratio,
@@ -427,10 +472,10 @@ def solve_system_2d(
             refinement_settings.report_error_distribution,
             element_fem_spaces,
             system_settings.boundary_conditions,
-            cache_2d,
+            basis_cache,
             refinement_settings.upper_order_limit,
             refinement_settings.lower_order_limit,
-            [form for _, form in system_settings.constrained_forms],
+            system_settings.constrained_forms,
         )
         resulting_grids[-1].cell_data["error_estimate"] = error_estimates
         resulting_grids[-1].cell_data["h_ref_cost_estimate"] = h_ref_cost_estimate
@@ -462,11 +507,10 @@ def update_system_for_time_march(
             raise ValueError(f"Unknown form {u} is not in the system.")
         if w not in system.weight_forms:
             raise ValueError(f"Weight form {w} is not in the system.")
-        if u.primal_order != w.primal_order:
+        if u.order != w.order:
             raise ValueError(
                 f"Forms {u} and {w} in the time march relation can not be used, as "
-                f"they have differing primal orders ({u.primal_order} vs "
-                f"{w.primal_order})."
+                f"they have differing orders ({u.order} vs {w.order})."
             )
 
     time_march_indices = tuple(
@@ -487,154 +531,8 @@ def update_system_for_time_march(
                 eq.left
                 + 2
                 / time_settings.dt
-                * (system.weight_forms[m_idx] * system.unknown_forms.get_form(m_idx))
+                * (system.weight_forms[m_idx] @ system.unknown_forms.get_form(m_idx))
                 == eq.right
             )
 
     return KFormSystem(*new_equations)
-
-
-# def do_vms(
-#     mesh: Mesh,
-#     unknown_ordering: UnknownOrderings,
-#     leaf_indices: Sequence[int],
-#     basis_cache: FemCache,
-#     element_fem_spaces: Sequence[ElementFemSpace2D],
-#     order_diff: int,
-#     boundary_conditions: Sequence[BoundaryCondition2DSteady],
-#     constrained_forms: Sequence[tuple[float, KFormUnknown]],
-#     original_system: KFormSystem,
-#     symmetric_system: KFormSystem,
-#     antisymmetric_system: KFormSystem,
-#     coarse_forcing: npt.NDArray[np.float64],
-#     coarse_solutions: Sequence[npt.NDArray[np.float64]],
-#     coarse_lagrange_mat: None | sp.csr_array,
-# ):
-#     """Do the VMS here."""
-#     fine_fem_spaces = [
-#         ElementFemSpace2D(
-#             Basis2D(
-#                 basis_cache.get_basis1d(element_space.basis_xi.order + order_diff),
-#                 basis_cache.get_basis1d(element_space.basis_eta.order + order_diff),
-#             ),
-#             element_space.corners,
-#         )
-#         for element_space in element_fem_spaces
-#     ]
-
-#     fine_dof_offsets, fine_element_total_dof_counts, fine_element_offset = (
-#         _compute_offsets_and_sizes(mesh, unknown_ordering, leaf_indices, order_diff)
-#     )
-
-#     compiled_symmetric = CompiledSystem(symmetric_system)
-#     fine_linear_vectors = [
-#         compute_element_rhs(original_system, cache) for cache in fine_fem_spaces
-#     ]
-#     fine_lagrange_mat, _ = _add_system_constraints(
-#         original_system,
-#         mesh,
-#         basis_cache,
-#         unknown_ordering,
-#         constrained_forms,
-#         boundary_conditions,
-#         leaf_indices,
-#         fine_dof_offsets,
-#         fine_element_offset,
-#         fine_linear_vectors,
-#     )
-
-#     fine_linear_matrices = [
-#         compute_element_matrix(
-#             unknown_ordering.form_orders,
-#             compiled_symmetric.linear_codes,
-#             tuple(),
-#             element_space,
-#         )
-#         for element_space in fine_fem_spaces
-#     ]
-
-#     element_projectors = [
-#         compute_element_projector(
-#             unknown_ordering.form_orders,
-#             fine_space.corners,
-#             fine_space.basis_2d,
-#             coarse_space.basis_2d,
-#         )
-#         for coarse_space, fine_space in zip(
-#             element_fem_spaces, fine_fem_spaces, strict=True
-#         )
-#     ]
-
-#     projection_matrix = cast(sp.csr_array, sp.block_diag(element_projectors, "csr"))
-
-#     compiled_antisymmetric = CompiledSystem(antisymmetric_system)
-#     fine_antisym_matrices = [
-#         compute_element_matrix(
-#             unknown_ordering.form_orders,
-#             compiled_antisymmetric.lhs_full,
-#             compiled_antisymmetric.vector_field_specs,
-#             element_space,
-#             proj @ sol,
-#         )
-#         for element_space, proj, sol in zip(
-#             fine_fem_spaces, element_projectors, coarse_solutions, strict=True
-#         )
-#     ]
-
-#     coarse_linear_matrices = [
-#         compute_element_matrix(
-#             unknown_ordering.form_orders,
-#             compiled_symmetric.linear_codes,
-#             tuple(),
-#             element_space,
-#         )
-#         for element_space in element_fem_spaces
-#     ]
-
-#     fine_forcing = np.concatenate(fine_linear_vectors)
-#     residual = fine_forcing - projection_matrix @ coarse_forcing
-#     # Assume Lagrange multipliers are satisfied.
-
-#     system_matrix_fine = sp.block_diag(fine_linear_matrices)
-
-#     system_matrix_coarse = sp.block_diag(coarse_linear_matrices)
-#     if coarse_lagrange_mat is not None:
-#         system_matrix_coarse = sp.block_array(
-#             [
-#                 [system_matrix_coarse, coarse_lagrange_mat.T],
-#                 [coarse_lagrange_mat, None],
-#             ]
-#         )
-
-#     fine_mass_inverse = sp.block_diag(
-#         [
-#             element_space.mass_from_order(order, inverse=True)
-#             for order in unknown_ordering.form_orders
-#             for element_space in fine_fem_spaces
-#         ]
-#     )
-#     fine_advection = sp.block_diag(fine_antisym_matrices)
-#     if fine_lagrange_mat is not None:
-#         n = fine_lagrange_mat.shape[0]
-#         residual = np.pad(residual, (0, n))
-#         system_matrix_fine = sp.block_array(
-#             [
-#                 [system_matrix_fine, fine_lagrange_mat.T],
-#                 [fine_lagrange_mat, None],
-#             ]
-#         )
-#         fine_mass_inverse.resize(
-#             fine_mass_inverse.shape[0] + n, fine_mass_inverse.shape[1] + n
-#         )
-#         fine_advection.resize(fine_advection.shape[0] + n, fine_advection.shape[1] + n)
-
-#     fine_part = sla.spsolve(system_matrix_fine, fine_mass_inverse)
-
-#     coarse_part = projection_matrix.T @ sla.spsolve(
-#         system_matrix_coarse, projection_matrix @ fine_mass_inverse
-#     )
-
-#     fine_scale_green = fine_part - coarse_part
-#     advected_green = fine_advection @ fine_scale_green
-#     return advected_green
-#     # sg_result = sla.spsolve(fine_mass_inverse)

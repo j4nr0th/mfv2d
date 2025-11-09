@@ -4,9 +4,7 @@ solve_system
 ============
 
 This submodule contains all the basic building blocks which are needed to
-create the solver in :mod:`mfv2d.solve_system_2d`. Some of these should
-be replaced or removed, as they are outdated, but it works for now.
-
+create the solver in :mod:`mfv2d.solve_system_2d`.
 
 Computing the Explicit Terms
 ----------------------------
@@ -51,22 +49,12 @@ of freedom to carry :func:`find_time_carry_indices` is used.
 
 With time marching element degrees of freedom have to often be mapped
 from primal to dual or the other way around. To support this,
-:func:`compute_element_primal` and :func:`compute_element_dual` can
+:func:`compute_element_primal_from_dual` and :func:`compute_element_dual` can
 be used.
 
-.. autofunction:: compute_element_primal
+.. autofunction:: compute_element_primal_from_dual
 
 .. autofunction:: compute_element_dual
-
-
-Supporting Calculations
------------------------
-
-Computing element matrices and vectors requires vector field information
-be provided. These can be computed using
-:func:`compute_element_vector_fields_nonlin`.
-
-.. autofunction:: compute_element_vector_fields_nonlin
 
 
 The Actual Solver

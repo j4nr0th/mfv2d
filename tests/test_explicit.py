@@ -10,6 +10,7 @@ from mfv2d._mfv2d import (
     compute_element_matrix,
     compute_element_vector,
 )
+from mfv2d.eval import system_as_string
 from mfv2d.kform import KFormUnknown, UnknownFormOrder
 from mfv2d.mimetic2d import element_primal_dofs
 from mfv2d.solve_system import CompiledSystem
@@ -62,23 +63,24 @@ def test_explicit_evaluation():
     w_pre = pre.weight
 
     system = KFormSystem(
-        w_vor * vor + w_vor.derivative * vel == 0,  # Vorticity
-        w_vel.derivative * pre
-        + ((1 / RE) * (w_vel * vor.derivative))
-        + w_vel * (vel ^ (~vor))
+        w_vor @ vor + w_vor.derivative @ vel == 0,  # Vorticity
+        w_vel.derivative @ pre
+        + ((1 / RE) * (w_vel @ vor.derivative))
+        + (vel * w_vel @ vor)
         == 0,  # Momentum
-        w_pre * vel.derivative == w_pre @ 0,  # Continuity
+        w_pre @ vel.derivative == 0,  # Continuity
         sorting=lambda f: f.order,
     )
+    print(system_as_string(system))
     compiled = CompiledSystem(system)
 
     linearized_system = KFormSystem(
-        w_vor * vor + w_vor.derivative * vel == 0,  # Vorticity
-        w_vel.derivative * pre
-        + ((1 / RE) * (w_vel * vor.derivative))
-        + w_vel * (vel_exact * (~vor))
+        (w_vor @ vor) + (w_vor.derivative @ vel) == 0,  # Vorticity
+        (w_vel.derivative @ pre)
+        + ((1 / RE) * (w_vel @ vor.derivative))
+        + (vel_exact * w_vel @ vor)
         == 0,  # Momentum
-        w_pre * vel.derivative == w_pre @ 0,  # Continuity
+        (w_pre @ vel.derivative) == 0,  # Continuity
         sorting=lambda f: f.order,
     )
     linearized_compiled = CompiledSystem(linearized_system)
@@ -93,7 +95,7 @@ def test_explicit_evaluation():
 
         elem_fem_space = ElementFemSpace2D(basis_2d, corners)
         sys_mat = compute_element_matrix(
-            system.unknown_forms, linearized_compiled.lhs_full, elem_fem_space
+            system.unknown_forms, linearized_compiled.lhs_codes, elem_fem_space
         )
 
         proj_vor = element_primal_dofs(
@@ -109,7 +111,7 @@ def test_explicit_evaluation():
         exact_lhs = np.concatenate((proj_vor, proj_vel, proj_pre), dtype=np.float64)
 
         explicit_rhs = compute_element_vector(
-            system.unknown_forms, compiled.lhs_full, elem_fem_space, exact_lhs
+            system.unknown_forms, compiled.lhs_codes, elem_fem_space, exact_lhs
         )
 
         rhs = sys_mat @ exact_lhs
@@ -170,3 +172,7 @@ def test_explicit_evaluation():
     # ax.legend()
     # fig.tight_layout()
     # plt.show()
+
+
+if __name__ == "__main__":
+    test_explicit_evaluation()

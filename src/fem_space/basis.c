@@ -45,7 +45,7 @@ static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule,
         return MFV2D_FAILED_ALLOC;
     }
     // Transpose the values
-    for (unsigned i = 0; i < order + 1; ++i)
+    for (unsigned i = 0; i < (unsigned)(order + 1); ++i)
     {
         for (unsigned j = 0; j < rule->order + 1; ++j)
         {
@@ -78,7 +78,7 @@ static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule,
     for (unsigned i = 0; i < rule->order + 1; ++i)
     {
         double v = 0;
-        for (unsigned j = 0; j < order; ++j)
+        for (unsigned j = 0; j < (unsigned)order; ++j)
         {
             v -= weights[i * (order + 1) + j];
             (*edge_vals)[j * (rule->order + 1) + i] = v;

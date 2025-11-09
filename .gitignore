@@ -35,6 +35,7 @@ dmypy.json
 
 # Custom
 sandbox/
+.zig-cache/
 
 # Sphinx
 docs/_*

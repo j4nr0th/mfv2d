@@ -15,6 +15,8 @@ static const char *eval_result_strings[MFV2D_RESULT_COUNT] = {
     MFV2D_RESULT_STR_ENTRY(MFV2D_NOT_CONVERGED),    MFV2D_RESULT_STR_ENTRY(MFV2D_INDEX_OUT_OF_RANGE),
     MFV2D_RESULT_STR_ENTRY(MFV2D_NOT_A_LEAF),       MFV2D_RESULT_STR_ENTRY(MFV2D_FAILED_CALLBACK),
     MFV2D_RESULT_STR_ENTRY(MFV2D_BAD_ARGUMENT),     MFV2D_RESULT_STR_ENTRY(MFV2D_PYTHON_EXCEPTION),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_PIVOT_FAILED),     MFV2D_RESULT_STR_ENTRY(MFV2D_BAD_VECTOR_PARENT),
+    MFV2D_RESULT_STR_ENTRY(MFV2D_MISMATCHED_TRACE),
 };
 #undef MFV2D_RESULT_STR_ENTRY
 
@@ -60,7 +62,8 @@ void error_message_submit(error_stack_t *stack, const char *file, int line, cons
     char *const buffer = allocate(stack->allocator, sizeof *buffer * (len + 1));
     if (!buffer)
         return;
-    vsnprintf(buffer, len, msg, args);
+    vsnprintf(buffer, len + 1, msg, args);
+    buffer[len] = 0;
     va_end(args);
     stack->messages[stack->position] =
         (error_message_t){.code = err, .message = buffer, .line = line, .file = file, .function = func};

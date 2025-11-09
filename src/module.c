@@ -11,6 +11,11 @@
 #include <numpy/ndarrayobject.h>
 #include <numpy/npy_no_deprecated_api.h>
 
+// Algebra
+#include "algebra/crs_matrix.h"
+#include "algebra/svector.h"
+#include "algebra/system_objects.h"
+
 //  Geometry
 #include "geometry/geoidobject.h"
 #include "geometry/lineobject.h"
@@ -111,6 +116,18 @@ static PyMethodDef module_methods[] = {
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = compute_integrating_fields_docstring,
     },
+    {
+        .ml_name = "_compute_matrix_inverse",
+        .ml_meth = (void *)python_compute_matrix_inverse,
+        .ml_flags = METH_O,
+        .ml_doc = compute_matrix_inverse_docstr,
+    },
+    {
+        .ml_name = "_solve_linear_system",
+        .ml_meth = (void *)python_solve_linear_system,
+        .ml_flags = METH_VARARGS,
+        .ml_doc = solve_linear_system_docstr,
+    },
     {NULL, NULL, 0, NULL}, // sentinel
 };
 
@@ -139,11 +156,13 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
         PyModule_AddType(mod, &basis_1d_type) < 0 || PyModule_AddType(mod, &basis_2d_type) < 0 ||
         PyModule_AddType(mod, &element_fem_space_2d_type) < 0 || PyModule_AddType(mod, &mesh_type_object) < 0 ||
         PyModule_AddType(mod, &element_form_spec_type) < 0 || PyModule_AddType(mod, &element_form_spec_iter_type) < 0 ||
-        PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_RIGHT) < 0 ||
-        PyModule_AddIntMacro(mod, ELEMENT_SIDE_TOP) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_LEFT) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_INVALID) < 0 || PyModule_AddIntMacro(mod, MATOP_IDENTITY) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_MASS) < 0 || PyModule_AddIntMacro(mod, MATOP_INCIDENCE) < 0 ||
-        PyModule_AddIntMacro(mod, MATOP_PUSH) < 0 || PyModule_AddIntMacro(mod, MATOP_MATMUL) < 0 ||
+        PyModule_AddType(mod, &svec_type_object) < 0 || PyModule_AddType(mod, &crs_matrix_type_object) < 0 ||
+        PyModule_AddType(mod, &system_object_type) < 0 || PyModule_AddType(mod, &trace_vector_object_type) < 0 ||
+        PyModule_AddType(mod, &dense_vector_object_type) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 ||
+        PyModule_AddIntMacro(mod, ELEMENT_SIDE_RIGHT) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_TOP) < 0 ||
+        PyModule_AddIntMacro(mod, ELEMENT_SIDE_LEFT) < 0 || PyModule_AddIntMacro(mod, MATOP_INVALID) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_IDENTITY) < 0 || PyModule_AddIntMacro(mod, MATOP_MASS) < 0 ||
+        PyModule_AddIntMacro(mod, MATOP_INCIDENCE) < 0 || PyModule_AddIntMacro(mod, MATOP_PUSH) < 0 ||
         PyModule_AddIntMacro(mod, MATOP_SCALE) < 0 || PyModule_AddIntMacro(mod, MATOP_SUM) < 0 ||
         PyModule_AddIntMacro(mod, MATOP_INTERPROD) < 0)
     {

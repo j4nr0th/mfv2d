@@ -1,6 +1,6 @@
 #include "system_template.h"
 
-#include "matrix.h"
+#include "../algebra/matrix.h"
 
 #include "integrating_fields.h"
 #include <numpy/ndarrayobject.h>

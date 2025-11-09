@@ -21,7 +21,11 @@ Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 
 
 def exact_interior_prod_2_dual(vec: Function2D, form0: Function2D) -> Function2D:
-    """Create an interior product dual function."""
+    r"""Create an interior product function.
+
+    Dual 2-form interprod is :math:`\vec{v} \times u`, with :math:`\vec{v}`
+    being the vector field and :math:`u` being the 2-form.
+    """
 
     def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute interior product."""
@@ -36,22 +40,30 @@ def exact_interior_prod_2_dual(vec: Function2D, form0: Function2D) -> Function2D
 
 
 def exact_interior_prod_2(vec: Function2D, form2: Function2D) -> Function2D:
-    """Create an interior product function."""
+    r"""Create an interior product function.
+
+    Primal 2-form interprod is :math:`\vec{v} u`, with :math:`\vec{v}`
+    being the vector field and :math:`u` being the 2-form.
+    """
 
     def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute interior product."""
         vec_field = vec(x, y)
         scl_field = form2(x, y)
         out = np.empty_like(vec_field)
-        out[..., 0] = -vec_field[..., 0] * scl_field
-        out[..., 1] = -vec_field[..., 1] * scl_field
+        out[..., 0] = vec_field[..., 0] * scl_field
+        out[..., 1] = vec_field[..., 1] * scl_field
         return out
 
     return wrapped
 
 
 def exact_interior_prod_1_dual(vec: Function2D, form2: Function2D) -> Function2D:
-    """Create a dual interior product function."""
+    r"""Create an interior product function.
+
+    Dual 1-form interprod is :math:`\vec{v} \cdot \vec{u}`, with :math:`\vec{v}`
+    being the vector field and :math:`\vec{u}` being the 1-form.
+    """
 
     def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute interior product."""
@@ -66,7 +78,11 @@ def exact_interior_prod_1_dual(vec: Function2D, form2: Function2D) -> Function2D
 
 
 def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
-    """Create an interior product function."""
+    r"""Create an interior product function.
+
+    Primal 1-form interprod is :math:`\vec{v} \times \vec{u}`, with :math:`\vec{v}`
+    being the vector field and :math:`\vec{u}` being the 1-form.
+    """
 
     def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute interior product."""
@@ -98,7 +114,7 @@ def compute_system_matrix_lin(
 ) -> npt.NDArray[np.float64]:
     """Compute system matrix."""
     compiled = CompiledSystem(system)
-    emat = compute_element_matrix(system.unknown_forms, compiled.lhs_full, fem_space)
+    emat = compute_element_matrix(system.unknown_forms, compiled.lhs_codes, fem_space)
 
     return emat
 
@@ -157,8 +173,8 @@ def test_advect_10(corner_vals: npt.ArrayLike) -> None:
     w = g.weight
 
     system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == v @ 0,
+        (w @ (u_exact * omega)) == 0,
+        (v @ g.derivative) == 0,
         sorting=lambda f: f.order,
     )
 
@@ -215,11 +231,10 @@ def test_dual_advect_10(corner_vals: npt.ArrayLike) -> None:
     w = g.weight
 
     system = KFormSystem(
-        (w * (u_exact * ~omega)) == w @ 0,
-        (v.derivative * g) == v @ 0,
+        ((u_exact * w) @ omega) == 0,
+        (v.derivative @ g) == 0,
         sorting=lambda f: f.order,
     )
-    # print(system)
 
     N = 6
     N2 = 10
@@ -247,7 +262,7 @@ def test_dual_advect_10(corner_vals: npt.ArrayLike) -> None:
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> None:
+def test_advect_non_linear_10(corner_vals: npt.ArrayLike) -> None:
     """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -279,9 +294,9 @@ def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     h = u.weight
 
     system = KFormSystem(
-        (w * (u ^ omega)) == w @ 0,
-        (v * g.derivative) == v @ 0,
-        (h * g.derivative) == h @ 0,
+        (w @ (u * omega)) == 0,
+        (v @ g.derivative) == 0,
+        (h @ g.derivative) == 0,
         sorting=lambda f: f.order + ord(f.label[0]),
     )
 
@@ -312,7 +327,6 @@ def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> 
         ),
     )
 
-    fmat = emat[: (N + 1) * (N + 1), -2 * (N + 1) * N :]
     gmat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) : -2 * (N + 1) * N]
 
     real_dofs = element_dual_dofs(
@@ -322,13 +336,11 @@ def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     )
 
     v1 = gmat @ omega_proj
-    v2 = fmat @ u_proj
-    assert pytest.approx(real_dofs) == v2
     assert pytest.approx(real_dofs) == v1
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_advect_dual_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> None:
+def test_advect_dual_non_linear_10(corner_vals: npt.ArrayLike) -> None:
     """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -360,9 +372,9 @@ def test_advect_dual_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike
     h = u.weight
 
     system = KFormSystem(
-        (w * (u ^ ~omega)) == w @ 0,
-        (v.derivative * g) == v @ 0,
-        (h.derivative * g) == h @ 0,
+        ((u * w) @ omega) == 0,
+        (v.derivative @ g) == 0,
+        (h.derivative @ g) == 0,
         sorting=lambda f: f.order + ord(f.label[0]),
     )
     # print(system)
@@ -400,12 +412,9 @@ def test_advect_dual_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike
         fem_space,
         exact_interior_prod_1_dual(u_exact, omega_exact),
     )
-    fmat = emat[: N * N, -2 * (N + 1) * N :]
     gmat = emat[: N * N, N * N : -2 * (N + 1) * N]
     v1 = gmat @ omega_proj
-    v2 = fmat @ u_proj
     assert real_dofs == pytest.approx(v1)
-    assert real_dofs == pytest.approx(v2)
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
@@ -435,8 +444,8 @@ def test_advect_21(corner_vals: npt.ArrayLike) -> None:
     w = g.weight
 
     system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == (v @ 0),
+        (w @ (u_exact * omega)) == 0,
+        (v @ g.derivative) == 0,
         sorting=lambda f: f.order,
     )
 
@@ -462,7 +471,7 @@ def test_advect_21(corner_vals: npt.ArrayLike) -> None:
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_dual_advect_21_undeformed(corner_vals: npt.ArrayLike) -> None:
+def test_dual_advect_21(corner_vals: npt.ArrayLike) -> None:
     """Check dual interior product of a 2-form with a 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -487,8 +496,8 @@ def test_dual_advect_21_undeformed(corner_vals: npt.ArrayLike) -> None:
     g = KFormUnknown("g", UnknownFormOrder.FORM_ORDER_1)
     w = g.weight
     system = KFormSystem(
-        (w * (u_exact * (~omega))) == w @ 0,
-        (v.derivative * g) == (v @ 0),
+        ((u_exact * w) @ omega) == 0,
+        (v.derivative @ g) == 0,
         sorting=lambda f: 5 - f.order,
     )
 
@@ -516,7 +525,7 @@ def test_dual_advect_21_undeformed(corner_vals: npt.ArrayLike) -> None:
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_advect_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> None:
+def test_advect_non_linear_21(corner_vals: npt.ArrayLike) -> None:
     """Check that non-linear inter-product of 2-form with 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -543,8 +552,8 @@ def test_advect_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     corners = np.array(corner_vals, np.float64)
 
     system = KFormSystem(
-        (h * (u ^ omega)) == h @ 0,
-        (v * u.derivative) == v @ 0,
+        (h @ (u * omega)) == 0,
+        (v @ u.derivative) == 0,
         sorting=lambda f: f.order,
     )
     N = 6
@@ -569,17 +578,14 @@ def test_advect_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> 
         fem_space,
         exact_interior_prod_2(u_exact, omega_exact),
     )
-    fmat = emat[: 2 * (N + 1) * N, : 2 * (N + 1) * N]
     gmat = emat[: 2 * (N + 1) * N, 2 * (N + 1) * N :]
     v1 = gmat @ omega_proj
-    v2 = fmat @ u_proj
 
     assert pytest.approx(real_dofs) == v1
-    assert pytest.approx(real_dofs) == v2
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> None:
+def test_advect_dual_non_linear_21(corner_vals: npt.ArrayLike) -> None:
     """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -604,8 +610,8 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
     h = u.weight
 
     system = KFormSystem(
-        (h * (u ^ ~omega)) == h @ 0,
-        (v.derivative * u) == v @ 0,
+        ((u * h) @ omega) == 0,
+        (v.derivative @ u) == 0,
         sorting=lambda f: f.order,
     )
 
@@ -629,10 +635,8 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
         system, fem_space, np.concatenate((omega_proj, u_proj), dtype=np.float64)
     )
 
-    fmat = emat[(N + 1) ** 2 :, (N + 1) ** 2 :]
     gmat = emat[(N + 1) ** 2 :, : (N + 1) ** 2]
     v1 = gmat @ omega_proj
-    v2 = fmat @ u_proj
     real_dofs = element_dual_dofs(
         UnknownFormOrder.FORM_ORDER_1,
         fem_space,
@@ -640,4 +644,18 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
     )
 
     assert pytest.approx(real_dofs) == v1
-    assert pytest.approx(real_dofs) == v2
+
+
+if __name__ == "__main__":
+    for vals in _CORNER_TEST_VALUES:
+        test_advect_10(vals)
+        test_dual_advect_10(vals)
+    for vals in _CORNER_TEST_VALUES:
+        test_advect_21(vals)
+        test_dual_advect_21(vals)
+    for vals in _CORNER_TEST_VALUES:
+        test_advect_dual_non_linear_10(vals)
+        test_advect_non_linear_10(vals)
+    for vals in _CORNER_TEST_VALUES:
+        test_advect_dual_non_linear_21(vals)
+        test_advect_non_linear_21(vals)

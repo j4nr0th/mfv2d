@@ -5,7 +5,6 @@
 #include "../fem_space/fem_space.h"
 #include "element_eval.h"
 
-#include "integrating_fields.h"
 #include <numpy/ndarrayobject.h>
 
 #include "forms.h"
@@ -474,29 +473,22 @@ MFV2D_INTERNAL
 PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
 {
     element_form_spec_t *form_specs;
-    PyArrayObject *corners;
     basis_2d_t *basis_in;
-    basis_2d_t *basis_out;
+    element_fem_space_2d_t *space_out;
     int dual = 0;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!O!O!|p",
-                                     (char *const[]){"form_orders", "corners", "basis_in", "basis_out", "dual", NULL},
-                                     &element_form_spec_type, &form_specs, &PyArray_Type, &corners, &basis_2d_type,
-                                     &basis_in, &basis_2d_type, &basis_out, &dual))
-    {
-        return NULL;
-    }
-
-    if (check_input_array(corners, 2, (const npy_intp[2]){4, 2}, NPY_DOUBLE, NPY_ARRAY_ALIGNED | NPY_ARRAY_C_CONTIGUOUS,
-                          "corners") < 0)
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!O!|p",
+                                     (char *const[]){"form_orders", "basis_in", "space_out", "dual", NULL},
+                                     &element_form_spec_type, &form_specs, &basis_2d_type, &basis_in,
+                                     &element_fem_space_2d_type, &space_out, &dual))
     {
         return NULL;
     }
 
     const unsigned n_forms = Py_SIZE(form_specs);
 
-    const quad_info_t *const quad = PyArray_DATA(corners);
+    const quad_info_t *const quad = &space_out->corners;
     fem_space_2d_t *fem_space_in = NULL;
-    fem_space_2d_t *fem_space_out = NULL;
+    const fem_space_2d_t *const fem_space_out = space_out->fem_space;
     {
         const fem_space_1d_t space_xi = basis_1d_as_fem_space(basis_in->basis_xi);
         const fem_space_1d_t space_eta = basis_1d_as_fem_space(basis_in->basis_eta);
@@ -504,17 +496,6 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
         if (res != MFV2D_SUCCESS)
         {
             PyErr_Format(PyExc_RuntimeError, "Could not create FEM space for input basis.");
-            return NULL;
-        }
-    }
-    {
-        const fem_space_1d_t space_xi = basis_1d_as_fem_space(basis_out->basis_xi);
-        const fem_space_1d_t space_eta = basis_1d_as_fem_space(basis_out->basis_eta);
-        const mfv2d_result_t res = fem_space_2d_create(&space_xi, &space_eta, quad, &fem_space_out, &SYSTEM_ALLOCATOR);
-        if (res != MFV2D_SUCCESS)
-        {
-            PyErr_Format(PyExc_RuntimeError, "Could not create FEM space for input basis.");
-            deallocate(&SYSTEM_ALLOCATOR, fem_space_in);
             return NULL;
         }
     }
@@ -575,48 +556,38 @@ PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, P
             goto end;
         }
 
-        matrix_full_t mass;
-        switch (order)
-        {
-        case FORM_ORDER_0:
-            res = compute_mass_matrix_node_double(fem_space_out, fem_space_out, &mass, &SYSTEM_ALLOCATOR);
-            break;
-
-        case FORM_ORDER_1:
-            res = compute_mass_matrix_edge_double(fem_space_out, fem_space_out, &mass, &SYSTEM_ALLOCATOR);
-            break;
-
-        case FORM_ORDER_2:
-            res = compute_mass_matrix_surf_double(fem_space_out, fem_space_out, &mass, &SYSTEM_ALLOCATOR);
-            break;
-        }
-
-        if (res != MFV2D_SUCCESS)
-        {
-            PyErr_Format(PyExc_RuntimeError, "Could not compute mass matrix for order %d, error code %s.", order,
-                         mfv2d_result_str(res));
-            deallocate(&SYSTEM_ALLOCATOR, mat.data);
-            goto end;
-        }
-
         matrix_full_t out_mat;
         if (!dual)
         {
-
-            matrix_full_t inv_mat;
-            res = matrix_full_invert(&mass, &inv_mat, &SYSTEM_ALLOCATOR);
-            deallocate(&SYSTEM_ALLOCATOR, mass.data);
-            if (res != MFV2D_SUCCESS)
+            const matrix_full_t *mass = NULL;
+            switch (order)
             {
-                PyErr_Format(PyExc_RuntimeError, "Could not invert mass matrix for order %d, error code %s.", order,
+            case FORM_ORDER_0:
+                mass = element_mass_cache_get_node_inv(space_out);
+                break;
+
+            case FORM_ORDER_1:
+                mass = element_mass_cache_get_edge_inv(space_out);
+                break;
+
+            case FORM_ORDER_2:
+                mass = element_mass_cache_get_surf_inv(space_out);
+                break;
+
+            default:
+                ASSERT(0, "Should never happen.");
+            }
+
+            if (mass == NULL)
+            {
+                PyErr_Format(PyExc_RuntimeError, "Could not compute mass matrix for order %d, error code %s.", order,
                              mfv2d_result_str(res));
                 deallocate(&SYSTEM_ALLOCATOR, mat.data);
                 goto end;
             }
 
-            res = matrix_full_multiply(&inv_mat, &mat, &out_mat, &SYSTEM_ALLOCATOR);
+            res = matrix_full_multiply(mass, &mat, &out_mat, &SYSTEM_ALLOCATOR);
             deallocate(&SYSTEM_ALLOCATOR, mat.data);
-            deallocate(&SYSTEM_ALLOCATOR, inv_mat.data);
             if (res != MFV2D_SUCCESS)
             {
                 PyErr_Format(PyExc_RuntimeError, "Could not compute projection matrix of order %d, error code %s.",
@@ -655,7 +626,6 @@ end:
         out = NULL;
     }
 
-    deallocate(&SYSTEM_ALLOCATOR, fem_space_out);
     deallocate(&SYSTEM_ALLOCATOR, fem_space_in);
 
     return (PyObject *)out;

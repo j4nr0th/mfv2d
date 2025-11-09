@@ -18,6 +18,20 @@ const char *form_order_str(form_order_t order)
         return "FORM_ORDER_INVALID";
     return form_order_str_table[order];
 }
+unsigned form_degrees_of_freedom_count(const form_order_t form, const unsigned order_1, const unsigned order_2)
+{
+    switch (form)
+    {
+    case FORM_ORDER_0:
+        return (order_1 + 1) * (order_2 + 1);
+    case FORM_ORDER_1:
+        return order_1 * (order_2 + 1) + (order_1 + 1) * order_2;
+    case FORM_ORDER_2:
+        return order_1 * order_2;
+    default:
+        return 0;
+    }
+}
 
 form_order_t form_order_from_object(PyObject *object)
 {
@@ -636,37 +650,37 @@ PyDoc_STRVAR(element_form_spec_get_index_docstr,
 static PyMethodDef element_form_spec_methods[] = {
     {
         .ml_name = "form_offset",
-        .ml_meth = (PyCFunction)element_form_spec_form_offset,
+        .ml_meth = (void *)element_form_spec_form_offset,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = element_form_spec_form_order_docstr,
     },
     {
         .ml_name = "form_size",
-        .ml_meth = (PyCFunction)element_form_spec_form_size,
+        .ml_meth = (void *)element_form_spec_form_size,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = element_form_spec_form_size_docstr,
     },
     {
         .ml_name = "total_size",
-        .ml_meth = (PyCFunction)element_form_spec_form_total_size,
+        .ml_meth = (void *)element_form_spec_form_total_size,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = element_form_spec_size_total_docstr,
     },
     {
         .ml_name = "form_offsets",
-        .ml_meth = (PyCFunction)element_form_spec_form_orders,
+        .ml_meth = (void *)element_form_spec_form_orders,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = element_form_spec_form_orders_docstr,
     },
     {
         .ml_name = "form_sizes",
-        .ml_meth = (PyCFunction)element_form_spec_form_sizes,
+        .ml_meth = (void *)element_form_spec_form_sizes,
         .ml_flags = METH_VARARGS | METH_KEYWORDS,
         .ml_doc = element_form_spec_form_sizes_docstr,
     },
     {
         .ml_name = "index",
-        .ml_meth = (PyCFunction)element_form_spec_get_index,
+        .ml_meth = (void *)element_form_spec_get_index,
         .ml_flags = METH_O,
         .ml_doc = element_form_spec_get_index_docstr,
     },

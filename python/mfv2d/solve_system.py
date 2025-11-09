@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import cast
 
 import numpy as np
 import numpy.typing as npt
@@ -20,6 +21,7 @@ from mfv2d._mfv2d import (
     ElementFemSpace2D,
     Mesh,
     compute_element_matrix,
+    compute_element_projector,
     compute_element_vector,
 )
 from mfv2d.boundary import BoundaryCondition2DSteady
@@ -40,6 +42,7 @@ from mfv2d.mimetic2d import (
     vtk_lagrange_ordering,
 )
 from mfv2d.progress import ProgressTracker
+from mfv2d.solving import ConvergenceSettings
 from mfv2d.system import ElementFormSpecification, KFormSystem
 
 
@@ -79,7 +82,7 @@ def rhs_2d_element_projection(
 def _extract_rhs_2d(
     proj: Sequence[tuple[float, KExplicit]],
     weight: KWeight,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
 ) -> npt.NDArray[np.float64]:
     """Extract the rhs resulting from element projections.
 
@@ -106,7 +109,7 @@ def _extract_rhs_2d(
     """
     # Create empty vector into which to accumulate
     vec = np.zeros(
-        weight.order.full_unknown_count(*element_cache.orders),
+        weight.order.full_unknown_count(*element_space.orders),
         np.float64,
     )
 
@@ -115,7 +118,7 @@ def _extract_rhs_2d(
         if not isinstance(f, KElementProjection):
             continue
 
-        rhs = rhs_2d_element_projection(f, element_cache)
+        rhs = rhs_2d_element_projection(f, element_space)
         if k != 1.0:
             rhs *= k
         vec += rhs
@@ -140,7 +143,7 @@ def compute_element_rhs(
     system : KFormSystem
         System for which to compute the rhs.
 
-    element_caches : FemCache
+    element_spaces : FemCache
         Cache from which to get the basis from.
 
     Returns
@@ -162,11 +165,19 @@ def reconstruct_mesh_from_solution(
     recon_order: int | None,
     fem_spaces: list[ElementFemSpace2D],
     solution: npt.NDArray[np.float64],
+    vms_solution: npt.NDArray[np.float64] | None,
 ) -> pv.UnstructuredGrid:
     """Reconstruct the unknown differential forms."""
     build: dict[KFormUnknown, list[npt.NDArray[np.float64]]] = {
         form: list() for form in form_spec.iter_forms()
     }
+    if vms_solution is not None:
+        vms_build: dict[KFormUnknown, list[npt.NDArray[np.float64]]] = {
+            form: list() for form in form_spec.iter_forms()
+        }
+    else:
+        vms_build = dict()
+
     xvals: list[npt.NDArray[np.float64]] = list()
     yvals: list[npt.NDArray[np.float64]] = list()
     order_list: list[tuple[int, int]] = list()
@@ -208,8 +219,6 @@ def reconstruct_mesh_from_solution(
             form_offset = form_spec.form_offset(idx, *orders)
             form_offset_end = form_offset + form_spec.form_size(idx, *orders)
             form_dofs = element_dofs[form_offset:form_offset_end]
-            if not form.is_primal:
-                raise ValueError("Can not reconstruct a non-primal form.")
             # Reconstruct unknown
             recon_v = reconstruct(
                 element_space,
@@ -220,6 +229,22 @@ def reconstruct_mesh_from_solution(
             )
             shape = (-1, 2) if form.order == UnknownFormOrder.FORM_ORDER_1 else (-1,)
             build[form].append(np.reshape(recon_v, shape))
+
+            if vms_solution is not None:
+                vms_dofs = vms_solution[
+                    element_offset : element_offset + element_dof_count
+                ][form_offset:form_offset_end]
+                vms_dofs = (
+                    element_space.mass_from_order(form.order, inverse=True) @ vms_dofs
+                )
+                recon_vms = reconstruct(
+                    element_space,
+                    form.order,
+                    vms_dofs,
+                    recon_nodes[None, :],
+                    recon_nodes[:, None],
+                )
+                vms_build[form].append(np.reshape(recon_vms, shape))
 
         element_offset += element_dof_count
 
@@ -236,6 +261,10 @@ def reconstruct_mesh_from_solution(
     for form in build:
         vf = np.concatenate(build[form], axis=0, dtype=np.float64)
         grid.point_data[form.label] = vf
+
+    for form in vms_build:
+        vf = np.concatenate(vms_build[form], axis=0, dtype=np.float64)
+        grid.point_data["vms-" + form.label] = vf
 
     grid.cell_data["orders"] = order_list
 
@@ -270,18 +299,44 @@ def compute_element_dual(
     return np.concatenate(vecs)
 
 
-def compute_element_primal(
+def compute_element_dual_from_primal(
     form_specs: ElementFormSpecification,
-    dual_dofs: npt.NDArray[np.float64],
+    primal: npt.NDArray[np.float64],
+    element_space: ElementFemSpace2D,
+) -> npt.NDArray[np.float64]:
+    """Compute dual dofs from primal."""
+    offset = 0
+    mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
+    dual = np.empty_like(primal)
+    for i_form in range(len(form_specs)):
+        cnt = form_specs.form_size(i_form, *element_space.orders)
+        v = primal[offset : offset + cnt]
+        order = form_specs[i_form][1]
+        if order in mats:
+            m = mats[order]
+        else:
+            m = element_space.mass_from_order(order, inverse=False)
+            mats[order] = m
+
+        dual[offset : offset + cnt] = m @ v
+
+        offset += cnt
+
+    return dual
+
+
+def compute_element_primal_from_dual(
+    form_specs: ElementFormSpecification,
+    dual: npt.NDArray[np.float64],
     element_space: ElementFemSpace2D,
 ) -> npt.NDArray[np.float64]:
     """Compute primal dofs from dual."""
     offset = 0
     mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
-    primal = np.empty_like(dual_dofs)
+    primal = np.empty_like(dual)
     for i_form in range(len(form_specs)):
         cnt = form_specs.form_size(i_form, *element_space.orders)
-        v = dual_dofs[offset : offset + cnt]
+        v = dual[offset : offset + cnt]
         order = form_specs[i_form][1]
         if order in mats:
             m = mats[order]
@@ -296,34 +351,6 @@ def compute_element_primal(
     return primal
 
 
-def compute_element_primal_to_dual(
-    form_specs: ElementFormSpecification,
-    primal: npt.NDArray[np.float64],
-    order_1: int,
-    order_2: int,
-    element_cache: ElementFemSpace2D,
-) -> npt.NDArray[np.float64]:
-    """Compute primal dofs from dual."""
-    offset = 0
-    mats: dict[UnknownFormOrder, npt.NDArray[np.float64]] = dict()
-    dual = np.empty_like(primal)
-    for i_form in range(len(form_specs)):
-        cnt = form_specs.form_size(i_form, order_1, order_2)
-        v = primal[offset : offset + cnt]
-        order = form_specs[i_form][1]
-        if order in mats:
-            m = mats[order]
-        else:
-            m = element_cache.mass_from_order(order, inverse=False)
-            mats[order] = m
-
-        dual[offset : offset + cnt] = m @ v
-
-        offset += cnt
-
-    return dual
-
-
 def non_linear_solve_run(
     max_iterations: int,
     relax: float,
@@ -335,7 +362,6 @@ def non_linear_solve_run(
     compiled_system: CompiledSystem,
     explicit_vec: npt.NDArray[np.float64],
     element_offsets: npt.NDArray[np.uint32],
-    linear_element_matrices: Sequence[npt.NDArray[np.float64]],
     time_carry_index_array: npt.NDArray[np.uint32] | None,
     time_carry_term: npt.NDArray[np.float64] | None,
     solution: npt.NDArray[np.float64],
@@ -343,9 +369,15 @@ def non_linear_solve_run(
     max_mag: float,
     system_decomp: sla.SuperLU,
     lagrange_mat: sp.csr_array | None,
+    fine_scales: npt.NDArray[np.float64] | None,
+    sg_operator: SuyashGreenOperator | None,
     return_all_residuals: bool = False,
 ) -> tuple[
-    npt.NDArray[np.float64], npt.NDArray[np.float64], int, npt.NDArray[np.float64]
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    int,
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64] | None,
 ]:
     """Run the iterative non-linear solver.
 
@@ -362,6 +394,7 @@ def non_linear_solve_run(
         assert time_carry_index_array is None
     residuals = np.zeros(max_iterations, np.float64)
     max_residual = 0.0
+    unresolved_scales = fine_scales
 
     while iter_cnt < max_iterations:
         if compiled_system.rhs_codes is not None:
@@ -370,31 +403,22 @@ def non_linear_solve_run(
             main_vec = base_vec  # Do not copy
 
         lhs_vectors: list[npt.NDArray[np.float64]] = list()
-        lhs_matrices: list[npt.NDArray[np.float64]] = list()
         for ie, element_space in enumerate(element_fem_spaces):
             element_solution = solution[element_offsets[ie] : element_offsets[ie + 1]]
 
             lhs_vec = compute_element_vector(
-                form_spec, compiled_system.lhs_full, element_space, element_solution
+                form_spec, compiled_system.lhs_codes, element_space, element_solution
             )
-            lhs_vectors.append(lhs_vec)
 
             if compiled_system.rhs_codes is not None:
                 rhs_vec = compute_element_vector(
                     form_spec, compiled_system.rhs_codes, element_space, element_solution
                 )
+                lhs_vec -= rhs_vec
+                # main_vec[element_offsets[ie] : element_offsets[ie + 1]] += rhs_vec
 
-                main_vec[element_offsets[ie] : element_offsets[ie + 1]] += rhs_vec
                 del rhs_vec
-
-            if compiled_system.nonlin_codes is not None:
-                mat = compute_element_matrix(
-                    form_spec,
-                    compiled_system.nonlin_codes,
-                    element_space,
-                    element_solution,
-                )
-                lhs_matrices.append(linear_element_matrices[ie] + mat)
+            lhs_vectors.append(lhs_vec)
 
         main_value = np.concatenate(lhs_vectors)
 
@@ -405,6 +429,15 @@ def non_linear_solve_run(
             )
 
         residual = main_vec - main_value
+        if sg_operator is not None:
+            sg_operator.update_nonlinear_advection(solution)
+            unresolved_scales = sg_operator.compute_unresolved_contributions(
+                solution, unresolved_scales
+            )
+            residual -= sg_operator.fine_results_to_coarse_dofs(
+                unresolved_scales, dual=True
+            )
+
         max_residual = np.abs(residual).max()
         residuals[iter_cnt] = max_residual
         if print_residual:
@@ -419,18 +452,6 @@ def non_linear_solve_run(
 
         if not (max_residual > atol and max_residual > max_mag * rtol):
             break
-
-        if len(lhs_matrices):
-            main_mat = sp.block_diag(lhs_matrices, format="csr")
-            if lagrange_mat is not None:
-                main_mat = sp.block_array(
-                    [[main_mat, lagrange_mat.T], [lagrange_mat, None]], format="csc"
-                )
-            else:
-                main_mat = main_mat.tocsc()
-
-            system_decomp = sla.splu(main_mat)
-            del main_mat, lhs_matrices
 
         d_solution = np.asarray(
             system_decomp.solve(residual),
@@ -450,9 +471,15 @@ def non_linear_solve_run(
         del main_vec
 
     if not return_all_residuals:
-        return solution, global_lagrange, iter_cnt, np.array(max_residual, np.float64)
+        return (
+            solution,
+            global_lagrange,
+            iter_cnt,
+            np.array(max_residual, np.float64),
+            unresolved_scales,
+        )
 
-    return solution, global_lagrange, iter_cnt, residuals
+    return solution, global_lagrange, iter_cnt, residuals, unresolved_scales
 
 
 @dataclass(frozen=True)
@@ -505,6 +532,11 @@ class SystemSettings:
 
     intial_conditions : Mapping of (KFormUnknown, Callable), optional
         Functions which give initial conditions for different forms.
+
+    over_integration_order : int, default: 3
+        The order by which the integration rule used to compute mass matrices of the
+        elements should be greater from the basis used. This is important if a specific
+        projection to a finer polynomial space is needed later.
     """
 
     system: KFormSystem
@@ -516,6 +548,7 @@ class SystemSettings:
         KFormUnknown,
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
     ] = field(default_factory=dict)
+    over_integration_order: int = 3
 
 
 @dataclass(frozen=True)
@@ -559,28 +592,13 @@ class SolverSettings:
 
         \Delta {\vec{u}}^i = \left(\mathbb{I}\left({\vec{u}}^i\right)\right)^{-1} \left(
         \vec{E}\left({\vec{u}}^i\right) + \vec{F} + \vec{I}\left({\vec{u}}^i\right)\right)
-
-    Parameters
-    ----------
-    maximum_iterations : int, default: 100
-        Maximum number of iterations the solver performs.
-
-    relaxation : float, default: 1.0
-        Fraction of solution increment to use.
-
-    absolute_tolerance : float, default: 1e-6
-        Maximum value of the residual must meet in order for the solution
-        to be considered converged.
-
-    relative_tolerance : float, default: 1e-5
-        Maximum fraction of the maximum of the right side of the equation the residual
-        must meet in order for the solution to be considered converged.
     """
 
-    maximum_iterations: int = 100
+    convergence: ConvergenceSettings
+    """When should the solution be considered converged"""
+
     relaxation: float = 1.0
-    absolute_tolerance: float = 1e-6
-    relative_tolerance: float = 1e-5
+    """What fraction of the new solution should be used."""
 
 
 def find_time_carry_indices(
@@ -614,12 +632,333 @@ class SolutionStatistics:
 
 
 @dataclass(frozen=True)
-class VmsSettings:
-    """Type used for VMS related information."""
+class VMSSettings:
+    """Estimate unresolved scales based on the variational multi-scale approach."""
 
-    full_system: KFormSystem
-    symmetric_part: KFormSystem
-    advection_part: KFormSystem
+    symmetric_system: KFormSystem
+    """Symmetric system based on which the Green's function is computed."""
+
+    nonsymmetric_system: KFormSystem
+    """Non-symmetric system based on which the fine-scale function is computed."""
+
+    order_increase: int
+    """Increase of order for the fine mesh."""
+
+    fine_scale_convergence: ConvergenceSettings
+    """When are the fine scales considered accurately computed."""
+
+    relaxation: float = 1.0
+    """How much of the computed update to use for the next iteration."""
+
+
+class SuyashGreenOperator:
+    """Type used to apply the Suyash-Green operator."""
+
+    unknown_forms: ElementFormSpecification
+    compiled_advection: CompiledSystem
+    coarse_decomp: sla.SuperLU
+    fine_decomp: sla.SuperLU
+    fine_spaces: Sequence[ElementFemSpace2D]
+    fine_advection_operator: sp.csr_array
+    coarse_advection_operator: sp.csr_array
+    fine_linear_advection_operator: sp.coo_array
+    coarse_linear_advection_operator: sp.coo_array
+    projector_c2f: sp.csr_array
+    projector_f2c: sp.csr_array
+    coarse_padding: int
+    fine_padding: int
+    fine_offsets: npt.NDArray[np.uint32]
+    fine_forcing: npt.NDArray[np.float64]
+    convergence: ConvergenceSettings
+
+    def __init__(
+        self,
+        system: KFormSystem,
+        settings: VMSSettings,
+        coarse_spaces: Sequence[ElementFemSpace2D],
+        basis_cache: FemCache,
+        mesh: Mesh,
+        leaf_indices: Sequence[int],
+        constrained_forms: Sequence[tuple[float, KFormUnknown]],
+        strong_boundary_conditions: Sequence[BoundaryCondition2DSteady],
+    ) -> None:
+        self.convergence = settings.fine_scale_convergence
+        self.unknown_forms = settings.symmetric_system.unknown_forms
+        self.compiled_advection = CompiledSystem(settings.nonsymmetric_system)
+        self.relaxation = settings.relaxation
+        compiled_sym = CompiledSystem(settings.symmetric_system)
+
+        fine_spaces: list[ElementFemSpace2D] = list()
+        projectors_c2f: list[sp.coo_array] = list()
+        projectors_f2c: list[sp.coo_array] = list()
+        fine_advection_matrices: list[npt.NDArray[np.float64]] = list()
+        coarse_advection_matrices: list[npt.NDArray[np.float64]] = list()
+        coarse_matrices: list[npt.NDArray[np.float64]] = list()
+        fine_matrices: list[npt.NDArray[np.float64]] = list()
+        fine_forcing_vecs: list[npt.NDArray[np.float64]] = list()
+
+        for fem_space in coarse_spaces:
+            fine_space = ElementFemSpace2D(
+                basis_cache.get_basis2d(
+                    fem_space.order_1 + settings.order_increase,
+                    fem_space.order_2 + settings.order_increase,
+                    *fem_space.integration_orders,
+                ),
+                fem_space.corners,
+            )
+            if self.compiled_advection.nonlin_codes:
+                fine_spaces.append(fine_space)
+
+            projector_c2f = cast(
+                sp.coo_array,
+                sp.block_diag(
+                    compute_element_projector(
+                        self.unknown_forms, fem_space.basis_2d, fine_space
+                    )
+                ),
+            )
+            projectors_c2f.append(projector_c2f)
+
+            projector_f2c = cast(
+                sp.coo_array,
+                sp.block_diag(
+                    compute_element_projector(
+                        self.unknown_forms, fine_space.basis_2d, fem_space
+                    )
+                ),
+            )
+            projectors_f2c.append(projector_f2c)
+
+            fine_forcing = compute_element_rhs(system, fine_space)
+            fine_forcing_vecs.append(fine_forcing)
+
+            fine_advection_matrix = compute_element_matrix(
+                self.unknown_forms, self.compiled_advection.linear_codes, fine_space
+            )
+            fine_advection_matrices.append(fine_advection_matrix)
+
+            coarse_advection_matrix = compute_element_matrix(
+                self.unknown_forms, self.compiled_advection.linear_codes, fem_space
+            )
+            coarse_advection_matrices.append(coarse_advection_matrix)
+
+            fine_matrix = compute_element_matrix(
+                self.unknown_forms, compiled_sym.lhs_codes, fine_space
+            )
+            fine_matrices.append(fine_matrix)
+
+            coarse_matrix = projector_c2f.T @ fine_matrix @ projector_c2f
+            # coarse_matrix = compute_element_matrix(
+            #     self.unknown_forms, compiled_sym.lhs_codes, fem_space
+            # )
+            coarse_matrices.append(coarse_matrix)
+
+        self.projector_c2f = cast(
+            sp.csr_array, sp.block_diag(projectors_c2f, format="csr")
+        )
+        self.projector_f2c = cast(
+            sp.csr_array, sp.block_diag(projectors_f2c, format="csr")
+        )
+
+        self.fine_linear_advection_operator = cast(
+            sp.coo_array, sp.block_diag(fine_advection_matrices, format="coo")
+        )
+        if self.compiled_advection.nonlin_codes is None:
+            self.fine_advection_operator = self.fine_linear_advection_operator.tocsr()
+
+        self.coarse_linear_advection_operator = cast(
+            sp.coo_array, sp.block_diag(coarse_advection_matrices, format="coo")
+        )
+        if self.compiled_advection.nonlin_codes is None:
+            self.coarse_advection_operator = self.coarse_linear_advection_operator.tocsr()
+
+        self.fine_spaces = tuple(fine_spaces)
+        del fine_advection_matrices
+
+        mesh.uniform_p_change(+settings.order_increase, +settings.order_increase)
+        self.fine_offsets = np.cumsum(
+            [
+                0,
+                *(
+                    system.unknown_forms.total_size(*mesh.get_leaf_orders(i_leaf))
+                    for i_leaf in leaf_indices
+                ),
+            ]
+        )
+
+        fine_lag_mat, fine_lag_vec = add_system_constraints(
+            system,
+            mesh,
+            basis_cache,
+            constrained_forms,
+            strong_boundary_conditions,
+            leaf_indices,
+            self.fine_offsets,
+            fine_forcing_vecs,
+        )
+        mesh.uniform_p_change(-settings.order_increase, -settings.order_increase)
+
+        self.fine_forcing = np.concatenate(fine_forcing_vecs, dtype=np.float64)
+
+        if fine_lag_mat is not None:
+            self.fine_sym_mat = sp.block_array(
+                [
+                    [sp.block_diag(fine_matrices), fine_lag_mat.T],
+                    [fine_lag_mat, None],
+                ],
+                format="csc",
+            )
+
+            self.fine_decomp = sla.splu(self.fine_sym_mat)
+        else:
+            self.fine_sym_mat = sp.block_diag(fine_matrices, format="csc")
+            self.fine_decomp = sla.splu(self.fine_sym_mat)
+
+        self.fine_padding = fine_lag_vec.size
+        del fine_matrices, fine_lag_vec, fine_lag_mat, fine_spaces
+
+        coarse_offsets = np.cumsum(
+            [
+                0,
+                *(
+                    system.unknown_forms.total_size(*mesh.get_leaf_orders(i_leaf))
+                    for i_leaf in leaf_indices
+                ),
+            ]
+        )
+
+        coarse_lag_mat, coarse_lag_vec = add_system_constraints(
+            system,
+            mesh,
+            basis_cache,
+            constrained_forms,
+            strong_boundary_conditions,
+            leaf_indices,
+            coarse_offsets,
+            None,
+        )
+        del coarse_offsets
+
+        if coarse_lag_mat is not None:
+            self.coarse_sym_mat = sp.block_array(
+                [
+                    [sp.block_diag(coarse_matrices), coarse_lag_mat.T],
+                    [coarse_lag_mat, None],
+                ],
+                format="csc",
+            )
+            self.coarse_decomp = sla.splu(self.coarse_sym_mat)
+        else:
+            self.coarse_sym_mat = sp.block_diag(coarse_matrices, format="csc")
+            self.coarse_decomp = sla.splu(self.coarse_sym_mat)
+
+        self.coarse_padding = coarse_lag_vec.size
+        del coarse_matrices, coarse_lag_vec, coarse_lag_mat
+
+    def compute_unresolved_contributions(
+        self,
+        coarse_solution: npt.NDArray[np.float64],
+        initial_guess: npt.NDArray[np.float64] | None,
+    ) -> npt.NDArray[np.float64]:
+        """Compute unresolved scales given the residual vector on the fine mesh."""
+        residual = self.fine_forcing - (
+            self.fine_advection_operator
+            @ self.projector_c2f
+            @ coarse_solution  # [: coarse_solution.size - self.coarse_padding]
+        )
+
+        agr = self.fine_advection_operator @ self.fine_scale_greens_function(residual)
+        if initial_guess is None:
+            u = np.array(agr)
+        else:
+            u = np.array(initial_guess)
+
+        del residual
+
+        for _ in range(self.convergence.maximum_iterations):
+            u_new = agr - self.fine_advection_operator @ self.fine_scale_greens_function(
+                u
+            )
+            max_du = np.abs(u - u_new).max()
+            max_u = np.abs(u_new).max()
+            if self.relaxation == 1.0:
+                u = u_new
+            else:
+                u *= 1 - self.relaxation
+                u += self.relaxation * u_new
+            if (
+                max_u == 0  # Sometimes we are just that good!
+                or max_du < max_u * self.convergence.relative_tolerance
+                or max_du < self.convergence.absolute_tolerance
+            ):
+                break
+
+        # return np.pad(u @ self.projector_c2f, (0, self.coarse_padding))
+        return u
+
+    def recover_unresolved(
+        self,
+        coarse_solution: npt.NDArray[np.float64],
+        unresolved_contribution: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """Recover unresolved scales from unresolved forcing."""
+        residual = (
+            self.fine_forcing
+            - (
+                self.fine_advection_operator
+                @ self.projector_c2f
+                @ coarse_solution[: coarse_solution.size - self.coarse_padding]
+            )
+            - unresolved_contribution
+        )
+        return self.fine_scale_greens_function(residual)
+
+    def fine_results_to_coarse_dofs(
+        self, x: npt.NDArray[np.float64], *, dual: bool
+    ) -> npt.NDArray[np.float64]:
+        """Project fine scale results to coarse scale DoFs and pad for constraints."""
+        if dual:
+            y = x @ self.projector_c2f
+        else:
+            y = self.projector_f2c @ x
+
+        return np.pad(y, (0, self.coarse_padding))
+
+    def update_nonlinear_advection(self, coarse_dofs: npt.NDArray[np.float64]) -> None:
+        """Update non-linear advection terms if needed."""
+        if self.compiled_advection.nonlin_codes is None:
+            return
+        assert len(self.fine_spaces) != 0
+
+        fine_dofs = self.projector_c2f @ coarse_dofs[: -self.coarse_padding]
+
+        nonlinear_matrices = [
+            compute_element_matrix(
+                self.unknown_forms,
+                self.compiled_advection.nonlin_codes,
+                fem_space,
+                fine_dofs[self.fine_offsets[ie] : self.fine_offsets[ie + 1]],
+            )
+            for ie, fem_space in enumerate(self.fine_spaces)
+        ]
+        nonlin_mat = sp.block_diag(nonlinear_matrices, format="coo")
+        self.fine_advection_operator = (
+            self.fine_linear_advection_operator + nonlin_mat
+        ).tocsr()
+
+    def fine_scale_greens_function(
+        self, x: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        """Apply the fine-scale Green's function to the vector."""
+        result_fine = self.fine_decomp.solve(np.pad(x, (0, self.fine_padding)))[: x.size]
+        coarse_sol = self.coarse_decomp.solve(
+            np.pad(x @ self.projector_c2f, (0, self.coarse_padding))
+        )
+        result_coarse = (
+            self.projector_c2f @ (coarse_sol[: coarse_sol.size - self.coarse_padding])
+        )
+        result = result_fine - result_coarse
+        return result
 
 
 def compute_linear_system(
@@ -652,7 +991,7 @@ def compute_linear_system(
         linear_matrices = [
             compute_element_matrix(
                 system.unknown_forms,
-                compiled.linear_codes,
+                compiled.lhs_codes,
                 element_space,
                 element_solution,
             )
@@ -663,7 +1002,7 @@ def compute_linear_system(
     else:
         linear_matrices = [
             compute_element_matrix(
-                system.unknown_forms, compiled.linear_codes, element_space
+                system.unknown_forms, compiled.lhs_codes, element_space
             )
             for element_space in element_fem_spaces
         ]

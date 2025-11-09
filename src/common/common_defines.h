@@ -28,16 +28,16 @@
  * directive, or a zero if that is not known for the specific compiler used.
  */
 #define ASSERT(condition, message, ...)                                                                                \
-    ((condition) ? 0                                                                                                   \
+    ((condition) ? (void)0                                                                                             \
                  : (fprintf(stderr, "%s:%d: %s: Assertion '%s' failed - " message "\n", __FILE__, __LINE__, __func__,  \
                             #condition __VA_OPT__(, ) __VA_ARGS__),                                                    \
-                    exit(EXIT_FAILURE), 1))
+                    exit(EXIT_FAILURE)))
 #else
 #ifdef __GNUC__
-#define ASSUME(condition, message) __assume(condition)
+#define ASSUME(condition, message, ...) __assume(condition)
 #endif
 #ifndef ASSERT
-#define ASSERT(condition, message) 0
+#define ASSERT(condition, message, ...) (0)
 #endif
 #endif
 #endif

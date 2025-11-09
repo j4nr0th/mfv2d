@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 from matplotlib.collections import PolyCollection
 from mfv2d import (
     BoundaryCondition2DSteady,
-    ErrorEstimateCustom,
+    ErrorEstimateExplicit,
     KFormSystem,
     KFormUnknown,
     Mesh,
@@ -23,9 +23,9 @@ from mfv2d import (
     RefinementSettings,  # Need refinement settings
     SystemSettings,
     UnknownFormOrder,
-    compute_legendre_coefficients,
     mesh_create,
     solve_system_2d,
+    system_as_string,
 )
 
 # %%
@@ -100,8 +100,10 @@ def source_exact(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]):
 u = KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0)
 v = u.weight
 
-system = KFormSystem(v.derivative * u.derivative == -(v * source_exact) + (v ^ q_exact))
-print(system)
+system = KFormSystem(
+    v.derivative @ u.derivative == -(v @ source_exact) + (v ^ q_exact),
+)
+print(system_as_string(system))
 
 # %%
 #
@@ -211,35 +213,6 @@ def plot_mesh_comparisons(*meshes: tuple[str, Mesh]) -> None:
 # each iteration.
 
 
-def error_calc_function(
-    x: npt.NDArray[np.float64],
-    y: npt.NDArray[np.float64],
-    w: npt.NDArray[np.float64],
-    order_1: int,
-    order_2: int,
-    xi: npt.NDArray[np.float64],
-    eta: npt.NDArray[np.float64],
-    **kwargs,
-) -> tuple[float, float]:
-    """Compute L2 error "estimate" and H1 refinement cost."""
-    u = kwargs["u"]
-    real_u = u_exact(x, y)
-    err = real_u - u
-    coeffs_err = compute_legendre_coefficients(order_1, order_2, xi, eta, err * w)
-    coeffs_u = compute_legendre_coefficients(order_1, order_2, xi, eta, u * w)
-    norm = 4 / (
-        (2 * np.arange(order_1 + 1) + 1)[None, :]
-        * (2 * np.arange(order_2 + 1) + 1)[:, None]
-    )
-    measure = coeffs_u * (coeffs_u + 2 * coeffs_err) / norm
-    estimate = (
-        np.sum(measure[order_1 // 2 :, order_2 // 2 :])
-        + np.sum(measure[order_1 // 2 :, : order_2 // 2])
-        + np.sum(measure[: order_1 // 2, order_2 // 2 :])
-    )
-    return np.sum(err**2 * w), np.abs(estimate)
-
-
 N_ROUNDS = 10
 system_settings = SystemSettings(
     system=system,
@@ -278,12 +251,12 @@ def run_refinement_strategy(h_ratio: float, max_elements: int, mesh: Mesh):
     for i_round in range(N_ROUNDS):
         mesh = new_mesh
         refinement_settings = RefinementSettings(
-            # Specify how the error is estimated
-            error_estimate=ErrorEstimateCustom(
+            # Specifying how the error is estimated
+            error_estimate=ErrorEstimateExplicit(
                 # Required by the error function
-                required_forms=[u],
+                target_form=u,
                 # The error (estimation) function
-                error_calculation_function=error_calc_function,
+                solution_estimate=u_exact,
             ),
             # H-refinement when ratio of h-cost and error less than this
             h_refinement_ratio=h_ratio,

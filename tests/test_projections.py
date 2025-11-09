@@ -130,10 +130,11 @@ def test_projection_self_check(n: int) -> None:
     basis_2d = Basis2D(basis_1d, basis_1d)
 
     corners = np.array([(-2, -1.1), (+0.7, -1.5), (+1, +1), (-1.2, +1)], np.float64)
+    out_space = ElementFemSpace2D(basis_2d, corners)
 
     for order in UnknownFormOrder:
         specs = ElementFormSpecification(KFormUnknown("test", order))
-        (mat,) = compute_element_projector(specs, corners, basis_2d, basis_2d)
+        (mat,) = compute_element_projector(specs, out_space.basis_2d, out_space)
 
         assert pytest.approx(mat) == np.eye(order.full_unknown_count(n, n))
 
@@ -168,15 +169,13 @@ def test_projection_contained_node() -> None:
         UnknownFormOrder.FORM_ORDER_0, element_high, test_function
     )
     specs = ElementFormSpecification(KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0))
-    projector = compute_element_projector(specs, corners, basis_2d_low, basis_2d_high)
+    projector = compute_element_projector(specs, basis_2d_low, element_high)
 
     projected = (projector @ low_dofs).flatten()
     assert pytest.approx(projected) == high_dofs
 
     # Should work the other way around as well.
-    reverse_projector = compute_element_projector(
-        specs, corners, basis_2d_high, basis_2d_low
-    )
+    reverse_projector = compute_element_projector(specs, basis_2d_high, element_low)
     projected = (reverse_projector @ high_dofs).flatten()
     assert pytest.approx(projected) == low_dofs
 
@@ -211,15 +210,13 @@ def test_projection_contained_edge() -> None:
         UnknownFormOrder.FORM_ORDER_1, element_high, test_function
     )
     specs = ElementFormSpecification(KFormUnknown("u", UnknownFormOrder.FORM_ORDER_1))
-    projector = compute_element_projector(specs, corners, basis_2d_low, basis_2d_high)
+    projector = compute_element_projector(specs, basis_2d_low, element_high)
 
     projected = (projector @ low_dofs).flatten()
     assert pytest.approx(projected) == high_dofs
 
     # Should work the other way around as well.
-    reverse_projector = compute_element_projector(
-        specs, corners, basis_2d_high, basis_2d_low
-    )
+    reverse_projector = compute_element_projector(specs, basis_2d_high, element_low)
     projected = (reverse_projector @ high_dofs).flatten()
     assert pytest.approx(projected) == low_dofs
 
@@ -254,15 +251,13 @@ def test_projection_contained_surf() -> None:
         UnknownFormOrder.FORM_ORDER_2, element_high, test_function
     )
     specs = ElementFormSpecification(KFormUnknown("u", UnknownFormOrder.FORM_ORDER_2))
-    projector = compute_element_projector(specs, corners, basis_2d_low, basis_2d_high)
+    projector = compute_element_projector(specs, basis_2d_low, element_high)
 
     projected = (projector @ low_dofs).flatten()
     assert pytest.approx(projected) == high_dofs
 
     # Should work the other way around as well.
-    reverse_projector = compute_element_projector(
-        specs, corners, basis_2d_high, basis_2d_low
-    )
+    reverse_projector = compute_element_projector(specs, basis_2d_high, element_low)
     projected = (reverse_projector @ high_dofs).flatten()
     assert pytest.approx(projected) == low_dofs
 
@@ -308,12 +303,12 @@ def test_projector_contained_nodes(n1: int, n2: int) -> None:
 
     specs = ElementFormSpecification(KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0))
     (projector_pl_ph,) = compute_element_projector(
-        specs, corners, space_low.basis_2d, space_high.basis_2d, dual=False
+        specs, space_low.basis_2d, space_high, dual=False
     )
 
     specs = ElementFormSpecification(KFormUnknown("u", UnknownFormOrder.FORM_ORDER_0))
     (projector_pl_dh,) = compute_element_projector(
-        specs, corners, space_low.basis_2d, space_high.basis_2d, dual=True
+        specs, space_low.basis_2d, space_high, dual=True
     )
 
     assert pytest.approx(primal_high) == projector_pl_ph @ primal_low

@@ -13,8 +13,11 @@ module can be used, but rather how it works internally.
     modules/boundary
     modules/continuity
     modules/eval
+    modules/examples
     modules/kform
     modules/mimetic2d
     modules/progress
     modules/refinement
     modules/solve_system
+    modules/solving
+    modules/system

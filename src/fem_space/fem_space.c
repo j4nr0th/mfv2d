@@ -226,9 +226,9 @@ double surf_basis_value(const fem_space_2d_t *space, const unsigned idx, const u
 MFV2D_INTERNAL
 double integration_weight_value(const fem_space_2d_t *space, const unsigned i_point, const unsigned j_point)
 {
-    if (ASSERT(j_point < space->space_1.n_pts, "Point %u is out of range for basis 1", j_point) ||
-        ASSERT(i_point < space->space_2.n_pts, "Point %u is out of range for basis 2", i_point))
-        return 0;
+    ASSERT(j_point < space->space_1.n_pts, "Point %u is out of range for basis 1", j_point);
+    ASSERT(i_point < space->space_2.n_pts, "Point %u is out of range for basis 2", i_point);
+
     return space->space_1.wgts[j_point] * space->space_2.wgts[i_point];
 }
 
@@ -852,7 +852,8 @@ mfv2d_result_t compute_mass_matrix_node_double(const fem_space_2d_t *space_in, c
     const index_2d_t int_nodes = fem_space_integration_node_counts(space_in);
     {
         const index_2d_t int_nodes_2 = fem_space_integration_node_counts(space_out);
-        if ASSERT (int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j, "Integration space of two must match")
+        ASSERT(int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j, "Integration space of two must match");
+        if (!(int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j))
         {
             return MFV2D_DIMS_MISMATCH;
         }
@@ -897,7 +898,8 @@ mfv2d_result_t compute_mass_matrix_edge_double(const fem_space_2d_t *space_in, c
     const index_2d_t int_nodes = fem_space_integration_node_counts(space_in);
     {
         const index_2d_t int_nodes_2 = fem_space_integration_node_counts(space_out);
-        if ASSERT (int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j, "Integration space of two must match")
+        ASSERT(int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j, "Integration space of two must match");
+        if (!(int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j))
         {
             return MFV2D_DIMS_MISMATCH;
         }
@@ -1018,7 +1020,8 @@ mfv2d_result_t compute_mass_matrix_surf_double(const fem_space_2d_t *space_in, c
     const index_2d_t int_nodes = fem_space_integration_node_counts(space_in);
     {
         const index_2d_t int_nodes_2 = fem_space_integration_node_counts(space_out);
-        if ASSERT (int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j, "Integration space of two must match")
+        ASSERT(int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j, "Integration space of two must match");
+        if (!(int_nodes.i == int_nodes_2.i && int_nodes.j == int_nodes_2.j))
         {
             return MFV2D_DIMS_MISMATCH;
         }

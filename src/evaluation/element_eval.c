@@ -44,10 +44,11 @@ static mfv2d_result_t matrix_as_full(error_stack_t *error_stack, const matrix_t 
         *p_out = this->full;
         break;
 
-    case MATRIX_TYPE_INCIDENCE:
+    case MATRIX_TYPE_INCIDENCE: {
         const mfv2d_result_t res = incidence_to_full(this->incidence.incidence, order, p_out, allocator);
         if (res != MFV2D_SUCCESS)
             return res;
+    }
         matrix_multiply_inplace(p_out, this->coefficient);
         break;
 
@@ -144,7 +145,8 @@ static mfv2d_result_t operation_incidence(matrix_t *current, const matrix_op_t *
         break;
 
     case MATRIX_TYPE_INCIDENCE:
-        res = incidence_to_full(current->type, element_fem_space->basis_xi->order, &current->full, allocator);
+        res = incidence_to_full(current->incidence.incidence, element_fem_space->basis_xi->order, &current->full,
+                                allocator);
         if (res != MFV2D_SUCCESS)
         {
             MFV2D_ERROR(error_stack, res, "Could not create the incidence matrix.");
@@ -253,7 +255,7 @@ static mfv2d_result_t operation_mass(matrix_t *current, const matrix_op_t *opera
             return res;
         }
         break;
-    case MATRIX_TYPE_FULL:
+    case MATRIX_TYPE_FULL: {
         matrix_t new_mat = {};
         res = matrix_full_multiply(mass_mat, &current->full, &new_mat.full, allocator);
         if (res != MFV2D_SUCCESS)
@@ -265,37 +267,9 @@ static mfv2d_result_t operation_mass(matrix_t *current, const matrix_op_t *opera
         matrix_cleanup(current, allocator);
         *current = new_mat;
         current->coefficient = 1.0;
-        break;
     }
-
-    return MFV2D_SUCCESS;
-}
-
-static mfv2d_result_t operation_matmul(matrix_t *current, const element_fem_space_2d_t *element_fem_space,
-                                       unsigned n_stack, unsigned *p_stack_pos, matrix_t stack[restrict n_stack],
-                                       const allocator_callbacks *allocator, error_stack_t *error_stack)
-{
-    if (*p_stack_pos == 0)
-    {
-        MFV2D_ERROR(error_stack, MFV2D_STACK_UNDERFLOW, "Matrix multiply operation with nothing on the stack.");
-        return MFV2D_STACK_UNDERFLOW;
+    break;
     }
-    *p_stack_pos -= 1;
-
-    const matrix_t right = stack[*p_stack_pos];
-    stack[*p_stack_pos] = (matrix_t){.type = MATRIX_TYPE_INVALID};
-    matrix_t new_mat;
-    const mfv2d_result_t res =
-        matrix_multiply(error_stack, element_fem_space->basis_xi->order, &right, current, &new_mat, allocator);
-    matrix_cleanup(stack + *p_stack_pos, allocator);
-    matrix_cleanup(current, allocator);
-    if (res != MFV2D_SUCCESS)
-    {
-        MFV2D_ERROR(error_stack, res, "Failed multiplying two matrices (%u x %u and %u).", right.base.rows,
-                    right.base.cols, current->type);
-        return res;
-    }
-    *current = new_mat;
 
     return MFV2D_SUCCESS;
 }
@@ -324,7 +298,8 @@ static mfv2d_result_t operation_sum(matrix_t *current, const matrix_op_t *operat
         matrix_cleanup(left, allocator);
         if (res != MFV2D_SUCCESS)
         {
-            MFV2D_ERROR(error_stack, res, "Could not add two matrices.");
+            MFV2D_ERROR(error_stack, res, "Could not add two matrices with dims (%u, %u) and (%u, %u).",
+                        left->base.rows, left->base.cols, current->base.rows, current->base.cols);
             return res;
         }
         *current = new;
@@ -341,8 +316,7 @@ static mfv2d_result_t operation_interprod(matrix_t *current, const matrix_op_t *
     const matrix_op_interprod_t *const interprod = (const matrix_op_interprod_t *)operation;
     const form_order_t order = interprod->order;
     const unsigned field_index = interprod->field_index;
-    const unsigned dual = interprod->dual;
-    const unsigned adjoint = interprod->adjoint;
+    const unsigned transpose = interprod->transpose;
 
     if (order != FORM_ORDER_1 && order != FORM_ORDER_2)
     {
@@ -362,71 +336,15 @@ static mfv2d_result_t operation_interprod(matrix_t *current, const matrix_op_t *
     matrix_t this = {.type = MATRIX_TYPE_FULL, .coefficient = 1.0};
     mfv2d_result_t res;
 
-    if (!adjoint)
+    if (order == FORM_ORDER_1)
     {
-        if (!dual)
-        {
-            if (order == FORM_ORDER_1)
-            {
-                res = compute_mass_matrix_node_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = 1.0;
-            }
-            else // if (order == FORM_ORDER_2)
-            {
-                res = compute_mass_matrix_edge_surf(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = 1.0;
-            }
-        }
-        else
-        {
-            if (order == FORM_ORDER_1)
-            {
-                res = compute_mass_matrix_edge_surf(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = -1.0;
-            }
-            else // if (order == FORM_ORDER_2)
-            {
-                res = compute_mass_matrix_node_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = 1.0;
-            }
-        }
+        res = compute_mass_matrix_node_edge(element_fem_space->fem_space, &this.full, allocator, field, (int)transpose);
+        this.coefficient = +1.0;
     }
-    else
+    else // if (order == FORM_ORDER_2)
     {
-        if (!dual)
-        {
-            if (order == FORM_ORDER_1)
-            {
-                res = compute_mass_matrix_node_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = -1.0;
-            }
-            else // if (order == FORM_ORDER_2)
-            {
-                res = compute_mass_matrix_edge_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = -1.0;
-            }
-        }
-        else
-        {
-            if (order == FORM_ORDER_1)
-            {
-                res = compute_mass_matrix_edge_surf(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = -1.0;
-            }
-            else // if (order == FORM_ORDER_2)
-            {
-                res = compute_mass_matrix_edge_edge(element_fem_space->fem_space, &this.full, allocator, field,
-                                                    (int)dual);
-                this.coefficient = 1.0;
-            }
-        }
+        res = compute_mass_matrix_edge_surf(element_fem_space->fem_space, &this.full, allocator, field, (int)transpose);
+        this.coefficient = -1.0;
     }
 
     if (res != MFV2D_SUCCESS)
@@ -458,7 +376,7 @@ static mfv2d_result_t operation_interprod(matrix_t *current, const matrix_op_t *
             return res;
         }
         break;
-    case MATRIX_TYPE_FULL:
+    case MATRIX_TYPE_FULL: {
         matrix_t new_mat = {};
         res = matrix_full_multiply(&this.full, &current->full, &new_mat.full, allocator);
         if (res != MFV2D_SUCCESS)
@@ -469,7 +387,8 @@ static mfv2d_result_t operation_interprod(matrix_t *current, const matrix_op_t *
         matrix_cleanup(current, allocator);
         *current = new_mat;
         current->coefficient = 1.0;
-        break;
+    }
+    break;
     }
     current->coefficient *= this.coefficient;
     matrix_cleanup(&this, allocator);
@@ -522,10 +441,6 @@ mfv2d_result_t evaluate_block(error_stack_t *error_stack, const form_order_t for
 
         case MATOP_PUSH:
             res = operation_push(&current, n_stack, &stack_pos, stack, allocator, error_stack, initial);
-            break;
-
-        case MATOP_MATMUL:
-            res = operation_matmul(&current, element_fem_space, n_stack, &stack_pos, stack, allocator, error_stack);
             break;
 
         case MATOP_SCALE:

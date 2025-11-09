@@ -26,7 +26,7 @@ from mfv2d._mfv2d import (
     dlagrange1d,
     lagrange1d,
 )
-from mfv2d.kform import UnknownFormOrder
+from mfv2d.kform import Function2D, UnknownFormOrder
 
 
 # TODO: remake incidence into working for two different orders
@@ -873,34 +873,6 @@ class Constraint:
         object.__setattr__(self, "element_constraints", element_constraints)
 
 
-# def compute_leaf_dof_counts(
-#     order_1: int, order_2: int, forms: Sequence[UnknownFormOrder]
-# ) -> npt.NDArray[np.uint32]:
-#     """Compute number of DoFs for each element.
-
-#     Parameters
-#     ----------
-#     order_1 : int
-#         Order of the element in the first dimension.
-
-#     order_2 : int
-#         Order of the element in the second dimension.
-
-#     ordering : UnknownOrderings
-#         Orders of differential forms in the system.
-
-#     Returns
-#     -------
-#     array of int
-#         Array with count of degrees of freedom for of each differential form
-#         for the element.
-#     """
-#     return np.array(
-#         [form.full_unknown_count(order_1, order_2) for form in forms],
-#         np.uint32,
-#     )
-
-
 def jacobian(
     corners: npt.NDArray[np.floating], nodes_1: npt.ArrayLike, nodes_2: npt.ArrayLike
 ) -> tuple[
@@ -1030,7 +1002,7 @@ def bilinear_interpolate(
 
 def element_dual_dofs(
     order: UnknownFormOrder,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
     function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
 ) -> npt.NDArray[np.float64]:
     r"""Compute the dual degrees of freedom (projection) of the function on the element.
@@ -1089,8 +1061,8 @@ def element_dual_dofs(
     array
         Array with dual degrees of freedom.
     """
-    corners = element_cache.corners
-    basis = element_cache.basis_2d
+    corners = element_space.corners
+    basis = element_space.basis_2d
     ((x0, y0), (x1, y1), (x2, y2), (x3, y3)) = corners
     nds_xi = basis.basis_xi.rule.nodes[None, :]
     nds_eta = basis.basis_eta.rule.nodes[:, None]
@@ -1153,7 +1125,7 @@ def element_dual_dofs(
 
 def element_primal_dofs(
     order: UnknownFormOrder,
-    element_cache: ElementFemSpace2D,
+    element_space: ElementFemSpace2D,
     function: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.ArrayLike],
 ) -> npt.NDArray[np.float64]:
     r"""Compute the primal degrees of freedom of projection of a function on the element.
@@ -1188,10 +1160,10 @@ def element_primal_dofs(
     array
         Array with primal degrees of freedom.
     """
-    dofs = element_dual_dofs(order, element_cache, function)
-    mat = element_cache.mass_from_order(order, inverse=True)
+    dofs = element_dual_dofs(order, element_space, function)
+    mat = element_space.mass_from_order(order, inverse=True)
     assert np.allclose(
-        mat, np.linalg.inv(element_cache.mass_from_order(order, inverse=False))
+        mat, np.linalg.inv(element_space.mass_from_order(order, inverse=False))
     )
 
     return np.astype(mat @ dofs, np.float64, copy=False)
@@ -1305,3 +1277,81 @@ def reconstruct(
         return np.array(out / det, np.float64, copy=None)
 
     raise ValueError(f"Order of the differential form {form_order} is not valid.")
+
+
+def integrate_over_elements(
+    mesh: Mesh,
+    function: Function2D,
+    orders: int | npt.ArrayLike | None = None,
+) -> npt.NDArray[np.float64]:
+    """Compute the integral of a function over each element of the mesh.
+
+    Parameters
+    ----------
+    mesh : Mesh
+        Mesh for which this is to be done.
+
+    function : Function2D
+        Function that is to be evaluated. It should return components as the
+        last dimension(s) of its output.
+
+    orders : int, 1D array_like, or 2D array_like, optional
+        Orders of each element that should be used to integrate the function
+        on elements. If not specified, orders of each element are used.
+
+    Returns
+    -------
+    array
+        Array with values of the integrals of the function over each element
+        in the mesh.
+    """
+    # Determine orders chosen
+    order_vals: npt.NDArray[np.int64] | None
+    if orders is not None:
+        if isinstance(orders, int):
+            order_vals = np.full((mesh.leaf_count, 2), orders, np.int64)
+        else:
+            order_vals = np.asarray(orders, np.int64)
+            if order_vals.ndim == 1:
+                order_vals = np.stack((order_vals, order_vals), axis=-1)
+            elif order_vals.ndim != 2:
+                raise ValueError(
+                    "Orders were not given as a 1D or 2D array, but instead had"
+                    f" {order_vals.ndim} dimensions."
+                )
+            if len(order_vals) != mesh.leaf_count:
+                raise ValueError(
+                    f"Orders array has {len(order_vals)} elements, but the mesh has"
+                    f" {mesh.leaf_count} leaf elements."
+                )
+    else:
+        order_vals = None
+
+    cache = FemCache(order_difference=0)
+    integrals: list[npt.ArrayLike] = list()
+    for ie, idx_leaf in enumerate(mesh.get_leaf_indices()):
+        order_1, order_2 = (
+            order_vals[ie] if order_vals is not None else mesh.get_leaf_orders(idx_leaf)
+        )
+        rule_1 = cache.get_integration_rule(order_1)
+        rule_2 = cache.get_integration_rule(order_2)
+
+        corners = mesh.get_leaf_corners(idx_leaf)
+        x = bilinear_interpolate(
+            corners[:, 0], rule_1.nodes[None, :], rule_2.nodes[:, None]
+        )
+        y = bilinear_interpolate(
+            corners[:, 1], rule_1.nodes[None, :], rule_2.nodes[:, None]
+        )
+        v = np.asarray(function(x, y))
+        (j00, j01), (j10, j11) = jacobian(
+            corners, rule_1.nodes[None, :], rule_2.nodes[:, None]
+        )
+        weights = (
+            (j00 * j11 - j10 * j01) * rule_1.weights[None, :] * rule_2.weights[:, None]
+        )
+
+        result = np.sum(weights * v, axis=(0, 1))
+        integrals.append(result)
+
+    return np.array(integrals, np.float64)

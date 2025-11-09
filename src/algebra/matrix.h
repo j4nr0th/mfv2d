@@ -109,9 +109,6 @@ void matrix_multiply_inplace(const matrix_full_t *this, const double k);
 MFV2D_INTERNAL
 void matrix_add_diagonal_inplace(const matrix_full_t *this, const double k);
 
-MFV2D_INTERNAL
-void invert_matrix(unsigned n, const double mat[static n * n], double buffer[restrict n * n], double out[n * n]);
-
 /**
  * Computes the inverse of a square matrix and stores the result in a provided output matrix.
  *
@@ -124,4 +121,40 @@ void invert_matrix(unsigned n, const double mat[static n * n], double buffer[res
 MFV2D_INTERNAL
 mfv2d_result_t matrix_full_invert(const matrix_full_t *this, matrix_full_t *p_out,
                                   const allocator_callbacks *allocator);
+
+MFV2D_INTERNAL
+PyObject *python_compute_matrix_inverse(PyObject *Py_UNUSED(self), PyObject *arg);
+
+MFV2D_INTERNAL
+extern const char compute_matrix_inverse_docstr[];
+
+MFV2D_INTERNAL
+PyObject *python_solve_linear_system(PyObject *Py_UNUSED(self), PyObject *args);
+
+MFV2D_INTERNAL
+extern const char solve_linear_system_docstr[];
+
+/**
+ * Invert the matrix by pivoted LU decomposition, where the diagonal of L is assumed to be 1.
+ *
+ * @param n Dimension of the matrix.
+ * @param mat Matrix which to invert. Can be equal to ``out``.
+ * @param lu Buffer that receives the decomposed LU values.
+ * @param pivots Order of rows that serve as pivots
+ * @param pivot_tol The lowest acceptable magnitude that the pivot can have before an error is returned.
+ * @return MFV2D_SUCCESS if successful. Failure can occur due to not being able to find the pivots
+ * for all rows, which can be the fault of the algorithm.
+ */
+MFV2D_INTERNAL
+mfv2d_result_t decompose_pivoted_lu(size_t n, const double mat[static n * n], double lu[restrict n * n],
+                                    unsigned pivots[n], double pivot_tol);
+
+MFV2D_INTERNAL
+void solve_lu(size_t n, size_t m, const double lu[static restrict n * n], const double rhs[static n * m],
+              double lhs[n * m]);
+
+MFV2D_INTERNAL
+void unpivot_matrix(size_t n, size_t m, const unsigned pivots[static restrict n],
+                    const double in[restrict static n * m], double out[restrict n * m]);
+
 #endif // MATRIX_H

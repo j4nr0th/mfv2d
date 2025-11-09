@@ -10,7 +10,6 @@ from mfv2d._mfv2d import (
     MATOP_INTERPROD,
     MATOP_INVALID,
     MATOP_MASS,
-    MATOP_MATMUL,
     MATOP_PUSH,
     MATOP_SCALE,
     MATOP_SUM,
@@ -26,7 +25,6 @@ def test_mat_ops():
     assert MatOpCode.INTERPROD == MATOP_INTERPROD
     assert MatOpCode.INVALID == MATOP_INVALID
     assert MatOpCode.MASS == MATOP_MASS
-    assert MatOpCode.MATMUL == MATOP_MATMUL
     assert MatOpCode.PUSH == MATOP_PUSH
     assert MatOpCode.SCALE == MATOP_SCALE
     assert MatOpCode.SUM == MATOP_SUM

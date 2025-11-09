@@ -86,7 +86,7 @@ int check_input_array(const PyArrayObject *const arr, const unsigned n_dim, cons
         return -1;
     }
 
-    if (n_dim && PyArray_NDIM(arr) != n_dim)
+    if (n_dim && PyArray_NDIM(arr) != (npy_intp)n_dim)
     {
         PyErr_Format(PyExc_ValueError,
                      "Number of dimensions for the array %s does not match expected value (expected %u, got %u).", name,

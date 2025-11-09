@@ -94,12 +94,10 @@ convention = "numpy"
 
 [tool.pytest]
 exclude_also = ["if TYPE_CHECKING:", "@(abc\\.)?abstractmethod"]
-
-
-[tool.pytest.ini_options]
-addopts = "--doctest-modules -ra --cov=mfv2d"
+addopts = ["--doctest-modules", "-ra", "--cov=mfv2d"]
 testpaths = ["tests", "src"]
 console_output_style = "count"
+
 
 [tool.interrogate]
 ignore-init-method = true

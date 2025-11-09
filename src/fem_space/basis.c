@@ -94,10 +94,13 @@ static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule,
 }
 static PyObject *basis_1d_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
+    const mfv2d_module_state_t *state = PyType_GetModuleState(type);
+    if (!state)
+        return NULL;
     integration_rule_1d_t *rule;
     int order;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iO!", (char *const[3]){"order", "rule", NULL}, &order,
-                                     &integration_rule_1d_type, &rule))
+                                     state->type_int_rule, &rule))
         return NULL;
 
     if (order <= 0)
@@ -207,33 +210,43 @@ static PyObject *basis_1d_get_integration_rule(const basis_1d_t *self, void *Py_
     return (PyObject *)self->integration_rule;
 }
 
-static PyGetSetDef basis_1d_getsets[] = {{.name = "order",
-                                          .get = (getter)basis_1d_get_order,
-                                          .set = NULL,
-                                          .doc = "int : Order of the basis.",
-                                          .closure = NULL},
-                                         {.name = "node",
-                                          .get = (getter)basis_1d_get_nodal,
-                                          .set = NULL,
-                                          .doc = "array : Nodal basis values.",
-                                          .closure = NULL},
-                                         {.name = "edge",
-                                          .get = (getter)basis_1d_get_edge,
-                                          .set = NULL,
-                                          .doc = "array : Edge basis values.",
-                                          .closure = NULL},
-                                         {.name = "rule",
-                                          .get = (getter)basis_1d_get_integration_rule,
-                                          .set = NULL,
-                                          .doc = "IntegrationRule1D : integration rule used",
-                                          .closure = NULL},
-                                         {
-                                             .name = "roots",
-                                             .get = (getter)basis_1d_get_roots,
-                                             .set = NULL,
-                                             .doc = "array : Roots of the nodal basis.",
-                                         },
-                                         {NULL}};
+static PyGetSetDef basis_1d_getsets[] = {
+    {
+        .name = "order",
+        .get = (getter)basis_1d_get_order,
+        .set = NULL,
+        .doc = "int : Order of the basis.",
+        .closure = NULL,
+    },
+    {
+        .name = "node",
+        .get = (getter)basis_1d_get_nodal,
+        .set = NULL,
+        .doc = "array : Nodal basis values.",
+        .closure = NULL,
+    },
+    {
+        .name = "edge",
+        .get = (getter)basis_1d_get_edge,
+        .set = NULL,
+        .doc = "array : Edge basis values.",
+        .closure = NULL,
+    },
+    {
+        .name = "rule",
+        .get = (getter)basis_1d_get_integration_rule,
+        .set = NULL,
+        .doc = "IntegrationRule1D : integration rule used",
+        .closure = NULL,
+    },
+    {
+        .name = "roots",
+        .get = (getter)basis_1d_get_roots,
+        .set = NULL,
+        .doc = "array : Roots of the nodal basis.",
+    },
+    {},
+};
 
 PyDoc_STRVAR(basis_1d_doc, "Basis1D(order: int, rule: IntegrationRule1D)\n"
                            "One-dimensional basis functions collection used for FEM space creation.\n"
@@ -286,16 +299,32 @@ PyDoc_STRVAR(basis_1d_doc, "Basis1D(order: int, rule: IntegrationRule1D)\n"
                            "    >>> plt.show()\n"
                            "\n");
 
-PyTypeObject basis_1d_type = {
-    .tp_new = basis_1d_new,
-    .tp_dealloc = (destructor)basis_1d_dealloc,
-    .tp_repr = (reprfunc)basis_1d_repr,
-    .tp_getset = basis_1d_getsets,
-    .tp_name = "mfv2d._mfv2d.Basis1D",
-    .tp_basicsize = sizeof(basis_1d_t),
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .tp_doc = basis_1d_doc,
-    .tp_itemsize = 0,
+// PyTypeObject basis_1d_type = {
+//     .tp_new = basis_1d_new,
+//     .tp_dealloc = (destructor)basis_1d_dealloc,
+//     .tp_repr = (reprfunc)basis_1d_repr,
+//     .tp_getset = basis_1d_getsets,
+//     .tp_name = "mfv2d._mfv2d.Basis1D",
+//     .tp_basicsize = sizeof(basis_1d_t),
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+//     .tp_doc = basis_1d_doc,
+//     .tp_itemsize = 0,
+// };
+
+static PyType_Slot basis_1d_slots[] = {
+    {.slot = Py_tp_new, .pfunc = basis_1d_new},
+    {.slot = Py_tp_repr, .pfunc = basis_1d_repr},
+    {.slot = Py_tp_getset, .pfunc = basis_1d_getsets},
+    {.slot = Py_tp_doc, .pfunc = (void *)basis_1d_doc},
+    {}, // sentinel
+};
+
+PyType_Spec basis_1d_type_spec = {
+    .name = "mfv2d._mfv2d.Basis1D",
+    .basicsize = sizeof(basis_1d_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = basis_1d_slots,
 };
 
 MFV2D_INTERNAL
@@ -316,10 +345,14 @@ basis_2d_t *create_basis_2d_object(PyTypeObject *type, basis_1d_t *basis_xi, bas
 // __new__ method
 static PyObject *basis_2d_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
+    const mfv2d_module_state_t *state = PyType_GetModuleState(type);
+    if (!state)
+        return NULL;
     basis_1d_t *basis_xi = NULL, *basis_eta = NULL;
     static char *kwlist[] = {"basis_xi", "basis_eta", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!", kwlist, &basis_1d_type, &basis_xi, &basis_1d_type, &basis_eta))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!", kwlist, state->type_basis1d, &basis_xi, state->type_basis1d,
+                                     &basis_eta))
         return NULL;
 
     basis_2d_t *const self = create_basis_2d_object(type, basis_xi, basis_eta);
@@ -371,7 +404,7 @@ static PyObject *basis_2d_get_order_2(const basis_2d_t *self, void *Py_UNUSED(cl
     return PyLong_FromLong(self->basis_eta->order);
 }
 
-static PyGetSetDef Basis2D_getset[] = {
+static PyGetSetDef basis_2d_getset[] = {
     {
         "basis_xi",
         (getter)basis_2d_get_basis_xi,
@@ -414,7 +447,7 @@ static PyGetSetDef Basis2D_getset[] = {
         .doc = "int : Order of the basis in the second dimension.",
         .closure = NULL,
     },
-    {NULL} // Sentinel
+    {} // Sentinel
 };
 
 PyDoc_STRVAR(basis_2d_type_docstring,
@@ -429,6 +462,23 @@ PyTypeObject basis_2d_type = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_new = basis_2d_new,
     .tp_repr = (reprfunc)basis_2d_repr,
-    .tp_getset = Basis2D_getset,
+    .tp_getset = basis_2d_getset,
     .tp_doc = basis_2d_type_docstring,
+};
+
+static PyType_Slot basis_2d_slots[] = {
+    {.slot = Py_tp_dealloc, .pfunc = basis_2d_dealloc},
+    {.slot = Py_tp_new, .pfunc = basis_2d_new},
+    {.slot = Py_tp_repr, .pfunc = basis_2d_repr},
+    {.slot = Py_tp_getset, .pfunc = basis_2d_getset},
+    {.slot = Py_tp_doc, .pfunc = (void *)basis_2d_type_docstring},
+    {}, // sentinel
+};
+
+PyType_Spec basis_2d_type_spec = {
+    .name = "mfv2d._mfv2d.Basis2D",
+    .basicsize = sizeof(basis_2d_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_IMMUTABLETYPE,
+    .slots = basis_2d_slots,
 };

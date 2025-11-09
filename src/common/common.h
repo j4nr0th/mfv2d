@@ -122,6 +122,17 @@ typedef struct
     PyTypeObject *type_surface;
     PyTypeObject *type_man2d;
     PyTypeObject *type_mesh;
+    PyTypeObject *type_int_rule;
+    PyTypeObject *type_basis1d;
+    PyTypeObject *type_basis2d;
+    PyTypeObject *type_fem_space;
+    PyTypeObject *type_form_spec;
+    PyTypeObject *type_form_spec_iter;
+    PyTypeObject *type_svec;
+    PyTypeObject *type_crs_matrix;
+    PyTypeObject *type_system;
+    PyTypeObject *type_trace_vector;
+    PyTypeObject *type_dense_vector;
 } mfv2d_module_state_t;
 
 #endif // COMMON_H

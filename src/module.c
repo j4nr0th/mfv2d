@@ -188,8 +188,10 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
         (state->type_surface = add_type_to_the_module(mod, &surface_type_spec, NULL)) == NULL ||
         (state->type_man2d = add_type_to_the_module(mod, &manifold2d_type_spec, NULL)) == NULL ||
         (state->type_mesh = add_type_to_the_module(mod, &mesh_type_spec, NULL)) == NULL ||
-        PyModule_AddType(mod, &integration_rule_1d_type) < 0 || PyModule_AddType(mod, &basis_1d_type) < 0 ||
-        PyModule_AddType(mod, &basis_2d_type) < 0 || PyModule_AddType(mod, &element_fem_space_2d_type) < 0 ||
+        (state->type_int_rule = add_type_to_the_module(mod, &integration_rule_1d_type_spec, NULL)) == NULL ||
+        (state->type_basis1d = add_type_to_the_module(mod, &basis_1d_type_spec, NULL)) == NULL ||
+        (state->type_basis2d = add_type_to_the_module(mod, &basis_2d_type_spec, NULL)) == NULL ||
+        (state->type_fem_space = add_type_to_the_module(mod, &element_fem_space_2d_type_spec, NULL)) == NULL ||
         PyModule_AddType(mod, &element_form_spec_type) < 0 || PyModule_AddType(mod, &element_form_spec_iter_type) < 0 ||
         PyModule_AddType(mod, &svec_type_object) < 0 || PyModule_AddType(mod, &crs_matrix_type_object) < 0 ||
         PyModule_AddType(mod, &system_object_type) < 0 || PyModule_AddType(mod, &trace_vector_object_type) < 0 ||

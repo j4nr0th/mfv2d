@@ -118,24 +118,31 @@ static PyObject *integration_rule_1d_repr(const integration_rule_1d_t *self)
 }
 
 static PyGetSetDef integration_rule_1d_getset[] = {
-    {.name = "order",
-     .get = (getter)integration_rule_1d_get_order,
-     .set = NULL,
-     .doc = "int : order of the rule",
-     .closure = NULL},
-    {.name = "nodes",
-     .get = (getter)integration_rule_1d_get_nodes,
-     .set = NULL,
-     .doc = "array : Position of integration nodes on the reference domain [-1, +1]\n"
-            "    where the integrated function should be evaluated.\n",
-     .closure = NULL},
-    {.name = "weights",
-     .get = (getter)integration_rule_1d_get_weights,
-     .set = NULL,
-     .doc = "array : Weight values by which the values of evaluated function should be\n"
-            "    multiplied by.\n",
-     .closure = NULL},
-    {NULL}};
+    {
+        .name = "order",
+        .get = (getter)integration_rule_1d_get_order,
+        .set = NULL,
+        .doc = "int : order of the rule",
+        .closure = NULL,
+    },
+    {
+        .name = "nodes",
+        .get = (getter)integration_rule_1d_get_nodes,
+        .set = NULL,
+        .doc = "array : Position of integration nodes on the reference domain [-1, +1]\n"
+               "    where the integrated function should be evaluated.\n",
+        .closure = NULL,
+    },
+    {
+        .name = "weights",
+        .get = (getter)integration_rule_1d_get_weights,
+        .set = NULL,
+        .doc = "array : Weight values by which the values of evaluated function should be\n"
+               "    multiplied by.\n",
+        .closure = NULL,
+    },
+    {}, // sentinel
+};
 
 PyDoc_STRVAR(integration_rule_1d_docstr, "IntegrationRule1D(order: int)\n"
                                          "Type used to contain integration rule information.\n"
@@ -146,13 +153,30 @@ PyDoc_STRVAR(integration_rule_1d_docstr, "IntegrationRule1D(order: int)\n"
                                          "    Order of integration rule used. Can not be negative.\n"
                                          "\n");
 
-PyTypeObject integration_rule_1d_type = {
-    .tp_new = integration_rule_1d_new,
-    .tp_name = "mfv2d._mfv2d.IntegrationRule1D",
-    .tp_basicsize = sizeof(integration_rule_1d_t),
-    .tp_dealloc = (destructor)integration_rule_1d_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .tp_doc = integration_rule_1d_docstr,
-    .tp_getset = integration_rule_1d_getset,
-    .tp_repr = (reprfunc)integration_rule_1d_repr,
+// PyTypeObject integration_rule_1d_type = {
+//     .tp_new = integration_rule_1d_new,
+//     .tp_name = "mfv2d._mfv2d.IntegrationRule1D",
+//     .tp_basicsize = sizeof(integration_rule_1d_t),
+//     .tp_dealloc = (destructor)integration_rule_1d_dealloc,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+//     .tp_doc = integration_rule_1d_docstr,
+//     .tp_getset = integration_rule_1d_getset,
+//     .tp_repr = (reprfunc)integration_rule_1d_repr,
+// };
+
+static PyType_Slot integration_rule_1d_slots[] = {
+    {.slot = Py_tp_new, .pfunc = integration_rule_1d_new},
+    {.slot = Py_tp_dealloc, .pfunc = integration_rule_1d_dealloc},
+    {.slot = Py_tp_doc, .pfunc = (void *)integration_rule_1d_docstr},
+    {.slot = Py_tp_getset, .pfunc = integration_rule_1d_getset},
+    {.slot = Py_tp_repr, .pfunc = integration_rule_1d_repr},
+    {}, // sentinel
+};
+
+PyType_Spec integration_rule_1d_type_spec = {
+    .name = "mfv2d._mfv2d.IntegrationRule1D",
+    .basicsize = sizeof(integration_rule_1d_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = integration_rule_1d_slots,
 };

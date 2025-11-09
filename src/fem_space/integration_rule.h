@@ -15,6 +15,7 @@ typedef struct
 } integration_rule_1d_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject integration_rule_1d_type;
+// extern PyTypeObject integration_rule_1d_type;
+extern PyType_Spec integration_rule_1d_type_spec;
 
 #endif // GAUSSLOBATTO_H

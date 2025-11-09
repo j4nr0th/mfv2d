@@ -10,8 +10,12 @@
 #include "forms.h"
 
 MFV2D_INTERNAL
-PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwargs)
+PyObject *compute_element_matrix(PyObject *mod, PyObject *args, PyObject *kwargs)
 {
+    const mfv2d_module_state_t *const state = PyModule_GetState(mod);
+    if (!state)
+        return NULL;
+
     PyArrayObject *return_value = NULL;
     element_form_spec_t *form_specs = NULL;
     PyObject *expressions = NULL;
@@ -23,14 +27,14 @@ PyObject *compute_element_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyOb
                               "degrees_of_freedom", "stack_memory", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!OO!|O!n", kwlist,
-                                     &element_form_spec_type,    // for type checking
-                                     &form_specs,                // ElementFormsSpecs
-                                     &expressions,               // _CompiledCodeMatrix (PyObject*)
-                                     &element_fem_space_2d_type, // for type checking
-                                     &element_fem_space,         // element cache
-                                     &PyArray_Type,              // for type checking
-                                     &py_degrees_of_freedom,     // array
-                                     &stack_memory               // int
+                                     &element_form_spec_type, // for type checking
+                                     &form_specs,             // ElementFormsSpecs
+                                     &expressions,            // _CompiledCodeMatrix (PyObject*)
+                                     state->type_fem_space,   // for type checking
+                                     &element_fem_space,      // element cache
+                                     &PyArray_Type,           // for type checking
+                                     &py_degrees_of_freedom,  // array
+                                     &stack_memory            // int
                                      ))
     {
         return NULL;
@@ -238,8 +242,11 @@ const char compute_element_matrix_docstr[] =
     "    Element matrix for the specified system.\n";
 
 MFV2D_INTERNAL
-PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwargs)
+PyObject *compute_element_vector(PyObject *mod, PyObject *args, PyObject *kwargs)
 {
+    const mfv2d_module_state_t *const state = PyModule_GetState(mod);
+    if (!state)
+        return NULL;
 
     PyArrayObject *return_value = NULL;
     element_form_spec_t *form_specs = NULL;
@@ -252,14 +259,14 @@ PyObject *compute_element_vector(PyObject *Py_UNUSED(self), PyObject *args, PyOb
                               "degrees_of_freedom", "stack_memory ", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!OO!O!|n", kwlist,
-                                     &element_form_spec_type,    // for type checking
-                                     &form_specs,                // _ElementFormsSpecs
-                                     &expressions,               // (PyObject*)
-                                     &element_fem_space_2d_type, // for type checking
-                                     &element_fem_space,         // element cache
-                                     &PyArray_Type,              // For type checking
-                                     &solution,                  // np.ndarray
-                                     &stack_memory               // int
+                                     &element_form_spec_type, // for type checking
+                                     &form_specs,             // _ElementFormsSpecs
+                                     &expressions,            // (PyObject*)
+                                     state->type_fem_space,   // for type checking
+                                     &element_fem_space,      // element cache
+                                     &PyArray_Type,           // For type checking
+                                     &solution,               // np.ndarray
+                                     &stack_memory            // int
                                      ))
     {
         return NULL;
@@ -470,16 +477,20 @@ const char compute_element_projector_docstr[] =
     "    Tuple where each entry is the respective projection matrix for that form.\n";
 
 MFV2D_INTERNAL
-PyObject *compute_element_projector(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
+PyObject *compute_element_projector(PyObject *mod, PyObject *args, PyObject *kwds)
 {
+    const mfv2d_module_state_t *const state = PyModule_GetState(mod);
+    if (!state)
+        return NULL;
+
     element_form_spec_t *form_specs;
     basis_2d_t *basis_in;
     element_fem_space_2d_t *space_out;
     int dual = 0;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!O!|p",
                                      (char *const[]){"form_orders", "basis_in", "space_out", "dual", NULL},
-                                     &element_form_spec_type, &form_specs, &basis_2d_type, &basis_in,
-                                     &element_fem_space_2d_type, &space_out, &dual))
+                                     &element_form_spec_type, &form_specs, state->type_basis2d, &basis_in,
+                                     state->type_fem_space, &space_out, &dual))
     {
         return NULL;
     }
@@ -656,15 +667,19 @@ const char compute_element_mass_matrix_docstr[] =
     "array\n"
     "    Mass matrix (or its inverse if specified) for the appropriate form.\n";
 
-PyObject *compute_element_mass_matrix(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
+PyObject *compute_element_mass_matrix(PyObject *mod, PyObject *args, PyObject *kwds)
 {
+    const mfv2d_module_state_t *const state = PyModule_GetState(mod);
+    if (!state)
+        return NULL;
+
     form_order_t order;
     basis_2d_t *basis = NULL;
     PyArrayObject *corners = NULL;
     int inverse = 0;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iO!O!|p",
                                      (char *const[5]){"order", "corners", "basis", "inverse", NULL}, &order,
-                                     &PyArray_Type, &corners, &basis_2d_type, &basis, &inverse))
+                                     &PyArray_Type, &corners, state->type_basis2d, &basis, &inverse))
     {
         return NULL;
     }

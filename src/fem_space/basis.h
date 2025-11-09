@@ -15,7 +15,8 @@ typedef struct
 } basis_1d_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject basis_1d_type;
+// extern PyTypeObject basis_1d_type;
+extern PyType_Spec basis_1d_type_spec;
 
 static inline fem_space_1d_t basis_1d_as_fem_space(const basis_1d_t *self)
 {
@@ -37,7 +38,8 @@ typedef struct
 } basis_2d_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject basis_2d_type;
+// extern PyTypeObject basis_2d_type;
+extern PyType_Spec basis_2d_type_spec;
 
 MFV2D_INTERNAL
 basis_2d_t *create_basis_2d_object(PyTypeObject *type, basis_1d_t *basis_xi, basis_1d_t *basis_eta);

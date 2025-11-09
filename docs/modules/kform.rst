@@ -36,16 +36,10 @@ instead make use of :class:`UnknownFormOrder` type, which is an enum.
 .. autoclass:: UnknownFormOrder
     :no-inherited-members:
 
-For a system, these :class:`UnknownFormOrder` can be stored in
-:class:`UnknownOrderings`. This is just a glorified :class:`tuple`.
-
-.. autoclass:: UnknownOrderings
-    :no-inherited-members:
-
 
 To denote variables that should be solved for, :class:`KFormUnknown`
 are used. They also can be used for non-linear interior products
-using the ``^`` operator.
+using the ``*`` operator.
 
 .. autoclass:: KFormUnknown
     :no-inherited-members:
@@ -65,13 +59,10 @@ for weak boundary conditions (described by :class:`KBoundaryProjection`).
 :math:`k`-forms resulting from different operations also each have
 a different type:
 
-- For the Hodge operator, :class:`KHodge` type is used
 - For the derivative :class:`KFormDerivative` is used
 - For the interor product with a vector function :class:`KInteriorProduct`
-- For the interor product with an unknown form :class:`KInteriorProductNonlinear`
-
-.. autoclass:: KHodge
-    :no-inherited-members:
+- For the interor product with an unknown form
+  :class:`KInteriorProductLowered`
 
 .. autoclass:: KFormDerivative
     :no-inherited-members:
@@ -79,7 +70,7 @@ a different type:
 .. autoclass:: KInteriorProduct
     :no-inherited-members:
 
-.. autoclass:: KInteriorProductNonlinear
+.. autoclass:: KInteriorProductLowered
     :no-inherited-members:
 
 
@@ -144,8 +135,79 @@ The left must contain at least one :class:`KInnerProduct` term and no
 
 .. autoclass:: KEquation
 
-A collection of equations form a :class:`KFormSystem`. This type also provides
-useful utilities for identifying different terms, extracting vector fileds,
-weights, unknowns, and others.
 
-.. autoclass:: KFormSystem
+Supporting Functions
+--------------------
+
+Some minor support functions for parsing and dealing with :math:`k`-forms
+are also provided. These used to be methods, but having them as functions
+is easier to deal with. And to refactor, since all implementations for
+different types are in the same spot (God bless Python's ``match`` statement).
+
+.. autofunction:: extract_base_form
+
+.. autofunction:: extract_unknown_forms
+
+.. autofunction:: check_form_linear
+
+
+Operations
+----------
+
+Different operators are supported by different :math:`k`-forms.
+The overview is shown in the table bellow.
+
+
+.. list-table::
+    :header-rows: 1
+
+    * - operation
+      - required type(s)
+      - required order(s)
+      - operator
+      - result
+    * - derivative
+      - :class:`KForm`
+      - (0, 1)
+      - ``<KForm>.derivative``
+      - :class:`KFormDerivative`
+    * - interior product (linear)
+      - (callable, :class:`KForm`)
+      - (1, 2)
+      - ``func * <KForm>``
+      - :class:`KInteriorProduct`
+    * - interior product (non-linear)
+      - (:class:`KForm`, :class:`KForm`)
+      - (1, (1, 2))
+      - ``<KForm> * <KForm>``
+      - :class:`KInteriorProductLowered`
+    * - element projection
+      - (:class:`KWeight`, callable)
+      - Any
+      - ``<KWeight> @ callable``
+      - :class:`KElementProjection`
+    * - boundary projection
+      - (:class:`KWeight`, callable)
+      - 0, 1
+      - ``<KWeight> ^ callable``
+      - :class:`KBoundaryProjection`
+    * - inner product
+      - (:class:`KForm`, :class:`KForm`)
+      - (:math:`k`, :math:`k`)
+      - ``<KForm> @ <KForm>``
+      - :class:`KInnerProduct`
+    * - scale
+      - :class:`Term`
+      - None
+      - ``k * <Term>``
+      - :class:`KSum`
+    * - add
+      - (:class:`Term`, :class:`Term`)
+      - None
+      - ``<Term> + <Term>``
+      - :class:`KSum`
+    * - sub
+      - (:class:`Term`, :class:`Term`)
+      - None
+      - ``<Term> - <Term>``
+      - :class:`KSum`

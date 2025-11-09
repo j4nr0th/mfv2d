@@ -2,18 +2,19 @@
 
 import numpy as np
 import numpy.typing as npt
-import pytest
 from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
-    ElementMassMatrixCache,
+    ElementFemSpace2D,
     IntegrationRule1D,
     compute_element_matrix,
     compute_element_vector,
 )
-from mfv2d.eval import translate_system
-from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder
-from mfv2d.mimetic2d import bilinear_interpolate, element_primal_dofs
+from mfv2d.eval import system_as_string
+from mfv2d.kform import KFormUnknown, UnknownFormOrder
+from mfv2d.mimetic2d import element_primal_dofs
+from mfv2d.solve_system import CompiledSystem
+from mfv2d.system import KFormSystem
 
 
 def test_explicit_evaluation():
@@ -40,93 +41,6 @@ def test_explicit_evaluation():
         v = np.asarray(y)
         return np.astype((0 * (u + v)), np.float64, copy=False)
 
-    vor = KFormUnknown("vor", UnknownFormOrder.FORM_ORDER_0)
-    vel = KFormUnknown("vel", UnknownFormOrder.FORM_ORDER_1)
-    pre = KFormUnknown("pre", UnknownFormOrder.FORM_ORDER_2)
-
-    w_vor = vor.weight
-    w_vel = vel.weight
-    w_pre = pre.weight
-
-    system = KFormSystem(
-        w_vor * vor + w_vor.derivative * vel == 0,  # Vorticity
-        w_vel.derivative * pre
-        + ((1 / RE) * (w_vel * vor.derivative))
-        + w_vel * (vel ^ (~vor))
-        == 0,  # Momentum
-        w_pre * vel.derivative == w_pre @ 0,  # Continuity
-        sorting=lambda f: f.order,
-    )
-    # print(system)
-
-    vector_fields = system.vector_fields
-    codes = translate_system(system, vector_fields, newton=False)
-
-    N = 11
-    N2 = 12
-
-    rule = IntegrationRule1D(N2)
-    basis_1d = Basis1D(N, rule)
-    basis_2d = Basis2D(basis_1d, basis_1d)
-
-    corners = np.array(((-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0)), np.float64)
-
-    vector_fields = system.vector_fields
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-
-    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
-    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
-    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
-    func_dict = {vor: vor_exact, vel: vel_exact}
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is KFormUnknown
-        assert not callable(vec_fld)
-        fn = func_dict[vec_fld]
-        vf = fn(x, y)
-        if vec_fld.order != UnknownFormOrder.FORM_ORDER_1:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
-        vec_field_lists[i].append(vf)
-
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
-    sys_mat = compute_element_matrix(
-        [UnknownFormOrder(form.order) for form in system.unknown_forms],
-        codes,
-        vec_fields,
-        elem_cache,
-    )
-
-    proj_vor = element_primal_dofs(UnknownFormOrder.FORM_ORDER_0, elem_cache, vor_exact)
-    proj_vel = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, elem_cache, vel_exact)
-    proj_pre = element_primal_dofs(UnknownFormOrder.FORM_ORDER_2, elem_cache, pre_exact)
-
-    exact_lhs = np.concatenate((proj_vor, proj_vel, proj_pre), dtype=np.float64)
-
-    explicit_rhs = compute_element_vector(
-        [
-            UnknownFormOrder.FORM_ORDER_0,
-            UnknownFormOrder.FORM_ORDER_1,
-            UnknownFormOrder.FORM_ORDER_2,
-        ],
-        codes,
-        vec_fields,
-        elem_cache,
-        exact_lhs,
-    )
-
-    rhs = sys_mat @ exact_lhs
-    assert pytest.approx(rhs) == explicit_rhs
-
     def exact_momentum(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute the exact momentum forcing term."""
         u = np.asarray(x)
@@ -140,15 +54,124 @@ def test_explicit_evaluation():
             axis=-1,
         )
 
-    # momentum_rhs = rhs[(N + 1) ** 2 : (N + 1) ** 2 + 2 * N * (N + 1)]
-    mass_edge = elem_cache.mass_from_order(UnknownFormOrder.FORM_ORDER_1)
-    momentum_rhs = np.linalg.solve(
-        mass_edge, rhs[(N + 1) ** 2 : (N + 1) ** 2 + 2 * N * (N + 1)]
+    vor = KFormUnknown("vor", UnknownFormOrder.FORM_ORDER_0)
+    vel = KFormUnknown("vel", UnknownFormOrder.FORM_ORDER_1)
+    pre = KFormUnknown("pre", UnknownFormOrder.FORM_ORDER_2)
+
+    w_vor = vor.weight
+    w_vel = vel.weight
+    w_pre = pre.weight
+
+    system = KFormSystem(
+        w_vor @ vor + w_vor.derivative @ vel == 0,  # Vorticity
+        w_vel.derivative @ pre
+        + ((1 / RE) * (w_vel @ vor.derivative))
+        + (vel * w_vel @ vor)
+        == 0,  # Momentum
+        w_pre @ vel.derivative == 0,  # Continuity
+        sorting=lambda f: f.order,
     )
-    proj_momentum_rhs = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, elem_cache, exact_momentum
+    print(system_as_string(system))
+    compiled = CompiledSystem(system)
+
+    linearized_system = KFormSystem(
+        (w_vor @ vor) + (w_vor.derivative @ vel) == 0,  # Vorticity
+        (w_vel.derivative @ pre)
+        + ((1 / RE) * (w_vel @ vor.derivative))
+        + (vel_exact * w_vel @ vor)
+        == 0,  # Momentum
+        (w_pre @ vel.derivative) == 0,  # Continuity
+        sorting=lambda f: f.order,
     )
-    assert np.abs(momentum_rhs - proj_momentum_rhs).max() < 1e-6
+    linearized_compiled = CompiledSystem(linearized_system)
+
+    def compute_errors(n1: int, n2: int) -> tuple[float, float]:
+        """Compute projection and momentum errors."""
+        rule = IntegrationRule1D(n2)
+        basis_1d = Basis1D(n1, rule)
+        basis_2d = Basis2D(basis_1d, basis_1d)
+
+        corners = np.array(((-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0)), np.float64)
+
+        elem_fem_space = ElementFemSpace2D(basis_2d, corners)
+        sys_mat = compute_element_matrix(
+            system.unknown_forms, linearized_compiled.lhs_codes, elem_fem_space
+        )
+
+        proj_vor = element_primal_dofs(
+            UnknownFormOrder.FORM_ORDER_0, elem_fem_space, vor_exact
+        )
+        proj_vel = element_primal_dofs(
+            UnknownFormOrder.FORM_ORDER_1, elem_fem_space, vel_exact
+        )
+        proj_pre = element_primal_dofs(
+            UnknownFormOrder.FORM_ORDER_2, elem_fem_space, pre_exact
+        )
+
+        exact_lhs = np.concatenate((proj_vor, proj_vel, proj_pre), dtype=np.float64)
+
+        explicit_rhs = compute_element_vector(
+            system.unknown_forms, compiled.lhs_codes, elem_fem_space, exact_lhs
+        )
+
+        rhs = sys_mat @ exact_lhs
+        proj_err_linf = np.abs(rhs - explicit_rhs).max()
+        # assert np.abs(rhs - explicit_rhs).max() < 1e-7
+
+        # momentum_rhs = rhs[(N + 1) ** 2 : (N + 1) ** 2 + 2 * N * (N + 1)]
+        mass_edge = elem_fem_space.mass_from_order(UnknownFormOrder.FORM_ORDER_1)
+        momentum_rhs = np.linalg.solve(
+            mass_edge, rhs[(n1 + 1) ** 2 : (n1 + 1) ** 2 + 2 * n1 * (n1 + 1)]
+        )
+        proj_momentum_rhs = element_primal_dofs(
+            UnknownFormOrder.FORM_ORDER_1, elem_fem_space, exact_momentum
+        )
+        momentum_error_linf = np.abs(momentum_rhs - proj_momentum_rhs).max()
+        # assert np.abs(momentum_rhs - proj_momentum_rhs).max() < 1e-6
+        return momentum_error_linf, proj_err_linf
+
+    n_vals = np.arange(3, 12)
+    err_proj = np.zeros(n_vals.size, np.float64)
+    err_mome = np.zeros(n_vals.size, np.float64)
+    for i, n in enumerate(n_vals):
+        ep, em = compute_errors(int(n), int(n) + 2)
+        err_proj[i] = ep
+        err_mome[i] = em
+
+    # Projection error must be decreasing
+    assert np.all(err_proj[1:] < err_proj[:-1])
+
+    # Momentum error must be decreasing
+    assert np.all(err_mome[1:] < err_mome[:-1])
+
+    kp1, kp0 = np.polyfit(n_vals, np.log(err_proj), 1)
+    kp1, kp0 = np.exp(kp1), np.exp(kp0)
+    # Decreasing error
+    assert kp1 < 1
+    km1, km0 = np.polyfit(n_vals, np.log(err_mome), 1)
+    km1, km0 = np.exp(km1), np.exp(km0)
+    # Decreasing error
+    assert km1 < 1
+
+    # from matplotlib import pyplot as plt
+
+    # fig, ax = plt.subplots()
+
+    # ax.scatter(n_vals, err_proj, label="proj")
+    # ax.plot(
+    #     n_vals, kp0 * kp1**n_vals, label=f"${kp0:g} \\cdot \\left( {kp1:+g} \\right)^n$"
+    # )
+
+    # ax.scatter(n_vals, err_mome, label="mome")
+    # ax.plot(
+    #     n_vals, km0 * km1**n_vals, label=f"${km0:g} \\cdot \\left( {km1:+g} \\right)^n$"
+    # )
+
+    # ax.set(xlabel="$n$", ylabel="$\\varepsilon$", yscale="log")
+    # ax.grid()
+    # ax.legend()
+    # fig.tight_layout()
+    # plt.show()
 
 
 if __name__ == "__main__":

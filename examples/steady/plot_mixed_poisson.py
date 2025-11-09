@@ -77,6 +77,7 @@ import pyvista as pv
 import rmsh
 from matplotlib import pyplot as plt
 from mfv2d import (
+    ConvergenceSettings,
     KFormSystem,
     KFormUnknown,
     SolverSettings,
@@ -84,6 +85,7 @@ from mfv2d import (
     UnknownFormOrder,
     mesh_create,
     solve_system_2d,
+    system_as_string,
 )
 
 # %%
@@ -156,11 +158,10 @@ q = KFormUnknown("q", UnknownFormOrder.FORM_ORDER_1)
 p = q.weight
 
 system = KFormSystem(
-    p.derivative * u - p * q == p ^ u_exact,
-    v * q.derivative == -(v * source_exact),
-    sorting=lambda f: f.order,
+    p.derivative @ u - p @ q == p ^ u_exact,
+    v @ q.derivative == -(v @ source_exact),
 )
-print(system)
+print(system_as_string(system))
 
 # %%
 #
@@ -215,7 +216,9 @@ msh = mesh_create(pval, np.stack((m.pos_x, m.pos_y), axis=-1), m.lines + 1, m.su
 solution, stats, mesh = solve_system_2d(
     msh,
     system_settings=SystemSettings(system),
-    solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+    solver_settings=SolverSettings(
+        ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+    ),
     print_residual=False,
     recon_order=25,
 )
@@ -262,7 +265,9 @@ for ip, pval in enumerate(p_vals):
     solution, stats, mesh = solve_system_2d(
         msh,
         system_settings=SystemSettings(system),
-        solver_settings=SolverSettings(absolute_tolerance=1e-10, relative_tolerance=0),
+        solver_settings=SolverSettings(
+            ConvergenceSettings(absolute_tolerance=1e-10, relative_tolerance=0)
+        ),
         print_residual=False,
         recon_order=25,
     )

@@ -4,6 +4,8 @@ if (NOT DEFINED SKBUILD_PROJECT_NAME)
     set(SKBUILD_PROJECT_NAME "mfv2d")
 endif ()
 
+add_subdirectory(jmtx)
+
 project(${SKBUILD_PROJECT_NAME} LANGUAGES C)
 find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
 find_package(OpenMP)
@@ -16,69 +18,76 @@ execute_process(
 )
 
 set(MFV2D_SOURCE_FILES
-        # Common
-        src/_module.c
-        src/common.c
-        src/error.c
-        # Basis
-        src/basis/lagrange.c
-        src/basis/gausslobatto.c
-        # Topology
-        src/topology/geoidobject.c
-        src/topology/lineobject.c
-        src/topology/surfaceobject.c
-        src/topology/manifold.c
-        src/topology/manifold2d.c
-        src/topology/mesh.c
-        # Evaluation
-        src/eval/allocator.c
-        src/eval/incidence.c
-        src/eval/bytecode.c
-        src/eval/matrix.c
-        src/eval/element_system.c
-        src/eval/system_template.c
-        src/eval/fem_space.c
-        src/eval/element_eval.c
-        src/eval/basis.c
-        src/eval/element_cache.c
-        # Solver
-        src/solve/qr_solve.c
-        src/solve/svector.c
-        src/solve/givens.c
-        src/solve/lil_matrix.c
+        src/module.c
+        # algebra
+        src/algebra/crs_matrix.c
+        src/algebra/matrix.c
+        src/algebra/sparse_system.c
+        src/algebra/svector.c
+        src/algebra/system_objects.c
+        # common
+        src/common/allocator.c
+        src/common/common.c
+        src/common/error.c
+        # evaluation
+        src/evaluation/bytecode.c
+        src/evaluation/element_eval.c
+        src/evaluation/element_system.c
+        src/evaluation/forms.c
+        src/evaluation/incidence.c
+        src/evaluation/integrating_fields.c
+        src/evaluation/system_template.c
+        # fem_space
+        src/fem_space/basis.c
+        src/fem_space/element_fem_space.c
+        src/fem_space/fem_space.c
+        src/fem_space/integration_rule.c
+        # geometry
+        src/geometry/geoidobject.c
+        src/geometry/lineobject.c
+        src/geometry/manifold2d.c
+        src/geometry/mesh.c
+        src/geometry/surfaceobject.c
+        # polynomials
+        src/polynomials/gauss_lobatto.c
+        src/polynomials/lagrange.c
+        src/polynomials/legendre.c
 )
 set(MFV2D_HEADER_FILES
-        # Common
         src/module.h
-        src/common.h
-        src/common_defines.h
-        src/error.h
-        # Basis
-        src/basis/lagrange.h
-        src/basis/gausslobatto.h
-        # Topology
-        src/topology/geoidobject.h
-        src/topology/lineobject.h
-        src/topology/surfaceobject.h
-        src/topology/manifold.h
-        src/topology/manifold2d.h
-        src/topology/mesh.h
-        # Evaluation
-        src/eval/allocator.h
-        src/eval/incidence.h
-        src/eval/bytecode.h
-        src/eval/matrix.h
-        src/eval/element_system.h
-        src/eval/system_template.h
-        src/eval/fem_space.h
-        src/eval/element_eval.h
-        src/eval/basis.h
-        src/eval/element_cache.h
-        # Solver
-        src/solve/qr_solve.h
-        src/solve/svector.h
-        src/solve/givens.h
-        src/solve/lil_matrix.h
+        # algebra
+        src/algebra/crs_matrix.h
+        src/algebra/matrix.h
+        src/algebra/sparse_system.h
+        src/algebra/svector.h
+        src/algebra/system_objects.h
+        # common
+        src/common/allocator.h
+        src/common/common.h
+        src/common/error.h
+        # evaluation
+        src/evaluation/bytecode.h
+        src/evaluation/element_eval.h
+        src/evaluation/element_system.h
+        src/evaluation/forms.h
+        src/evaluation/incidence.h
+        src/evaluation/integrating_fields.h
+        src/evaluation/system_template.h
+        # fem_space
+        src/fem_space/basis.h
+        src/fem_space/element_fem_space.h
+        src/fem_space/fem_space.h
+        src/fem_space/integration_rule.h
+        # geometry
+        src/geometry/geoidobject.h
+        src/geometry/lineobject.h
+        src/geometry/manifold2d.h
+        src/geometry/mesh.h
+        src/geometry/surfaceobject.h
+        # polynomials
+        src/polynomials/gauss_lobatto.h
+        src/polynomials/lagrange.h
+        src/polynomials/legendre.h
 )
 
 Python_add_library(_mfv2d
@@ -89,14 +98,16 @@ Python_add_library(_mfv2d
 install(TARGETS _mfv2d DESTINATION ${SKBUILD_PROJECT_NAME})
 set_property(TARGET _mfv2d PROPERTY C_STANDARD 17)
 
+target_link_libraries(_mfv2d PRIVATE jmtx)
 target_compile_definitions(_mfv2d PRIVATE MFV2D_ASSERTS)
 if ("${NumPy_INCLUDE_DIRS}" STREQUAL "")
     message(FATAL_ERROR "NumPy_INCLUDE_DIRS was empty.")
 endif ()
-target_include_directories(_mfv2d PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS})
+target_include_directories(_mfv2d PRIVATE ${NumPy_INCLUDE_DIRS} ${Python_INCLUDE_DIRS} jmtx/include)
 
-if (CMAKE_C_COMPILER_ID EQUAL "GNU")
-    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -fanalyzer)# -g -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g)
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(_mfv2d PRIVATE -Wall -Wextra -fwhole-program -flto=auto -fanalyzer)
+    target_link_options(_mfv2d PRIVATE "-Wl,--exclude-libs,ALL")
 endif ()
 
 if (OPENMP_FOUND)

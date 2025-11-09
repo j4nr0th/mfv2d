@@ -4,14 +4,14 @@ This file contains functions signatures and *copies* of docstrings for the
 C-extension which implements all the required fast code.
 """
 
-from collections.abc import Callable, Sequence
-from typing import Concatenate, ParamSpec, Self, SupportsIndex, final, overload
+from collections.abc import Callable, Iterator, Sequence
+from typing import Concatenate, Literal, ParamSpec, Self, SupportsIndex, final, overload
 
 import numpy as np
 import numpy.typing as npt
 
-from mfv2d.eval import MatOpCode, _CompiledCodeMatrix
-from mfv2d.kform import UnknownFormOrder
+from mfv2d.eval import _TranslatedBlock, _TranslatedSystem2D
+from mfv2d.kform import Function2D, UnknownFormOrder
 
 def lagrange1d(
     roots: npt.ArrayLike, x: npt.ArrayLike, out: npt.NDArray[np.double] | None = None, /
@@ -382,25 +382,6 @@ def compute_legendre(
         >>>         if i1 != i2:
         >>>             assert abs(integral) < 1e-16
     """
-
-def legendre_l2_to_h1_coefficients(c: npt.ArrayLike, /) -> npt.NDArray[np.double]:
-    """Convert Legendre polynomial coefficients to H1 coefficients.
-
-    The :math:`H^1` coefficients are based on being expansion coefficients of hierarchical
-    basis which are orthogonal in the :math:`H^1` norm instead of in the :math:`L^2` norm,
-    which holds for Legendre polynomials instead.
-
-    Parameters
-    ----------
-    c : array_like
-        Coefficients of the Legendre polynomials.
-
-    Returns
-    -------
-    array
-        Coefficients of integrated Legendre polynomial basis.
-    """
-    ...
 @final
 class GeoID:
     """Type used to identify a geometrical object with an index and orientation.
@@ -474,15 +455,7 @@ class Surface:
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
-class Manifold:
-    """A manifold of a finite number of dimensions."""
-
-    @property
-    def dimension(self) -> int:
-        """Dimension of the manifold."""
-        ...
-
-class Manifold2D(Manifold):
+class Manifold2D:
     """Two dimensional manifold consisting of surfaces made of lines.
 
     Has no constructor, but can be created from its class methods
@@ -693,7 +666,9 @@ class Manifold2D(Manifold):
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
-def check_bytecode(expression: list[MatOpCode | int | float], /) -> list[int | float]:
+def check_bytecode(
+    form_specs: _ElementFormSpecification, expression: _TranslatedBlock
+) -> _TranslatedBlock:
     """Convert bytecode to C-values, then back to Python.
 
     This function is meant for testing.
@@ -708,343 +683,6 @@ def check_incidence(
     This function is meant for testing.
     """
     ...
-
-class SparseVector:
-    """Vector which stores only the non-zero components."""
-
-    @classmethod
-    def from_entries(cls, n: int, indices: npt.ArrayLike, values: npt.ArrayLike) -> Self:
-        """Create sparse vector from an array of indices and values.
-
-        Parameters
-        ----------
-        n : int
-            Dimension of the vector.
-
-        indices : array_like
-            Indices of the entries. Must be sorted.
-
-        values : array_like
-            Values of the entries.
-
-        Returns
-        -------
-        SparseVector
-            New vector with indices and values as given.
-        """
-        ...
-
-    @classmethod
-    def from_pairs(cls, n: int, *pairs: tuple[int, float]) -> Self:
-        """Create sparse vector from an index-coefficient pairs.
-
-        Parameters
-        ----------
-        n : int
-            Dimension of the vector.
-
-        *pairs : tuple[int, float]
-            Pairs of values and indices for the vector.
-
-        Returns
-        -------
-        SparseVector
-            New vector with indices and values as given.
-        """
-        ...
-
-    @property
-    def n(self) -> int:
-        """Dimension of the vector."""
-        ...
-
-    @n.setter
-    def n(self, v: int, /) -> None: ...
-    @property
-    def values(self) -> npt.NDArray[np.float64]:
-        """Values of non-zero entries of the vector."""
-        ...
-
-    @property
-    def indices(self) -> npt.NDArray[np.uint64]:
-        """Indices of non-zero entries of the vector."""
-        ...
-
-    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
-        """Convert the vector to a full array."""
-        ...
-
-    @overload
-    def __getitem__(self, idx: int, /) -> float: ...
-    @overload
-    def __getitem__(self, idx: slice, /) -> SparseVector: ...
-    @classmethod
-    def concatenate(cls, *vectors: SparseVector) -> Self:
-        """Merge sparse vectors together into a single vector.
-
-        Parameters
-        ----------
-        *vectors : SparseVector
-            Sparse vectors that should be concatenated.
-
-        Returns
-        -------
-        Self
-            Newly created sparse vector.
-        """
-        ...
-
-    @property
-    def count(self) -> int:
-        """Number of entries in the vector."""
-        ...
-
-class GivensRotation:
-    """Representation of a Givens rotation matrix."""
-
-    def __new__(cls, n: int, i1: int, i2: int, c: float, s: float) -> Self: ...
-    @property
-    def n(self) -> int:
-        """Dimension of the rotation."""
-        ...
-
-    @property
-    def i1(self) -> int:
-        """First index of rotation."""
-        ...
-
-    @property
-    def i2(self) -> int:
-        """Second index of rotation."""
-        ...
-
-    @property
-    def c(self) -> float:
-        """Cosine rotation value."""
-        ...
-
-    @property
-    def s(self) -> float:
-        """Sine rotation value."""
-        ...
-
-    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
-        """Convert the object into a full numpy matrix."""
-        ...
-
-    @overload
-    def __matmul__(self, other: npt.ArrayLike) -> npt.NDArray[np.float64]: ...
-    @overload
-    def __matmul__(self, other: SparseVector) -> SparseVector: ...
-    @property
-    def T(self) -> GivensRotation:
-        """Inverse rotation."""
-        ...
-
-class GivensSeries:
-    """Series of GivensRotations."""
-
-    @overload
-    def __new__(cls, n: int, /) -> Self: ...
-    @overload
-    def __new__(cls, *rotations: GivensRotation) -> Self: ...
-    @property
-    def n(self) -> int:
-        """Size of the rotations."""
-        ...
-
-    def __len__(self) -> int:
-        """Return number of Givens rotations."""
-        ...
-
-    # @overload
-    def __getitem__(self, idx: int, /) -> GivensRotation: ...
-    # @overload
-    # def __getitem__(self, idx: slice, /) -> GivensSeries: ...
-    @overload
-    def __matmul__(self, other: SparseVector) -> SparseVector: ...
-    @overload
-    def __matmul__(self, other: npt.ArrayLike) -> npt.NDArray[np.float64]: ...
-    def apply(self, v: npt.NDArray[np.float64], /) -> None:
-        """Apply in-place as fast as possible.
-
-        This function works as fast as possible, without any allocations.
-
-        Parameters
-        ----------
-        v : array
-            One dimensional array to rotate.
-        """
-        ...
-
-class LiLMatrix:
-    """Matrix which has a list of is used to store sparse rows.
-
-    Parameters
-    ----------
-    rows : int
-        Number of rows of the matrix.
-    cols : int
-        Number of columns of the matrix.
-    """
-
-    def __new__(cls, rows: int, cols: int) -> Self: ...
-    @property
-    def shape(self) -> tuple[int, int]:
-        """Get the shape of the matrix."""
-        ...
-
-    def __getitem__(self, idx: int, /) -> SparseVector:
-        """Get the row of the matrix."""
-        ...
-
-    def __setitem__(self, idx: int, val: SparseVector, /) -> None:
-        """Set the row of the matrix."""
-        ...
-
-    def count_entries(self) -> int:
-        """Return the number of entries in the matrix."""
-        ...
-
-    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
-        """Convert the matrix into a numpy array."""
-        ...
-
-    @classmethod
-    def from_full(cls, mat: npt.ArrayLike, /) -> Self:
-        """Create A LiLMatrix from a full matrix.
-
-        Parameters
-        ----------
-        mat : array
-            Full matrix to convert.
-
-        Returns
-        -------
-        LiLMatrix
-            Matrix represented in the LiLMatrix format.ž
-        """
-        ...
-
-    def qr_decompose(self, n: int | None = None, /) -> GivensSeries:
-        """Decompose the matrix into a series of Givens rotations and a triangular matrix.
-
-        Parameters
-        ----------
-        n : int, optional
-            Maximum number of steps to perform.
-
-        Returns
-        -------
-        (GivensRotation, ...)
-            Givens rotations in the order they were applied to the matrix.
-            This means that for the solution, they should be applied in the
-            reversed order.
-        """
-        ...
-
-    @classmethod
-    def block_diag(cls, *blocks: LiLMatrix) -> Self:
-        """Construct a new matrix from blocks along the diagonal.
-
-        Parameters
-        ----------
-        *blocks : LiLMatrix
-            Block matrices. These are placed on the diagonal of the resulting matrix.
-
-        Returns
-        -------
-        LiLMatrix
-            Block diagonal matrix resulting from the blocks.
-        """
-        ...
-
-    def add_columns(self, *cols: SparseVector) -> None:
-        """Add columns to the matrix.
-
-        Parameters
-        ----------
-        *cols : SparseVectors
-            Columns to be added to the matrix.
-        """
-        ...
-
-    def add_rows(self, *rows: SparseVector) -> LiLMatrix:
-        """Create a new matrix with added rows.
-
-        Parameters
-        ----------
-        *rows : SparaseVector
-            Rows to be added.
-
-        Returns
-        -------
-        LiLMatrix
-            Matrix with new rows added.
-        """
-        ...
-
-    def solve_upper_triangular(
-        self, rsh: npt.ArrayLike, /, out: npt.NDArray[np.float64] | None = None
-    ) -> npt.NDArray[np.float64]:
-        """Use back-substitution to solve find the right side.
-
-        This assumes the matrix is upper triangualr.
-
-        Parameters
-        ----------
-        rhs : array_like
-            Vector or matrix that gives the right side of the equation.
-
-        out : array, optional
-            Array to be used as output. If not given a new one will be created and
-            returned, otherwise, the given value is returned. It must match the shape
-            of the input array exactly and have the correct data type.
-
-        Returns
-        -------
-        array
-            Vector or matrix that yields the rhs when matrix multiplication is used.
-            If the ``out`` parameter is given, the value returned will be exactly that
-            matrix.
-        """
-        ...
-
-    @classmethod
-    def empty_diagonal(cls, n: int, /) -> Self:
-        """Create empty square matrix with zeros on the diagonal.
-
-        This is intended for padding that allows for computing QR decompositions.
-
-        Parameters
-        ----------
-        n : int
-            Size of the square matrix.
-
-        Returns
-        -------
-        LiLMatrix
-            Sparse matrix that is square and has only zeros on its diagonal.
-        """
-        ...
-
-    @property
-    def usage(self) -> int:
-        """Number of non-zero entries."""
-        ...
-
-    def to_scipy(self) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.uint64]]:
-        """Convert itself into an array of values and an array of coorinates.
-
-        Returns
-        -------
-        (N,) array of floats
-            Values of the entries stored in the matrx.
-
-        (N, 2) array of uint64
-            Positions of entries as ``(row, col)``.
-        """
-        ...
 
 def compute_element_matrix_test(
     corners: npt.NDArray[np.float64],
@@ -1139,10 +777,32 @@ class Basis2D:
     def basis_xi(self) -> Basis1D: ...
     @property
     def basis_eta(self) -> Basis1D: ...
+    @property
+    def orders(self) -> tuple[int, int]:
+        """Orders of the basis."""
+        ...
+    @property
+    def integration_orders(self) -> tuple[int, int]:
+        """Orders of the integration rules."""
+        ...
+
+    @property
+    def order_1(self) -> int:
+        """Order of the basis in the first dimension."""
+        ...
+
+    @property
+    def order_2(self) -> int:
+        """Order of the basis in the second direction."""
+        ...
 
 @final
-class ElementMassMatrixCache:
-    """Caches element mass matrices."""
+class ElementFemSpace2D:
+    """Type that cotains corners and basis for each (leaf) element.
+
+    It is also used to compute mass matrices and cache them, since they're often
+    reused.
+    """
 
     def __new__(cls, basis: Basis2D, corners: npt.NDArray[np.float64]) -> Self: ...
     @property
@@ -1194,6 +854,26 @@ class ElementMassMatrixCache:
         """Return (cached) inverse surface mass matrix."""
         ...
 
+    @property
+    def orders(self) -> tuple[int, int]:
+        """Orders of the basis."""
+        ...
+
+    @property
+    def integration_orders(self) -> tuple[int, int]:
+        """Orders of integration rules used by the basis."""
+        ...
+
+    @property
+    def order_1(self) -> int:
+        """Order of the basis in the first dimension."""
+        ...
+
+    @property
+    def order_2(self) -> int:
+        """Order of the basis in the second direction."""
+        ...
+
     def mass_from_order(
         self, order: UnknownFormOrder, inverse: bool = False
     ) -> npt.NDArray[np.float64]:
@@ -1214,11 +894,29 @@ class ElementMassMatrixCache:
         """
         ...
 
+    @property
+    def jacobian(self) -> npt.NDArray[np.float64]:
+        r"""Jacobian components for the element at integration points.
+
+        These are returned as 2 by 2 matrices, with the elements in the following order:
+
+        - :math:`\mathbf{J}_{0, 0} = \frac{\mathrm{d} x}{\mathrm{d} \xi}`
+        - :math:`\mathbf{J}_{0, 1} = \frac{\mathrm{d} y}{\mathrm{d} \xi}`
+        - :math:`\mathbf{J}_{1, 0} = \frac{\mathrm{d} x}{\mathrm{d} \eta}`
+        - :math:`\mathbf{J}_{1, 1} = \frac{\mathrm{d} y}{\mathrm{d} \eta}`
+        """
+        ...
+
+    @property
+    def jacobian_determinant(self) -> npt.NDArray[np.float64]:
+        """Determinant of the Jacobian at the integration points."""
+        ...
+
 def compute_element_matrix(
-    form_orders: Sequence[UnknownFormOrder],
-    expressions: _CompiledCodeMatrix,
-    vector_fields: Sequence[npt.NDArray[np.float64]],
-    element_cache: ElementMassMatrixCache,
+    form_orders: _ElementFormSpecification,
+    expressions: _TranslatedSystem2D,
+    element_fem_space: ElementFemSpace2D,
+    degrees_of_freedom: npt.NDArray[np.float64] | None = None,
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
     """Compute a single element matrix.
@@ -1231,11 +929,14 @@ def compute_element_matrix(
     expressions
         Compiled bytecode to execute.
 
-    vector_fields : Sequence of arrays
-        Vector field arrays as required for interior product evaluations.
+    field_specifications : tuple of int or Function2D
+        Specification for fields used for interior products.
 
-    element_cache : ElementMassMatrixCache
-        Cache of the element basis and mass matrices.
+    element_fem_space : ElementFemSpace2D
+        Element's FEM space.
+
+    degrees_of_freedom : array, optional
+        Array with degrees of freedom for the element.
 
     stack_memory : int, default: 1 << 24
         Amount of memory to use for the evaluation stack.
@@ -1248,11 +949,10 @@ def compute_element_matrix(
     ...
 
 def compute_element_vector(
-    form_orders: Sequence[UnknownFormOrder],
-    expressions: _CompiledCodeMatrix,
-    vector_fields: Sequence[npt.NDArray[np.float64]],
-    element_cache: ElementMassMatrixCache,
-    solution: npt.NDArray[np.float64],
+    form_orders: _ElementFormSpecification,
+    expressions: _TranslatedSystem2D,
+    element_space: ElementFemSpace2D,
+    degrees_of_freedom: npt.NDArray[np.float64],
     stack_memory: int = 1 << 24,
 ) -> npt.NDArray[np.float64]:
     """Compute a single element forcing.
@@ -1265,13 +965,13 @@ def compute_element_vector(
     expressions
         Compiled bytecode to execute.
 
-    vector_fields : Sequence of arrays
-        Vector field arrays as required for interior product evaluations.
+    field_specifications : tuple of int or Function2D
+        Specification for fields used for interior products.
 
-    element_cache : ElementMassMatrixCache
-        Cache of the element basis and mass matrices.
+    element_fem_space : ElementFemSpace2D
+        Element's FEM space.
 
-    solution : array
+    degrees_of_freedom : array
         Array with degrees of freedom for the element.
 
     stack_memory : int, default: 1 << 24
@@ -1285,11 +985,11 @@ def compute_element_vector(
     ...
 
 def compute_element_projector(
-    form_orders: Sequence[UnknownFormOrder],
-    corners: npt.NDArray[np.float64],
+    form_orders: _ElementFormSpecification,
     basis_in: Basis2D,
-    basis_out: Basis2D,
-) -> tuple[npt.NDArray[np.float64]]:
+    space_out: ElementFemSpace2D,
+    dual: bool = False,
+) -> tuple[npt.NDArray[np.float64], ...]:
     """Compute :math:`L^2` projection from one space to another.
 
     Projection takes DoFs from primal space of the first and takes
@@ -1297,22 +997,62 @@ def compute_element_projector(
 
     Parameters
     ----------
-    form_orders : Sequence of UnknownFormOrder
-        Sequence of orders of forms which are to be projected.
-
-    corners : (4, 2) array
-        Array of corner points of the element.
+    form_orders : _ElementFormSpecification
+        Specification of forms in the element.
 
     basis_in : Basis2D
-        Basis from which the DoFs should be taken.
+        Basis from which the DoFs should be taken from.
 
-    basis_out : Basis2D
-        Basis to which the DoFs are taken.
+    space_out : ElementFemSpace2D
+        FEM space in which the resulting DoFs are taken to..
+
+    dual : bool
+        Should the projection be to dual space of the output space instead
+        of the primal space.
 
     Returns
     -------
     tuple of square arrays
         Tuple where each entry is the respective projection matrix for that form.
+    """
+    ...
+
+def _compute_matrix_inverse(x: npt.ArrayLike, /) -> npt.NDArray[np.double]:
+    """Compute inverse of a matrix.
+
+    Parameters
+    ----------
+    x : array_like
+        Matrix to invert.
+
+    Returns
+    -------
+    array
+        Inverse of the matrix, which when multiplied with ``x`` should return
+        the identity matrix (or when accounting for numerical/rounding errors, be very
+        close to it).
+    """
+    ...
+
+def _solve_linear_system(
+    mat: npt.ArrayLike, rhs: npt.ArrayLike, /
+) -> npt.NDArray[np.double]:
+    """Solve a linear system.
+
+    Parameters
+    ----------
+    x : array_like
+        System matrix.
+
+    rhs : array_like
+        Right side of the syste
+
+    Returns
+    -------
+    array
+        Matrix/vector, which when pre-multiplied with the system matrix
+        results in a vector equal to the ``rhs``, after accounting for
+        rounding errors.
     """
     ...
 
@@ -1595,6 +1335,58 @@ class Mesh:
         """
         ...
 
+    def uniform_p_change(self, dp_1: int, dp_2: int, /) -> None:
+        """Change orders of all elements by specified amounts.
+
+        Note that if the change would result in a negative order for any element,
+        an exception is raised.
+
+        Parameters
+        ----------
+        dp_1 : int
+            Change in the orders of the first dimension.
+
+        dp_2 : int
+            Change in the orders of the second dimension.
+        """
+        ...
+
+    def get_leaf_index(self, idx: SupportsIndex, /) -> int:
+        """Get the index of the leaf at which it appears relative to all leaves.
+
+        Assuming that ``i`` is a valid leaf element index, then
+        ``i == mesh.find_leaf_by_index(mesh.get_leaf_index(i))``.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the leaf element relative to all elements.
+
+        Returns
+        -------
+        int
+            Index of the leaf element relative to all leaves.
+        """
+        ...
+
+    def find_leaf_by_index(self, idx: SupportsIndex, /) -> int:  # TODO: TEST!!!
+        """Find the leaf with the specified index relative to all leaves.
+
+        Assuming that ``i`` is a valid leaf element index, then
+        ``i == mesh.find_leaf_by_index(mesh.get_leaf_index(i))``.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the leaf element relative to all leaves.
+
+        Returns
+        -------
+        int
+            Index of the leaf element relative to all element
+        """
+        ...
+
 # Element side enum values
 
 ELEMENT_SIDE_BOTTOM: int
@@ -1609,7 +1401,800 @@ MATOP_IDENTITY: int
 MATOP_MASS: int
 MATOP_INCIDENCE: int
 MATOP_PUSH: int
-MATOP_MATMUL: int
 MATOP_SCALE: int
 MATOP_SUM: int
 MATOP_INTERPROD: int
+
+def compute_integrating_fields(
+    fem_space: ElementFemSpace2D,
+    form_specs: _ElementFormSpecification,
+    field_orders: tuple[UnknownFormOrder, ...],
+    field_information: tuple[Function2D | str, ...],
+    degrees_of_freedom: npt.NDArray[np.float64],
+) -> tuple[npt.NDArray[np.double], ...]:
+    """Compute fields at integration points.
+
+    Parameters
+    ----------
+    fem_space : ElementFemSpace2D
+        Element FEM space to use for basis and integration rules.
+
+    form_orders : tuple of UnknownFormOrder
+        Orders of differential forms in the system.
+
+    field_information : tuple of int or Function2D
+        Information of how to compute the field - an integer indicates to use degrees of
+        freedom of that form, while a function indicates it should be called and
+        evaluated.
+
+    degrees_of_freedom : array
+        Array with degrees of freedom from which the fields may be computed.
+
+    Returns
+    -------
+    tuple of arrays
+        Fields reconstructed at the integration points.
+    """
+    ...
+
+class _ElementFormSpecification:
+    """Specifications of forms defined on an element.
+
+    Parameters
+    ----------
+    *specs : tuple of (str, int)
+        Specifications for differential forms on the element. Each label must be
+        unique and order have a valid value which is in
+        :class:`mfv2d.kform.UnknownFormOrder`.
+    """
+
+    def __new__(cls, *specs: tuple[str, int]): ...
+    @property
+    def orders(self) -> tuple[int, ...]: ...
+    @property
+    def names(self) -> tuple[str, ...]: ...
+    def __iter__(self) -> Iterator[tuple[str, int]]: ...
+    def __getitem__(self, idx: SupportsIndex, /) -> tuple[str, int]: ...
+    def __len__(self) -> int: ...
+    def __contains__(self, item: tuple[str, int]) -> bool: ...
+    def form_offset(self, idx: SupportsIndex, /, order_1: int, order_2: int) -> int:
+        """Get the offset of the form in the element.
+
+        Parameters
+        ----------
+        idx : typing.SupportsIndex
+            Index of the form.
+
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        int
+            Offset of degrees of freedom of the differential form.
+        """
+        ...
+
+    def form_offsets(self, order_1: int, order_2: int) -> tuple[int, ...]:
+        """Get the offsets of all forms in the element.
+
+        Parameters
+        ----------
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        tuple of int
+            Offsets of degrees of freedom for all differential forms, with an extra
+            entry at the end, which is the count of all degrees of freedom.
+        """
+        ...
+
+    def form_size(self, idx: SupportsIndex, /, order_1: int, order_2: int) -> int:
+        """Get the number of degrees of freedom of the form in the element.
+
+        Parameters
+        ----------
+        idx : typing.SupportsIndex
+            Index of the form.
+
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        int
+            Number of degrees of freedom of the differential form.
+        """
+        ...
+
+    def form_sizes(self, order_1: int, order_2: int) -> tuple[int, ...]:
+        """Get the number of degrees of freedom for each form in the element.
+
+        Parameters
+        ----------
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        tuple of int
+            Number of degrees of freedom for each differential form.
+        """
+        ...
+
+    def total_size(self, order_1: int, order_2: int) -> int:
+        """Get the total number of degrees of freedom of the forms.
+
+        Parameters
+        ----------
+        order_1 : int
+            Order of the element in the first dimension.
+
+        order_2 : int
+            Order of the element in the second dimension.
+
+        Returns
+        -------
+        int
+            Total number of degrees of freedom of all differential forms.
+        """
+        ...
+
+    def index(self, value: tuple[str, int], /) -> int:
+        """Return the index of the form with the given label and order in the specs.
+
+        Parameters
+        ----------
+        value : tuple of (str, int)
+            Label and index of the form.
+
+        Returns
+        -------
+        int
+            Index of the form in the specification.
+        """
+        ...
+
+class SparseVector:
+    """Vector which stores only the non-zero components."""
+
+    @classmethod
+    def from_entries(cls, n: int, indices: npt.ArrayLike, values: npt.ArrayLike) -> Self:
+        """Create sparse vector from an array of indices and values.
+
+        Parameters
+        ----------
+        n : int
+            Dimension of the vector.
+
+        indices : array_like
+            Indices of the entries. Must be sorted.
+
+        values : array_like
+            Values of the entries.
+
+        Returns
+        -------
+        SparseVector
+            New vector with indices and values as given.
+        """
+        ...
+
+    @classmethod
+    def from_pairs(cls, n: int, *pairs: tuple[int, float]) -> Self:
+        """Create sparse vector from an index-coefficient pairs.
+
+        Parameters
+        ----------
+        n : int
+            Dimension of the vector.
+
+        *pairs : tuple[int, float]
+            Pairs of values and indices for the vector.
+
+        Returns
+        -------
+        SparseVector
+            New vector with indices and values as given.
+        """
+        ...
+
+    @property
+    def n(self) -> int:
+        """Dimension of the vector."""
+        ...
+
+    @n.setter
+    def n(self, v: int, /) -> None: ...
+    @property
+    def values(self) -> npt.NDArray[np.float64]:
+        """Values of non-zero entries of the vector."""
+        ...
+
+    @property
+    def indices(self) -> npt.NDArray[np.uint64]:
+        """Indices of non-zero entries of the vector."""
+        ...
+
+    def __array__(self, dtype=None, copy=None) -> npt.NDArray:
+        """Convert the vector to a full array."""
+        ...
+
+    @overload
+    def __getitem__(self, idx: int, /) -> float: ...
+    @overload
+    def __getitem__(self, idx: slice, /) -> SparseVector: ...
+    @classmethod
+    def concatenate(cls, *vectors: SparseVector) -> Self:
+        """Merge sparse vectors together into a single vector.
+
+        Parameters
+        ----------
+        *vectors : SparseVector
+            Sparse vectors that should be concatenated.
+
+        Returns
+        -------
+        Self
+            Newly created sparse vector.
+        """
+        ...
+
+    @property
+    def count(self) -> int:
+        """Number of entries in the vector."""
+        ...
+
+    def __add__(self, other: SparseVector) -> SparseVector: ...
+    def __radd__(self, other: SparseVector) -> SparseVector: ...
+    def __sub__(self, other: SparseVector) -> SparseVector: ...
+    def __rsub__(self, other: SparseVector) -> SparseVector: ...
+    def __mul__(self, other: float) -> SparseVector: ...
+    def __rmul_(self, other: float) -> SparseVector: ...
+    def dot(self, other: SparseVector, /) -> float:
+        """Compute dot product of two sparse vectors.
+
+        Parameters
+        ----------
+        other : SparseVector
+            The sparse vector with which to take the dot product with. Its dimension
+            must match exactly.
+
+        Returns
+        -------
+        float
+            Dot product of the two sparse vectors.
+        """
+        ...
+
+    @property
+    def norm2(self) -> float:
+        """Square of the L2 norm."""
+        ...
+
+    @staticmethod
+    def merge_to_dense(
+        *vecs: SparseVector, duplicates: Literal["first", "last", "sum", "error"] = "last"
+    ) -> npt.NDArray[np.float64]:
+        """Merge sparse vectors into a single dense vector.
+
+        Parameters
+        ----------
+        vecs : SparseVector
+            Sparse vectors that should be merged together. All must have the exact same
+            size.
+
+        duplicates : "first", "last", "sum", or "error", default: "last"
+            What value to use when encountering duplicates.
+
+        Returns
+        -------
+        array
+            Full array with all the entries of vectors combined.
+        """
+        ...
+
+@final
+class MatrixCRS:
+    """Compressed-row sparse matrix.
+
+    Type used to store sparse matrices and allow for building them in
+    an efficient way.
+    """
+
+    def __new__(cls, rows: int, cols: int) -> Self: ...
+
+    # Operators
+
+    @overload
+    def __getitem__(self, idx: tuple[int, int], /) -> float: ...
+    @overload
+    def __getitem__(self, idx: int, /) -> SparseVector: ...
+    @overload
+    def __matmul__(self, other: MatrixCRS, /) -> MatrixCRS: ...
+    @overload
+    def __matmul__(self, other: SparseVector, /) -> SparseVector: ...
+    @overload
+    def __matmul__(
+        self, other: npt.ArrayLike, /
+    ) -> SparseVector | npt.NDArray[np.double]: ...
+    @overload
+    def __rmatmul__(self, other: SparseVector, /) -> SparseVector: ...
+    @overload
+    def __rmatmul__(
+        self, other: npt.ArrayLike, /
+    ) -> SparseVector | npt.NDArray[np.double]: ...
+    @overload
+    def __rmatmul__(self, other: MatrixCRS, /) -> MatrixCRS: ...
+
+    # Named methods
+
+    def build_row(self, row: int, entries: SparseVector | None = None) -> None:
+        """Build a row of the matrix.
+
+        This should be called for each row in order as the matrix is constructed,
+        since this updates the end or row offset values. It allows for very quick
+        matrix construction.
+
+        Parameters
+        ----------
+        row : int
+            Index of the row that is being set.
+
+        entries : SparseVector, optional
+            Entries of the row that is to be set. If not given, the row is set to empty.
+        """
+        ...
+    def toarray(self) -> npt.NDArray[np.double]: ...
+    def set_from_data(
+        self,
+        values: npt.ArrayLike,
+        column_indices: npt.ArrayLike,
+        row_lengths: npt.ArrayLike,
+    ) -> None:
+        """Populate the matrix with data.
+
+        Parameters
+        ----------
+        values : array
+            Array of values of entries in the matrix.
+
+        column_indices : array
+            Indices of the column indices of the matrix. Must have the exact same lenght
+            as ``values``. For each row, this should also be sorted and not exceed the
+            column count of the matrix.
+
+        row_lengths : array
+            Length for each row in the matrix.
+
+        Examples
+        --------
+        This method is primarely intended to allow for conversion to and from
+        :mod:`scipy.sparse.csr_array`, which stores data based on these values.
+
+        >>> from scipy import sparse as sp
+        >>> from mfv2d._mfv2d import MatrixCRS
+        >>> import numpy as np
+        >>>
+        >>> np.random.seed(0) # Consistant seed for the test
+        >>> np.set_printoptions(precision=2)
+        >>>
+        >>> m = np.random.random_sample(6, 6)
+        >>> mask = m < 0.5
+        >>> m[mask] = 0
+        >>> m[~mask] = 2 * m[~mask] - 1.5
+        >>> m
+        array([[-0.4 , -0.07, -0.29, -0.41,  0.  , -0.21],
+               [ 0.  ,  0.28,  0.43,  0.  ,  0.08, -0.44],
+               [-0.36,  0.35,  0.  ,  0.  ,  0.  ,  0.17],
+               [ 0.06,  0.24,  0.46,  0.1 ,  0.  ,  0.06],
+               [ 0.  , -0.22,  0.  ,  0.39, -0.46,  0.  ],
+               [ 0.  ,  0.05,  0.  , -0.36,  0.  , -0.26]])
+
+        If this array is now converted into a scipy CRS array, it
+
+        >>> m1 = sp.csr_array(m)
+        >>> m2 = MatrixCRS(*m1.shape)
+        >>> m2.set_from_data(
+        ...     m1.data, np.astype(m1.indices, np.uint32), m1.indptr[1:] - m1.indptr[:-1]
+        ... )
+        >>> m2.toarray() == m1.toarray()
+        array([[ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True],
+               [ True,  True,  True,  True,  True,  True]])
+        """
+        ...
+
+    def transpose(self) -> MatrixCRS:
+        """Transpose of the matrix.
+
+        Returns
+        -------
+        MatrixCRS
+            Transposed matrix, where entry :math:`(i, j)` in the original is equal
+            to entriy :math:`(j, i)` in the transpose.
+        """
+        ...
+
+    def shrink(self) -> None:
+        """Reduce memory usage to the lowest possible amount."""
+        ...
+
+    def remove_entries_bellow(self, v: float = 0.0, /) -> int:
+        """Remove entries with the magnitude bellow specified value.
+
+        Parameters
+        ----------
+        v : float, default: 0.0
+            Magnitude bellow which values should be removed. Can not be
+            negative.
+
+        Returns
+        -------
+        int
+            Number of entries that have been removed.
+        """
+        ...
+
+    def add_to_dense(self, out: npt.NDArray[np.float64], /) -> None:
+        """Add nonzero entries of the matrix to the NumPy array.
+
+        This is useful when trying to merge multiple sparse arrays
+        into a single dense NumPy array.
+
+        Parameters
+        ----------
+        out : array
+            Array to which the output is written. The shape must match
+            exactly, and the type must also be exactly the same.
+        """
+        ...
+
+    @classmethod
+    def from_dense(cls, x: npt.ArrayLike, /) -> Self:
+        """Create a new sparse matrix from a dense array.
+
+        Parameters
+        ----------
+        x : array_like
+            Dense array the matrix is created from. Must be
+            two dimensional.
+
+        Returns
+        -------
+        MatrixCRS
+            Matrix that is initialized from the data of the full
+            matrix. This includes zeros.
+        """
+        ...
+
+    def multiply_to_sparse(self, x: npt.ArrayLike, /) -> SparseVector:
+        """Multiply with a dense array, but return the result as a sparse vector.
+
+        This is useful when the sparse matrix has many empty rows, which is common
+        for element constraint matrices.
+
+        Returns
+        -------
+        SparseVector
+            Result of multiplying the dense vector by the sparse matrix as a
+            sparse vector.
+        """
+        ...
+
+    # Properties
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Shape of the matrix."""
+        ...
+
+    @property
+    def column_indices(self) -> npt.NDArray[np.uint32]:
+        """Column indices of non-zero values."""
+        ...
+
+    @property
+    def row_indices(self) -> npt.NDArray[np.uint32]:
+        """Row indices of non-zero values."""
+        ...
+
+    @property
+    def values(self) -> npt.NDArray[np.uint32]:
+        """Values of non-zero values."""
+        ...
+
+    @property
+    def position_pairs(self) -> npt.NDArray[np.uint32]:
+        """Array of position pairs of non-zero values."""
+        ...
+
+    @property
+    def row_offsets(self) -> npt.NDArray[np.uint32]:
+        """Array with number of elements before each row begins."""
+        ...
+
+    @property
+    def built_rows(self) -> int:
+        """Number of rows that have been built."""
+        ...
+
+    @property
+    def nonempty_rows(self) -> npt.NDArray[np.uintc]:
+        """Indices of rows with at least one entry."""
+        ...
+
+class LinearSystem:
+    """Class used to represent a linear system with element equations and constraints.
+
+    Parameters
+    ----------
+    blocks : tuple of (array, MatrixCRS)
+        Tuple of blocks that contain the (square) dense matrix diagonal block and the
+        matrix representing the constraint block.
+
+    offsets : array
+        Array of offsets for the array of element indices for each trace variable.
+
+    indices : array
+        Packed array of element indices for each trace variable, denoting to which
+        elements the variable must be added to.
+    """
+
+    # TODO: refactor all these "create_*" methods into constructors for appropriate types
+    def __new__(
+        cls,
+        blocks: tuple[tuple[npt.NDArray[np.float64], MatrixCRS], ...],
+        offsets: npt.NDArray[np.uint32],
+        indices: npt.NDArray[np.uint32],
+    ) -> Self: ...
+    def __str__(self) -> str: ...
+    def get_dense_blocks(self) -> tuple[npt.NDArray[np.float64], ...]:
+        """Get the dense blocks of the system."""
+        ...
+
+    def get_constraint_blocks(self) -> tuple[MatrixCRS, ...]:
+        """Get the constraint blocks of the system."""
+        ...
+
+    def apply_diagonal(self, x: DenseVector, out: DenseVector, /) -> None:
+        """Apply multiplication by the diagonal part of the system.
+
+        Parameters
+        ----------
+        DenseVector
+            Dense vector to which this is applied.
+
+        DenseVector
+            Dense vector to which the output is returned.
+        """
+        ...
+
+    def apply_diagonal_inverse(self, x: DenseVector, out: DenseVector, /) -> None:
+        """Apply inverse of the diagonal part of the system.
+
+        Parameters
+        ----------
+        DenseVector
+            Dense vector to which this is applied.
+
+        DenseVector
+            Dense vector to which the output is returned.
+        """
+        ...
+
+    def apply_trace(self, x: DenseVector, out: TraceVector, /) -> None:
+        """Apply the trace constraints to the dense vector.
+
+        Parameters
+        ----------
+        DenseVector
+            Dense vector to which this is applied.
+
+        TraceVector
+            Trace vector to which the output is returned.
+        """
+        ...
+
+    def apply_trace_transpose(self, x: TraceVector, out: DenseVector, /) -> None:
+        """Apply the transpose of the constraints to the trace vector.
+
+        Parameters
+        ----------
+        TraceVector
+            Trace vector to which this is applied.
+
+        DenseVector
+            Dense vector to which the output is returned.
+        """
+        ...
+
+class DenseVector:
+    """Type used to represent the "dense" system variables associated with one element."""
+
+    def __new__(cls, parent: LinearSystem, /, *blocks: npt.NDArray[np.float64]) -> Self:
+        """Create a new dense vector.
+
+        Parameters
+        ----------
+        LinearSystem
+            The system to which this vector belongs to.
+
+        *blocks : array
+            Arrays with values of the vector for each block. These must have the
+            same size as each of the blocks of the system. If an empty vector is
+            desired, no blocks should be provided.
+
+        """
+        ...
+
+    def __str__(self) -> str: ...
+    def as_merged(self) -> npt.NDArray[np.float64]:
+        """Return the dense vector as a single merged array."""
+        ...
+
+    def as_split(self) -> tuple[npt.NDArray[np.float64], ...]:
+        """Return the dense vector as a tuple of individual block arrays."""
+        ...
+
+    @staticmethod
+    def dot(v1: DenseVector, v2: DenseVector, /) -> float:
+        """Compute the dot product of two dense vectors."""
+        ...
+
+    @staticmethod
+    def add(
+        v1: DenseVector, v2: DenseVector, out: DenseVector, k: float, /
+    ) -> DenseVector:
+        r"""Add two dense vectors, potentially scaling one.
+
+        Result obtained is :math:`\vec{v}_1 + k \cdot \vec{v}_2`. The result is written
+        to the ``out`` vector, which is also returned by the function.
+
+        Returns
+        -------
+        DenseVector
+            The vector to which the result is written.
+        """
+        ...
+
+    @staticmethod
+    def subtract(
+        v1: DenseVector, v2: DenseVector, out: DenseVector, k: float, /
+    ) -> DenseVector:
+        r"""Subtract two dense vectors, scaling the second one.
+
+        Result obtained is :math:`\vec{v}_1 - k \cdot \vec{v}_2`. The result is written
+        to the ``out`` vector, which is also returned by the function.
+
+        Returns
+        -------
+        DenseVector
+            The vector to which the result is written.
+        """
+        ...
+
+    def copy(self) -> Self:
+        """Create a copy of itself."""
+        ...
+
+    def set_from(self, other: DenseVector) -> None:
+        """Set the value from another dense vector."""
+        ...
+
+    @staticmethod
+    def scale(v: DenseVector, x: float, out: DenseVector, /) -> DenseVector:
+        """Scale the vector by a value.
+
+        Returns
+        -------
+        DenseVector
+            The vector to which the result is written.
+        """
+        ...
+
+    @property
+    def parent(self) -> LinearSystem: ...
+
+class TraceVector:
+    """Type used to represent the "trace" system variables associated with constraints."""
+
+    def __new__(
+        cls, parent: LinearSystem, value: npt.NDArray[np.float64] | None = None, /
+    ) -> Self:
+        """Create a new TraceVector.
+
+        Parameters
+        ----------
+        LinearSystem
+            The system to which this vector belongs to.
+
+        array
+            Array with values of all trace variables. If not given, an all-zero vector
+            will be created.
+        """
+        ...
+
+    def __str__(self) -> str: ...
+    def as_merged(self) -> npt.NDArray[np.float64]:
+        """Return the trace vector as a single merged array."""
+        ...
+
+    def as_split(self) -> tuple[SparseVector, ...]:
+        """Return the trace vector as a tuple of individual block traces."""
+        ...
+
+    @staticmethod
+    def dot(v1: TraceVector, v2: TraceVector, /) -> float:
+        """Compute the dot product of two trace vectors."""
+        ...
+
+    @staticmethod
+    def add(
+        v1: TraceVector, v2: TraceVector, out: TraceVector, k: float, /
+    ) -> TraceVector:
+        r"""Add two trace vectors, potentially scaling one.
+
+        Result obtained is :math:`\vec{v}_1 + k \cdot \vec{v}_2`. The result is written
+        to the ``out`` vector, which is also returned by the function.
+
+        Returns
+        -------
+        TraceVector
+            The vector to which the result is written.
+        """
+        ...
+
+    @staticmethod
+    def subtract(
+        v1: TraceVector, v2: TraceVector, out: TraceVector, k: float, /
+    ) -> TraceVector:
+        r"""Subtract two trace vectors, scaling the second one.
+
+        Result obtained is :math:`\vec{v}_1 - k \cdot \vec{v}_2`. The result is written
+        to the ``out`` vector, which is also returned by the function.
+
+        Returns
+        -------
+        TraceVector
+            The vector to which the result is written.
+        """
+        ...
+
+    @staticmethod
+    def scale(v1: TraceVector, x: float, out: TraceVector, /) -> TraceVector:
+        """Scale the vector by a value.
+
+        Returns
+        -------
+        TraceVector
+            The vector to which the result is written.
+        """
+        ...
+
+    def copy(self) -> Self:
+        """Create a copy of itself."""
+        ...
+
+    def set_from(self, other: TraceVector) -> None:
+        """Set the value from another trace vector."""
+        ...
+
+    @property
+    def parent(self) -> LinearSystem: ...

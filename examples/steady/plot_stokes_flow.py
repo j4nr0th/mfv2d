@@ -51,6 +51,7 @@ import rmsh
 from matplotlib import pyplot as plt
 from mfv2d import (
     BoundaryCondition2DSteady,
+    ConvergenceSettings,
     KFormSystem,
     KFormUnknown,
     SolverSettings,
@@ -58,6 +59,7 @@ from mfv2d import (
     UnknownFormOrder,
     mesh_create,
     solve_system_2d,
+    system_as_string,
 )
 
 # %%
@@ -139,14 +141,13 @@ div = KFormUnknown("div", UnknownFormOrder.FORM_ORDER_2)
 w_div = div.weight
 
 system = KFormSystem(
-    w_vor.derivative * vel + w_vor * vor == w_vor ^ vel_exact,
-    w_vel * vor.derivative + w_vel.derivative * prs
-    == (w_vel ^ prs_exact) + w_vel * momentum_source,
-    w_prs * vel.derivative == 0,
-    w_div * div - w_div * vel.derivative == 0,
-    sorting=lambda f: f.order,
+    w_vor.derivative @ vel + w_vor @ vor == w_vor ^ vel_exact,
+    w_vel @ vor.derivative + w_vel.derivative @ prs
+    == (w_vel ^ prs_exact) + w_vel @ momentum_source,
+    w_prs @ vel.derivative == 0,
+    w_div @ div - w_div @ vel.derivative == 0,
 )
-print(system)
+print(system_as_string(system))
 
 # %%
 #
@@ -216,7 +217,9 @@ solution, stats, mesh = solve_system_2d(
         ],
     ),
     solver_settings=SolverSettings(
-        absolute_tolerance=1e-10, relative_tolerance=0, maximum_iterations=1
+        ConvergenceSettings(
+            absolute_tolerance=1e-10, relative_tolerance=0, maximum_iterations=1
+        )
     ),
     recon_order=25,
 )
@@ -241,10 +244,10 @@ print(f"Highest value of divergence in the domain is {sol.point_data['div'].max(
 # divergence form.
 
 system = KFormSystem(
-    w_vor.derivative * vel + w_vor * vor == w_vor ^ vel_exact,
-    w_vel * vor.derivative + w_vel.derivative * prs
-    == (w_vel ^ prs_exact) + w_vel * momentum_source,
-    w_prs * vel.derivative == 0,
+    w_vor.derivative @ vel + w_vor @ vor == w_vor ^ vel_exact,
+    w_vel @ vor.derivative + w_vel.derivative @ prs
+    == (w_vel ^ prs_exact) + w_vel @ momentum_source,
+    w_prs @ vel.derivative == 0,
     sorting=lambda f: f.order,
 )
 
@@ -267,7 +270,9 @@ for ip, pval in enumerate(p_vals):
             ],
         ),
         solver_settings=SolverSettings(
-            absolute_tolerance=1e-10, relative_tolerance=0, maximum_iterations=1
+            ConvergenceSettings(
+                absolute_tolerance=1e-10, relative_tolerance=0, maximum_iterations=1
+            )
         ),
         recon_order=25,
     )

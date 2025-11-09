@@ -89,7 +89,7 @@ def test_evaluation_twice() -> None:
             res = 0
             row = list()
             for ie, ec in enumerate(con.element_constraints):
-                e_idx = bnd_indices.index(ec.i_e)
+                e_idx = bnd_indices.index(mesh.find_leaf_by_index(ec.i_e))
                 e_val = child_vals[e_idx][ec.dofs]
                 e_coe = ec.coeffs
                 res += np.sum(e_coe * e_val)
@@ -146,7 +146,9 @@ def test_evaluation_once() -> None:
             res = 0
             for elem_con in con.element_constraints:
                 res += np.sum(
-                    val_child[bnd_indices.index(elem_con.i_e)][elem_con.dofs]
+                    val_child[bnd_indices.index(mesh.find_leaf_by_index(elem_con.i_e))][
+                        elem_con.dofs
+                    ]
                     * elem_con.coeffs
                 )
             # print(f"Error for order {order=} is {np.abs(res - val_real[ic]):.3e}")
@@ -198,7 +200,9 @@ def test_evaluation_twice_1() -> None:
             res = 0
             for elem_con in con.element_constraints:
                 res += np.sum(
-                    val_child[bnd_indices.index(elem_con.i_e)][elem_con.dofs]
+                    val_child[bnd_indices.index(mesh.find_leaf_by_index(elem_con.i_e))][
+                        elem_con.dofs
+                    ]
                     * elem_con.coeffs
                 )
             # print(f"Error for order {order=} is {np.abs(res - val_real[ic]):.3e}")
@@ -255,7 +259,9 @@ def test_evaluation() -> None:
             res = 0
             for elem_con in con.element_constraints:
                 res += np.sum(
-                    val_child[bnd_indices.index(elem_con.i_e)][elem_con.dofs]
+                    val_child[bnd_indices.index(mesh.find_leaf_by_index(elem_con.i_e))][
+                        elem_con.dofs
+                    ]
                     * elem_con.coeffs
                 )
             # print(f"Error for order {order=} is {np.abs(res - val_real[ic]):.3e}")

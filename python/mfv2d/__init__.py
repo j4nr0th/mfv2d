@@ -4,32 +4,57 @@ This file includes re-exports types and functions that are expected to be used
 by users, either for directly creating them, or to just use them for type-hinting.
 """
 
+# Examples
+from mfv2d import examples as examples
+
 # _mfv2d
 from mfv2d._mfv2d import Mesh as Mesh
 
 # Boundary
 from mfv2d.boundary import BoundaryCondition2DSteady as BoundaryCondition2DSteady
 
+# Eval
+from mfv2d.eval import system_as_string as system_as_string
+
 # K-forms
 from mfv2d.kform import KEquation as KEquation
-from mfv2d.kform import KFormSystem as KFormSystem
 from mfv2d.kform import KFormUnknown as KFormUnknown
 from mfv2d.kform import KWeight as KWeight
 from mfv2d.kform import UnknownFormOrder as UnknownFormOrder
 
 # Mimetic2D
+from mfv2d.mimetic2d import integrate_over_elements as integrate_over_elements
 from mfv2d.mimetic2d import mesh_create as mesh_create
 
 # Refinement settings
+from mfv2d.refinement import ErrorEstimateCustom as ErrorEstimateCustom
+from mfv2d.refinement import ErrorEstimateExplicit as ErrorEstimateExplicit
+from mfv2d.refinement import (
+    ErrorEstimateL2OrderReduction as ErrorEstimateL2OrderReduction,
+)
+from mfv2d.refinement import ErrorEstimateLocalInverse as ErrorEstimateLocalInverse
+from mfv2d.refinement import ErrorEstimateVMS as ErrorEstimateVMS
 from mfv2d.refinement import RefinementLimitElementCount as RefinementLimitElementCount
 from mfv2d.refinement import RefinementLimitErrorValue as RefinementLimitErrorValue
 from mfv2d.refinement import RefinementLimitUnknownCount as RefinementLimitUnknownCount
 from mfv2d.refinement import RefinementSettings as RefinementSettings
-
-# Solve system
+from mfv2d.refinement import (
+    compute_legendre_coefficients as compute_legendre_coefficients,
+)
+from mfv2d.refinement import (
+    compute_legendre_error_estimates as compute_legendre_error_estimates,
+)
+from mfv2d.solve_system import SolutionStatistics as SolutionStatistics
 from mfv2d.solve_system import SolverSettings as SolverSettings
 from mfv2d.solve_system import SystemSettings as SystemSettings
 from mfv2d.solve_system import TimeSettings as TimeSettings
+from mfv2d.solve_system import VMSSettings as VMSSettings
 
 # Actual solving
 from mfv2d.solve_system_2d import solve_system_2d as solve_system_2d
+
+# Solve system
+from mfv2d.solving import ConvergenceSettings as ConvergenceSettings
+
+# System
+from mfv2d.system import KFormSystem as KFormSystem

@@ -7,24 +7,26 @@ stack machine.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import IntEnum
 
 from mfv2d.kform import (
     Function2D,
+    KBoundaryProjection,
+    KElementProjection,
+    KForm,
     KFormDerivative,
-    KFormSystem,
     KFormUnknown,
-    KHodge,
     KInnerProduct,
     KInteriorProduct,
-    KInteriorProductNonlinear,
+    KInteriorProductLowered,
     KSum,
     KWeight,
-    Term,
     UnknownFormOrder,
+    extract_base_form,
 )
+from mfv2d.system import KFormSystem
 
 
 @dataclass(frozen=True)
@@ -73,12 +75,12 @@ class Incidence(MatOp):
     begin : UnknownFormOrder
         Order of the k-form for the incidence matrix from which to apply it.
 
-    dual : bool
-        Should the incidence matrix be applied as the dual.
+    transpose : bool
+        Should the incidence matrix be transposed.
     """
 
     begin: UnknownFormOrder
-    dual: int
+    transpose: int
 
 
 @dataclass(frozen=True)
@@ -86,14 +88,6 @@ class Push(MatOp):
     """Push the matrix on the stack.
 
     Used for matrix multiplication and summation.
-    """
-
-
-@dataclass(frozen=True)
-class MatMul(MatOp):
-    """Multiply two matrices.
-
-    Multiply the current matrix with the one currently on the top of the stack.
     """
 
 
@@ -139,21 +133,16 @@ class InterProd(MatOp):
     starting_order : UnknownFormOrder
         Order of the k-form to which the interior product should be applied.
 
-    field_index : int
+    field : str or Function2D
         Index of the vector/scalar field from which the values of are taken.
 
-    dual : bool
-        Should the dual interior product be applied instead of the primal.
-
-    adjoint : bool
-        Should the adjoint interior product be applied, which is used by
-        the Newton-Raphson solver.
+    transpose : bool
+        Should the matrix be transposed.
     """
 
     starting_order: UnknownFormOrder
-    field_index: int
-    dual: bool
-    adjoint: bool
+    field: str | Function2D
+    transpose: bool
 
 
 def simplify_expression(*operations: MatOp) -> list[MatOp]:
@@ -256,31 +245,6 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
                     nops -= 1
                     continue
 
-            if nops - i >= 3 and (
-                type(ops[i]) is Push
-                and type(ops[i + 1]) is Identity
-                and type(ops[i + 2]) is MatMul
-            ):
-                # Multiplication by identity is no-op
-                del ops[i + 2]
-                del ops[i + 1]
-                del ops[i]
-                nops -= 3
-                continue
-
-            if nops - i >= 3 and (
-                type(ops[i]) is Push
-                and type(ops[i + 1]) is Scale
-                and type(ops[i + 2]) is MatMul
-            ):
-                # MatMul by Scale-only matrix is same as scaling itself
-                s = ops[i + 1]
-                del ops[i + 2]
-                del ops[i + 1]
-                ops[i] = s
-                nops -= 2
-                continue
-
             if nops - i >= 5 and (
                 type(ops[i]) is Push
                 and (type(ops[i + 1]) is Scale or type(ops[i + 1]) is Identity)
@@ -314,339 +278,160 @@ def simplify_expression(*operations: MatOp) -> list[MatOp]:
                 nops -= 2
                 continue
 
+            if i > 1 and (type(ops[i]) is Identity and type(ops[i - 1]) is not Push):
+                # Identity following anything but push is a no-op
+                del ops[i]
+                nops -= 1
+
             else:
                 i += 1
 
     return ops
 
 
-def translate_equation(
-    form: Term,
-    vec_fields: Sequence[Function2D | KFormUnknown],
-    newton: bool,
-    simplify: bool,
-) -> dict[Term, list[MatOp]]:
-    """Compute the matrix operations on individual forms.
+def translate_implicit_ksum(ks: KSum) -> dict[KFormUnknown, list[MatOp]]:
+    """Compute matrix operations on different unknown blocks.
 
     Parameter
     ---------
-    form : Term
-        Form to evaluate.
-    vec_fields : Sequence of Function2D or KFormUnknown
-        Sequence to use when determining the index of vector fields passed to evaluation
-        function.
-    newton : bool
-        When ``True``, non-linear terms will yield terms two terms used to determine the
-        derivative. Otherwise, only the terms to evaluate the value are returned.
-    simplify : bool, default: True
-        Simplify the expressions at the top level
+    ks : KSum
+        Sum to translate.
 
     Returns
     -------
-    dict of KForm -> array or float
+    dict of (KFormUnknown, list[MatOp])
         Dictionary mapping forms to either a matrix that represents the operation to
         perform on them, or ``float``, if it should be multiplication with a constant.
     """
-    v = _translate_equation(
-        form=form, vec_fields=vec_fields, newton=newton, transpose=False
-    )
-    if simplify:
-        for k in v:
-            v[k] = simplify_expression(*v[k])
+    # Get instructions for each InnerProduct
+    instructions: dict[KFormUnknown, list[list[MatOp]]] = dict()
+    for k, ip in ks.pairs:
+        if type(ip) is not KInnerProduct:
+            raise TypeError("Can only translate implicit terms.")
 
-    # We no longer use the Transpose instruction :)
+        ops: list[MatOp] = _translate_inner_prod(ip)
+        if k != 1.0:
+            ops += [Scale(k)]
+        base = extract_base_form(ip.unknown_form)
+        assert type(base) is KFormUnknown
+        if base not in instructions:
+            instructions[base] = list()
+        instructions[base].append(ops)
+
+    # Merge instructions as needed
+    v: dict[KFormUnknown, list[MatOp]] = dict()
+    for form in instructions:
+        op_list = instructions[form]
+        assert form not in v
+        merged: list[MatOp] = op_list[0]
+        cnt = len(op_list)
+        for i in range(cnt - 1):
+            new_ops = op_list[i + 1]
+            merged.append(Push())
+            merged.extend(new_ops)
+        if cnt > 1:
+            merged.append(Sum(cnt - 1))
+        v[form] = simplify_expression(*merged)
+
     return v
 
 
-def _translate_equation(
-    form: Term,
-    vec_fields: Sequence[Function2D | KFormUnknown],
-    newton: bool,
-    transpose: bool,
-) -> dict[Term, list[MatOp]]:
-    """Compute the matrix operations on individual forms.
+def explicit_ksum_as_string(ks: KSum) -> str:
+    """Make the explicit terms in the KSum into a string.
 
     Parameter
     ---------
-    form : Term
-        Form to evaluate.
-    vec_fields : Sequence of Function2D or KFormUnknown
-        Sequence to use when determining the index of vector fields passed to evaluation
-        function.
-    newton : bool
-        When ``True``, non-linear terms will yield terms two terms used to determine the
-        derivative. Otherwise, only the terms to evaluate the value are returned.
-    transpose : bool
-        Should instructions be transposed.
+    ks : KSum
+        Sum to translate.
 
     Returns
     -------
-    dict of KForm -> array or float
-        Dictionary mapping forms to either a matrix that represents the operation to
-        perform on them, or ``float``, if it should be multiplication with a constant.
+    str
+        String of explicit terms.
     """
-    mass: Identity | MassMat
-    if type(form) is KSum:
-        out: dict[Term, list[MatOp]] = {}
-        accum: dict[Term, list[MatOp]] = {}
-        counts: dict[Term, int] = {}
-        for c, ip in form.pairs:
-            right = _translate_equation(
-                form=ip, vec_fields=vec_fields, newton=newton, transpose=transpose
-            )
-            if c != 1.0:
-                for f in right:
-                    right[f].append(Scale(c))
+    res = str()
 
-            for k in right:
-                vr = right[k]
-                if k in accum:
-                    accum[k].append(Push())
-                    accum[k].extend(vr)
-                    counts[k] += 1
-                else:
-                    accum[k] = vr  # k is not in left
-                    counts[k] = 0
+    for k, ip in ks.pairs:
+        out = str()
+        match ip:
+            case KInnerProduct():
+                # Not explicit
+                continue
 
-        for k in accum:
-            out[k] = accum[k]
-            cnt = counts[k]
-            if cnt > 0:
-                out[k].append(Sum(cnt))
+            case KElementProjection() as ep:
+                if ep.func is None:
+                    continue
+                out = "E" + ep.label
 
-        return out
+            case KBoundaryProjection() as bp:
+                if bp.func is None:
+                    continue
+                out = "B" + bp.label
 
-    if type(form) is KInnerProduct:
-        unknown: dict[Term, list[MatOp]]
-        # if isinstance(form.function, KHodge):
-        #     unknown = _translate_equation(form.function.base_form)
-        # else:
-        unknown = _translate_equation(
-            form=form.unknown_form, vec_fields=vec_fields, newton=newton, transpose=False
-        )
-        weight = _translate_equation(
-            form=form.weight_form, vec_fields=vec_fields, newton=newton, transpose=True
-        )
-        assert len(weight) == 1
-        dv = tuple(v for v in weight.keys())[0]
-        for k in unknown:
-            vd = weight[dv]
-            vp = unknown[k]
-            order_p = form.unknown_form.primal_order
-            order_d = form.weight_form.primal_order
-            assert order_p == order_d
-
-            if order_p == order_d:
-                if form.unknown_form.is_primal:
-                    if form.weight_form.is_primal:
-                        mass = MassMat(order_p, False)
-                    else:
-                        mass = Identity()
-                else:
-                    if form.weight_form.is_primal:
-                        mass = Identity()
-                    else:
-                        mass = MassMat(order_p, True)
-            else:
-                raise ValueError(
-                    f"Order {form.unknown_form.order} can't be used on a 2D mesh."
-                )
-            if not transpose:
-                result = vp + [mass] + vd
-            else:
-                result = vd + [mass] + vp
-            unknown[k] = result
-        return unknown
-
-    if type(form) is KFormDerivative:
-        res = _translate_equation(form.form, vec_fields, newton, transpose=transpose)
-        for k in res:
-            vr = res[k]
-            if not transpose:
-                vr.append(Incidence(form.form.order, not form.form.is_primal))
-            else:
-                res[k] = [
-                    Incidence(
-                        UnknownFormOrder(form.form.order.dual.value - 1),
-                        form.form.is_primal,
-                    ),
-                    Scale(-1),
-                ] + vr
-        return res
-
-    if type(form) is KHodge:
-        unknown = _translate_equation(
-            form=form.base_form, vec_fields=vec_fields, newton=newton, transpose=transpose
-        )
-        prime_order = form.primal_order
-        for k in unknown:
-            mass = MassMat(prime_order, not form.base_form.is_primal)
-            uv = unknown[k]
-            if not transpose:
-                uv.append(mass)
-            else:
-                uv = [mass] + uv
-            unknown[k] = uv
-        return unknown
-
-    if type(form) is KFormUnknown:
-        return {form: [Identity()]}
-
-    if type(form) is KWeight:
-        return {form: [Identity()]}
-
-    if (type(form) is KInteriorProduct) or (type(form) is KInteriorProductNonlinear):
-        if transpose:
-            ValueError("Can not transpose interior product instructions (yet?).")
-
-        res = _translate_equation(
-            form=form.form, vec_fields=vec_fields, newton=newton, transpose=transpose
-        )
-
-        if type(form) is KInteriorProduct:
-            idx = vec_fields.index(form.vector_field)
-            base_form = form.form
-
-        elif type(form) is KInteriorProductNonlinear:
-            idx = vec_fields.index(form.form_field)
-            base_form = form.form
-
+        if k != 1.0:
+            out = f"{abs(k):g} * {out}"
+        if k < 0:
+            out = "- " + out
         else:
-            assert False
+            out = "+ " + out
+        res = res + " " + out
 
-        prod_instruct: list[MatOp] = [
-            InterProd(
-                base_form.order,
-                idx,
-                not base_form.is_primal,
-                False,
-            )
-        ]
+    return res.strip()
 
-        if not base_form.is_primal:
-            prod_instruct = (
-                [MassMat(UnknownFormOrder(form.primal_order.value - 1), True)]
-                + prod_instruct
-                + [MassMat(form.primal_order, True)]
-            )
 
-        for k in res:
-            res[k].extend(prod_instruct)
-
-        if type(form) is KInteriorProductNonlinear and newton:
-            other_form = form.form_field
-            if other_form in res:
-                raise ValueError(
-                    "Can not translate equation which would require sum with adjoint "
-                    "non-linear product."
-                )
-            if type(form.form) is KHodge:
-                base = form.form.base_form
-            else:
-                base = form.form
-
-            qidx = vec_fields.index(base)
-            extra_op: list[MatOp] = [
-                InterProd(form.form.order, qidx, not form.form.is_primal, True)
+def _translate_form(form: KForm) -> list[MatOp]:
+    """Translate form into a sequence of matrix operations to be applied of form DoFs."""
+    match form:
+        case KFormUnknown():
+            return [Identity()]
+        case KWeight():
+            return [Identity()]
+        case KFormDerivative() as fd:
+            return _translate_form(fd.form) + [Incidence(fd.form.order, False)]
+        case KInteriorProduct() as ip:
+            return _translate_form(ip.form) + [
+                InterProd(ip.form.order, ip.vector_field, False),
+                MassMat(ip.order, True),
             ]
-            if not form.form.is_primal:
-                extra_op += [MassMat(form.primal_order, True)]
-            res[other_form] = extra_op
+        case KInteriorProductLowered() as ipl:
+            return _translate_form(ipl.form) + [
+                InterProd(ipl.form.order, ipl.form_field.label, False),
+                MassMat(ipl.order, True),
+            ]
+        case _:
+            raise TypeError(f"Unknown form type {type(form)}")
 
-        return res
 
-    raise TypeError("Unknown type")
+def _translate_inner_prod(inner: KInnerProduct) -> list[MatOp]:
+    """Translate inner product."""
+    unknown_ops = _translate_form(inner.unknown_form)
+    weight_ops = _translate_form(inner.weight_form)
 
+    # Add mass matrix
+    unknown_ops.append(MassMat(inner.unknown_form.order, False))
 
-def print_eval_procedure(expr: Iterable[MatOp], /) -> str:
-    """Print how the terms would be evaluated.
-
-    This is primarely just used to test if the procedure is correct.
-    """
-    stack: list[tuple[float, str]] = []
-    val: tuple[float, str] | None = None
-    for op in expr:
-        if type(op) is MassMat:
-            mat = f"M({op.order.value - 1})" + ("^{-1}" if op.inv else "")
-            if val is not None:
-                c, s = val
-                val = (c, mat + " @ " + s)
-            else:
-                val = (1.0, mat)
-
-        elif type(op) is Incidence:
-            mat = f"E({op.begin + 1}, {op.begin})" + ("*" if op.dual else "")
-            if val is not None:
-                c, s = val
-                val = (c, mat + " @ " + s)
-            else:
-                val = (1.0, mat)
-
-        elif type(op) is Push:
-            if val is None:
-                raise ValueError("Invalid Push operation.")
-            stack.append(val)
-            val = None
-
-        elif type(op) is Scale:
-            if val is None:
-                val = (op.k, "I")
-            else:
-                c, s = val
-                val = (c * op.k, s)
-
-        elif type(op) is MatMul:
-            k, mat = stack.pop()
-            if val is None:
-                raise ValueError("Invalid MatMul operation.")
-
-            c, s = val
-            val = (c * k, s + " @ " + mat)
-
-        elif type(op) is Sum:
-            n = op.count
-            if n <= 0:
-                raise ValueError("Sum must be of a non-zero number of matrices.")
-            if val is None:
-                raise ValueError("Invalid Sum operation.")
-            if len(stack) < n:
-                raise ValueError(
-                    f"Not enough matrices on the stack to Sum ({len(stack)} on stack,"
-                    f" but {n} should be summed)."
+    # Add transposed weight ops to unknown ops.
+    for op in reversed(weight_ops):
+        match op:
+            case Identity():
+                # Ignore
+                pass
+            case Incidence() as inc:
+                unknown_ops.append(Incidence(inc.begin, not inc.transpose))
+            case MassMat() | Scale():
+                # Symmetric, so no transpose
+                unknown_ops.append(op)
+            case InterProd() as ip:
+                unknown_ops.append(
+                    InterProd(ip.starting_order, ip.field, not ip.transpose)
                 )
-            c, s = val
-            s = ("" if c > 0 else "-") + f"{abs(c):g} {s}"
-            for _ in range(n):
-                k, mat = stack.pop()
-                s += (" + " if k > 0 else " - ") + f"{abs(k):g} {mat}"
-            val = (1.0, s)
+            case _:
+                raise TypeError("Unexpected type for an inner product instructions.")
 
-        elif type(op) is Identity:
-            if val is None:
-                val = (1.0, "I")
-
-        elif type(op) is InterProd:
-            if not op.dual:
-                mat = f"M({op.starting_order}, {op.starting_order - 1}; {op.field_index})"
-            else:
-                mat = (
-                    f"M*({op.starting_order}, {op.starting_order - 1}; {op.field_index})"
-                )
-            if val is None:
-                val = (1.0, mat)
-            else:
-                c, s = val
-                val = (c, mat + " @ " + s)
-
-        else:
-            raise TypeError("Unknown operation.")
-
-    if len(stack):
-        raise ValueError(f"{len(stack)} matrices still on the stack.")
-    if val is None:
-        return "I"
-    c, s = val
-    return f"{c:g} ({s})"
+    if len(unknown_ops) > 1:
+        # Skip the first identity
+        return unknown_ops[1:]
+    return unknown_ops
 
 
 class MatOpCode(IntEnum):
@@ -663,13 +448,18 @@ class MatOpCode(IntEnum):
     MASS = 2
     INCIDENCE = 3
     PUSH = 4
-    MATMUL = 5
-    SCALE = 6
-    SUM = 7
-    INTERPROD = 8
+    SCALE = 5
+    SUM = 6
+    INTERPROD = 7
 
 
-def translate_to_c_instructions(*ops: MatOp) -> list[MatOpCode | int | float]:
+_TranslatedInstruction = tuple[MatOpCode | int | float | Function2D | str, ...]
+_TranslatedBlock = Sequence[_TranslatedInstruction]
+_TranslatedRow = Sequence[_TranslatedBlock | None]
+_TranslatedSystem2D = Sequence[_TranslatedRow]
+
+
+def translate_to_c_instructions(*ops: MatOp) -> _TranslatedBlock:
     """Translate the operations into C-compatible values.
 
     This translation is done since the C code can't handle arbitrary Python objects
@@ -685,61 +475,54 @@ def translate_to_c_instructions(*ops: MatOp) -> list[MatOpCode | int | float]:
     list of MatOpCode | int | float
         List of translated operations.
     """
-    out: list[MatOpCode | int | float] = list()
+    out: list[_TranslatedInstruction] = list()
     for op in ops:
-        if type(op) is Identity:
-            out.append(MatOpCode.IDENTITY)
-        elif type(op) is MassMat:
-            out.append(MatOpCode.MASS)
-            out.append(op.order.value - 1)
-            out.append(int(op.inv))
-        elif type(op) is Incidence:
-            out.append(MatOpCode.INCIDENCE)
-            out.append(op.begin.value - 1)
-            out.append(int(op.dual))
-        elif type(op) is Push:
-            out.append(MatOpCode.PUSH)
-        elif type(op) is Scale:
-            out.append(MatOpCode.SCALE)
-            out.append(op.k)
-        elif type(op) is Sum:
-            out.append(MatOpCode.SUM)
-            out.append(op.count)
-        elif type(op) is MatMul:
-            out.append(MatOpCode.MATMUL)
-        elif type(op) is InterProd:
-            out.append(MatOpCode.INTERPROD)
-            out.append(op.starting_order.value - 1)
-            out.append(op.field_index)
-            out.append(op.dual)
-            out.append(op.adjoint)
-        else:
-            raise TypeError("Unknown instruction")
+        translated: _TranslatedInstruction
+        match op:
+            case Identity():
+                translated = (MatOpCode.IDENTITY,)
 
-    return out
+            case MassMat():
+                translated = (MatOpCode.MASS, op.order, op.inv)
+
+            case Incidence():
+                translated = (MatOpCode.INCIDENCE, op.begin, op.transpose)
+
+            case Push():
+                translated = (MatOpCode.PUSH,)
+
+            case Scale():
+                translated = (MatOpCode.SCALE, op.k)
+
+            case Sum():
+                translated = (MatOpCode.SUM, op.count)
+
+            case InterProd():
+                translated = (
+                    MatOpCode.INTERPROD,
+                    op.starting_order,
+                    op.field,
+                    op.transpose,
+                )
+
+            case _:
+                raise TypeError(f"Unknown instruction type {type(op).__name__}.")
+
+        out.append(translated)
+
+    return tuple(out)
 
 
-_CompiledCodeMatrix = Sequence[Sequence[Sequence[MatOpCode | int | float] | None]]
-"""Type used to type hint the compiled system."""
-
-
-def translate_system(
-    system: KFormSystem,
-    vector_fields: Sequence[Function2D | KFormUnknown],
-    newton: bool,
-) -> _CompiledCodeMatrix:
+def translate_system(system: KFormSystem) -> _TranslatedSystem2D:
     """Create the two-dimensional instruction array for the C code to execute."""
-    bytecodes = [
-        translate_equation(eq.left, vector_fields, newton=newton, simplify=True)
-        for eq in system.equations
-    ]
+    bytecodes = [translate_implicit_ksum(eq.left) for eq in system.equations]
 
-    codes: list[tuple[None | tuple[MatOpCode | float | int, ...], ...]] = list()
+    codes: list[_TranslatedRow] = list()
     for bite in bytecodes:
-        row: list[tuple[MatOpCode | float | int, ...] | None] = list()
-        for f in system.unknown_forms:
+        row: list[_TranslatedBlock | None] = list()
+        for f in system.unknown_forms.iter_forms():
             if f in bite:
-                row.append(tuple(translate_to_c_instructions(*bite[f])))
+                row.append(translate_to_c_instructions(*bite[f]))
             else:
                 row.append(None)
 
@@ -761,35 +544,33 @@ class CompiledSystem:
         System to compile.
     """
 
-    lhs_full: _CompiledCodeMatrix
+    lhs_codes: _TranslatedSystem2D
     """All left-hand side codes of the equations. When evaluated, this will
         produce the full left side of the equation."""
-    rhs_codes: _CompiledCodeMatrix | None
+    rhs_codes: _TranslatedSystem2D | None
     """If not ``None``, contains the right-hand side codes of the equations."""
-    linear_codes: _CompiledCodeMatrix
+    linear_codes: _TranslatedSystem2D
     """All left-hand side codes of the equations, which are linear."""
-    nonlin_codes: _CompiledCodeMatrix | None
+    nonlin_codes: _TranslatedSystem2D | None
     """If not ``None``, contains the non-linear codes that can be used
         for Newton-Raphson solver."""
 
     @staticmethod
-    def _compile_system_part(
-        system: KFormSystem, expr: KSum | None, newton: bool
-    ) -> tuple[tuple[MatOpCode | int | float, ...] | None, ...]:
+    def _compile_system_part(system: KFormSystem, expr: KSum | None) -> _TranslatedRow:
         """Compile an expression and fit it into the row of the expression matrix."""
         if expr is None:
             return (None,) * len(system.unknown_forms)
 
-        bytecode = translate_equation(expr, system.vector_fields, newton, True)
+        bytecodes = translate_implicit_ksum(expr)
 
-        return tuple(
-            (
-                tuple(translate_to_c_instructions(*bytecode[form]))
-                if form in bytecode
-                else None
-            )
-            for form in system.unknown_forms
-        )
+        row: list[_TranslatedBlock | None] = list()
+        for f in system.unknown_forms.iter_forms():
+            if f in bytecodes:
+                row.append(translate_to_c_instructions(*bytecodes[f]))
+            else:
+                row.append(None)
+
+        return tuple(row)
 
     def __init__(self, system: KFormSystem) -> None:
         # Split the system into the explicit, linear implicit, and non-linear implicit
@@ -810,8 +591,7 @@ class CompiledSystem:
             nonlin_lhs.append(nonlinear)
 
         rhs_codes = tuple(
-            CompiledSystem._compile_system_part(system, expr, newton=False)
-            for expr in implicit_rhs
+            CompiledSystem._compile_system_part(system, expr) for expr in implicit_rhs
         )
 
         object.__setattr__(
@@ -823,15 +603,13 @@ class CompiledSystem:
         )
 
         linear_codes = tuple(
-            CompiledSystem._compile_system_part(system, expr, newton=False)
-            for expr in linear_lhs
+            CompiledSystem._compile_system_part(system, expr) for expr in linear_lhs
         )
 
         object.__setattr__(self, "linear_codes", linear_codes)
 
         nonlinear_codes = tuple(
-            CompiledSystem._compile_system_part(system, expr, newton=True)
-            for expr in nonlin_lhs
+            CompiledSystem._compile_system_part(system, expr) for expr in nonlin_lhs
         )
         object.__setattr__(
             self,
@@ -842,9 +620,174 @@ class CompiledSystem:
         )
         object.__setattr__(
             self,
-            "lhs_full",
+            "lhs_codes",
             tuple(
-                CompiledSystem._compile_system_part(system, eq.left, newton=False)
+                CompiledSystem._compile_system_part(system, eq.left)
                 for eq in system.equations
             ),
         )
+
+
+def _translate_codes_to_str(*ops: MatOp) -> str:
+    """Translate operation codes to a string."""
+    out: list[str] = list()
+
+    for op in reversed(ops):
+        match op:
+            case Identity():
+                out += "I"
+            case MassMat() as mm:
+                base = f"M({mm.order.value - 1})"
+                if mm.inv:
+                    out.append(f"({base})^{{-1}}")
+                else:
+                    out.append(base)
+            case Incidence() as inc:
+                base = f"E({inc.begin.value}, {inc.begin.value - 1})"
+                if inc.transpose:
+                    out.append(f"({base})^T")
+                else:
+                    out.append(base)
+            case InterProd() as ip:
+                base = (
+                    f"P({ip.starting_order.value - 2}, {ip.starting_order.value - 1},"
+                    f" {ip.field if type(ip.field) is str else ip.field.__name__})"  # type: ignore[union-attr]
+                )
+                if ip.transpose:
+                    out.append(f"({base})^T")
+                else:
+                    out.append(base)
+            case Scale() as sc:
+                out.append(str(sc.k))
+            case _:
+                raise TypeError(f"Unsupported instruction type {type(op)}.")
+
+    return " ".join(out)
+
+
+def _translate_expr_to_str(*ops: MatOp) -> str:
+    """Translate operations which may include Sum and Push into a string."""
+    s = ops[-1]
+    if type(s) is not Sum:
+        return _translate_codes_to_str(*ops)
+
+    out = str()
+    begin = 0
+    c = 0
+    for i, op in enumerate(ops):
+        if type(op) is Push:
+            subsection = _translate_codes_to_str(*ops[begin:i])
+            out += f"+ ({subsection})"
+            begin = i + 1
+            c += 1
+
+    assert c == s.count
+
+    # Do it for the last one, which is not ended by Push
+    subsection = _translate_codes_to_str(*ops[begin:-1])
+    out += f" + ({subsection})"
+
+    return out.strip()
+
+
+def system_as_string(system: KFormSystem, /) -> str:
+    """Create the string representation of the system."""
+    left_bytecodes = [translate_implicit_ksum(eq.left) for eq in system.equations]
+    left_rows = bytecode_matrix_as_rows(system, left_bytecodes)
+
+    right_bytecodes = [
+        (
+            translate_implicit_ksum(KSum(*eq.right.implicit_terms))
+            if eq.right.implicit_terms
+            else dict()
+        )
+        for eq in system.equations
+    ]
+    right_rows = bytecode_matrix_as_rows(system, right_bytecodes)
+
+    # Add brackets and unknowns to
+    unknowns = [str(w.base_form) for w in system.weight_forms]
+    uw = max([len(u) for u in unknowns])
+    unknowns = [u.ljust(uw) for u in unknowns]
+    left_rows = [f"[{row}] [{u}]" for u, row in zip(unknowns, left_rows, strict=True)]
+    right_rows = [f"[{row}] [{u}]" for u, row in zip(unknowns, right_rows, strict=True)]
+
+    explicit_rows = [explicit_ksum_as_string(eq.right) for eq in system.equations]
+    ew = 0
+    n = len(explicit_rows)
+    for i in range(n):
+        ew = max(ew, len(explicit_rows[i]))
+    for i in range(n):
+        if len(explicit_rows[i]) == 0:
+            explicit_rows[i] = "+ 0"
+        explicit_rows[i] = "[" + explicit_rows[i].ljust(ew) + "]"
+
+    full_rows = [
+        l_row
+        + (" = " if row == n // 2 else "   ")
+        + r_exp
+        + (" + " if row == n // 2 else "   ")
+        + r_row
+        for row, (l_row, r_row, r_exp) in enumerate(
+            zip(left_rows, right_rows, explicit_rows, strict=True)
+        )
+    ]
+
+    return "\n".join(full_rows)
+
+
+def bytecode_matrix_as_rows(
+    system: KFormSystem, bytecodes: Sequence[Mapping[KFormUnknown, list[MatOp]]]
+) -> list[str]:
+    """Extract expression rows."""
+    expression_matrix = [
+        [
+            (_translate_expr_to_str(*codes[form]) if form in codes else "0")
+            for form in system.unknown_forms.iter_forms()
+        ]
+        for codes in bytecodes
+    ]
+    n = len(expression_matrix)
+    for col in range(n):
+        col_w = 1
+        for row in range(n):
+            w = len(expression_matrix[row][col])
+            col_w = max(w, col_w)
+        for row in range(n):
+            expression_matrix[row][col] = expression_matrix[row][col].ljust(col_w)
+
+    left_rows = [" | ".join(expr_row) for expr_row in expression_matrix]
+    return left_rows
+
+
+if __name__ == "__main__":
+    vor = KFormUnknown("vor", UnknownFormOrder.FORM_ORDER_0)
+    vel = KFormUnknown("vel", UnknownFormOrder.FORM_ORDER_1)
+    pre = KFormUnknown("pre", UnknownFormOrder.FORM_ORDER_2)
+
+    w_vor = vor.weight
+    w_vel = vel.weight
+    w_pre = pre.weight
+
+    def vor_src(x, y):
+        """Test vorticit function."""
+        return 0 * x * y
+
+    import numpy as np
+
+    def vel_src(x, y):
+        """Test velocity function."""
+        return np.stack((0 * x * y, 0 * x * y), axis=-1)
+
+    def pre_src(x, y):
+        """Test pressure function."""
+        return 0 * x * y
+
+    system = KFormSystem(
+        (w_vor @ vor) + (w_vor.derivative @ vel) == w_vor ^ vor_src,
+        (w_vel @ vor.derivative) + (w_vel.derivative @ pre)
+        == ((vel * w_vel) @ vor) + ((vel_src * w_vel) @ vor),
+        (w_pre @ vel.derivative) == w_pre @ pre_src,
+    )
+
+    print(system_as_string(system))

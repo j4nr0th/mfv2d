@@ -1,15 +1,10 @@
 """Check that the Legendre functions actually work."""
 
-from collections.abc import Callable
-
 import numpy as np
-import numpy.typing as npt
 import pytest
-from mfv2d._mfv2d import (
-    IntegrationRule1D,
-    compute_legendre,
-    legendre_l2_to_h1_coefficients,
-)
+from mfv2d._mfv2d import IntegrationRule1D, compute_legendre
+from mfv2d.mimetic2d import jacobian
+from mfv2d.refinement import compute_legendre_coefficients
 
 
 def test_orthonormal() -> None:
@@ -35,160 +30,108 @@ def test_orthonormal() -> None:
                 assert pytest.approx(integral) == 2 / (2 * i1 + 1)
 
 
-def compute_legendre_coeffs(
-    order: int,
-    rule: IntegrationRule1D,
-    func: Callable[[npt.NDArray[np.floating]], npt.ArrayLike],
-) -> npt.NDArray[np.float64]:
-    """Compute 1D Legendre coefficients."""
-    leg1 = compute_legendre(order, rule.nodes)
-    wleg1 = leg1 * rule.weights[None, ...]
-    func_vals = np.asarray(func(rule.nodes))
+@pytest.mark.parametrize(
+    ("nh", "nv", "k"), ((1, 1, 3), (2, 2, 3), (4, 3, 2), (3, 4, 2), (5, 1, 4))
+)
+def test_orthonormal_2d(nh: int, nv: int, k: int) -> None:
+    """Check that the 2D polynomals are orthogonal."""
+    rng = np.random.default_rng(seed=0)
 
-    rleg = np.sum(
-        func_vals[None, ...] * wleg1[:, ...],
-        axis=-1,
-    )
-    n1 = np.arange(order + 1)
-    norms1 = 2 / (2 * n1 + 1)
-    rleg /= norms1
+    # Get the integration set up
+    corners = np.array(
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)), np.float64
+    ) + rng.uniform(-0.1, +0.1, (4, 2))
+    rule_h = IntegrationRule1D(nh + k)
+    rule_v = IntegrationRule1D(nv + k)
+    xi = rule_h.nodes[None, :]
+    eta = rule_v.nodes[:, None]
+    (j00, j01), (j10, j11) = jacobian(corners, xi, eta)
+    det = j00 * j11 - j01 * j10
+    weights = rule_h.weights[None, :] * rule_v.weights[:, None]
 
-    return rleg
+    # Prepare the vertical and horizontal basis
+    legh = compute_legendre(nh, xi)
+    legv = compute_legendre(nv, eta)
 
-
-def legendre_integral_basis(
-    order: int, positions: npt.NDArray[np.floating]
-) -> npt.NDArray[np.float64]:
-    """Compute integral Legendre basis."""
-    base_order = order
-    leg = compute_legendre(base_order, positions)
-    k = 2 * np.arange(1, base_order) + 1
-    base = leg[2:, ...] - leg[:-2, ...]
-    return np.concatenate(
-        (
-            np.ones_like(positions)[None, ...],
-            (positions)[None, ...],
-            base / k[:, None],
-        ),
-        axis=0,
-        dtype=np.float64,
-    )[: order + 1, ...]
-
-
-def matrix_legendre_coeffs_to_h1(
-    coeffs: npt.NDArray[np.floating],
-) -> npt.NDArray[np.float64]:
-    """Create a matrix that converts legendre coefficients into H^1 coefficients."""
-    order = coeffs.size - 1
-    assert order >= 0
-    # Scale back up
-    end = np.sum(coeffs)
-    beginning = np.sum(coeffs * (-1) ** np.arange(order + 1))
-    norms = 2 / (2 * np.arange(order + 1) + 1)
-    c = coeffs * norms
-
-    out = np.zeros_like(coeffs, np.float64)
-    # First two coefficients are obtained from beginning and end values
-    out[0] = (end + beginning) / 2
-    if order > 0:
-        out[1] = (end - beginning) / 2
-
-    for n in range(2, order + 1):
-        carry = 0
-        m = n // 2
-        for j in range(1, m + 1):
-            carry += (2 * n - 4 * j + 1) * c[n - 2 * j]
-
-        if n & 1:
-            # Odd
-            k = (end - beginning) - carry
-        else:
-            # Even
-            k = (end + beginning) - carry
-
-        # This here is just the L^2 norm of Legendre polynomial one order lower than
-        # the integral basis with itself (hence ``n-1``).
-        scale = (2 * (n - 1) + 1) / 2
-        out[n] = scale * k
-
-    return out
-
-
-def test_integrated_1():
-    """Check that conversion to integral basis works."""
-    posx = np.linspace(-1, +1, 101)
-
-    def test_function(x):
-        return (
-            1
-            + x
-            + 3 / 2 * (1 + x) * (1 - x)
-            + 5 / 2 * (x + 1) * x * (x - 1)
-            + 3.21 * x
-            + x**3
-            - 2 * x**4
-            + x**5
+    # Create the 2D basis
+    basis = (
+        np.array(
+            [
+                legh[ih, ...] * legv[iv, ...]
+                for iv in range(nv + 1)
+                for ih in range(nh + 1)
+            ]
         )
+        / np.sqrt(det)[None, ...]
+    )
 
-    order = 5
-    rule = IntegrationRule1D(order + 1)
-    coeffs = compute_legendre_coeffs(order, rule, test_function)
+    for ib in range(basis.shape[0]):
+        b1 = basis[ib]
+        for jb in range(basis.shape[0]):
+            b2 = basis[jb]
 
-    realy = test_function(posx)
-    new_coeffs = matrix_legendre_coeffs_to_h1(coeffs)
-    val = legendre_integral_basis(order, posx)
+            val = np.sum(weights * det * b1 * b2)
 
-    recon_2 = np.sum(val * new_coeffs[:, None], axis=0)
-    assert pytest.approx(recon_2) == realy
+            if ib != jb:
+                assert pytest.approx(val) == 0
 
-
-def test_integrated_2():
-    """Check that conversion to integral basis works."""
-    posx = np.linspace(-1, +1, 101)
-
-    def test_function(x):
-        return 3 * np.sin(3 * x) - 2 * np.cos(x**2) - 2 / (x**2 + 1)
-
-    order = 5
-    rule = IntegrationRule1D(order + 1)
-    coeffs = compute_legendre_coeffs(order, rule, test_function)
-
-    lag = compute_legendre(order, posx)
-
-    recon_1 = np.sum(lag * coeffs[:, None], axis=0)
-
-    new_coeffs = matrix_legendre_coeffs_to_h1(coeffs)
-    val = legendre_integral_basis(order, posx)
-
-    recon_2 = np.sum(val * new_coeffs[:, None], axis=0)
-    assert pytest.approx(recon_2) == recon_1
+            else:
+                kh = ib % (nh + 1)
+                kv = ib // (nh + 1)
+                assert pytest.approx(val) == 4 / (2 * kh + 1) / (2 * kv + 1)
 
 
-def test_basis_relation():
-    """Check that gradients of the integral basis really reconstruct originals."""
-    order = 5
-    posx = np.linspace(-1, +1, 2001)
-    val = legendre_integral_basis(order, posx)
-    lag = compute_legendre(order, posx)
-    for i in range(1, val.shape[0]):
-        num_grad = (val[i, 1:] - val[i, :-1]) / (posx[1:] - posx[:-1])
-        real_grad = (lag[i - 1, 1:] + lag[i - 1, :-1]) / 2
+@pytest.mark.parametrize(
+    ("order_h", "order_v", "k"), ((i, j, 1) for i in range(5) for j in range(5))
+)
+def test_reconstruction(order_h: int, order_v: int, k: int) -> None:
+    """Check that polynomials of the specified order can be reconstructed."""
+    rng = np.random.default_rng(seed=0)
 
-        assert np.abs(num_grad - real_grad).max() < 5e-6
+    # Get the integration set up
+    corners = np.array(
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)), np.float64
+    ) + rng.uniform(-0.1, +0.1, (4, 2))
+    rule_h = IntegrationRule1D(order_h + k)
+    rule_v = IntegrationRule1D(order_v + k)
+    xi = rule_h.nodes[None, :]
+    eta = rule_v.nodes[:, None]
+    (j00, j01), (j10, j11) = jacobian(corners, xi, eta)
+    det = j00 * j11 - j01 * j10
+    weights = rule_h.weights[None, :] * rule_v.weights[:, None]
+
+    # Generate the random coefficients
+    coeffs = rng.uniform(-1, +1, (order_v + 1, order_h + 1))
+
+    # Prepare the vertical and horizontal basis
+    legh = compute_legendre(order_h, xi)
+    legv = compute_legendre(order_v, eta)
+
+    # Generate the reconstruction
+    reconstructed = np.zeros_like(weights)
+    for ov in range(order_v + 1):
+        bv = legv[ov]
+        for oh in range(order_h + 1):
+            bh = legh[oh]
+            c = coeffs[ov, oh]
+            reconstructed += c * bh * bv / np.sqrt(det)
+
+    # Compute the coefficients with the function
+    recomputed = compute_legendre_coefficients(
+        order_h,
+        order_v,
+        np.astype(xi, np.float64, copy=False),
+        np.astype(eta, np.float64, copy=False),
+        reconstructed * weights * det,
+        det,
+    )
+    assert pytest.approx(coeffs) == recomputed
 
 
-def test_c_implementation():
-    """Check that the C conversion function works as expected."""
+if __name__ == "__main__":
+    for i in range(3, 5):
+        for j in range(3, 5):
+            test_reconstruction(i, j, k=1)
 
-    def test_function(x):
-        return 3 * np.sin(3 * x) - 2 * np.cos(x**2) - 2 / (x**2 + 1)
-
-    order = 8
-    rule = IntegrationRule1D(order + 1)
-    coeffs = compute_legendre_coeffs(order, rule, test_function)
-
-    new_coeffs = matrix_legendre_coeffs_to_h1(coeffs)
-    c_coeffs = legendre_l2_to_h1_coefficients(coeffs)
-    print(new_coeffs)
-    print(c_coeffs)
-    assert pytest.approx(new_coeffs) == c_coeffs
+    for nh, nv, k in ((1, 1, 3), (2, 2, 3), (4, 3, 2), (3, 4, 2), (5, 1, 4)):
+        test_orthonormal_2d(nh, nv, k)

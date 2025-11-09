@@ -8,28 +8,29 @@ import pytest
 from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
-    ElementMassMatrixCache,
+    ElementFemSpace2D,
     IntegrationRule1D,
     compute_element_matrix,
 )
 from mfv2d.eval import CompiledSystem
-from mfv2d.kform import KFormSystem, KFormUnknown, UnknownFormOrder
-from mfv2d.mimetic2d import (
-    bilinear_interpolate,
-    element_dual_dofs,
-    element_primal_dofs,
-)
+from mfv2d.kform import KFormUnknown, UnknownFormOrder
+from mfv2d.mimetic2d import element_dual_dofs, element_primal_dofs
+from mfv2d.system import KFormSystem
 
 Function2D = Callable[[npt.ArrayLike, npt.ArrayLike], npt.NDArray[np.float64]]
 
 
-def exact_interior_prod_2_dual(vec: Function2D, form2: Function2D) -> Function2D:
-    """Create an interior product dual function."""
+def exact_interior_prod_2_dual(vec: Function2D, form0: Function2D) -> Function2D:
+    r"""Create an interior product function.
+
+    Dual 2-form interprod is :math:`\vec{v} \times u`, with :math:`\vec{v}`
+    being the vector field and :math:`u` being the 2-form.
+    """
 
     def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute interior product."""
         vec_field = vec(x, y)
-        scl_field = form2(x, y)
+        scl_field = form0(x, y)
         out = np.empty_like(vec_field)
         out[..., 0] = -vec_field[..., 1] * scl_field
         out[..., 1] = vec_field[..., 0] * scl_field
@@ -39,22 +40,30 @@ def exact_interior_prod_2_dual(vec: Function2D, form2: Function2D) -> Function2D
 
 
 def exact_interior_prod_2(vec: Function2D, form2: Function2D) -> Function2D:
-    """Create an interior product function."""
+    r"""Create an interior product function.
+
+    Primal 2-form interprod is :math:`\vec{v} u`, with :math:`\vec{v}`
+    being the vector field and :math:`u` being the 2-form.
+    """
 
     def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute interior product."""
         vec_field = vec(x, y)
         scl_field = form2(x, y)
         out = np.empty_like(vec_field)
-        out[..., 0] = -vec_field[..., 0] * scl_field
-        out[..., 1] = -vec_field[..., 1] * scl_field
+        out[..., 0] = vec_field[..., 0] * scl_field
+        out[..., 1] = vec_field[..., 1] * scl_field
         return out
 
     return wrapped
 
 
 def exact_interior_prod_1_dual(vec: Function2D, form2: Function2D) -> Function2D:
-    """Create a dual interior product function."""
+    r"""Create an interior product function.
+
+    Dual 1-form interprod is :math:`\vec{v} \cdot \vec{u}`, with :math:`\vec{v}`
+    being the vector field and :math:`\vec{u}` being the 1-form.
+    """
 
     def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute interior product."""
@@ -69,7 +78,11 @@ def exact_interior_prod_1_dual(vec: Function2D, form2: Function2D) -> Function2D
 
 
 def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
-    """Create an interior product function."""
+    r"""Create an interior product function.
+
+    Primal 1-form interprod is :math:`\vec{v} \times \vec{u}`, with :math:`\vec{v}`
+    being the vector field and :math:`\vec{u}` being the 1-form.
+    """
 
     def wrapped(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute interior product."""
@@ -84,136 +97,37 @@ def exact_interior_prod_1(vec: Function2D, form2: Function2D) -> Function2D:
 
 
 def compute_system_matrix_nonlin(
-    u_exact: Function2D,
-    omega_exact: Function2D,
-    omega: KFormUnknown,
-    u: KFormUnknown,
-    system: KFormSystem,
-    basis_2d: Basis2D,
-    corners: npt.NDArray[np.float64],
+    system: KFormSystem, fem_space: ElementFemSpace2D, dofs: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
     """Compute system matrix."""
-    vector_fields = system.vector_fields
     compiled = CompiledSystem(system)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-
-    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
-    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
-    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
-    func_dict = {omega: omega_exact, u: u_exact}
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is KFormUnknown
-        assert not callable(vec_fld)
-        fn = func_dict[vec_fld]
-        vf = fn(x, y)
-        if vec_fld.order != UnknownFormOrder.FORM_ORDER_1:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
-        vec_field_lists[i].append(vf)
-
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
     assert compiled.nonlin_codes is not None
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
     emat = compute_element_matrix(
-        [UnknownFormOrder(form.order) for form in system.unknown_forms],
-        compiled.nonlin_codes,
-        vec_fields,
-        elem_cache,
+        system.unknown_forms, compiled.nonlin_codes, fem_space, dofs
     )
 
     return emat
 
 
 def compute_system_matrix_lin(
-    system: KFormSystem,
-    basis_2d: Basis2D,
-    corners: npt.NDArray[np.float64],
+    system: KFormSystem, fem_space: ElementFemSpace2D
 ) -> npt.NDArray[np.float64]:
     """Compute system matrix."""
-    vector_fields = system.vector_fields
     compiled = CompiledSystem(system)
-
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-
-    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
-    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
-    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is not KFormUnknown
-        assert callable(vec_fld)
-
-        vf = np.asarray(vec_fld(x, y), np.float64)
-        if vf.shape[-1] != 2:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
-        vec_field_lists[i].append(vf)
-
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
-    emat = compute_element_matrix(
-        [UnknownFormOrder(form.order) for form in system.unknown_forms],
-        compiled.lhs_full,
-        vec_fields,
-        elem_cache,
-    )
+    emat = compute_element_matrix(system.unknown_forms, compiled.lhs_codes, fem_space)
 
     return emat
 
 
 def compute_system_matrix_adj(
-    system: KFormSystem,
-    basis_2d: Basis2D,
-    corners: npt.NDArray[np.float64],
+    system: KFormSystem, fem_space: ElementFemSpace2D, dofs: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
     """Compute system matrix."""
-    vector_fields = system.vector_fields
     compiled = CompiledSystem(system)
 
-    # Compute vector fields at integration points for leaf elements
-    vec_field_lists: tuple[list[npt.NDArray[np.float64]], ...] = tuple(
-        list() for _ in vector_fields
-    )
-
-    nodes_xi = basis_2d.basis_xi.rule.nodes[None, :]
-    nodes_eta = basis_2d.basis_eta.rule.nodes[:, None]
-    x = bilinear_interpolate(corners[:, 0], nodes_xi, nodes_eta)
-    y = bilinear_interpolate(corners[:, 1], nodes_xi, nodes_eta)
-    for i, vec_fld in enumerate(vector_fields):
-        assert type(vec_fld) is not KFormUnknown
-        assert callable(vec_fld)
-
-        vf = np.asarray(vec_fld(x, y), np.float64)
-        if vf.shape[-1] != 2:
-            vf = np.stack((vf, np.zeros_like(vf)), axis=-1, dtype=np.float64)
-        vf = np.reshape(vf, (-1, 2))
-        vec_field_lists[i].append(vf)
-
-    vec_fields = tuple(
-        np.concatenate(vfl, axis=0, dtype=np.float64) for vfl in vec_field_lists
-    )
-    del vec_field_lists
     assert compiled.nonlin_codes is not None
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
     emat = compute_element_matrix(
-        [UnknownFormOrder(form.order) for form in system.unknown_forms],
-        compiled.nonlin_codes,
-        vec_fields,
-        elem_cache,
+        system.unknown_forms, compiled.nonlin_codes, fem_space, dofs
     )
 
     return emat
@@ -221,6 +135,7 @@ def compute_system_matrix_adj(
 
 _CORNER_TEST_VALUES = (
     ((-1, -1), (+1, -1), (+1, +1), (-1, +1)),
+    ((-2, -2), (+2, -2), (+2, +2), (-2, +2)),
     ((-0.1, -2), (+0.1, -2), (+0.1, +2), (-0.1, +2)),
     ((-2, -0.1), (+2, -0.1), (+2, +0.1), (-2, +0.1)),
     ((-1, -2), (+2, +0), (+1.75, +0.75), (+1.0, +1.0)),
@@ -258,8 +173,8 @@ def test_advect_10(corner_vals: npt.ArrayLike) -> None:
     w = g.weight
 
     system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == v @ 0,
+        (w @ (u_exact * omega)) == 0,
+        (v @ g.derivative) == 0,
         sorting=lambda f: f.order,
     )
 
@@ -270,19 +185,19 @@ def test_advect_10(corner_vals: npt.ArrayLike) -> None:
     basis_1d = Basis1D(N, int_rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
     corners = np.array(corner_vals, np.float64)
+    fem_space = ElementFemSpace2D(basis_2d, corners)
 
-    emat = compute_system_matrix_lin(system, basis_2d, corners)
+    emat = compute_system_matrix_lin(system, fem_space)
     emat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) :]
 
     exact_eprod = exact_interior_prod_1(u_exact, omega_exact)
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
     omega_proj = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, elem_cache, omega_exact
+        UnknownFormOrder.FORM_ORDER_1, fem_space, omega_exact
     )
     lhs = emat @ omega_proj
-    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_0, elem_cache, exact_eprod)
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
+    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_0, fem_space, exact_eprod)
+    assert pytest.approx(lhs) == rhs
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
@@ -316,11 +231,10 @@ def test_dual_advect_10(corner_vals: npt.ArrayLike) -> None:
     w = g.weight
 
     system = KFormSystem(
-        (w * (u_exact * ~omega)) == w @ 0,
-        (v.derivative * g) == v @ 0,
+        ((u_exact * w) @ omega) == 0,
+        (v.derivative @ g) == 0,
         sorting=lambda f: f.order,
     )
-    # print(system)
 
     N = 6
     N2 = 10
@@ -331,24 +245,24 @@ def test_dual_advect_10(corner_vals: npt.ArrayLike) -> None:
     basis_1d = Basis1D(N, int_rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
     corners = np.array(corner_vals, np.float64)
-    emat = compute_system_matrix_lin(system, basis_2d, corners)
+    fem_space = ElementFemSpace2D(basis_2d, corners)
+    emat = compute_system_matrix_lin(system, fem_space)
 
     emat = emat[2 * (N + 1) * N :, : 2 * (N + 1) * N]
 
     exact_eprod = exact_interior_prod_1_dual(u_exact, omega_exact)
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
     omega_proj = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, elem_cache, omega_exact
+        UnknownFormOrder.FORM_ORDER_1, fem_space, omega_exact
     )
     lhs = emat @ omega_proj
-    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_2, elem_cache, exact_eprod)
+    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_2, fem_space, exact_eprod)
 
-    assert np.max(np.abs(lhs - rhs)) < 1e-13
+    assert pytest.approx(lhs) == rhs
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> None:
+def test_advect_non_linear_10(corner_vals: npt.ArrayLike) -> None:
     """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -380,12 +294,12 @@ def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     h = u.weight
 
     system = KFormSystem(
-        (w * (u ^ omega)) == w @ 0,
-        (v * g.derivative) == v @ 0,
-        (h * g.derivative) == h @ 0,
+        (w @ (u * omega)) == 0,
+        (v @ g.derivative) == 0,
+        (h @ g.derivative) == 0,
         sorting=lambda f: f.order + ord(f.label[0]),
     )
-    # print(system)
+
     N = 6
     N2 = 10
     int_rule = IntegrationRule1D(N2)
@@ -393,27 +307,40 @@ def test_advect_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     basis_2d = Basis2D(basis_1d, basis_1d)
 
     corners = np.array(corner_vals, np.float64)
+    fem_space = ElementFemSpace2D(basis_2d, corners)
+    omega_proj = element_primal_dofs(
+        UnknownFormOrder.FORM_ORDER_1, fem_space, omega_exact
+    )
+
+    u_proj = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, fem_space, u_exact)
 
     emat = compute_system_matrix_nonlin(
-        u_exact, omega_exact, omega, u, system, basis_2d, corners
+        system,
+        fem_space,
+        np.concatenate(
+            (
+                np.zeros(UnknownFormOrder.FORM_ORDER_0.full_unknown_count(N, N)),
+                omega_proj,
+                u_proj,
+            ),
+            dtype=np.float64,
+        ),
     )
 
-    fmat = emat[: (N + 1) * (N + 1), -2 * (N + 1) * N :]
     gmat = emat[: (N + 1) * (N + 1), (N + 1) * (N + 1) : -2 * (N + 1) * N]
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
-    omega_proj = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, elem_cache, omega_exact
+    real_dofs = element_dual_dofs(
+        UnknownFormOrder.FORM_ORDER_0,
+        fem_space,
+        exact_interior_prod_1(u_exact, omega_exact),
     )
 
-    u_proj = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, elem_cache, u_exact)
     v1 = gmat @ omega_proj
-    v2 = fmat @ u_proj
-    assert np.max(np.abs(v1 - v2)) < 1e-15
+    assert pytest.approx(real_dofs) == v1
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_advect_dual_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike) -> None:
+def test_advect_dual_non_linear_10(corner_vals: npt.ArrayLike) -> None:
     """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -445,9 +372,9 @@ def test_advect_dual_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike
     h = u.weight
 
     system = KFormSystem(
-        (w * (u ^ ~omega)) == w @ 0,
-        (v.derivative * g) == v @ 0,
-        (h.derivative * g) == h @ 0,
+        ((u * w) @ omega) == 0,
+        (v.derivative @ g) == 0,
+        (h.derivative @ g) == 0,
         sorting=lambda f: f.order + ord(f.label[0]),
     )
     # print(system)
@@ -460,22 +387,34 @@ def test_advect_dual_non_linear_10_irregular_deformed(corner_vals: npt.ArrayLike
     basis_2d = Basis2D(basis_1d, basis_1d)
     corners = np.array(corner_vals, np.float64)
 
-    emat = compute_system_matrix_nonlin(
-        u_exact, omega_exact, omega, u, system, basis_2d, corners
-    )
-
-    fmat = emat[: N * N, -2 * (N + 1) * N :]
-    gmat = emat[: N * N, N * N : -2 * (N + 1) * N]
-
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    fem_space = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_1, elem_cache, omega_exact
+        UnknownFormOrder.FORM_ORDER_1, fem_space, omega_exact
     )
 
-    u_proj = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, elem_cache, u_exact)
+    u_proj = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, fem_space, u_exact)
+
+    emat = compute_system_matrix_nonlin(
+        system,
+        fem_space,
+        np.concatenate(
+            (
+                np.zeros(UnknownFormOrder.FORM_ORDER_2.full_unknown_count(N, N)),
+                omega_proj,
+                u_proj,
+            ),
+            dtype=np.float64,
+        ),
+    )
+
+    real_dofs = element_dual_dofs(
+        UnknownFormOrder.FORM_ORDER_2,
+        fem_space,
+        exact_interior_prod_1_dual(u_exact, omega_exact),
+    )
+    gmat = emat[: N * N, N * N : -2 * (N + 1) * N]
     v1 = gmat @ omega_proj
-    v2 = fmat @ u_proj
-    assert np.max(np.abs(v1 - v2)) < 1e-13
+    assert real_dofs == pytest.approx(v1)
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
@@ -505,8 +444,8 @@ def test_advect_21(corner_vals: npt.ArrayLike) -> None:
     w = g.weight
 
     system = KFormSystem(
-        (w * (u_exact * omega)) == w @ 0,
-        (v * g.derivative) == (v @ 0),
+        (w @ (u_exact * omega)) == 0,
+        (v @ g.derivative) == 0,
         sorting=lambda f: f.order,
     )
 
@@ -516,23 +455,23 @@ def test_advect_21(corner_vals: npt.ArrayLike) -> None:
     basis_1d = Basis1D(N, int_rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
     corners = np.array(corner_vals, np.float64)
-    emat = compute_system_matrix_lin(system, basis_2d, corners)
+    fem_space = ElementFemSpace2D(basis_2d, corners)
+    emat = compute_system_matrix_lin(system, fem_space)
     emat = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
 
     exact_eprod = exact_interior_prod_2(u_exact, omega_exact)
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
     omega_proj = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_2, elem_cache, omega_exact
+        UnknownFormOrder.FORM_ORDER_2, fem_space, omega_exact
     )
     lhs = emat @ omega_proj
-    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_1, elem_cache, exact_eprod)
+    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_1, fem_space, exact_eprod)
 
-    assert np.max(np.abs(lhs - rhs)) < 1e-13
+    assert pytest.approx(lhs) == rhs
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_dual_advect_21_undeformed(corner_vals: npt.ArrayLike) -> None:
+def test_dual_advect_21(corner_vals: npt.ArrayLike) -> None:
     """Check dual interior product of a 2-form with a 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -557,8 +496,8 @@ def test_dual_advect_21_undeformed(corner_vals: npt.ArrayLike) -> None:
     g = KFormUnknown("g", UnknownFormOrder.FORM_ORDER_1)
     w = g.weight
     system = KFormSystem(
-        (w * (u_exact * (~omega))) == w @ 0,
-        (v.derivative * g) == (v @ 0),
+        ((u_exact * w) @ omega) == 0,
+        (v.derivative @ g) == 0,
         sorting=lambda f: 5 - f.order,
     )
 
@@ -569,25 +508,25 @@ def test_dual_advect_21_undeformed(corner_vals: npt.ArrayLike) -> None:
     basis_1d = Basis1D(N, int_rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
     corners = np.array(corner_vals, np.float64)
-    emat = compute_system_matrix_lin(system, basis_2d, corners)
+    fem_space = ElementFemSpace2D(basis_2d, corners)
+    emat = compute_system_matrix_lin(system, fem_space)
 
     emat = emat[: 2 * N * (N + 1), 2 * N * (N + 1) :]
 
     exact_eprod = exact_interior_prod_2_dual(u_exact, omega_exact)
 
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
     omega_proj = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_0, elem_cache, omega_exact
+        UnknownFormOrder.FORM_ORDER_0, fem_space, omega_exact
     )
     lhs = emat @ omega_proj
-    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_1, elem_cache, exact_eprod)
+    rhs = element_dual_dofs(UnknownFormOrder.FORM_ORDER_1, fem_space, exact_eprod)
 
-    assert np.max(np.abs(lhs - rhs)) < 1e-14
+    assert pytest.approx(lhs) == rhs
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_advect_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> None:
-    """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
+def test_advect_non_linear_21(corner_vals: npt.ArrayLike) -> None:
+    """Check that non-linear inter-product of 2-form with 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
         """Compute exact field."""
@@ -613,8 +552,8 @@ def test_advect_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     corners = np.array(corner_vals, np.float64)
 
     system = KFormSystem(
-        (h * (u ^ omega)) == h @ 0,
-        (v * u.derivative) == v @ 0,
+        (h @ (u * omega)) == 0,
+        (v @ u.derivative) == 0,
         sorting=lambda f: f.order,
     )
     N = 6
@@ -623,26 +562,30 @@ def test_advect_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> 
     basis_1d = Basis1D(N, int_rule)
     basis_2d = Basis2D(basis_1d, basis_1d)
 
-    emat = compute_system_matrix_nonlin(
-        u_exact, omega_exact, omega, u, system, basis_2d, corners
-    )
-
-    fmat = emat[: N**2, : 2 * (N + 1) * N]
-    gmat = emat[: N**2, 2 * (N + 1) * N :]
-
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    fem_space = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_2, elem_cache, omega_exact
+        UnknownFormOrder.FORM_ORDER_2, fem_space, omega_exact
     )
 
-    u_proj = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, elem_cache, u_exact)
+    u_proj = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, fem_space, u_exact)
+
+    emat = compute_system_matrix_nonlin(
+        system, fem_space, np.concatenate((u_proj, omega_proj), dtype=np.float64)
+    )
+
+    real_dofs = element_dual_dofs(
+        UnknownFormOrder.FORM_ORDER_1,
+        fem_space,
+        exact_interior_prod_2(u_exact, omega_exact),
+    )
+    gmat = emat[: 2 * (N + 1) * N, 2 * (N + 1) * N :]
     v1 = gmat @ omega_proj
-    v2 = fmat @ u_proj
-    assert np.max(np.abs(v1 - v2)) < 1e-13
+
+    assert pytest.approx(real_dofs) == v1
 
 
 @pytest.mark.parametrize("corner_vals", _CORNER_TEST_VALUES)
-def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike) -> None:
+def test_advect_dual_non_linear_21(corner_vals: npt.ArrayLike) -> None:
     """Check that non-linear inter-product of 1-form with 1-form is computed correctly."""
 
     def u_exact(x: npt.ArrayLike, y: npt.ArrayLike) -> npt.NDArray[np.float64]:
@@ -650,8 +593,7 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
         v0 = np.asarray(x)
         v1 = np.asarray(y)
         return np.stack(
-            # (np.sin(v0) * np.cos(v1), np.cos(v0) * np.sin(v1)),
-            (0 + 0 * v0**2 * v1, 1 + 0 * -v0 * v1**3),
+            (v0**2 * v1, -v0 * v1**3),
             axis=-1,
             dtype=np.float64,
         )
@@ -660,7 +602,7 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
         """Compute exact field."""
         v0 = np.asarray(x)
         v1 = np.asarray(y)
-        return np.astype(1 + 0 * v0 * v1**3, np.float64, copy=False)
+        return np.astype(v0 * v1**3, np.float64, copy=False)
 
     omega = KFormUnknown("omega", UnknownFormOrder.FORM_ORDER_0)
     v = omega.weight
@@ -668,8 +610,8 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
     h = u.weight
 
     system = KFormSystem(
-        (h * (u ^ ~omega)) == h @ 0,
-        (v.derivative * u) == v @ 0,
+        ((u * h) @ omega) == 0,
+        (v.derivative @ u) == 0,
         sorting=lambda f: f.order,
     )
 
@@ -682,24 +624,38 @@ def test_advect_dual_non_linear_21_irregular_deformed(corner_vals: npt.ArrayLike
 
     corners = np.array(corner_vals, np.float64)
 
-    emat = compute_system_matrix_nonlin(
-        u_exact, omega_exact, omega, u, system, basis_2d, corners
-    )
-
-    fmat = emat[(N + 1) ** 2 :, (N + 1) ** 2 :]
-    gmat = emat[(N + 1) ** 2 :, : (N + 1) ** 2]
-
-    elem_cache = ElementMassMatrixCache(basis_2d, corners)
+    fem_space = ElementFemSpace2D(basis_2d, corners)
     omega_proj = element_primal_dofs(
-        UnknownFormOrder.FORM_ORDER_0, elem_cache, omega_exact
+        UnknownFormOrder.FORM_ORDER_0, fem_space, omega_exact
     )
 
-    u_proj = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, elem_cache, u_exact)
-    v1 = gmat @ omega_proj
-    v2 = fmat @ u_proj
+    u_proj = element_primal_dofs(UnknownFormOrder.FORM_ORDER_1, fem_space, u_exact)
 
-    assert np.max(np.abs(v1 - v2)) < 1e-13
+    emat = compute_system_matrix_nonlin(
+        system, fem_space, np.concatenate((omega_proj, u_proj), dtype=np.float64)
+    )
+
+    gmat = emat[(N + 1) ** 2 :, : (N + 1) ** 2]
+    v1 = gmat @ omega_proj
+    real_dofs = element_dual_dofs(
+        UnknownFormOrder.FORM_ORDER_1,
+        fem_space,
+        exact_interior_prod_2_dual(u_exact, omega_exact),
+    )
+
+    assert pytest.approx(real_dofs) == v1
 
 
 if __name__ == "__main__":
-    test_advect_non_linear_21_irregular_deformed(_CORNER_TEST_VALUES[0])
+    for vals in _CORNER_TEST_VALUES:
+        test_advect_10(vals)
+        test_dual_advect_10(vals)
+    for vals in _CORNER_TEST_VALUES:
+        test_advect_21(vals)
+        test_dual_advect_21(vals)
+    for vals in _CORNER_TEST_VALUES:
+        test_advect_dual_non_linear_10(vals)
+        test_advect_non_linear_10(vals)
+    for vals in _CORNER_TEST_VALUES:
+        test_advect_dual_non_linear_21(vals)
+        test_advect_non_linear_21(vals)

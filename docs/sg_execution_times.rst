@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:10.854** total execution time for 13 files **from all galleries**:
+**07:57.470** total execution time for 15 files **from all galleries**:
 
 .. container::
 
@@ -32,42 +32,48 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_post_p.py` (``../examples/steady/plot_direct_poisson_refined_post_p.py``)
-     - 00:10.854
+   * - :ref:`sphx_glr_auto_examples_refinement_plot_advdif_post_hp_projection.py` (``../examples/refinement/plot_advdif_post_hp_projection.py``)
+     - 03:16.268
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson.py` (``../examples/steady/plot_direct_poisson.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson_refined_pre.py` (``../examples/steady/plot_direct_poisson_refined_pre.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_steady_plot_linear_adv_dif.py` (``../examples/steady/plot_linear_adv_dif.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_steady_plot_mixed_poisson.py` (``../examples/steady/plot_mixed_poisson.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_steady_plot_navier_stokes.py` (``../examples/steady/plot_navier_stokes.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_steady_plot_stokes_flow.py` (``../examples/steady/plot_stokes_flow.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_unsteady_plot_cavity_flow.py` (``../examples/unsteady/plot_cavity_flow.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_unsteady_plot_heat_direct.py` (``../examples/unsteady/plot_heat_direct.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_unsteady_plot_heat_mixed.py` (``../examples/unsteady/plot_heat_mixed.py``)
-     - 00:00.000
+   * - :ref:`sphx_glr_auto_examples_refinement_plot_direct_poison_post_hp.py` (``../examples/refinement/plot_direct_poison_post_hp.py``)
+     - 00:56.956
      - 0.0
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_reaction.py` (``../examples/unsteady/plot_reaction.py``)
-     - 00:00.000
+     - 00:45.543
      - 0.0
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_reaction_mixed.py` (``../examples/unsteady/plot_reaction_mixed.py``)
-     - 00:00.000
+     - 00:43.350
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_refinement_plot_direct_poisson_refined_pre.py` (``../examples/refinement/plot_direct_poisson_refined_pre.py``)
+     - 00:37.400
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_unsteady_plot_heat_mixed.py` (``../examples/unsteady/plot_heat_mixed.py``)
+     - 00:23.969
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_refinement_plot_direct_poisson_refined_post_p.py` (``../examples/refinement/plot_direct_poisson_refined_post_p.py``)
+     - 00:23.810
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_unsteady_plot_heat_direct.py` (``../examples/unsteady/plot_heat_direct.py``)
+     - 00:16.891
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_unsteady_plot_cavity_flow.py` (``../examples/unsteady/plot_cavity_flow.py``)
+     - 00:08.169
      - 0.0
    * - :ref:`sphx_glr_auto_examples_unsteady_plot_vector_reaction.py` (``../examples/unsteady/plot_vector_reaction.py``)
-     - 00:00.000
+     - 00:06.697
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_steady_plot_navier_stokes.py` (``../examples/steady/plot_navier_stokes.py``)
+     - 00:05.405
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_steady_plot_mixed_poisson.py` (``../examples/steady/plot_mixed_poisson.py``)
+     - 00:04.512
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_steady_plot_linear_adv_dif.py` (``../examples/steady/plot_linear_adv_dif.py``)
+     - 00:03.444
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_steady_plot_stokes_flow.py` (``../examples/steady/plot_stokes_flow.py``)
+     - 00:02.586
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_steady_plot_direct_poisson.py` (``../examples/steady/plot_direct_poisson.py``)
+     - 00:02.470
      - 0.0

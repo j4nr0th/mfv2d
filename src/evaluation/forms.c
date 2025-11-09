@@ -96,19 +96,38 @@ static PyObject *element_form_spec_iter_next(element_form_spec_iter_t *it)
     return Py_BuildValue("si", it->efs->forms[i].name, it->efs->forms[i].order);
 }
 
-MFV2D_INTERNAL
-PyTypeObject element_form_spec_iter_type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormSpecificationIter",
-    .tp_basicsize = sizeof(element_form_spec_iter_t),
-    .tp_dealloc = (destructor)element_form_spec_iter_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_iter = PyObject_SelfIter, // the iterator's __iter__ returns self
-    .tp_iternext = (iternextfunc)element_form_spec_iter_next,
+// MFV2D_INTERNAL
+// PyTypeObject element_form_spec_iter_type = {
+//     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormSpecificationIter",
+//     .tp_basicsize = sizeof(element_form_spec_iter_t),
+//     .tp_dealloc = (destructor)element_form_spec_iter_dealloc,
+//     .tp_flags = Py_TPFLAGS_DEFAULT,
+//     .tp_iter = PyObject_SelfIter, // the iterator's __iter__ returns self
+//     .tp_iternext = (iternextfunc)element_form_spec_iter_next,
+// };
+
+static PyType_Slot element_form_spec_iter_type_slots[] = {
+    {.slot = Py_tp_dealloc, .pfunc = element_form_spec_iter_dealloc},
+    {.slot = Py_tp_iter, .pfunc = PyObject_SelfIter},
+    {.slot = Py_tp_iternext, .pfunc = element_form_spec_iter_next},
+    {}, // sentinel
+};
+
+PyType_Spec element_form_spec_iter_type_spec = {
+    .name = "mfv2d._mfv2d._ElementFormSpecificationIter",
+    .basicsize = sizeof(element_form_spec_iter_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_IMMUTABLETYPE,
+    .slots = element_form_spec_iter_type_slots,
 };
 
 static PyObject *element_form_spec_iter(element_form_spec_t *self)
 {
-    element_form_spec_iter_t *const it = PyObject_New(element_form_spec_iter_t, &element_form_spec_iter_type);
+    // NOTE: until PyType_GetModuleByDef is in the stable API, this may be tricky.
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    element_form_spec_iter_t *const it = PyObject_New(element_form_spec_iter_t, state->type_form_spec_iter);
     if (!it)
     {
         return NULL;
@@ -307,11 +326,11 @@ static int element_form_spec_contains(const element_form_spec_t *self, PyObject 
     return 0;
 }
 
-static PySequenceMethods element_form_spec_sequence_methods = {
-    .sq_item = (ssizeargfunc)element_form_spec_getitem,
-    .sq_length = (lenfunc)element_form_spec_len,
-    .sq_contains = (objobjproc)element_form_spec_contains,
-};
+// static PySequenceMethods element_form_spec_sequence_methods = {
+//     .sq_item = (ssizeargfunc)element_form_spec_getitem,
+//     .sq_length = (lenfunc)element_form_spec_len,
+//     .sq_contains = (objobjproc)element_form_spec_contains,
+// };
 
 static PyGetSetDef element_form_spec_getset[] = {
     {
@@ -697,18 +716,41 @@ PyDoc_STRVAR(element_form_spec_docstr, "_ElementFormSpecification(*specs: tuple[
                                        "    unique and order have a valid value which is in\n"
                                        "    :class:`mfv2d.kform.UnknownFormOrder`.\n");
 
-PyTypeObject element_form_spec_type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormSpecification",
-    .tp_basicsize = sizeof(element_form_spec_t),
-    .tp_itemsize = sizeof(form_spec_t),
-    .tp_dealloc = (destructor)element_form_spec_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = element_form_spec_docstr,
-    .tp_new = element_form_spec_new,
-    .tp_getset = element_form_spec_getset,
-    .tp_as_sequence = &element_form_spec_sequence_methods,
-    .tp_repr = (reprfunc)element_form_spec_repr,
-    .tp_str = (reprfunc)element_form_spec_str,
-    .tp_methods = element_form_spec_methods,
-    .tp_iter = (getiterfunc)element_form_spec_iter,
+// PyTypeObject element_form_spec_type = {
+//     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormSpecification",
+//     .tp_basicsize = sizeof(element_form_spec_t),
+//     .tp_itemsize = sizeof(form_spec_t),
+//     .tp_dealloc = (destructor)element_form_spec_dealloc,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+//     .tp_doc = element_form_spec_docstr,
+//     .tp_new = element_form_spec_new,
+//     .tp_getset = element_form_spec_getset,
+//     .tp_as_sequence = &element_form_spec_sequence_methods,
+//     .tp_repr = (reprfunc)element_form_spec_repr,
+//     .tp_str = (reprfunc)element_form_spec_str,
+//     .tp_methods = element_form_spec_methods,
+//     .tp_iter = (getiterfunc)element_form_spec_iter,
+// };
+
+static PyType_Slot element_form_spec_slots[] = {
+    {.slot = Py_tp_dealloc, .pfunc = element_form_spec_dealloc},
+    {.slot = Py_tp_doc, .pfunc = (void *)element_form_spec_docstr},
+    {.slot = Py_tp_new, .pfunc = element_form_spec_new},
+    {.slot = Py_tp_getset, .pfunc = element_form_spec_getset},
+    {.slot = Py_tp_repr, .pfunc = element_form_spec_repr},
+    {.slot = Py_tp_str, .pfunc = element_form_spec_str},
+    {.slot = Py_tp_methods, .pfunc = element_form_spec_methods},
+    {.slot = Py_sq_item, .pfunc = element_form_spec_getitem},
+    {.slot = Py_sq_length, .pfunc = element_form_spec_len},
+    {.slot = Py_sq_contains, .pfunc = element_form_spec_contains},
+    {.slot = Py_tp_iter, .pfunc = element_form_spec_iter},
+    {}, // sentinel
+};
+
+PyType_Spec element_form_spec_type_spec = {
+    .name = "mfv2d._mfv2d._ElementFormSpecification",
+    .basicsize = sizeof(element_form_spec_t),
+    .itemsize = sizeof(form_spec_t),
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .slots = element_form_spec_slots,
 };

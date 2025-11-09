@@ -366,8 +366,8 @@ PyObject *compute_integrating_fields(PyObject *mod, PyObject *args, PyObject *kw
     if (!PyArg_ParseTupleAndKeywords(
             args, kwds, "O!O!O!O!O!",
             (char *[6]){"fem_space", "form_specs", "field_orders", "field_information", "degrees_of_freedom", NULL},
-            state->type_fem_space, &element_space, &element_form_spec_type, &form_specs, &PyTuple_Type,
-            &py_field_orders, &PyTuple_Type, &field_information, &PyArray_Type, &degrees_of_freedom))
+            state->type_fem_space, &element_space, state->type_form_spec, &form_specs, &PyTuple_Type, &py_field_orders,
+            &PyTuple_Type, &field_information, &PyArray_Type, &degrees_of_freedom))
     {
         return NULL;
     }

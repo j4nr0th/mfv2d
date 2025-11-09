@@ -192,7 +192,8 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
         (state->type_basis1d = add_type_to_the_module(mod, &basis_1d_type_spec, NULL)) == NULL ||
         (state->type_basis2d = add_type_to_the_module(mod, &basis_2d_type_spec, NULL)) == NULL ||
         (state->type_fem_space = add_type_to_the_module(mod, &element_fem_space_2d_type_spec, NULL)) == NULL ||
-        PyModule_AddType(mod, &element_form_spec_type) < 0 || PyModule_AddType(mod, &element_form_spec_iter_type) < 0 ||
+        (state->type_form_spec = add_type_to_the_module(mod, &element_form_spec_type_spec, NULL)) == NULL ||
+        (state->type_form_spec_iter = add_type_to_the_module(mod, &element_form_spec_iter_type_spec, NULL)) == NULL ||
         PyModule_AddType(mod, &svec_type_object) < 0 || PyModule_AddType(mod, &crs_matrix_type_object) < 0 ||
         PyModule_AddType(mod, &system_object_type) < 0 || PyModule_AddType(mod, &trace_vector_object_type) < 0 ||
         PyModule_AddType(mod, &dense_vector_object_type) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 ||

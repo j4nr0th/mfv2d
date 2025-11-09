@@ -27,14 +27,14 @@ PyObject *compute_element_matrix(PyObject *mod, PyObject *args, PyObject *kwargs
                               "degrees_of_freedom", "stack_memory", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!OO!|O!n", kwlist,
-                                     &element_form_spec_type, // for type checking
-                                     &form_specs,             // ElementFormsSpecs
-                                     &expressions,            // _CompiledCodeMatrix (PyObject*)
-                                     state->type_fem_space,   // for type checking
-                                     &element_fem_space,      // element cache
-                                     &PyArray_Type,           // for type checking
-                                     &py_degrees_of_freedom,  // array
-                                     &stack_memory            // int
+                                     state->type_form_spec,  // for type checking
+                                     &form_specs,            // ElementFormsSpecs
+                                     &expressions,           // _CompiledCodeMatrix (PyObject*)
+                                     state->type_fem_space,  // for type checking
+                                     &element_fem_space,     // element cache
+                                     &PyArray_Type,          // for type checking
+                                     &py_degrees_of_freedom, // array
+                                     &stack_memory           // int
                                      ))
     {
         return NULL;
@@ -259,14 +259,14 @@ PyObject *compute_element_vector(PyObject *mod, PyObject *args, PyObject *kwargs
                               "degrees_of_freedom", "stack_memory ", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!OO!O!|n", kwlist,
-                                     &element_form_spec_type, // for type checking
-                                     &form_specs,             // _ElementFormsSpecs
-                                     &expressions,            // (PyObject*)
-                                     state->type_fem_space,   // for type checking
-                                     &element_fem_space,      // element cache
-                                     &PyArray_Type,           // For type checking
-                                     &solution,               // np.ndarray
-                                     &stack_memory            // int
+                                     state->type_form_spec, // for type checking
+                                     &form_specs,           // _ElementFormsSpecs
+                                     &expressions,          // (PyObject*)
+                                     state->type_fem_space, // for type checking
+                                     &element_fem_space,    // element cache
+                                     &PyArray_Type,         // For type checking
+                                     &solution,             // np.ndarray
+                                     &stack_memory          // int
                                      ))
     {
         return NULL;
@@ -489,7 +489,7 @@ PyObject *compute_element_projector(PyObject *mod, PyObject *args, PyObject *kwd
     int dual = 0;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!O!|p",
                                      (char *const[]){"form_orders", "basis_in", "space_out", "dual", NULL},
-                                     &element_form_spec_type, &form_specs, state->type_basis2d, &basis_in,
+                                     state->type_form_spec, &form_specs, state->type_basis2d, &basis_in,
                                      state->type_fem_space, &space_out, &dual))
     {
         return NULL;

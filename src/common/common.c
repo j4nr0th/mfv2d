@@ -172,3 +172,227 @@ void raise_exception_from_current(PyObject *exception, const char *format, ...)
         va_end(args);
     }
 }
+
+static argument_status_t validate_arg_specs(const unsigned n, const argument_t specs[const static n])
+{
+    // Validate input specs have all keyword args at the end
+    for (unsigned i = 1; i < n; ++i)
+    {
+        if (specs[i - 1].kwname != NULL && specs[i].kwname == NULL)
+        {
+            PyErr_Format(PyExc_RuntimeError,
+                         "Argument %u has a keyword argument, but argument %u does not (author is a retard).", i - 1,
+                         i);
+            return ARG_STATUS_BAD_SPECS;
+        }
+    }
+    for (unsigned i = 0; i < n; ++i)
+    {
+        if (specs[i].kwname == NULL && specs[i].kw_only)
+        {
+            PyErr_Format(PyExc_RuntimeError,
+                         "Argument %u was marked as keyword-only, but does not specify a keyword (author is a retard).",
+                         i);
+            return ARG_STATUS_BAD_SPECS;
+        }
+        if (specs[i].type_check != NULL && specs[i].type != ARG_TYPE_PYTHON)
+        {
+            PyErr_Format(PyExc_RuntimeError,
+                         "Argument %u specifies a type to check, but does not specify the type as Python object "
+                         "(author is a retard).",
+                         i);
+            return ARG_STATUS_BAD_SPECS;
+        }
+        if (specs[i].kwname != NULL)
+        {
+            for (unsigned j = i + 1; j < n; ++j)
+            {
+                if (specs[j].kwname != NULL && strcmp(specs[j].kwname, specs[i].kwname) == 0)
+                {
+                    PyErr_Format(PyExc_RuntimeError,
+                                 "Arguments %u and %u use the same keyword \"%s\" (author is a retard).", i, j);
+                    return ARG_STATUS_BAD_SPECS;
+                }
+            }
+            if (specs[i].kwname[0] == '\0')
+            {
+                PyErr_Format(PyExc_RuntimeError, "Argument %u specifies a keyword with no length %u.", i);
+                return ARG_STATUS_BAD_SPECS;
+            }
+        }
+        switch (specs[i].type)
+        {
+        case ARG_TYPE_PYTHON:
+        case ARG_TYPE_BOOL:
+        case ARG_TYPE_INT:
+        case ARG_TYPE_DOUBLE:
+        case ARG_TYPE_STRING:
+        case ARG_TYPE_NONE:
+            break;
+        default:
+            PyErr_Format(PyExc_RuntimeError, "Argument %u has invalid type %u.", i, specs[i].type);
+            return ARG_STATUS_BAD_SPECS;
+        }
+    }
+
+    return ARG_STATUS_SUCCESS;
+}
+
+argument_status_t extract_argument_value(const unsigned i, PyObject *const val, argument_t *const arg)
+{
+    switch (arg->type)
+    {
+    case ARG_TYPE_PYTHON:
+        if (arg->type_check && !PyObject_TypeCheck(val, arg->type_check))
+        {
+            PyErr_Format(PyExc_TypeError, "Argument %u is not of type %s but instead %R.", i, arg->type_check->tp_name,
+                         Py_TYPE(val));
+            return ARG_STATUS_INVALID;
+        }
+        arg->value_python = val;
+        break;
+
+    case ARG_TYPE_BOOL:
+        arg->value_bool = PyObject_IsTrue(val);
+        if (PyErr_Occurred())
+            return ARG_STATUS_INVALID;
+        break;
+
+    case ARG_TYPE_INT:
+        arg->value_int = PyLong_AsSsize_t(val);
+        if (PyErr_Occurred())
+            return ARG_STATUS_INVALID;
+        break;
+
+    case ARG_TYPE_DOUBLE:
+        arg->value_double = PyFloat_AsDouble(val);
+        if (PyErr_Occurred())
+            return ARG_STATUS_INVALID;
+        break;
+
+    case ARG_TYPE_STRING:
+        arg->value_string = PyUnicode_AsUTF8(val);
+        if (PyErr_Occurred())
+            return ARG_STATUS_INVALID;
+        break;
+
+    case ARG_TYPE_NONE:
+        ASSERT(0, "Should not be reached.");
+        return ARG_STATUS_BAD_SPECS;
+    }
+    arg->found = 1;
+    return ARG_STATUS_SUCCESS;
+}
+
+MFV2D_INTERNAL
+argument_status_t parse_arguments(argument_t specs[const], PyObject *const args[const], const Py_ssize_t nargs,
+                                  const PyObject *const kwnames)
+{
+    ASSERT(args != NULL, "Pointer to positional args should not be null.");
+    const unsigned nkwds = kwnames != NULL ? PyTuple_GET_SIZE(kwnames) : 0;
+    ASSERT(specs != NULL, "Pointer to argument specs should not be null.");
+    ASSERT(nargs > 0, "Number of arguments must be a positive integer (it was %lld).", (long long int)nargs);
+
+    unsigned n = 0;
+    while (specs[n].type != ARG_TYPE_NONE)
+    {
+        specs[n].found = 0;
+        n += 1;
+    }
+    if (n == 0)
+    {
+        // No args? Not my problem!
+        return ARG_STATUS_SUCCESS;
+    }
+
+    // Validate the arguments are properly specified.
+    ASSERT(validate_arg_specs(n, specs) == ARG_STATUS_SUCCESS, "Invalid argument specs.");
+    ASSERT(nargs + nkwds <= n, "Number of specified arguments is less than the number of received arguments.");
+
+    for (unsigned i = 0; i < nargs; ++i)
+    {
+        PyObject *const val = args[i];
+        argument_t *const arg = specs + i;
+        if (arg->kw_only)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Argument %u (%s) is keyword-only, but was passed as positional argument.",
+                         i, arg->kwname);
+            return ARG_STATUS_KW_AS_POS;
+        }
+
+        const argument_status_t res = extract_argument_value(i, val, arg);
+        if (res != ARG_STATUS_SUCCESS)
+            return res;
+    }
+
+    unsigned first_kw = 0;
+    while (first_kw < n && specs[first_kw].kwname == NULL)
+    {
+        first_kw += 1;
+    }
+
+    for (unsigned i = 0; i < nkwds; ++i)
+    {
+        PyObject *const val = args[nargs + i];
+        PyObject *const kwname = PyTuple_GET_ITEM(kwnames, i);
+
+        const char *kwd = PyUnicode_AsUTF8(kwname);
+        if (!kwd)
+            return ARG_STATUS_INVALID;
+
+        unsigned i_arg;
+        for (i_arg = first_kw; i_arg < n; ++i_arg)
+        {
+            if (strcmp(kwd, specs[i_arg].kwname) == 0)
+                break;
+        }
+
+        if (i_arg == n)
+        {
+            PyErr_Format(PyExc_TypeError, "Function does not have any parameter names \"%s\".", kwd);
+            return ARG_STATUS_NO_KW;
+        }
+
+        argument_t *const arg = specs + i_arg;
+
+        if (arg->found)
+        {
+            PyErr_Format(PyExc_TypeError, "Parameter \"%s\" was already specified.", kwd);
+            return ARG_STATUS_DUPLICATE;
+        }
+
+        const argument_status_t res = extract_argument_value(i, val, arg);
+        if (res != ARG_STATUS_SUCCESS)
+            return res;
+    }
+
+    for (unsigned i = 0; i < n; ++i)
+    {
+        const argument_t *const arg = specs + i;
+        if (arg->found == 0 && arg->optional == 0)
+        {
+            PyErr_Format(PyExc_TypeError, "Non-optional parameter \"%s\" was not specified.", arg->kwname);
+            return ARG_STATUS_MISSING;
+        }
+    }
+
+    return ARG_STATUS_SUCCESS;
+}
+
+const char *arg_status_strings[] = {
+    [ARG_STATUS_SUCCESS] = "Parsed correctly",
+    [ARG_STATUS_MISSING] = "Argument was missing",
+    [ARG_STATUS_INVALID] = "Argument had invalid value",
+    [ARG_STATUS_DUPLICATE] = "Argument was found twice",
+    [ARG_STATUS_BAD_SPECS] = "Specifications were incorrect",
+    [ARG_STATUS_KW_AS_POS] = "Keyword argument was specified as a positional argument",
+    [ARG_STATUS_NO_KW] = "No argument has this keyword",
+    [ARG_STATUS_UNKNOWN] = "Unknown error",
+};
+
+const char *argument_status_str(const argument_status_t e)
+{
+    if ((size_t)e >= (sizeof(arg_status_strings) / sizeof(arg_status_strings[0])))
+        return "UNKNOWN";
+    return arg_status_strings[e];
+}

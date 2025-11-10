@@ -151,4 +151,62 @@ typedef struct
 MFV2D_INTERNAL
 const mfv2d_module_state_t *mfv2d_state_from_type(PyTypeObject *type);
 
+typedef enum
+{
+    ARG_TYPE_NONE,
+    ARG_TYPE_INT,
+    ARG_TYPE_BOOL,
+    ARG_TYPE_DOUBLE,
+    ARG_TYPE_STRING,
+    ARG_TYPE_PYTHON,
+} argument_type_t;
+
+typedef struct
+{
+    argument_type_t type;
+    int optional;
+    int found;
+    int kw_only;
+    const char *kwname;
+    union {
+        Py_ssize_t value_int;
+        int value_bool;
+        double value_double;
+        PyObject *value_python;
+        const char *value_string;
+    };
+    PyTypeObject *type_check;
+} argument_t;
+
+typedef enum
+{
+    ARG_STATUS_SUCCESS,   // Parsed correctly
+    ARG_STATUS_MISSING,   // Argument was missing
+    ARG_STATUS_INVALID,   // Argument had invalid value
+    ARG_STATUS_DUPLICATE, // Argument was found twice
+    ARG_STATUS_BAD_SPECS, // Specifications were incorrect
+    ARG_STATUS_KW_AS_POS, // Keyword argument was specified as a positional argument
+    ARG_STATUS_NO_KW,     // No argument has this keyword
+    ARG_STATUS_UNKNOWN,   // Unknown error
+} argument_status_t;
+
+MFV2D_INTERNAL
+const char *argument_status_str(argument_status_t e);
+
+MFV2D_INTERNAL
+argument_status_t parse_arguments(argument_t specs[], PyObject *const args[], Py_ssize_t nargs,
+                                  const PyObject *kwnames);
+
+static inline int parse_arguments_check(argument_t specs[], PyObject *const args[], const Py_ssize_t nargs,
+                                        const PyObject *kwnames)
+{
+    const argument_status_t res = parse_arguments(specs, args, nargs, kwnames);
+    if (res != ARG_STATUS_SUCCESS)
+    {
+        raise_exception_from_current(PyExc_TypeError, "Invalid arguments to function (%s).", argument_status_str(res));
+        return -1;
+    }
+    return 0;
+}
+
 #endif // COMMON_H

@@ -64,17 +64,32 @@ static void crs_matrix_dealloc(crs_matrix_t *this)
     Py_TYPE(this)->tp_free((PyObject *)this);
 }
 
-static PyObject *crs_matrix_build_row(crs_matrix_t *this, PyObject *args, PyObject *kwargs)
+static PyObject *crs_matrix_build_row(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
+                                      const Py_ssize_t nargs, PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
 
-    unsigned row;
-    svec_object_t *entries = NULL;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|O!", (char *[]){"row", "entries", NULL}, &row, state->type_svec,
-                                     &entries))
+    if (!PyObject_TypeCheck(self, state->type_crs_matrix))
     {
+        PyErr_Format(PyExc_TypeError, "CRSMatrix.build_row() must be called on %s, got %s",
+                     state->type_crs_matrix->tp_name, Py_TYPE(self)->tp_name);
         return NULL;
     }
+
+    crs_matrix_t *const this = (crs_matrix_t *)self;
+    argument_t arg_vals[] = {
+        {.type = ARG_TYPE_INT, .kwname = "row"},
+        {.type = ARG_TYPE_PYTHON, .optional = 1, .kwname = "entries", .type_check = state->type_svec},
+        {}, // sentinel
+    };
+    if (parse_arguments_check(arg_vals, args, nargs, kwnames) < 0)
+        return NULL;
+
+    const unsigned row = arg_vals[0].value_int;
+    const svec_object_t *const entries = (svec_object_t *)arg_vals[1].value_python;
+
     if (row >= this->matrix->base.rows)
     {
         PyErr_Format(PyExc_ValueError, "Row index %u out of bounds for matrix of dimensions (%u, %u)", row,
@@ -130,8 +145,33 @@ static PyObject *crs_matrix_build_row(crs_matrix_t *this, PyObject *args, PyObje
     Py_RETURN_NONE;
 }
 
-static PyObject *crs_matrix_toarray(const crs_matrix_t *this, PyObject *Py_UNUSED(ignored))
+static PyObject *crs_matrix_toarray(PyObject *self, PyTypeObject *defining_class, PyObject *const Py_UNUSED(args[]),
+                                    const Py_ssize_t nargs, PyObject *kwnames)
 {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_crs_matrix))
+    {
+        PyErr_Format(PyExc_TypeError, "CRSMatrix.toarray() must be called on %s, got %s",
+                     state->type_crs_matrix->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "CRSMatrix.toarray() takes no arguments (%zd given)", nargs);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "CRSMatrix.toarray() takes no keyword arguments");
+        return NULL;
+    }
+
+    const crs_matrix_t *const this = (crs_matrix_t *)self;
+
     if (!crs_matrix_check_build(this))
         return NULL;
     const unsigned cols = this->matrix->base.cols;
@@ -602,23 +642,16 @@ static PyObject *crs_matrix_matmul_right(const mfv2d_module_state_t *const state
 
 static PyObject *crs_matrix_matmul(PyObject *self, PyObject *other)
 {
-    PyObject *const exc_state = PyErr_GetHandledException();
-    PyErr_SetHandledException(NULL);
-    PyObject *mod = PyType_GetModule(Py_TYPE(self));
-    if (!mod)
+    const mfv2d_module_state_t *state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
     {
         PyErr_Clear();
-        mod = PyType_GetModule(Py_TYPE(other));
-        PyErr_Clear();
-        PyErr_SetHandledException(exc_state);
-        if (!mod)
+        state = mfv2d_state_from_type(Py_TYPE(other));
+        if (!state)
         {
-            Py_RETURN_NOTIMPLEMENTED;
+            return NULL;
         }
     }
-    const mfv2d_module_state_t *const state = PyModule_GetState(mod);
-    if (!state)
-        return NULL;
 
     if (PyObject_TypeCheck(self, state->type_crs_matrix))
     {
@@ -635,18 +668,45 @@ static PyObject *crs_matrix_matmul(PyObject *self, PyObject *other)
 
 static PyObject *crs_matrix_str(const crs_matrix_t *this)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(this));
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(this, state->type_crs_matrix))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got a %s.", state->type_crs_matrix->tp_name,
+                     Py_TYPE(this)->tp_name);
+        return NULL;
+    }
     return PyUnicode_FromFormat("MatrixCRS(%u, %u)", this->matrix->base.rows, this->matrix->base.cols);
 }
 
-static PyObject *crs_matrix_from_data(crs_matrix_t *const this, PyObject *args, PyObject *kwargs)
+static PyObject *crs_matrix_from_data(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
+                                      const Py_ssize_t nargs, PyObject *kwnames)
 {
-    PyObject *py_values, *py_column_indices, *py_row_lengths;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO", (char *[]){"values", "column_indices", "row_lengths", NULL},
-                                     &py_values, &py_column_indices, &py_row_lengths))
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_crs_matrix))
     {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got a %s.", state->type_crs_matrix->tp_name,
+                     Py_TYPE(self)->tp_name);
         return NULL;
     }
 
+    argument_t arguments[] = {
+        {.type = ARG_TYPE_PYTHON, .kwname = "values"},
+        {.type = ARG_TYPE_PYTHON, .kwname = "column_indices"},
+        {.type = ARG_TYPE_PYTHON, .kwname = "row_lengths"},
+        {}, // sentinel
+    };
+    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+        return NULL;
+
+    PyObject *const py_values = arguments[0].value_python;
+    PyObject *const py_column_indices = arguments[1].value_python;
+    PyObject *const py_row_lengths = arguments[2].value_python;
+
+    crs_matrix_t *const this = (crs_matrix_t *)self;
     PyArrayObject *const row_lengths_array = (PyArrayObject *)PyArray_FromAny(
         py_row_lengths, PyArray_DescrFromType(NPY_INT64), 1, 1, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
     if (!row_lengths_array)
@@ -737,19 +797,27 @@ static PyObject *crs_matrix_from_data(crs_matrix_t *const this, PyObject *args, 
     Py_RETURN_NONE;
 }
 
-static PyObject *crs_matrix_array_ufunc(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
+static PyObject *crs_matrix_array_ufunc(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
+                                        const Py_ssize_t nargs, PyObject *kwnames)
 {
-    ASSERT(PyTuple_Check(args), "Arguments must be a python tuple.");
-    ASSERT(kwds == NULL || PyDict_CheckExact(kwds), "Keyworkds must be passed as a dict.");
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    if (!state)
+        return NULL;
 
-    if (PyTuple_GET_SIZE(args) < 2)
+    if (!PyObject_TypeCheck(self, state->type_crs_matrix))
     {
-        PyErr_Format(PyExc_ValueError, "Expected at least two arguments, got %u.", PyTuple_GET_SIZE(args));
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got a %s.", state->type_crs_matrix->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    if (nargs < 2)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected at least 2 arguments, got %zd.", nargs);
         return NULL;
     }
 
     {
-        PyObject *const ufunc = PyTuple_GET_ITEM(args, 0);
+        PyObject *const ufunc = args[0];
         PyObject *const ufunc_name = PyObject_GetAttrString(ufunc, "__name__");
         if (!ufunc_name)
             return NULL;
@@ -768,7 +836,7 @@ static PyObject *crs_matrix_array_ufunc(PyObject *Py_UNUSED(self), PyObject *arg
     }
 
     {
-        PyObject *const method_name = PyTuple_GET_ITEM(args, 1);
+        PyObject *const method_name = args[1];
         const char *const method = PyUnicode_AsUTF8(method_name);
         if (!method)
             return NULL;
@@ -779,27 +847,49 @@ static PyObject *crs_matrix_array_ufunc(PyObject *Py_UNUSED(self), PyObject *arg
         }
     }
 
-    PyObject *const normal_args = PyTuple_GetSlice(args, 2, PyTuple_GET_SIZE(args));
-    if (!normal_args)
+    // Extract operands from inputs tuple
+    argument_t arguments[] = {
+        {.type = ARG_TYPE_PYTHON},
+        {.type = ARG_TYPE_PYTHON},
+        {},
+    };
+
+    if (parse_arguments_check(arguments, args + 2, nargs - 2, kwnames) < 0)
         return NULL;
 
-    // Extract operands from inputs tuple
-    PyObject *left, *right;
-    const int unpacked_res = PyArg_UnpackTuple(normal_args, "matmul", 2, 2, &left, &right);
-    Py_DECREF(normal_args);
-    if (!unpacked_res)
-    {
-        return NULL;
-    }
-    return crs_matrix_matmul(left, right);
+    return crs_matrix_matmul(arguments[0].value_python, arguments[1].value_python);
 }
 
-static PyObject *crs_matrix_transpose(const crs_matrix_t *this, PyObject *Py_UNUSED(args))
+static PyObject *crs_matrix_transpose(PyObject *self, PyTypeObject *defining_class, PyObject *const Py_UNUSED(args[]),
+                                      const Py_ssize_t nargs, PyObject *kwnames)
 {
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected 0 arguments, got %zd.", nargs);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "Expected no keyword arguments.");
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_crs_matrix))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got a %s.", state->type_crs_matrix->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
+    const crs_matrix_t *const this = (const crs_matrix_t *)self;
     if (!crs_matrix_check_build(this))
         return NULL;
-    PyTypeObject *const type = Py_TYPE(this);
-    crs_matrix_t *const new = (crs_matrix_t *)type->tp_alloc(type, 0);
+
+    crs_matrix_t *const new = (crs_matrix_t *)state->type_crs_matrix->tp_alloc(state->type_crs_matrix, 0);
     if (!new)
         return NULL;
 
@@ -812,8 +902,31 @@ static PyObject *crs_matrix_transpose(const crs_matrix_t *this, PyObject *Py_UNU
     return (PyObject *)new;
 }
 
-static PyObject *crs_matrix_shrink(const crs_matrix_t *this, PyObject *Py_UNUSED(args))
+static PyObject *crs_matrix_shrink(PyObject *self, PyTypeObject *defining_class, PyObject *const Py_UNUSED(args[]),
+                                   const Py_ssize_t nargs, PyObject *kwnames)
 {
+    if (nargs != 0)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected 0 arguments, got %zd.", nargs);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "Expected no keyword arguments.");
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_crs_matrix))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got a %s.", state->type_crs_matrix->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    const crs_matrix_t *const this = (const crs_matrix_t *)self;
     if (!crs_matrix_check_build(this))
         return NULL;
     if (!JMTX_SUCCEEDED(jmtxd_matrix_crs_shrink(this->matrix)))
@@ -824,15 +937,32 @@ static PyObject *crs_matrix_shrink(const crs_matrix_t *this, PyObject *Py_UNUSED
     Py_RETURN_NONE;
 }
 
-static PyObject *crs_matrix_remove_entries_bellow(const crs_matrix_t *this, PyObject *arg)
+static PyObject *crs_matrix_remove_entries_bellow(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
+                                                  const Py_ssize_t nargs, PyObject *kwnames)
 {
-    if (!crs_matrix_check_build(this))
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    if (!state)
         return NULL;
-    const double v = PyFloat_AsDouble(arg);
-    if (PyErr_Occurred())
+
+    if (!PyObject_TypeCheck(self, state->type_crs_matrix))
     {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got a %s.", state->type_crs_matrix->tp_name,
+                     Py_TYPE(self)->tp_name);
         return NULL;
     }
+
+    argument_t arguments[] = {
+        {.type = ARG_TYPE_DOUBLE}, {}, // sentinel
+    };
+    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+        return NULL;
+
+    const crs_matrix_t *const this = (crs_matrix_t *)self;
+
+    if (!crs_matrix_check_build(this))
+        return NULL;
+    const double v = arguments[0].value_double;
+
     if (v < 0)
     {
         PyErr_Format(PyExc_ValueError, "Value must be non-negative, got %f.", v);
@@ -844,12 +974,32 @@ static PyObject *crs_matrix_remove_entries_bellow(const crs_matrix_t *this, PyOb
     return PyLong_FromUnsignedLong(initial - this->matrix->n_entries);
 }
 
-static PyObject *crs_matrix_add_to_dense(const crs_matrix_t *this, PyObject *arg)
+static PyObject *crs_matrix_add_to_dense(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
+                                         const Py_ssize_t nargs, PyObject *kwnames)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_crs_matrix))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got a %s.", state->type_crs_matrix->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
+    argument_t arguments[] = {
+        {.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type}, {}, // sentinel
+    };
+    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+        return NULL;
+
+    const crs_matrix_t *const this = (crs_matrix_t *)self;
+
     if (!crs_matrix_check_build(this))
         return NULL;
 
-    const PyArrayObject *const array = (PyArrayObject *)arg;
+    const PyArrayObject *const array = (PyArrayObject *)arguments[0].value_python;
     if (check_input_array(array, 2, (const npy_intp[2]){this->matrix->base.rows, this->matrix->base.cols}, NPY_DOUBLE,
                           NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED | NPY_ARRAY_WRITEABLE, "out") < 0)
         return NULL;
@@ -868,10 +1018,17 @@ static PyObject *crs_matrix_add_to_dense(const crs_matrix_t *this, PyObject *arg
     Py_RETURN_NONE;
 }
 
-static PyObject *crs_matrix_from_dense(PyTypeObject *type, PyObject *arg)
+static PyObject *crs_matrix_from_dense(PyTypeObject *type, PyTypeObject *Py_UNUSED(defining_class),
+                                       PyObject *const args[], const Py_ssize_t nargs, PyObject *kwnames)
 {
-    PyArrayObject *const array =
-        (PyArrayObject *)PyArray_FROMANY(arg, NPY_DOUBLE, 2, 2, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
+    argument_t arguments[] = {
+        {.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type}, {}, // sentinel
+    };
+    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+        return NULL;
+
+    PyArrayObject *const array = (PyArrayObject *)PyArray_FROMANY(arguments[0].value_python, NPY_DOUBLE, 2, 2,
+                                                                  NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
     if (!array)
         return NULL;
     const npy_intp *dims = PyArray_DIMS(array);
@@ -918,16 +1075,32 @@ static unsigned count_non_empty_rows(const crs_matrix_t *this)
     return n;
 }
 
-static PyObject *crs_matrix_multiply_to_sparse(const crs_matrix_t *this, PyObject *arg)
+static PyObject *crs_matrix_multiply_to_sparse(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
+                                               const Py_ssize_t nargs, PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
     if (!state)
         return NULL;
 
+    if (!PyObject_TypeCheck(self, state->type_crs_matrix))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, got a %s.", state->type_crs_matrix->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
+    argument_t arguments[] = {
+        {.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type}, {}, // sentinel
+    };
+    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+        return NULL;
+
+    const crs_matrix_t *const this = (crs_matrix_t *)self;
+
     if (!crs_matrix_check_build(this))
         return NULL;
-    const PyArrayObject *const array =
-        (PyArrayObject *)PyArray_FROMANY(arg, NPY_DOUBLE, 1, 1, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
+    const PyArrayObject *const array = (PyArrayObject *)PyArray_FROMANY(arguments[0].value_python, NPY_DOUBLE, 1, 1,
+                                                                        NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
 
     if (!array)
         return NULL;
@@ -1127,61 +1300,61 @@ static PyMethodDef crs_matrix_methods[] = {
     {
         .ml_name = "toarray",
         .ml_meth = (void *)crs_matrix_toarray,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = crs_matrix_to_array_docstring,
     },
     {
         .ml_name = "build_row",
         .ml_meth = (void *)crs_matrix_build_row,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = crs_matrix_build_row_docstring,
     },
     {
         .ml_name = "set_from_data",
         .ml_meth = (void *)crs_matrix_from_data,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = crs_matrix_from_data_docstring,
     },
     {
         .ml_name = "__array_ufunc__",
         .ml_meth = (void *)crs_matrix_array_ufunc,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = "Handle numpy ufuncs including matmul",
     },
     {
         .ml_name = "transpose",
         .ml_meth = (void *)crs_matrix_transpose,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = crs_matrix_transpose_docstring,
     },
     {
         .ml_name = "shrink",
         .ml_meth = (void *)crs_matrix_shrink,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = crs_matrix_shrink_docstring,
     },
     {
         .ml_name = "remove_entries_bellow",
         .ml_meth = (void *)crs_matrix_remove_entries_bellow,
-        .ml_flags = METH_O,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = crs_matrix_remove_entries_bellow_docstring,
     },
     {
         .ml_name = "add_to_dense",
         .ml_meth = (void *)crs_matrix_add_to_dense,
-        .ml_flags = METH_O,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = crs_matrix_add_to_dense_docstring,
     },
     {
         .ml_name = "from_dense",
         .ml_meth = (void *)crs_matrix_from_dense,
-        .ml_flags = METH_O | METH_CLASS,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS | METH_CLASS,
         .ml_doc = crs_matrix_from_dense_docstring,
     },
     {
         .ml_name = "multiply_to_sparse",
         .ml_meth = (void *)crs_matrix_multiply_to_sparse,
-        .ml_flags = METH_O,
+        .ml_flags = METH_METHOD | METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = crs_matrix_multiply_to_sparse_docstring,
     },
     {},
@@ -1447,22 +1620,6 @@ static PyGetSetDef crs_matrix_getset[] = {
     },
     {},
 };
-
-// MFV2D_INTERNAL
-// PyTypeObject crs_matrix_type_object = {
-//     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.MatrixCRS",
-//     .tp_new = (newfunc)crs_matrix_new,
-//     .tp_str = (reprfunc)crs_matrix_str,
-//     .tp_basicsize = sizeof(crs_matrix_t),
-//     .tp_itemsize = 0,
-//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-//     .tp_doc = crs_matrix_docstring,
-//     .tp_methods = crs_matrix_methods,
-//     .tp_as_number = &crs_matrix_as_number,
-//     .tp_as_mapping = &crs_matrix_as_mapping,
-//     .tp_getset = crs_matrix_getset,
-//     .tp_dealloc = (destructor)crs_matrix_dealloc,
-// };
 
 static PyType_Slot crs_matrix_type_slots[] = {
     {.slot = Py_tp_new, .pfunc = crs_matrix_new},

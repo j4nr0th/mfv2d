@@ -1,7 +1,3 @@
-//
-// Created by jan on 19.3.2025.
-//
-
 #include "svector.h"
 #include "numpy/ndarrayobject.h"
 
@@ -253,6 +249,15 @@ mfv2d_result_t sparse_vector_add_inplace(svector_t *first, const svector_t *seco
 
 static PyObject *svec_repr(const svec_object_t *this)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(this));
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(this, state->type_svec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s but got %R.", state->type_svec->tp_name, Py_TYPE(this));
+        return NULL;
+    }
+
     size_t capacity = 8 * this->count + 64;
     size_t count = 0;
     char *buffer = PyMem_RawMalloc(capacity * sizeof *buffer);
@@ -283,15 +288,70 @@ static PyObject *svec_repr(const svec_object_t *this)
     return str_out;
 }
 
-static PyObject *svec_from_entries(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject *svec_from_entries(PyTypeObject *type, PyTypeObject *defining_class, PyObject *const *args,
+                                   const Py_ssize_t nargs, PyObject *kwnames)
 {
-    // Check if indice/values are given as two arrays
-    Py_ssize_t n;
-    PyObject *py_indices, *py_values;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "nOO", (char *[4]){"n", "indices", "values", NULL}, &n, &py_indices,
-                                     &py_values))
-    {
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
         return NULL;
+
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "SparseVector.from_entries() takes no keyword arguments.");
+        return NULL;
+    }
+    const Py_ssize_t kwcnt = kwnames ? PyTuple_GET_SIZE(kwnames) : 0;
+    if (nargs + kwcnt != 3)
+    {
+        PyErr_Format(PyExc_TypeError, "SparseVector.from_entries() takes exactly 3 arguments, got %u.",
+                     (unsigned)(nargs + kwcnt));
+        return NULL;
+    }
+    Py_ssize_t n = -1;
+    PyObject *py_indices = NULL, *py_values = NULL;
+    if (nargs > 0)
+    {
+        n = PyLong_AsSsize_t(args[0]);
+        if (PyErr_Occurred())
+            return NULL;
+        if (nargs > 1)
+        {
+            py_indices = args[1];
+            if (nargs > 2)
+            {
+                py_values = args[2];
+            }
+        }
+    }
+    for (unsigned i = 0; i < kwcnt; ++i)
+    {
+        PyObject *const kwarg = PyTuple_GET_ITEM(kwnames, i);
+        PyObject *const value = args[nargs + i];
+        const char *keyword = PyUnicode_AsUTF8(kwarg);
+        if (!keyword)
+        {
+            return NULL;
+        }
+        if (strcmp(keyword, "indices") == 0)
+        {
+            py_indices = value;
+        }
+        else if (strcmp(keyword, "values") == 0)
+        {
+            py_values = value;
+        }
+        else if (strcmp(keyword, "n") == 0)
+        {
+            n = PyLong_AsSsize_t(value);
+            if (PyErr_Occurred())
+                return NULL;
+        }
+        else
+        {
+            PyErr_Format(PyExc_TypeError, "SparseVector.from_pairs() got an unexpected keyword argument '%s'.",
+                         keyword);
+            return NULL;
+        }
     }
 
     if (n <= 0)
@@ -372,13 +432,72 @@ static PyObject *svec_from_entries(PyTypeObject *type, PyObject *args, PyObject 
     return (PyObject *)this;
 }
 
-static PyObject *svec_array(const svec_object_t *this, PyObject *args, PyObject *kwds)
+static PyObject *svec_array(PyObject *self, PyTypeObject *defining_class, PyObject *const *args, const Py_ssize_t nargs,
+                            PyObject *kwnames)
 {
-    PyArray_Descr *dtype = NULL;
-    int b_copy = 0;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Op", (char *[3]){"dtype", "copy", NULL}, &dtype, &b_copy))
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
     {
         return NULL;
+    }
+
+    if (!PyObject_TypeCheck(self, state->type_svec))
+    {
+        PyErr_Format(PyExc_TypeError, "SparseVector.__array__ must be called on a %s but got %R.",
+                     state->type_svec->tp_name, self);
+        return NULL;
+    }
+
+    const Py_ssize_t nkwds = kwnames ? PyTuple_GET_SIZE(kwnames) : 0;
+
+    if (nargs + nkwds > 2)
+    {
+        PyErr_Format(PyExc_TypeError, "SparseVector.__array__ takes at most two arguments, got %u.",
+                     (unsigned)(nargs + nkwds));
+        return NULL;
+    }
+    PyArray_Descr *dtype = NULL;
+    int b_copy = 0;
+
+    if (nargs > 0)
+    {
+        dtype = (PyArray_Descr *)args[0];
+        if (nargs > 1)
+        {
+            b_copy = PyObject_IsTrue(args[1]);
+            if (PyErr_Occurred())
+            {
+                return NULL;
+            }
+        }
+    }
+
+    for (unsigned i = 0; i < nkwds; ++i)
+    {
+        PyObject *const kwarg = PyTuple_GET_ITEM(kwnames, i);
+        PyObject *const value = args[nargs + i];
+        const char *keyword = PyUnicode_AsUTF8(kwarg);
+        if (!keyword)
+        {
+            return NULL;
+        }
+        if (strcmp(keyword, "dtype") == 0)
+        {
+            dtype = (PyArray_Descr *)value;
+        }
+        else if (strcmp(keyword, "copy") == 0)
+        {
+            b_copy = PyObject_IsTrue(value);
+            if (PyErr_Occurred())
+            {
+                return NULL;
+            }
+        }
+        else
+        {
+            PyErr_Format(PyExc_TypeError, "SparseVector.__array__ got an unexpected keyword argument '%s'.", keyword);
+            return NULL;
+        }
     }
 
     if (!b_copy)
@@ -387,6 +506,7 @@ static PyObject *svec_array(const svec_object_t *this, PyObject *args, PyObject 
         return NULL;
     }
 
+    const svec_object_t *const this = (svec_object_t *)self;
     const npy_intp size = (npy_intp)this->n;
 
     PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(1, &size, NPY_FLOAT64);
@@ -413,9 +533,16 @@ static PyObject *svec_array(const svec_object_t *this, PyObject *args, PyObject 
 
 static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(this));
     if (!state)
         return NULL;
+
+    if (!PyObject_TypeCheck(this, state->type_svec))
+    {
+        PyErr_Format(PyExc_TypeError, "SparseVector.__get__ must be called on a %s but got %R.",
+                     state->type_svec->tp_name, this);
+        return NULL;
+    }
 
     if (PySlice_Check(py_idx))
     {
@@ -493,11 +620,18 @@ static PyObject *svec_get(const svec_object_t *this, PyObject *py_idx)
     return PyFloat_FromDouble(this->entries[pos].value);
 }
 
-static PyObject *svec_concatenate(PyTypeObject *type, PyObject *const *args, const Py_ssize_t nargs)
+static PyObject *svec_concatenate(PyTypeObject *type, PyTypeObject *defining_class, PyObject *const *args,
+                                  const Py_ssize_t nargs, PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(type);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
+
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "SparseVector.concatenate() takes no keyword arguments.");
+        return NULL;
+    }
 
     for (unsigned i = 0; i < nargs; ++i)
     {
@@ -537,15 +671,19 @@ static PyObject *svec_concatenate(PyTypeObject *type, PyObject *const *args, con
     return (PyObject *)this;
 }
 
-static PyObject *svec_from_pairs(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject *svec_from_pairs(PyTypeObject *type, PyTypeObject *defining_class, PyObject *const *args,
+                                 const Py_ssize_t nargs, PyObject *kwnames)
 {
-    if (kwds != NULL)
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
+    if (kwnames != NULL)
     {
-        PyErr_SetString(PyExc_TypeError, "SparseVector.from_pairs takes no keyword arguments.");
+        PyErr_SetString(PyExc_TypeError, "SparseVector.from_pairs() takes no keyword arguments.");
         return NULL;
     }
 
-    const Py_ssize_t nargs = PyTuple_GET_SIZE(args);
     if (nargs < 1)
     {
         PyErr_SetString(PyExc_TypeError, "At least one argument must be provided.");
@@ -553,7 +691,7 @@ static PyObject *svec_from_pairs(PyTypeObject *type, PyObject *args, PyObject *k
     }
 
     // Parse first arg (element) and the rest as *pairs
-    const Py_ssize_t dim_size = PyLong_AsSsize_t(PyTuple_GET_ITEM(args, 0));
+    const Py_ssize_t dim_size = PyLong_AsSsize_t(args[0]);
     if (PyErr_Occurred())
         return NULL;
 
@@ -573,7 +711,7 @@ static PyObject *svec_from_pairs(PyTypeObject *type, PyObject *args, PyObject *k
     // Fill arrays
     for (unsigned i = 1; i < nargs; ++i)
     {
-        PyObject *const pair = PyTuple_GET_ITEM(args, i);
+        PyObject *const pair = args[i];
 
         if (!PyTuple_Check(pair) || PyTuple_GET_SIZE(pair) != 2)
         {
@@ -616,26 +754,24 @@ static PyObject *svec_from_pairs(PyTypeObject *type, PyObject *args, PyObject *k
     return (PyObject *)self;
 }
 
-static PyObject *svec_dot(const svec_object_t *this, const svec_object_t *that)
+static PyObject *svec_dot(PyObject *self, PyTypeObject *defining_class, PyObject *const *args, const Py_ssize_t nargs,
+                          PyObject *kwnames)
 {
-    PyObject *const current_exception = PyErr_GetHandledException();
-    PyErr_SetHandledException(NULL);
-    PyObject *mod = PyType_GetModule(Py_TYPE(this));
-    if (!mod)
-    {
-        PyErr_Clear();
-        mod = PyType_GetModule(Py_TYPE(that));
-        if (!mod)
-        {
-            Py_XDECREF(current_exception);
-            return NULL;
-        }
-    }
-    PyErr_SetHandledException(current_exception);
-
-    mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+    mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
+    if (nargs != 1)
+    {
+        PyErr_Format(PyExc_TypeError, "Method requires exactly one argument, got %u.", (unsigned)nargs);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "Method takes no keyword arguments.");
+        return NULL;
+    }
+    svec_object_t *const this = (svec_object_t *)self;
+    svec_object_t *const that = (svec_object_t *)args[0];
 
     if (!PyObject_TypeCheck(that, state->type_svec) || !PyObject_TypeCheck(this, state->type_svec))
     {
@@ -707,8 +843,8 @@ static int svec_parse_merge_mode(const char name[], svec_merge_mode_t *out)
     return -1;
 }
 
-static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(mod), PyObject *const args[], const Py_ssize_t nargs,
-                                     PyObject *kwnames)
+static PyObject *svec_merge_to_dense(PyTypeObject *Py_UNUSED(type), PyTypeObject *defining_class, PyObject *const *args,
+                                     const Py_ssize_t nargs, PyObject *kwnames)
 {
     svec_merge_mode_t merge_mode = MERGE_MODE_LAST;
     if (kwnames != NULL)
@@ -762,7 +898,7 @@ static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(mod), PyObject *const a
         return NULL;
     }
 
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(args[0]));
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
 
@@ -794,7 +930,7 @@ static PyObject *svec_merge_to_dense(PyObject *Py_UNUSED(mod), PyObject *const a
         return PyObject_CallMethod(args[0], "__array__", NULL);
     }
 
-    const npy_intp size = (npy_intp)n;
+    const npy_intp size = n;
     PyArrayObject *const array = (PyArrayObject *)PyArray_SimpleNew(1, &size, NPY_FLOAT64);
 
     if (!array)
@@ -873,14 +1009,14 @@ static PyMethodDef svec_methods[] = {
     {
         .ml_name = "__array__",
         .ml_meth = (void *)svec_array,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray[int]\n"
                   "Convert to numpy array.\n",
     },
     {
         .ml_name = "from_entries",
         .ml_meth = (void *)svec_from_entries,
-        .ml_flags = METH_CLASS | METH_KEYWORDS | METH_VARARGS,
+        .ml_flags = METH_CLASS | METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = "from_entries(n: int, indices: array_like, values: array_like) -> SparseVector:\n"
                   "Create sparse vector from an array of indices and values.\n"
                   "\n"
@@ -903,7 +1039,7 @@ static PyMethodDef svec_methods[] = {
     {
         .ml_name = "from_pairs",
         .ml_meth = (void *)svec_from_pairs,
-        .ml_flags = METH_CLASS | METH_KEYWORDS | METH_VARARGS,
+        .ml_flags = METH_CLASS | METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = "from_pairs(n: int, *pairs: tuple[int, float], /) -> SparseVector:\n"
                   "Create sparse vector from an index-coefficient pairs.\n"
                   "\n"
@@ -923,7 +1059,7 @@ static PyMethodDef svec_methods[] = {
     {
         .ml_name = "concatenate",
         .ml_meth = (void *)svec_concatenate,
-        .ml_flags = METH_FASTCALL | METH_CLASS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD | METH_CLASS,
         .ml_doc = "concatenate(*vectors: SparseVector) -> SparseVector:\n"
                   "Merge sparse vectors together into a single vector.\n"
                   "\n"
@@ -940,7 +1076,7 @@ static PyMethodDef svec_methods[] = {
     {
         .ml_name = "dot",
         .ml_meth = (void *)svec_dot,
-        .ml_flags = METH_O,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = "dot(other: SparseVector) -> float\n"
                   "Compute dot product of two sparse vectors.\n"
                   "\n"
@@ -958,7 +1094,7 @@ static PyMethodDef svec_methods[] = {
     {
         .ml_name = "merge_to_dense",
         .ml_meth = (void *)svec_merge_to_dense,
-        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_STATIC,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD | METH_CLASS,
         .ml_doc =
             "merge_to_dense(*args: SparseVector, duplicates: typing.Literal[\"first\", \"last\", \"sum\", \"error\"] = "
             "\"first\")\n"
@@ -1102,9 +1238,14 @@ static PyObject *return_py_bool(const int v)
 
 static PyObject *svec_richcompare(const svec_object_t *self, PyObject *other, int op)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
+
+    if (!PyObject_TypeCheck(other, state->type_svec) || !PyObject_TypeCheck(self, state->type_svec))
+    {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
 
     if (op != Py_EQ && op != Py_NE)
     {
@@ -1236,7 +1377,7 @@ static PyObject *svec_richcompare(const svec_object_t *self, PyObject *other, in
 
 static PyObject *svec_add(const svec_object_t *self, const svec_object_t *other)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
     {
         PyErr_Clear();
@@ -1268,7 +1409,7 @@ static PyObject *svec_add(const svec_object_t *self, const svec_object_t *other)
 
 static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
     {
         PyErr_Clear();
@@ -1307,7 +1448,7 @@ static PyObject *svec_sub(const svec_object_t *self, const svec_object_t *other)
 
 static PyObject *svec_mul(const svec_object_t *self, PyObject *other)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
     {
         PyErr_Clear();
@@ -1336,25 +1477,6 @@ static PyObject *svec_mul(const svec_object_t *self, PyObject *other)
     sparse_vector_del(&prod_vector, &SYSTEM_ALLOCATOR);
     return (PyObject *)out;
 }
-
-// static PyNumberMethods svec_as_number = {
-//     .nb_add = (binaryfunc)svec_add,
-//     .nb_subtract = (binaryfunc)svec_sub,
-//     .nb_multiply = (binaryfunc)svec_mul,
-// };
-//
-// PyTypeObject svec_type_object = {
-//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.SparseVector",
-//     .tp_basicsize = sizeof(svec_object_t),
-//     .tp_itemsize = sizeof(entry_t),
-//     .tp_repr = (reprfunc)svec_repr,
-//     .tp_as_mapping = &svec_mapping,
-//     .tp_flags = Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_DEFAULT,
-//     .tp_richcompare = (richcmpfunc)svec_richcompare,
-//     .tp_methods = svec_methods,
-//     .tp_getset = svec_get_set,
-//     .tp_as_number = &svec_as_number,
-// };
 
 static PyType_Slot svec_type_slots[] = {
     {.slot = Py_tp_repr, .pfunc = svec_repr},

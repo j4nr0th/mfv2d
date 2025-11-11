@@ -137,6 +137,7 @@ static PyObject *basis_1d_new(PyTypeObject *type, PyObject *args, PyObject *kwds
 
 static void basis_1d_dealloc(basis_1d_t *self)
 {
+    PyObject_GC_UnTrack(self);
     Py_DECREF(self->integration_rule);
     deallocate(&SYSTEM_ALLOCATOR, self->nodal_basis);
     deallocate(&SYSTEM_ALLOCATOR, self->edge_basis);
@@ -314,6 +315,7 @@ static PyType_Slot basis_1d_slots[] = {
     {.slot = Py_tp_getset, .pfunc = basis_1d_getsets},
     {.slot = Py_tp_doc, .pfunc = (void *)basis_1d_doc},
     {.slot = Py_tp_dealloc, .pfunc = (void *)basis_1d_dealloc},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -321,7 +323,7 @@ PyType_Spec basis_1d_type_spec = {
     .name = "mfv2d._mfv2d.Basis1D",
     .basicsize = sizeof(basis_1d_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = basis_1d_slots,
 };
 
@@ -386,6 +388,7 @@ static PyObject *basis_2d_get_basis_eta(const basis_2d_t *self, void *Py_UNUSED(
 
 static void basis_2d_dealloc(basis_2d_t *self)
 {
+    PyObject_GC_UnTrack(self);
     Py_XDECREF(self->basis_xi);
     Py_XDECREF(self->basis_eta);
     Py_TYPE(self)->tp_free((PyObject *)self);
@@ -479,6 +482,7 @@ static PyType_Slot basis_2d_slots[] = {
     {.slot = Py_tp_repr, .pfunc = basis_2d_repr},
     {.slot = Py_tp_getset, .pfunc = basis_2d_getset},
     {.slot = Py_tp_doc, .pfunc = (void *)basis_2d_type_docstring},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -486,6 +490,6 @@ PyType_Spec basis_2d_type_spec = {
     .name = "mfv2d._mfv2d.Basis2D",
     .basicsize = sizeof(basis_2d_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_IMMUTABLETYPE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HAVE_GC,
     .slots = basis_2d_slots,
 };

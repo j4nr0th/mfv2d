@@ -93,6 +93,7 @@ PyDoc_STRVAR(manifold2d_type_docstring,
 
 static void manifold2d_dealloc(PyObject *self)
 {
+    PyObject_GC_UnTrack(self);
     manifold2d_object_t *this = (manifold2d_object_t *)self;
 
     PyObject_Free(this->lines);
@@ -933,6 +934,7 @@ static PyType_Slot manifold2d_slots[] = {
     {.slot = Py_tp_methods, .pfunc = manifold2d_object_methods},
     {.slot = Py_tp_getset, .pfunc = manifold2d_getset},
     {.slot = Py_tp_dealloc, .pfunc = manifold2d_dealloc},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -940,6 +942,7 @@ PyType_Spec manifold2d_type_spec = {
     .name = "mfv2d._mfv2d.Manifold2D",
     .basicsize = sizeof(manifold2d_object_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags =
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = manifold2d_slots,
 };

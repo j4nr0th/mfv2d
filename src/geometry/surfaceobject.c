@@ -339,6 +339,7 @@ static PyType_Slot surface_slots[] = {
     {.slot = Py_tp_methods, .pfunc = surface_methods},
     {.slot = Py_sq_length, .pfunc = surface_sequence_length},
     {.slot = Py_sq_item, .pfunc = surface_sequence_item},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {} // sentinel
 };
 
@@ -346,6 +347,6 @@ PyType_Spec surface_type_spec = {
     .name = "mfv2d._mfv2d.Surface",
     .basicsize = sizeof(surface_object_t),
     .itemsize = sizeof(geo_id_t),
-    .flags = Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .flags = Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HAVE_GC,
     .slots = surface_slots,
 };

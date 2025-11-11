@@ -3,6 +3,7 @@
 
 static void element_fem_space_2d_dealloc(element_fem_space_2d_t *this)
 {
+    PyObject_GC_UnTrack(this);
     Py_DECREF(this->basis_xi);
     Py_DECREF(this->basis_eta);
     deallocate(&SYSTEM_ALLOCATOR, this->fem_space);
@@ -429,6 +430,7 @@ static PyType_Slot element_fem_space_2d_slots[] = {
     {.slot = Py_tp_dealloc, .pfunc = (void *)element_fem_space_2d_dealloc},
     {.slot = Py_tp_getset, .pfunc = (void *)element_fem_space_2d_getsets},
     {.slot = Py_tp_methods, .pfunc = (void *)element_fem_space_2d_methods},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -436,7 +438,7 @@ PyType_Spec element_fem_space_2d_type_spec = {
     .name = "mfv2d._mfv2d.ElementFemSpace2D",
     .basicsize = sizeof(element_fem_space_2d_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = element_fem_space_2d_slots,
 };
 

@@ -1487,6 +1487,7 @@ static PyType_Slot svec_type_slots[] = {
     {.slot = Py_nb_add, .pfunc = svec_add},
     {.slot = Py_nb_subtract, .pfunc = svec_sub},
     {.slot = Py_nb_multiply, .pfunc = svec_mul},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -1494,6 +1495,6 @@ PyType_Spec svec_type_spec = {
     .name = "mfv2d._mfv2d.SparseVector",
     .basicsize = sizeof(svec_object_t),
     .itemsize = sizeof(entry_t),
-    .flags = Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE,
+    .flags = Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = svec_type_slots,
 };

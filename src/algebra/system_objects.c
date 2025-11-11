@@ -200,6 +200,7 @@ static PyObject *system_new(PyTypeObject *type, PyObject *args, PyObject *kwargs
 
 static void system_dealloc(PyObject *self)
 {
+    PyObject_GC_UnTrack(self);
     system_object_t *const this = (system_object_t *)self;
     if (this->system.blocks)
     {
@@ -703,16 +704,21 @@ PyDoc_STRVAR(system_object_docstring,
 // };
 
 static PyType_Slot system_object_slots[] = {
-    {.slot = Py_tp_str, .pfunc = system_str},         {.slot = Py_tp_doc, .pfunc = (void *)system_object_docstring},
-    {.slot = Py_tp_methods, .pfunc = system_methods}, {.slot = Py_tp_new, .pfunc = system_new},
-    {.slot = Py_tp_dealloc, .pfunc = system_dealloc}, {}, // sentinel
+    {.slot = Py_tp_str, .pfunc = system_str},
+    {.slot = Py_tp_doc, .pfunc = (void *)system_object_docstring},
+    {.slot = Py_tp_methods, .pfunc = system_methods},
+    {.slot = Py_tp_new, .pfunc = system_new},
+    {.slot = Py_tp_dealloc, .pfunc = system_dealloc},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
+    {}, // sentinel
 };
 
 PyType_Spec system_object_spec = {
     .name = "mfv2d._mfv2d.LinearSystem",
     .basicsize = sizeof(system_object_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags =
+        Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = system_object_slots,
 };
 
@@ -825,6 +831,7 @@ static PyObject *dense_vector_new(PyTypeObject *type, PyObject *args, PyObject *
 
 static void dense_vector_destroy(PyObject *self)
 {
+    PyObject_GC_UnTrack(self);
     dense_vector_object_t *const this = (dense_vector_object_t *)self;
     deallocate(&SYSTEM_ALLOCATOR, this->offsets);
     this->offsets = NULL;
@@ -1385,6 +1392,7 @@ static PyType_Slot dense_vector_slots[] = {
     {.slot = Py_tp_getset, .pfunc = dense_vector_getset},
     {.slot = Py_tp_dealloc, .pfunc = dense_vector_destroy},
     {.slot = Py_tp_new, .pfunc = dense_vector_new},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -1392,7 +1400,8 @@ PyType_Spec dense_vector_object_type_spec = {
     .name = "mfv2d._mfv2d.DenseVector",
     .basicsize = sizeof(dense_vector_object_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags =
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = dense_vector_slots,
 };
 
@@ -1529,6 +1538,7 @@ static PyObject *trace_vector_str(PyObject *self)
 
 static void trace_vector_destroy(PyObject *self)
 {
+    PyObject_GC_UnTrack(self);
     trace_vector_object_t *const this = (trace_vector_object_t *)self;
     for (unsigned i = 0; i < this->parent->system.n_blocks; ++i)
     {
@@ -2120,20 +2130,6 @@ static PyGetSetDef trace_vector_getset[] = {
 PyDoc_STRVAR(trace_vector_object_type_docstring,
              "Type used to represent the \"trace\" system variables associated with constraints.\n");
 
-// PyTypeObject trace_vector_object_type = {
-//     PyVarObject_HEAD_INIT(NULL, 0) //
-//         .tp_name = "mfv2d._mfv2d.TraceVector",
-//     .tp_basicsize = sizeof(trace_vector_object_t),
-//     .tp_itemsize = 0,
-//     .tp_str = trace_vector_str,
-//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
-//     .tp_doc = trace_vector_object_type_docstring,
-//     .tp_methods = trace_vector_methods,
-//     .tp_getset = trace_vector_getset,
-//     .tp_new = trace_vector_new,
-//     .tp_dealloc = trace_vector_destroy,
-// };
-
 static PyType_Slot trace_vector_slots[] = {
     {.slot = Py_tp_str, .pfunc = trace_vector_str},
     {.slot = Py_tp_doc, .pfunc = (void *)trace_vector_object_type_docstring},
@@ -2141,6 +2137,8 @@ static PyType_Slot trace_vector_slots[] = {
     {.slot = Py_tp_getset, .pfunc = trace_vector_getset},
     {.slot = Py_tp_new, .pfunc = trace_vector_new},
     {.slot = Py_tp_dealloc, .pfunc = trace_vector_destroy},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -2148,6 +2146,7 @@ PyType_Spec trace_vector_type_spec = {
     .name = "mfv2d._mfv2d.TraceVector",
     .basicsize = sizeof(trace_vector_object_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags =
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = trace_vector_slots,
 };

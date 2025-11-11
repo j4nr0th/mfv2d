@@ -80,6 +80,7 @@ typedef struct
 
 static void element_form_spec_iter_dealloc(element_form_spec_iter_t *it)
 {
+    PyObject_GC_UnTrack(it);
     Py_XDECREF(it->efs);
     Py_TYPE(it)->tp_free((PyObject *)it);
 }
@@ -111,6 +112,7 @@ static PyType_Slot element_form_spec_iter_type_slots[] = {
     {.slot = Py_tp_dealloc, .pfunc = element_form_spec_iter_dealloc},
     {.slot = Py_tp_iter, .pfunc = PyObject_SelfIter},
     {.slot = Py_tp_iternext, .pfunc = element_form_spec_iter_next},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -118,7 +120,7 @@ PyType_Spec element_form_spec_iter_type_spec = {
     .name = "mfv2d._mfv2d._ElementFormSpecificationIter",
     .basicsize = sizeof(element_form_spec_iter_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_IMMUTABLETYPE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HAVE_GC,
     .slots = element_form_spec_iter_type_slots,
 };
 
@@ -231,6 +233,7 @@ static PyObject *element_form_spec_new(PyTypeObject *type, PyObject *args, const
 
 static void element_form_spec_dealloc(element_form_spec_t *this)
 {
+    PyObject_GC_UnTrack(this);
     Py_TYPE(this)->tp_free((PyObject *)this);
 }
 
@@ -866,6 +869,7 @@ static PyType_Slot element_form_spec_slots[] = {
     {.slot = Py_sq_length, .pfunc = element_form_spec_len},
     {.slot = Py_sq_contains, .pfunc = element_form_spec_contains},
     {.slot = Py_tp_iter, .pfunc = element_form_spec_iter},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -873,6 +877,6 @@ PyType_Spec element_form_spec_type_spec = {
     .name = "mfv2d._mfv2d._ElementFormSpecification",
     .basicsize = sizeof(element_form_spec_t),
     .itemsize = sizeof(form_spec_t),
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = element_form_spec_slots,
 };

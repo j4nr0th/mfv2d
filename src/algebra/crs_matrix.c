@@ -59,6 +59,7 @@ static PyObject *crs_matrix_new(PyTypeObject *type, PyObject *args, PyObject *kw
 
 static void crs_matrix_dealloc(crs_matrix_t *this)
 {
+    PyObject_GC_UnTrack(this);
     jmtxd_matrix_crs_destroy(this->matrix);
     this->matrix = NULL;
     Py_TYPE(this)->tp_free((PyObject *)this);
@@ -1637,6 +1638,7 @@ static PyType_Slot crs_matrix_type_slots[] = {
     {.slot = Py_tp_dealloc, .pfunc = crs_matrix_dealloc},
     {.slot = Py_nb_matrix_multiply, .pfunc = crs_matrix_matmul},
     {.slot = Py_mp_subscript, .pfunc = crs_matrix_get_row},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -1644,6 +1646,6 @@ PyType_Spec crs_matrix_type_spec = {
     .name = "mfv2d._mfv2d.MatrixCRS",
     .basicsize = sizeof(crs_matrix_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = crs_matrix_type_slots,
 };

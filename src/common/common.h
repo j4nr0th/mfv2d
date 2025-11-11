@@ -206,4 +206,7 @@ static inline int parse_arguments_check(argument_t specs[], PyObject *const args
     return 0;
 }
 
+MFV2D_INTERNAL
+int traverse_heap_type(PyObject *op, visitproc visit, void *arg);
+
 #endif // COMMON_H

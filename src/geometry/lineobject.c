@@ -239,6 +239,7 @@ static PyType_Slot line_type_slots[] = {
     {.slot = Py_tp_richcompare, .pfunc = line_object_rich_compare},
     {.slot = Py_tp_getset, .pfunc = line_object_getset},
     {.slot = Py_tp_methods, .pfunc = line_methods},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -246,6 +247,6 @@ PyType_Spec line_type_spec = {
     .name = "mfv2d._mfv2d.Line",
     .basicsize = sizeof(line_object_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = line_type_slots,
 };

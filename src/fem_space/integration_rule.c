@@ -68,6 +68,7 @@ static PyObject *integration_rule_1d_new(PyTypeObject *type, PyObject *args, PyO
 
 static void integration_rule_1d_dealloc(integration_rule_1d_t *self)
 {
+    PyObject_GC_UnTrack(self);
     PyMem_RawFree(self->nodes);
     PyMem_RawFree(self->weights);
     Py_TYPE(self)->tp_free((PyObject *)self);
@@ -179,6 +180,7 @@ static PyType_Slot integration_rule_1d_slots[] = {
     {.slot = Py_tp_doc, .pfunc = (void *)integration_rule_1d_docstr},
     {.slot = Py_tp_getset, .pfunc = integration_rule_1d_getset},
     {.slot = Py_tp_repr, .pfunc = integration_rule_1d_repr},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -186,6 +188,6 @@ PyType_Spec integration_rule_1d_type_spec = {
     .name = "mfv2d._mfv2d.IntegrationRule1D",
     .basicsize = sizeof(integration_rule_1d_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = integration_rule_1d_slots,
 };

@@ -324,6 +324,7 @@ static PyObject *mesh_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 static void mesh_dealloc(mesh_t *const this)
 {
+    PyObject_GC_UnTrack(this);
     element_mesh_destroy(&this->element_mesh);
     deallocate(&SYSTEM_ALLOCATOR, this->boundary_indices);
     Py_DECREF(this->primal);
@@ -1583,6 +1584,7 @@ static PyType_Slot mesh_type_slots[] = {
     {.slot = Py_tp_getset, .pfunc = mesh_getset},
     {.slot = Py_tp_methods, .pfunc = mesh_methods},
     {.slot = Py_tp_doc, .pfunc = (void *)mesh_type_docstr},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -1590,6 +1592,7 @@ PyType_Spec mesh_type_spec = {
     .name = "mfv2d._mfv2d.Mesh",
     .basicsize = sizeof(mesh_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags =
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = mesh_type_slots,
 };

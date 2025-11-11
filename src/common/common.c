@@ -426,6 +426,11 @@ argument_status_t parse_arguments(argument_t specs[const], PyObject *const args[
 
     return ARG_STATUS_SUCCESS;
 }
+int traverse_heap_type(PyObject *op, const visitproc visit, void *arg)
+{
+    Py_VISIT(Py_TYPE(op));
+    return 0;
+}
 
 const char *arg_status_strings[] = {
     [ARG_STATUS_SUCCESS] = "Parsed correctly",

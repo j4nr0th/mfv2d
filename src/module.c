@@ -131,36 +131,15 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL, 0, NULL}, // sentinel
 };
 
-static PyModuleDef mfv2d_module_def = {
-    .m_base = PyModuleDef_HEAD_INIT,
-    .m_name = "mfv2d._mfv2d",
-    .m_doc = "Internal C-extension implementing required functionality.",
-    .m_size = sizeof(mfv2d_module_state_t),
-    .m_methods = module_methods,
-};
-
-const mfv2d_module_state_t *mfv2d_state_from_type(PyTypeObject *type)
-{
-    PyObject *module = PyType_GetModuleByDef(type, &mfv2d_module_def);
-    if (!module)
-    {
-        return NULL;
-    }
-    return (const mfv2d_module_state_t *)PyModule_GetState(module);
-}
-
 static PyTypeObject *add_type_to_the_module(PyObject *mod, PyType_Spec *specs, PyObject *bases)
 {
-    // printf("Creating type: %s\n", specs->name);
     PyObject *const type = PyType_FromModuleAndSpec(mod, specs, bases);
     if (type == NULL)
     {
-        // printf("Type creation failed.\n");
         return NULL;
     }
     if (PyType_Ready((PyTypeObject *)type) < 0)
     {
-        // printf("Type ready failed.\n");
         Py_DECREF(type);
         return NULL;
     }
@@ -175,29 +154,23 @@ static PyTypeObject *add_type_to_the_module(PyObject *mod, PyType_Spec *specs, P
     {
         pos += 1;
     }
-    // printf("Adding type to module as \"%s\"\n", pos);
+
     const int res = PyModule_AddObjectRef(mod, pos, type);
     Py_DECREF(type);
     if (res < 0)
     {
-        // printf("Failed to add type to module.\n");
         return NULL;
     }
-    // printf("Successfully added type to module.\n\n");
     return (PyTypeObject *)type;
 }
 
-PyMODINIT_FUNC PyInit__mfv2d(void)
+static int exec_mfv2d_module(PyObject *mod)
 {
-    import_array();
     if (PyArray_ImportNumPyAPI() < 0)
     {
-        return NULL;
+        return -1;
     }
 
-    PyObject *mod = NULL;
-    if (!((mod = PyModule_Create(&mfv2d_module_def))))
-        return NULL;
     mfv2d_module_state_t *const state = PyModule_GetState(mod);
 
     if ((state->type_geoid = add_type_to_the_module(mod, &geo_id_type_spec, NULL)) == NULL ||
@@ -223,9 +196,37 @@ PyMODINIT_FUNC PyInit__mfv2d(void)
         PyModule_AddIntMacro(mod, MATOP_PUSH) < 0 || PyModule_AddIntMacro(mod, MATOP_SCALE) < 0 ||
         PyModule_AddIntMacro(mod, MATOP_SUM) < 0 || PyModule_AddIntMacro(mod, MATOP_INTERPROD) < 0)
     {
-        Py_XDECREF(mod);
-        return NULL;
+        return -1;
     }
 
-    return mod;
+    return 0;
+}
+
+static PyModuleDef mfv2d_module_def = {
+    .m_base = PyModuleDef_HEAD_INIT,
+    .m_name = "mfv2d._mfv2d",
+    .m_doc = "Internal C-extension implementing required functionality.",
+    .m_size = sizeof(mfv2d_module_state_t),
+    .m_methods = module_methods,
+    .m_slots =
+        (PyModuleDef_Slot[]){
+            {.slot = Py_mod_multiple_interpreters, .value = Py_MOD_MULTIPLE_INTERPRETERS_SUPPORTED},
+            {.slot = Py_mod_exec, .value = exec_mfv2d_module},
+            {},
+        },
+};
+
+const mfv2d_module_state_t *mfv2d_state_from_type(PyTypeObject *type)
+{
+    PyObject *module = PyType_GetModuleByDef(type, &mfv2d_module_def);
+    if (!module)
+    {
+        return NULL;
+    }
+    return (const mfv2d_module_state_t *)PyModule_GetState(module);
+}
+
+PyMODINIT_FUNC PyInit__mfv2d(void)
+{
+    return PyModuleDef_Init(&mfv2d_module_def);
 }

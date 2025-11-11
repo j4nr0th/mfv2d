@@ -243,6 +243,7 @@ static PyType_Slot geo_id_type_slots[] = {
     {.slot = Py_tp_richcompare, .pfunc = geoid_rich_compare},
     {.slot = Py_nb_bool, .pfunc = geoid_bool},
     {.slot = Py_nb_negative, .pfunc = geoid_negative},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
     {}, // sentinel
 };
 
@@ -250,7 +251,7 @@ PyType_Spec geo_id_type_spec = {
     .name = "mfv2d._mfv2d.GeoID",
     .basicsize = sizeof(geo_id_object_t),
     .itemsize = 0,
-    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
     .slots = geo_id_type_slots,
 };
 

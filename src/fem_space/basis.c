@@ -146,7 +146,7 @@ static void basis_1d_dealloc(basis_1d_t *self)
 
 static PyObject *basis_1d_repr(const basis_1d_t *self)
 {
-    const mfv2d_module_state_t *state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
     if (!PyObject_TypeCheck(self, state->type_basis1d))
@@ -361,7 +361,7 @@ static PyObject *basis_2d_new(PyTypeObject *type, PyObject *args, PyObject *kwds
 // __repr__ method
 static PyObject *basis_2d_repr(const basis_2d_t *self)
 {
-    const mfv2d_module_state_t *state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
     if (!PyObject_TypeCheck(self, state->type_basis2d))

@@ -94,7 +94,7 @@ static PyObject *element_fem_space_2d_get_mass_surf(element_fem_space_2d_t *self
 
 static PyObject *element_fem_space_2d_get_basis_2d(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
     return (PyObject *)create_basis_2d_object(state->type_basis2d, self->basis_xi, self->basis_eta);

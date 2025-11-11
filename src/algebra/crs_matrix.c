@@ -1369,7 +1369,7 @@ static PyMethodDef crs_matrix_methods[] = {
 
 static PyObject *crs_matrix_get_row(const crs_matrix_t *this, PyObject *key)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(this));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(this));
     if (!state)
         return NULL;
 

@@ -266,7 +266,7 @@ static Py_ssize_t surface_sequence_length(PyObject *self)
 static PyObject *surface_sequence_item(PyObject *self, Py_ssize_t idx)
 {
     const surface_object_t *this = (surface_object_t *)self;
-    const mfv2d_module_state_t *state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
 

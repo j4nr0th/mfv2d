@@ -86,7 +86,7 @@ static void element_form_spec_iter_dealloc(element_form_spec_iter_t *it)
 
 static PyObject *element_form_spec_iter_next(element_form_spec_iter_t *it)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(it));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(it));
     if (!state)
         return NULL;
 

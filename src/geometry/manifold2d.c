@@ -141,7 +141,7 @@ static PyGetSetDef manifold2d_getset[] = {
 
 static PyObject *manifold2d_get_line(PyObject *self, PyObject *arg)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
 
@@ -178,7 +178,7 @@ static PyObject *manifold2d_get_line(PyObject *self, PyObject *arg)
 
 static PyObject *manifold2d_get_surface(PyObject *self, PyObject *arg)
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
 
@@ -335,7 +335,7 @@ static int mesh_dual_from_primal(const manifold2d_object_t *const primal, manifo
 
 static PyObject *manifold2d_compute_dual(PyObject *self, PyObject *Py_UNUSED(arg))
 {
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
 

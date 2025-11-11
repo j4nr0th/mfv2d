@@ -113,7 +113,7 @@ PyDoc_STRVAR(line_object_type_docstring, "Line(begin: GeoID | int, end: GeoID | 
 static PyObject *line_object_get_begin(PyObject *self, void *Py_UNUSED(closure))
 {
     const line_object_t *this = (line_object_t *)self;
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
     return (PyObject *)geo_id_object_from_value(state->type_geoid, this->value.begin);
@@ -122,7 +122,7 @@ static PyObject *line_object_get_begin(PyObject *self, void *Py_UNUSED(closure))
 static PyObject *line_object_get_end(PyObject *self, void *Py_UNUSED(closure))
 {
     const line_object_t *this = (line_object_t *)self;
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
     if (!state)
         return NULL;
     return (PyObject *)geo_id_object_from_value(state->type_geoid, this->value.end);

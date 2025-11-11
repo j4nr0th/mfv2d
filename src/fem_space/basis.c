@@ -17,7 +17,7 @@ static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule,
         return MFV2D_FAILED_ALLOC;
     }
 
-    // weights array here is used only as scratch, since they're the side product.
+    // weight array here is used only as scratch, since they're the side product.
     const int non_converged = gauss_lobatto_nodes_weights(order + 1, 1e-15, 10, roots, weights);
     if (non_converged)
     {
@@ -94,7 +94,7 @@ static mfv2d_result_t compute_nodal_and_edge_values(integration_rule_1d_t *rule,
 }
 static PyObject *basis_1d_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    const mfv2d_module_state_t *state = PyType_GetModuleState(type);
+    const mfv2d_module_state_t *state = mfv2d_state_from_type(type);
     if (!state)
         return NULL;
     integration_rule_1d_t *rule;
@@ -146,6 +146,15 @@ static void basis_1d_dealloc(basis_1d_t *self)
 
 static PyObject *basis_1d_repr(const basis_1d_t *self)
 {
+    const mfv2d_module_state_t *state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_basis1d))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_basis1d->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     char buffer[128];
     (void)snprintf(buffer, sizeof(buffer), "Basis1D(order=%u)", self->order);
     return PyUnicode_FromString(buffer);
@@ -299,18 +308,6 @@ PyDoc_STRVAR(basis_1d_doc, "Basis1D(order: int, rule: IntegrationRule1D)\n"
                            "    >>> plt.show()\n"
                            "\n");
 
-// PyTypeObject basis_1d_type = {
-//     .tp_new = basis_1d_new,
-//     .tp_dealloc = (destructor)basis_1d_dealloc,
-//     .tp_repr = (reprfunc)basis_1d_repr,
-//     .tp_getset = basis_1d_getsets,
-//     .tp_name = "mfv2d._mfv2d.Basis1D",
-//     .tp_basicsize = sizeof(basis_1d_t),
-//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-//     .tp_doc = basis_1d_doc,
-//     .tp_itemsize = 0,
-// };
-
 static PyType_Slot basis_1d_slots[] = {
     {.slot = Py_tp_new, .pfunc = basis_1d_new},
     {.slot = Py_tp_repr, .pfunc = basis_1d_repr},
@@ -346,7 +343,7 @@ basis_2d_t *create_basis_2d_object(PyTypeObject *type, basis_1d_t *basis_xi, bas
 // __new__ method
 static PyObject *basis_2d_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    const mfv2d_module_state_t *state = PyType_GetModuleState(type);
+    const mfv2d_module_state_t *state = mfv2d_state_from_type(type);
     if (!state)
         return NULL;
     basis_1d_t *basis_xi = NULL, *basis_eta = NULL;
@@ -364,6 +361,15 @@ static PyObject *basis_2d_new(PyTypeObject *type, PyObject *args, PyObject *kwds
 // __repr__ method
 static PyObject *basis_2d_repr(const basis_2d_t *self)
 {
+    const mfv2d_module_state_t *state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_basis2d))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_basis2d->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     return PyUnicode_FromFormat("Basis2D(basis_xi=%R, basis_eta=%R)", self->basis_xi, self->basis_eta);
 }
 

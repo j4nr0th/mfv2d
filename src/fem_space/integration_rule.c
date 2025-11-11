@@ -112,6 +112,15 @@ static PyObject *integration_rule_1d_get_weights(const integration_rule_1d_t *se
 
 static PyObject *integration_rule_1d_repr(const integration_rule_1d_t *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_int_rule))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_int_rule->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     char buffer[128];
     (void)snprintf(buffer, sizeof(buffer), "IntegrationRule1D(order=%u)", self->order);
     return PyUnicode_FromString(buffer);

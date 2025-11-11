@@ -79,16 +79,21 @@ static PyObject *crs_matrix_build_row(PyObject *self, PyTypeObject *defining_cla
     }
 
     crs_matrix_t *const this = (crs_matrix_t *)self;
-    argument_t arg_vals[] = {
-        {.type = ARG_TYPE_INT, .kwname = "row"},
-        {.type = ARG_TYPE_PYTHON, .optional = 1, .kwname = "entries", .type_check = state->type_svec},
-        {}, // sentinel
-    };
-    if (parse_arguments_check(arg_vals, args, nargs, kwnames) < 0)
-        return NULL;
+    unsigned row;
+    const svec_object_t *entries = NULL;
 
-    const unsigned row = arg_vals[0].value_int;
-    const svec_object_t *const entries = (svec_object_t *)arg_vals[1].value_python;
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_INT, .kwname = "row", .p_val = &row},
+                {.type = ARG_TYPE_PYTHON,
+                 .optional = 1,
+                 .kwname = "entries",
+                 .type_check = state->type_svec,
+                 .p_val = (void *)&entries},
+                {}, // sentinel
+            },
+            args, nargs, kwnames) < 0)
+        return NULL;
 
     if (row >= this->matrix->base.rows)
     {
@@ -683,7 +688,7 @@ static PyObject *crs_matrix_str(const crs_matrix_t *this)
 static PyObject *crs_matrix_from_data(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
                                       const Py_ssize_t nargs, PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
     if (!PyObject_TypeCheck(self, state->type_crs_matrix))
@@ -693,18 +698,18 @@ static PyObject *crs_matrix_from_data(PyObject *self, PyTypeObject *defining_cla
         return NULL;
     }
 
-    argument_t arguments[] = {
-        {.type = ARG_TYPE_PYTHON, .kwname = "values"},
-        {.type = ARG_TYPE_PYTHON, .kwname = "column_indices"},
-        {.type = ARG_TYPE_PYTHON, .kwname = "row_lengths"},
-        {}, // sentinel
-    };
-    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+    PyObject *py_values;
+    PyObject *py_column_indices;
+    PyObject *py_row_lengths;
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_PYTHON, .kwname = "values", .p_val = (void *)&py_values},
+                {.type = ARG_TYPE_PYTHON, .kwname = "column_indices", .p_val = (void *)&py_column_indices},
+                {.type = ARG_TYPE_PYTHON, .kwname = "row_lengths", .p_val = (void *)&py_row_lengths},
+                {}, // sentinel
+            },
+            args, nargs, kwnames) < 0)
         return NULL;
-
-    PyObject *const py_values = arguments[0].value_python;
-    PyObject *const py_column_indices = arguments[1].value_python;
-    PyObject *const py_row_lengths = arguments[2].value_python;
 
     crs_matrix_t *const this = (crs_matrix_t *)self;
     PyArrayObject *const row_lengths_array = (PyArrayObject *)PyArray_FromAny(
@@ -800,7 +805,7 @@ static PyObject *crs_matrix_from_data(PyObject *self, PyTypeObject *defining_cla
 static PyObject *crs_matrix_array_ufunc(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
                                         const Py_ssize_t nargs, PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
 
@@ -847,17 +852,19 @@ static PyObject *crs_matrix_array_ufunc(PyObject *self, PyTypeObject *defining_c
         }
     }
 
-    // Extract operands from inputs tuple
-    argument_t arguments[] = {
-        {.type = ARG_TYPE_PYTHON},
-        {.type = ARG_TYPE_PYTHON},
-        {},
-    };
+    PyObject *left, *right;
 
-    if (parse_arguments_check(arguments, args + 2, nargs - 2, kwnames) < 0)
+    // Extract operands from inputs tuple
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&left},
+                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&right},
+                {},
+            },
+            args + 2, nargs - 2, kwnames) < 0)
         return NULL;
 
-    return crs_matrix_matmul(arguments[0].value_python, arguments[1].value_python);
+    return crs_matrix_matmul(left, right);
 }
 
 static PyObject *crs_matrix_transpose(PyObject *self, PyTypeObject *defining_class, PyObject *const Py_UNUSED(args[]),
@@ -874,7 +881,7 @@ static PyObject *crs_matrix_transpose(PyObject *self, PyTypeObject *defining_cla
         return NULL;
     }
 
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
 
@@ -916,7 +923,7 @@ static PyObject *crs_matrix_shrink(PyObject *self, PyTypeObject *defining_class,
         return NULL;
     }
 
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
 
@@ -940,7 +947,7 @@ static PyObject *crs_matrix_shrink(PyObject *self, PyTypeObject *defining_class,
 static PyObject *crs_matrix_remove_entries_bellow(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
                                                   const Py_ssize_t nargs, PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
 
@@ -950,18 +957,19 @@ static PyObject *crs_matrix_remove_entries_bellow(PyObject *self, PyTypeObject *
                      Py_TYPE(self)->tp_name);
         return NULL;
     }
-
-    argument_t arguments[] = {
-        {.type = ARG_TYPE_DOUBLE}, {}, // sentinel
-    };
-    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+    double v;
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_DOUBLE, .p_val = &v},
+                {},
+            },
+            args, nargs, kwnames) < 0)
         return NULL;
 
     const crs_matrix_t *const this = (crs_matrix_t *)self;
 
     if (!crs_matrix_check_build(this))
         return NULL;
-    const double v = arguments[0].value_double;
 
     if (v < 0)
     {
@@ -977,7 +985,7 @@ static PyObject *crs_matrix_remove_entries_bellow(PyObject *self, PyTypeObject *
 static PyObject *crs_matrix_add_to_dense(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
                                          const Py_ssize_t nargs, PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
 
@@ -988,10 +996,10 @@ static PyObject *crs_matrix_add_to_dense(PyObject *self, PyTypeObject *defining_
         return NULL;
     }
 
-    argument_t arguments[] = {
-        {.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type}, {}, // sentinel
-    };
-    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+    const PyArrayObject *array;
+    if (parse_arguments_check(
+            (argument_t[]){{.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type, .p_val = (void *)&array}, {}}, args,
+            nargs, kwnames) < 0)
         return NULL;
 
     const crs_matrix_t *const this = (crs_matrix_t *)self;
@@ -999,7 +1007,6 @@ static PyObject *crs_matrix_add_to_dense(PyObject *self, PyTypeObject *defining_
     if (!crs_matrix_check_build(this))
         return NULL;
 
-    const PyArrayObject *const array = (PyArrayObject *)arguments[0].value_python;
     if (check_input_array(array, 2, (const npy_intp[2]){this->matrix->base.rows, this->matrix->base.cols}, NPY_DOUBLE,
                           NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED | NPY_ARRAY_WRITEABLE, "out") < 0)
         return NULL;
@@ -1021,14 +1028,14 @@ static PyObject *crs_matrix_add_to_dense(PyObject *self, PyTypeObject *defining_
 static PyObject *crs_matrix_from_dense(PyTypeObject *type, PyTypeObject *Py_UNUSED(defining_class),
                                        PyObject *const args[], const Py_ssize_t nargs, PyObject *kwnames)
 {
-    argument_t arguments[] = {
-        {.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type}, {}, // sentinel
-    };
-    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+    PyArrayObject *arr;
+    if (parse_arguments_check(
+            (argument_t[]){{.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type, .p_val = (void *)&arr}, {}}, args,
+            nargs, kwnames) < 0)
         return NULL;
 
-    PyArrayObject *const array = (PyArrayObject *)PyArray_FROMANY(arguments[0].value_python, NPY_DOUBLE, 2, 2,
-                                                                  NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
+    PyArrayObject *const array =
+        (PyArrayObject *)PyArray_FROMANY((PyObject *)arr, NPY_DOUBLE, 2, 2, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
     if (!array)
         return NULL;
     const npy_intp *dims = PyArray_DIMS(array);
@@ -1078,7 +1085,7 @@ static unsigned count_non_empty_rows(const crs_matrix_t *this)
 static PyObject *crs_matrix_multiply_to_sparse(PyObject *self, PyTypeObject *defining_class, PyObject *const args[],
                                                const Py_ssize_t nargs, PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
     if (!state)
         return NULL;
 
@@ -1089,18 +1096,18 @@ static PyObject *crs_matrix_multiply_to_sparse(PyObject *self, PyTypeObject *def
         return NULL;
     }
 
-    argument_t arguments[] = {
-        {.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type}, {}, // sentinel
-    };
-    if (parse_arguments_check(arguments, args, nargs, kwnames) < 0)
+    PyArrayObject *arr;
+    if (parse_arguments_check(
+            (argument_t[]){{.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type, .p_val = (void *)&arr}, {}}, args,
+            nargs, kwnames) < 0)
         return NULL;
 
     const crs_matrix_t *const this = (crs_matrix_t *)self;
 
     if (!crs_matrix_check_build(this))
         return NULL;
-    const PyArrayObject *const array = (PyArrayObject *)PyArray_FROMANY(arguments[0].value_python, NPY_DOUBLE, 1, 1,
-                                                                        NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
+    const PyArrayObject *const array =
+        (PyArrayObject *)PyArray_FROMANY((PyObject *)arr, NPY_DOUBLE, 1, 1, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED);
 
     if (!array)
         return NULL;

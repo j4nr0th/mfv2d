@@ -168,13 +168,14 @@ typedef struct
     int found;
     int kw_only;
     const char *kwname;
-    union {
-        Py_ssize_t value_int;
-        int value_bool;
-        double value_double;
-        PyObject *value_python;
-        const char *value_string;
-    };
+    // union {
+    //     Py_ssize_t value_int;
+    //     int value_bool;
+    //     double value_double;
+    //     PyObject *value_python;
+    //     const char *value_string;
+    // };
+    void *p_val;
     PyTypeObject *type_check;
 } argument_t;
 
@@ -203,7 +204,8 @@ static inline int parse_arguments_check(argument_t specs[], PyObject *const args
     const argument_status_t res = parse_arguments(specs, args, nargs, kwnames);
     if (res != ARG_STATUS_SUCCESS)
     {
-        raise_exception_from_current(PyExc_TypeError, "Invalid arguments to function (%s).", argument_status_str(res));
+        // raise_exception_from_current(PyExc_TypeError, "Invalid arguments to function (%s).",
+        // argument_status_str(res));
         return -1;
     }
     return 0;

@@ -220,6 +220,11 @@ static argument_status_t validate_arg_specs(const unsigned n, const argument_t s
                 return ARG_STATUS_BAD_SPECS;
             }
         }
+        if (specs[i].p_val == NULL)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Argument %u has no value pointer.", i);
+            return ARG_STATUS_BAD_SPECS;
+        }
         switch (specs[i].type)
         {
         case ARG_TYPE_PYTHON:
@@ -249,29 +254,29 @@ argument_status_t extract_argument_value(const unsigned i, PyObject *const val, 
                          Py_TYPE(val));
             return ARG_STATUS_INVALID;
         }
-        arg->value_python = val;
+        *(PyObject **)arg->p_val = val;
         break;
 
     case ARG_TYPE_BOOL:
-        arg->value_bool = PyObject_IsTrue(val);
+        *(int *)arg->p_val = PyObject_IsTrue(val);
         if (PyErr_Occurred())
             return ARG_STATUS_INVALID;
         break;
 
     case ARG_TYPE_INT:
-        arg->value_int = PyLong_AsSsize_t(val);
+        *(Py_ssize_t *)arg->p_val = PyNumber_AsSsize_t(val, PyExc_ValueError);
         if (PyErr_Occurred())
             return ARG_STATUS_INVALID;
         break;
 
     case ARG_TYPE_DOUBLE:
-        arg->value_double = PyFloat_AsDouble(val);
+        *(double *)arg->p_val = PyFloat_AsDouble(val);
         if (PyErr_Occurred())
             return ARG_STATUS_INVALID;
         break;
 
     case ARG_TYPE_STRING:
-        arg->value_string = PyUnicode_AsUTF8(val);
+        *(const char **)arg->p_val = PyUnicode_AsUTF8(val);
         if (PyErr_Occurred())
             return ARG_STATUS_INVALID;
         break;

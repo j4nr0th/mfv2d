@@ -247,7 +247,7 @@ static PyObject *mesh_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     PyArrayObject *corners;
     PyArrayObject *orders;
     PyArrayObject *boundary;
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(type);
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(type);
     if (!state)
         return NULL;
 
@@ -402,13 +402,46 @@ static PyGetSetDef mesh_getset[] = {
     {},
 };
 
-static PyObject *mesh_get_element_parent(const mesh_t *const this, PyObject *index)
+static int mesh_ensure_with_state(PyObject *self, PyTypeObject *defining_class, mesh_t **p_mesh,
+                                  const mfv2d_module_state_t **p_state)
 {
-    long index_long = PyLong_AsLong(index);
-    if (index_long == -1 && PyErr_Occurred())
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return -1;
+
+    if (!PyObject_TypeCheck(self, state->type_mesh))
     {
-        return NULL;
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_mesh->tp_name, Py_TYPE(self)->tp_name);
+        return -1;
     }
+    *p_mesh = (mesh_t *)self;
+    *p_state = state;
+    return 0;
+}
+
+static int mesh_function_with_index(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                    const Py_ssize_t nargs, const PyObject *kwnames, mesh_t **p_mesh,
+                                    const mfv2d_module_state_t **p_state, Py_ssize_t *p_index)
+{
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_INT, .p_val = p_index},
+                {},
+            },
+            args, nargs, kwnames) < 0)
+        return -1;
+
+    return mesh_ensure_with_state(self, defining_class, p_mesh, p_state);
+}
+
+static PyObject *mesh_get_element_parent(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                         const Py_ssize_t nargs, const PyObject *kwnames)
+{
+    const mfv2d_module_state_t *state;
+    Py_ssize_t index_long;
+    const mesh_t *this;
+    if (mesh_function_with_index(self, defining_class, args, nargs, kwnames, (mesh_t **)&this, &state, &index_long) < 0)
+        return NULL;
 
     if (index_long < 0 || index_long >= this->element_mesh.count)
     {
@@ -426,22 +459,73 @@ static PyObject *mesh_get_element_parent(const mesh_t *const this, PyObject *ind
     return PyLong_FromLong(elem->parent);
 }
 
-static PyObject *mesh_split_element(mesh_t *const this, PyObject *args, PyObject *kwds)
+static PyObject *mesh_split_element(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                    const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long index_long;
-    long orders_bottom_left[2];
-    long orders_bottom_right[2];
-    long orders_top_right[2];
-    long orders_top_left[2];
-    if (!PyArg_ParseTupleAndKeywords(
-            args, kwds, "l(ll)(ll)(ll)(ll)",
-            (char *[6]){"", "orders_bottom_left", "orders_bottom_right", "orders_top_right", "orders_top_left", NULL},
-            &index_long, orders_bottom_left + 0, orders_bottom_left + 1, orders_bottom_right + 0,
-            orders_bottom_right + 1, orders_top_right + 0, orders_top_right + 1, orders_top_left + 0,
-            orders_top_left + 1))
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_mesh))
     {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_mesh->tp_name, Py_TYPE(self)->tp_name);
         return NULL;
     }
+    mesh_t *const this = (mesh_t *)self;
+
+    Py_ssize_t index_long;
+    Py_ssize_t orders_bottom_left[2];
+    Py_ssize_t orders_bottom_right[2];
+    Py_ssize_t orders_top_right[2];
+    Py_ssize_t orders_top_left[2];
+
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_INT, .p_val = &index_long},
+                {
+                    .type = ARG_TYPE_SEQUENCE,
+                    .kwname = "orders_bottom_left",
+                    .p_val =
+                        (argument_t[]){
+                            {.type = ARG_TYPE_INT, .p_val = orders_bottom_left + 0},
+                            {.type = ARG_TYPE_INT, .p_val = orders_bottom_left + 1},
+                            {},
+                        },
+                },
+                {
+                    .type = ARG_TYPE_SEQUENCE,
+                    .kwname = "orders_bottom_right",
+                    .p_val =
+                        (argument_t[]){
+                            {.type = ARG_TYPE_INT, .p_val = orders_bottom_right + 0},
+                            {.type = ARG_TYPE_INT, .p_val = orders_bottom_right + 1},
+                            {},
+                        },
+                },
+                {
+                    .type = ARG_TYPE_SEQUENCE,
+                    .kwname = "orders_top_right",
+                    .p_val =
+                        (argument_t[]){
+                            {.type = ARG_TYPE_INT, .p_val = orders_top_right + 0},
+                            {.type = ARG_TYPE_INT, .p_val = orders_top_right + 1},
+                            {},
+                        },
+                },
+                {
+                    .type = ARG_TYPE_SEQUENCE,
+                    .kwname = "orders_top_left",
+                    .p_val =
+                        (argument_t[]){
+                            {.type = ARG_TYPE_INT, .p_val = orders_top_left + 0},
+                            {.type = ARG_TYPE_INT, .p_val = orders_top_left + 1},
+                            {},
+                        },
+                },
+                {},
+            },
+            args, nargs, kwnames) < 0)
+        return NULL;
 
     if (orders_bottom_left[0] <= 0 || orders_bottom_left[1] <= 0 || orders_bottom_right[0] <= 0 ||
         orders_bottom_right[1] <= 0 || orders_top_right[0] <= 0 || orders_top_right[1] <= 0 ||
@@ -473,13 +557,14 @@ static PyObject *mesh_split_element(mesh_t *const this, PyObject *args, PyObject
     Py_RETURN_NONE;
 }
 
-static PyObject *mesh_get_element_children(const mesh_t *const this, PyObject *index)
+static PyObject *mesh_get_element_children(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                           const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long index_long = PyLong_AsLong(index);
-    if (index_long == -1 && PyErr_Occurred())
-    {
+    const mfv2d_module_state_t *state;
+    Py_ssize_t index_long;
+    const mesh_t *this;
+    if (mesh_function_with_index(self, defining_class, args, nargs, kwnames, (mesh_t **)&this, &state, &index_long) < 0)
         return NULL;
-    }
 
     if (index_long < 0 || index_long >= this->element_mesh.count)
     {
@@ -497,13 +582,15 @@ static PyObject *mesh_get_element_children(const mesh_t *const this, PyObject *i
                          node->child_top_left);
 }
 
-static PyObject *mesh_get_leaf_corners(const mesh_t *const this, PyObject *index)
+static PyObject *mesh_get_leaf_corners(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                       const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long index_long = PyLong_AsLong(index);
-    if (index_long == -1 && PyErr_Occurred())
-    {
+    const mfv2d_module_state_t *state;
+    Py_ssize_t index_long;
+    const mesh_t *this;
+    if (mesh_function_with_index(self, defining_class, args, nargs, kwnames, (mesh_t **)&this, &state, &index_long) < 0)
         return NULL;
-    }
+
     if (index_long < 0 || index_long >= this->element_mesh.count)
     {
         PyErr_Format(PyExc_IndexError, "Index %ld out of range for mesh with %u elements.", index_long,
@@ -528,13 +615,15 @@ static PyObject *mesh_get_leaf_corners(const mesh_t *const this, PyObject *index
     return (PyObject *)out;
 }
 
-static PyObject *mesh_get_leaf_orders(const mesh_t *const this, PyObject *index)
+static PyObject *mesh_get_leaf_orders(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                      const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long index_long = PyLong_AsLong(index);
-    if (index_long == -1 && PyErr_Occurred())
-    {
+    const mfv2d_module_state_t *state;
+    Py_ssize_t index_long;
+    const mesh_t *this;
+    if (mesh_function_with_index(self, defining_class, args, nargs, kwnames, (mesh_t **)&this, &state, &index_long) < 0)
         return NULL;
-    }
+
     if (index_long < 0 || index_long >= this->element_mesh.count)
     {
         PyErr_Format(PyExc_IndexError, "Index %ld out of range for mesh with %u elements.", index_long,
@@ -553,8 +642,21 @@ static PyObject *mesh_get_leaf_orders(const mesh_t *const this, PyObject *index)
     return Py_BuildValue("II", leaf->data.orders.i, leaf->data.orders.j);
 }
 
-static PyObject *mesh_get_leaf_indices(const mesh_t *const this, PyObject *Py_UNUSED(args))
+static PyObject *mesh_get_leaf_indices(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                                       const Py_ssize_t nargs, const PyObject *kwnames)
 {
+    const mfv2d_module_state_t *state;
+    const mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, (mesh_t **)&this, &state) < 0)
+        return NULL;
+
+    if (nargs != 0 || kwnames != NULL)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected no arguments, got %zd.",
+                     nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0));
+        return NULL;
+    }
+
     const npy_intp cnt = this->element_mesh.leaf_count;
     PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(1, &cnt, NPY_UINT);
     npy_uint *const out_data = (npy_uint *)PyArray_DATA(out);
@@ -570,10 +672,22 @@ static PyObject *mesh_get_leaf_indices(const mesh_t *const this, PyObject *Py_UN
     return (PyObject *)out;
 }
 
-static PyObject *mesh_copy(const mesh_t *const this, PyObject *Py_UNUSED(args))
+static PyObject *mesh_copy(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                           const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    PyTypeObject *const mesh_type_object = Py_TYPE(this);
-    mesh_t *const that = (mesh_t *)mesh_type_object->tp_alloc(mesh_type_object, 0);
+    const mfv2d_module_state_t *state;
+    const mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, (mesh_t **)&this, &state) < 0)
+        return NULL;
+
+    if (nargs != 0 || kwnames != NULL)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected no arguments, got %zd.",
+                     nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0));
+        return NULL;
+    }
+
+    mesh_t *const that = (mesh_t *)state->type_mesh->tp_alloc(state->type_mesh, 0);
     if (!that)
         return NULL;
 
@@ -602,13 +716,15 @@ static PyObject *mesh_copy(const mesh_t *const this, PyObject *Py_UNUSED(args))
     return (PyObject *)that;
 }
 
-static PyObject *mesh_get_element_depth(const mesh_t *const this, PyObject *index)
+static PyObject *mesh_get_element_depth(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                        const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long index_long = PyLong_AsLong(index);
-    if (index_long == -1 && PyErr_Occurred())
-    {
+    const mfv2d_module_state_t *state;
+    Py_ssize_t index_long;
+    const mesh_t *this;
+    if (mesh_function_with_index(self, defining_class, args, nargs, kwnames, (mesh_t **)&this, &state, &index_long) < 0)
         return NULL;
-    }
+
     if (index_long < 0 || index_long >= this->element_mesh.count)
     {
         PyErr_Format(PyExc_IndexError, "Index %ld out of range for mesh with %u elements.", index_long,
@@ -627,16 +743,26 @@ static PyObject *mesh_get_element_depth(const mesh_t *const this, PyObject *inde
     return PyLong_FromUnsignedLong(depth);
 }
 
-static PyObject *mesh_set_leaf_orders(const mesh_t *const this, PyObject *args, PyObject *kwds)
+static PyObject *mesh_set_leaf_orders(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                      const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long index_long;
-    long orders_i;
-    long orders_j;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "lll", (char *[4]){"", "order_1", "order_2", NULL}, &index_long,
-                                     &orders_i, &orders_j))
-    {
+    const mfv2d_module_state_t *state;
+    const mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, (mesh_t **)&this, &state) < 0)
         return NULL;
-    }
+
+    Py_ssize_t index_long;
+    Py_ssize_t orders_i;
+    Py_ssize_t orders_j;
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_INT, .p_val = &index_long},
+                {.type = ARG_TYPE_INT, .p_val = &orders_i, .kwname = "order_1"},
+                {.type = ARG_TYPE_INT, .p_val = &orders_j, .kwname = "order_2"},
+                {},
+            },
+            args, nargs, kwnames) < 0)
+        return NULL;
 
     if (index_long < 0 || index_long >= this->element_mesh.count)
     {
@@ -665,9 +791,9 @@ static PyObject *mesh_set_leaf_orders(const mesh_t *const this, PyObject *args, 
     Py_RETURN_NONE;
 }
 
-static mfv2d_result_t refine_element_depth_first(element_mesh_t *mesh, unsigned index, unsigned depth,
-                                                 unsigned max_depth, PyObject *predicate, PyObject *forwarded_args,
-                                                 PyObject *forwarded_kwargs)
+static mfv2d_result_t refine_element_depth_first(element_mesh_t *mesh, const unsigned index, const unsigned depth,
+                                                 unsigned max_depth, PyObject *predicate, PyObject **args,
+                                                 const Py_ssize_t nargs, PyObject *kwnames)
 {
     if (depth >= max_depth)
         return MFV2D_SUCCESS;
@@ -682,10 +808,10 @@ static mfv2d_result_t refine_element_depth_first(element_mesh_t *mesh, unsigned 
     PyObject *index_val = PyLong_FromUnsignedLong(index);
     if (!index_val)
         return MFV2D_UNSPECIFIED_ERROR;
-    PyTuple_SET_ITEM(forwarded_args, 1, index_val);
-    PyObject *result = PyObject_Call(predicate, forwarded_args, forwarded_kwargs);
+    args[1] = index_val;
+    PyObject *result = PyObject_Vectorcall(predicate, args, nargs, kwnames);
     Py_DECREF(index_val);
-    PyTuple_SET_ITEM(forwarded_args, 1, NULL);
+    args[1] = NULL;
     if (!result)
     {
         return MFV2D_FAILED_CALLBACK;
@@ -734,23 +860,24 @@ static mfv2d_result_t refine_element_depth_first(element_mesh_t *mesh, unsigned 
     mfv2d_result_t res_children = MFV2D_SUCCESS;
     for (unsigned i = children_begin; i < children_begin + 4; ++i)
     {
-        if ((res_children = refine_element_depth_first(mesh, i, depth + 1, max_depth, predicate, forwarded_args,
-                                                       forwarded_kwargs)) != MFV2D_SUCCESS)
+        if ((res_children = refine_element_depth_first(mesh, i, depth + 1, max_depth, predicate, args, nargs,
+                                                       kwnames)) != MFV2D_SUCCESS)
             break;
     }
 
     return res_children;
 }
 
-static mesh_t *mesh_split_prepare_arguments(const mesh_t *const this, PyObject *args, PyObject **p_predicate,
-                                            PyObject **p_forwarded_args, long *p_max_depth)
+static mesh_t *mesh_split_prepare_arguments(const mesh_t *const this, PyTypeObject *defining_class,
+                                            PyObject *const *args, const Py_ssize_t nargs, PyObject **p_predicate,
+                                            long *p_max_depth)
 {
-    if (PyTuple_GET_SIZE(args) < 2)
+    if (nargs < 2)
     {
-        PyErr_SetString(PyExc_TypeError, "Expected at least two arguments.");
+        PyErr_SetString(PyExc_TypeError, "Expected at least two positional arguments.");
         return NULL;
     }
-    const long maximum_depth = PyLong_AsLong(PyTuple_GET_ITEM(args, 0));
+    const long maximum_depth = PyLong_AsLong(args[0]);
     if (maximum_depth == -1 && PyErr_Occurred())
         return NULL;
 
@@ -760,78 +887,66 @@ static mesh_t *mesh_split_prepare_arguments(const mesh_t *const this, PyObject *
         return NULL;
     }
 
-    PyObject *const predicate = PyTuple_GET_ITEM(args, 1);
+    PyObject *const predicate = args[1];
     if (!PyCallable_Check(predicate))
     {
         PyErr_Format(PyExc_TypeError, "Predicate must be callable (got %s).", Py_TYPE(predicate)->tp_name);
         return NULL;
     }
 
-    const Py_ssize_t nargs = PyTuple_GET_SIZE(args);
-    PyObject *forwarded_args = PyTuple_New(nargs);
-    if (!forwarded_args)
-    {
-        return NULL;
-    }
-
-    if (nargs > 2)
-    {
-        for (unsigned i = 2; i < nargs; ++i)
-        {
-            PyObject *arg = PyTuple_GET_ITEM(args, i);
-            Py_INCREF(arg);
-            PyTuple_SET_ITEM(forwarded_args, i, arg);
-        }
-    }
-
-    mesh_t *output_mesh = (mesh_t *)mesh_copy(this, NULL);
-    if (!output_mesh)
-    {
-        Py_DECREF(forwarded_args);
-        return NULL;
-    }
-    Py_INCREF(output_mesh);
-    PyTuple_SET_ITEM(forwarded_args, 0, (PyObject *)output_mesh);
+    mesh_t *output_mesh = (mesh_t *)mesh_copy((PyObject *)this, defining_class, NULL, 0, NULL);
 
     *p_predicate = predicate;
-    *p_forwarded_args = forwarded_args;
     *p_max_depth = maximum_depth;
 
     return output_mesh;
 }
-static PyObject *mesh_split_depth_first(const mesh_t *const this, PyObject *args, PyObject *kwds)
+
+static PyObject *mesh_split_depth_first(PyObject *self, PyTypeObject *defining_class, PyObject **args,
+                                        const Py_ssize_t nargs, PyObject *kwnames)
 {
+    const mfv2d_module_state_t *state;
+    const mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, (mesh_t **)&this, &state) < 0)
+        return NULL;
+
     long maximum_depth;
-    PyObject *predicate, *forwarded_args;
-    mesh_t *const output_mesh = mesh_split_prepare_arguments(this, args, &predicate, &forwarded_args, &maximum_depth);
+    PyObject *predicate;
+    mesh_t *const output_mesh =
+        mesh_split_prepare_arguments(this, defining_class, args, nargs, &predicate, &maximum_depth);
     if (!output_mesh)
     {
         return NULL;
     }
-
+    PyObject *md = args[0];
+    args[0] = (PyObject *)output_mesh;
     for (unsigned i = 0; i < this->element_mesh.count; ++i)
     {
         if (this->element_mesh.elements[i].base.type != ELEMENT_TYPE_LEAF)
             continue;
 
         const mfv2d_result_t res = refine_element_depth_first(&output_mesh->element_mesh, i, 0, maximum_depth,
-                                                              predicate, forwarded_args, kwds);
+                                                              predicate, args, nargs, kwnames);
         if (res != MFV2D_SUCCESS)
         {
             raise_exception_from_current(PyExc_RuntimeError, "Could not split element %u, reason: %s", i,
                                          mfv2d_result_str(res));
             Py_DECREF(output_mesh);
-            Py_DECREF(forwarded_args);
+            // restore the original arguments
+            args[0] = md;
+            args[1] = predicate;
             return (PyObject *)output_mesh;
         }
     }
+    // restore the original arguments
+    args[0] = md;
+    args[1] = predicate;
 
-    Py_DECREF(forwarded_args);
     return (PyObject *)output_mesh;
 }
 
-static mfv2d_result_t refine_element_breath_first(element_mesh_t *mesh, unsigned index, PyObject *predicate,
-                                                  PyObject *forwarded_args, PyObject *forwarded_kwargs)
+static mfv2d_result_t refine_element_breath_first(element_mesh_t *mesh, const unsigned index, PyObject *predicate,
+                                                  PyObject **args, const Py_ssize_t nargs, PyObject *kwnames)
 {
     const element_t *const elem = &mesh->elements[index];
     if (elem->base.type != ELEMENT_TYPE_LEAF)
@@ -843,10 +958,10 @@ static mfv2d_result_t refine_element_breath_first(element_mesh_t *mesh, unsigned
     PyObject *index_val = PyLong_FromUnsignedLong(index);
     if (!index_val)
         return MFV2D_UNSPECIFIED_ERROR;
-    PyTuple_SET_ITEM(forwarded_args, 1, index_val);
-    PyObject *result = PyObject_Call(predicate, forwarded_args, forwarded_kwargs);
+    args[1] = index_val;
+    PyObject *const result = PyObject_Vectorcall(predicate, args, nargs, kwnames);
     Py_DECREF(index_val);
-    PyTuple_SET_ITEM(forwarded_args, 1, NULL);
+    args[1] = NULL;
     if (!result)
     {
         return MFV2D_FAILED_CALLBACK;
@@ -890,15 +1005,24 @@ static mfv2d_result_t refine_element_breath_first(element_mesh_t *mesh, unsigned
     return res;
 }
 
-static PyObject *mesh_split_breath_first(const mesh_t *const this, PyObject *args, PyObject *kwds)
+static PyObject *mesh_split_breath_first(PyObject *self, PyTypeObject *defining_class, PyObject **args,
+                                         const Py_ssize_t nargs, PyObject *kwnames)
 {
+    const mfv2d_module_state_t *state;
+    const mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, (mesh_t **)&this, &state) < 0)
+        return NULL;
+
     long maximum_depth;
-    PyObject *predicate, *forwarded_args;
-    mesh_t *const output_mesh = mesh_split_prepare_arguments(this, args, &predicate, &forwarded_args, &maximum_depth);
+    PyObject *predicate;
+    mesh_t *const output_mesh =
+        mesh_split_prepare_arguments(this, defining_class, args, nargs, &predicate, &maximum_depth);
     if (!output_mesh)
     {
         return NULL;
     }
+    PyObject *md = args[0];
+    args[0] = (PyObject *)output_mesh;
 
     unsigned offset = 0;
     for (unsigned depth = 0; depth < maximum_depth; ++depth)
@@ -910,13 +1034,15 @@ static PyObject *mesh_split_breath_first(const mesh_t *const this, PyObject *arg
                 continue;
 
             const mfv2d_result_t res =
-                refine_element_breath_first(&output_mesh->element_mesh, i, predicate, forwarded_args, kwds);
+                refine_element_breath_first(&output_mesh->element_mesh, i, predicate, args, nargs, kwnames);
             if (res != MFV2D_SUCCESS)
             {
                 raise_exception_from_current(PyExc_RuntimeError, "Could not split element %u, reason: %s", i,
                                              mfv2d_result_str(res));
                 Py_DECREF(output_mesh);
-                Py_DECREF(forwarded_args);
+                // Restore the original parameters
+                args[0] = md;
+                args[1] = predicate;
                 return NULL;
             }
         }
@@ -924,17 +1050,31 @@ static PyObject *mesh_split_breath_first(const mesh_t *const this, PyObject *arg
         offset = count;
     }
 
-    Py_DECREF(forwarded_args);
+    // Restore the original parameters
+    args[0] = md;
+    args[1] = predicate;
     return (PyObject *)output_mesh;
 }
 
-static PyObject *mesh_uniform_p_change(const mesh_t *const this, PyObject *args)
+static PyObject *mesh_uniform_p_change(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                       const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long dp1, dp2;
-    if (!PyArg_ParseTuple(args, "ll", &dp1, &dp2))
-    {
+    const mfv2d_module_state_t *state;
+    const mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, (mesh_t **)&this, &state) < 0)
         return NULL;
-    }
+
+    Py_ssize_t dp1;
+    Py_ssize_t dp2;
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_INT, .p_val = &dp1},
+                {.type = ARG_TYPE_INT, .p_val = &dp2},
+                {},
+            },
+            args, nargs, kwnames) < 0)
+        return NULL;
+
     if (dp1 == 0 && dp2 == 0)
     {
         // Nothing to do
@@ -990,10 +1130,13 @@ static PyObject *mesh_uniform_p_change(const mesh_t *const this, PyObject *args)
     Py_RETURN_NONE;
 }
 
-static PyObject *mesh_get_leaf_index(mesh_t *const this, PyObject *arg)
+static PyObject *mesh_get_leaf_index(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                     const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    const long index_long = PyLong_AsLong(arg);
-    if (PyErr_Occurred())
+    const mfv2d_module_state_t *state;
+    Py_ssize_t index_long;
+    mesh_t *this;
+    if (mesh_function_with_index(self, defining_class, args, nargs, kwnames, &this, &state, &index_long) < 0)
         return NULL;
 
     if (index_long < 0 || index_long >= this->element_mesh.count)
@@ -1013,10 +1156,13 @@ static PyObject *mesh_get_leaf_index(mesh_t *const this, PyObject *arg)
     return PyLong_FromLong(leaf->leaf_index);
 }
 
-static PyObject *mesh_find_leaf_by_index(mesh_t *const this, PyObject *arg)
+static PyObject *mesh_find_leaf_by_index(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                         const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    const long index = PyLong_AsLong(arg);
-    if (PyErr_Occurred())
+    const mfv2d_module_state_t *state;
+    Py_ssize_t index;
+    mesh_t *this;
+    if (mesh_function_with_index(self, defining_class, args, nargs, kwnames, &this, &state, &index) < 0)
         return NULL;
 
     if (index < 0 || index >= this->element_mesh.leaf_count)
@@ -1229,7 +1375,7 @@ PyDoc_STRVAR(mesh_set_leaf_orders_docstr,
              "order_2 : int\n"
              "    New order of the leaf in the second dimension.\n");
 PyDoc_STRVAR(mesh_split_depth_first_docstr,
-             "split_depth_first(maximum_depth: int, predicate: Callable, *args, **kwargs) -> Mesh\n"
+             "split_depth_first(maximum_depth: int, predicate: Callable, /, *args, **kwargs) -> Mesh\n"
              "Split leaf elements based on a predicate in a depth-first approach.\n"
              "\n"
              "Parameters\n"
@@ -1326,85 +1472,85 @@ static PyMethodDef mesh_methods[] = {
     {
         .ml_name = "get_element_parent",
         .ml_meth = (void *)mesh_get_element_parent,
-        .ml_flags = METH_O,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_get_element_parent_docstr,
     },
     {
         .ml_name = "split_element",
         .ml_meth = (void *)mesh_split_element,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_split_element_docstr,
     },
     {
         .ml_name = "get_element_children",
         .ml_meth = (void *)mesh_get_element_children,
-        .ml_flags = METH_O,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_get_element_children_docstr,
     },
     {
         .ml_name = "get_leaf_corners",
         .ml_meth = (void *)mesh_get_leaf_corners,
-        .ml_flags = METH_O,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_get_leaf_corners_docstr,
     },
     {
         .ml_name = "get_leaf_orders",
         .ml_meth = (void *)mesh_get_leaf_orders,
-        .ml_flags = METH_O,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_get_leaf_orders_docstr,
     },
     {
         .ml_name = "get_leaf_indices",
         .ml_meth = (void *)mesh_get_leaf_indices,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_get_leaf_indices_docstr,
     },
     {
         .ml_name = "copy",
         .ml_meth = (void *)mesh_copy,
-        .ml_flags = METH_NOARGS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_copy_docstr,
     },
     {
         .ml_name = "get_element_depth",
         .ml_meth = (void *)mesh_get_element_depth,
-        .ml_flags = METH_O,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_get_element_depth_docstr,
     },
     {
         .ml_name = "set_leaf_orders",
         .ml_meth = (void *)mesh_set_leaf_orders,
-        .ml_flags = METH_KEYWORDS | METH_VARARGS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_set_leaf_orders_docstr,
     },
     {
         .ml_name = "split_depth_first",
         .ml_meth = (void *)mesh_split_depth_first,
-        .ml_flags = METH_KEYWORDS | METH_VARARGS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_split_depth_first_docstr,
     },
     {
         .ml_name = "split_breath_first",
         .ml_meth = (void *)mesh_split_breath_first,
-        .ml_flags = METH_KEYWORDS | METH_VARARGS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_split_breath_first_docstr,
     },
     {
         .ml_name = "uniform_p_change",
         .ml_meth = (void *)mesh_uniform_p_change,
-        .ml_flags = METH_VARARGS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_uniform_p_change_docstr,
     },
     {
         .ml_name = "get_leaf_index",
         .ml_meth = (void *)mesh_get_leaf_index,
-        .ml_flags = METH_O,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_get_leaf_index_docstr,
     },
     {
         .ml_name = "find_leaf_by_index",
         .ml_meth = (void *)mesh_find_leaf_by_index,
-        .ml_flags = METH_O,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_find_leaf_by_index_docstr,
     },
     {},
@@ -1430,17 +1576,6 @@ PyDoc_STRVAR(mesh_type_docstr,
              "\n"
              "boundary : (N,) array\n"
              "    Array of boundary edge indices.\n");
-
-// PyTypeObject mesh_type_object = {
-//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Mesh",
-//     .tp_new = mesh_new,
-//     .tp_dealloc = (destructor)mesh_dealloc,
-//     .tp_getset = mesh_getset,
-//     .tp_methods = mesh_methods,
-//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_IMMUTABLETYPE,
-//     .tp_basicsize = sizeof(mesh_t),
-//     .tp_doc = mesh_type_docstr,
-// };
 
 static PyType_Slot mesh_type_slots[] = {
     {.slot = Py_tp_new, .pfunc = mesh_new},

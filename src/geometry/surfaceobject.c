@@ -9,9 +9,30 @@
 // This should be last
 #include <numpy/ndarrayobject.h>
 
+static int ensure_surface_and_state(PyObject *self, PyTypeObject *defining_class, const mfv2d_module_state_t **p_state,
+                                    surface_object_t **p_this)
+{
+    const mfv2d_module_state_t *const state =
+        defining_class ? PyType_GetModuleState(defining_class) : mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return -1;
+    if (!PyObject_TypeCheck(self, state->type_surface))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, but got a %s.", state->type_surface->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return -1;
+    }
+    *p_state = state;
+    *p_this = (surface_object_t *)self;
+    return 0;
+}
+
 static PyObject *surface_object_repr(PyObject *self)
 {
-    const surface_object_t *this = (surface_object_t *)self;
+    const surface_object_t *this;
+    const mfv2d_module_state_t *state;
+    if (ensure_surface_and_state(self, NULL, &state, (surface_object_t **)&this) < 0)
+        return NULL;
 
     PyObject *current_out = PyUnicode_FromString("Surface(");
     if (!current_out)
@@ -42,7 +63,10 @@ static PyObject *surface_object_repr(PyObject *self)
 
 static PyObject *surface_object_str(PyObject *self)
 {
-    const surface_object_t *this = (surface_object_t *)self;
+    const surface_object_t *this;
+    const mfv2d_module_state_t *state;
+    if (ensure_surface_and_state(self, NULL, &state, (surface_object_t **)&this) < 0)
+        return NULL;
 
     PyObject *current_out = PyUnicode_FromString("(");
     if (!current_out)
@@ -114,11 +138,16 @@ PyDoc_STRVAR(surface_object_type_docstring,
 
 static PyObject *surface_object_rich_compare(PyObject *self, PyObject *other, const int op)
 {
+    const surface_object_t *this;
+    const mfv2d_module_state_t *state;
+    if (ensure_surface_and_state(self, NULL, &state, (surface_object_t **)&this) < 0)
+        return NULL;
+
     if (op != Py_EQ && op != Py_NE)
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
-    const surface_object_t *const this = (surface_object_t *)self;
+
     if (!PyObject_TypeCheck(other, Py_TYPE(self)))
     {
         Py_RETURN_NOTIMPLEMENTED;
@@ -150,7 +179,7 @@ ret:
 
 static PyObject *surface_object_new(PyTypeObject *type, PyObject *args, const PyObject *kwds)
 {
-    const mfv2d_module_state_t *state = PyType_GetModuleState(type);
+    const mfv2d_module_state_t *state = mfv2d_state_from_type(type);
     if (!state)
         return NULL;
 
@@ -211,11 +240,18 @@ surface_object_t *surface_object_from_value(PyTypeObject *surface_type_object, c
     return this;
 }
 
-static PyObject *surface_object_as_array(PyObject *self, PyObject *args, PyObject *kwds)
+static PyObject *surface_object_as_array(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                         const Py_ssize_t nargs, const PyObject *kwnames)
 {
     PyArray_Descr *dtype = NULL;
     int b_copy = 1;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Op", (char *[3]){"dtype", "copy", NULL}, &dtype, &b_copy))
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_PYTHON, .optional = 1, .p_val = (void *)&dtype, .kwname = "dtype"},
+                {.type = ARG_TYPE_BOOL, .optional = 1, .kwname = "copy", .p_val = &b_copy},
+                {},
+            },
+            args, nargs, kwnames) < 0)
     {
         return NULL;
     }
@@ -226,7 +262,11 @@ static PyObject *surface_object_as_array(PyObject *self, PyObject *args, PyObjec
         return NULL;
     }
 
-    const surface_object_t *this = (surface_object_t *)self;
+    const mfv2d_module_state_t *state;
+    const surface_object_t *this;
+    if (ensure_surface_and_state(self, defining_class, &state, (surface_object_t **)&this) < 0)
+        return NULL;
+
     const npy_intp size = Py_SIZE(this);
 
     PyArrayObject *const out = (PyArrayObject *)PyArray_SimpleNew(1, &size, NPY_INT);
@@ -250,24 +290,30 @@ static PyObject *surface_object_as_array(PyObject *self, PyObject *args, PyObjec
 }
 
 static PyMethodDef surface_methods[] = {
-    {.ml_name = "__array__",
-     .ml_meth = (void *)surface_object_as_array,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray[int]\n"
-               "Convert to numpy array.\n"},
+    {
+        .ml_name = "__array__",
+        .ml_meth = (void *)surface_object_as_array,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray[int]\n"
+                  "Convert to numpy array.\n",
+    },
     {},
 };
 
 static Py_ssize_t surface_sequence_length(PyObject *self)
 {
-    const surface_object_t *this = (surface_object_t *)self;
+    const surface_object_t *this;
+    const mfv2d_module_state_t *state;
+    if (ensure_surface_and_state(self, NULL, &state, (surface_object_t **)&this) < 0)
+        return -1;
+
     return Py_SIZE(this);
 }
 static PyObject *surface_sequence_item(PyObject *self, Py_ssize_t idx)
 {
-    const surface_object_t *this = (surface_object_t *)self;
-    const mfv2d_module_state_t *state = mfv2d_state_from_type(Py_TYPE(self));
-    if (!state)
+    const surface_object_t *this;
+    const mfv2d_module_state_t *state;
+    if (ensure_surface_and_state(self, NULL, &state, (surface_object_t **)&this) < 0)
         return NULL;
 
     // Correction: Python don't give a fuck, it just keeps on chucking idx in here until the index error.
@@ -283,25 +329,6 @@ static PyObject *surface_sequence_item(PyObject *self, Py_ssize_t idx)
 
     return (PyObject *)geo_id_object_from_value(state->type_geoid, this->lines[idx]);
 }
-
-// static PySequenceMethods surface_sequence_methods = {
-//     .sq_length = surface_sequence_length,
-//     .sq_item = surface_sequence_item,
-// };
-//
-// MFV2D_INTERNAL
-// PyTypeObject surface_type_object = {
-//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Surface",
-//     .tp_basicsize = sizeof(surface_object_t),
-//     .tp_itemsize = sizeof(geo_id_t),
-//     .tp_repr = surface_object_repr,
-//     .tp_str = surface_object_str,
-//     .tp_doc = surface_object_type_docstring,
-//     .tp_richcompare = surface_object_rich_compare,
-//     .tp_new = surface_object_new,
-//     .tp_methods = surface_methods,
-//     .tp_as_sequence = &surface_sequence_methods,
-// };
 
 static PyType_Slot surface_slots[] = {
     {.slot = Py_tp_repr, .pfunc = surface_object_repr},

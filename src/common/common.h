@@ -159,6 +159,7 @@ typedef enum
     ARG_TYPE_DOUBLE,
     ARG_TYPE_STRING,
     ARG_TYPE_PYTHON,
+    ARG_TYPE_SEQUENCE,
 } argument_type_t;
 
 typedef struct
@@ -168,27 +169,21 @@ typedef struct
     int found;
     int kw_only;
     const char *kwname;
-    // union {
-    //     Py_ssize_t value_int;
-    //     int value_bool;
-    //     double value_double;
-    //     PyObject *value_python;
-    //     const char *value_string;
-    // };
     void *p_val;
     PyTypeObject *type_check;
 } argument_t;
 
 typedef enum
 {
-    ARG_STATUS_SUCCESS,   // Parsed correctly
-    ARG_STATUS_MISSING,   // Argument was missing
-    ARG_STATUS_INVALID,   // Argument had invalid value
-    ARG_STATUS_DUPLICATE, // Argument was found twice
-    ARG_STATUS_BAD_SPECS, // Specifications were incorrect
-    ARG_STATUS_KW_AS_POS, // Keyword argument was specified as a positional argument
-    ARG_STATUS_NO_KW,     // No argument has this keyword
-    ARG_STATUS_UNKNOWN,   // Unknown error
+    ARG_STATUS_SUCCESS,        // Parsed correctly
+    ARG_STATUS_MISSING,        // Argument was missing
+    ARG_STATUS_INVALID,        // Argument had invalid value
+    ARG_STATUS_DUPLICATE,      // Argument was found twice
+    ARG_STATUS_BAD_SPECS,      // Specifications were incorrect
+    ARG_STATUS_KW_AS_POS,      // Keyword argument was specified as a positional argument
+    ARG_STATUS_NO_KW,          // No argument has this keyword
+    ARG_STATUS_UNKNOWN,        // Unknown error
+    ARG_STATUS_KW_IN_SEQUENCE, // Keyword argument was found in a sequence
 } argument_status_t;
 
 MFV2D_INTERNAL

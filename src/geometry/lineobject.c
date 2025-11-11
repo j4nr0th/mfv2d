@@ -12,6 +12,15 @@
 
 static PyObject *line_object_repr(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_line))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_line->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const line_object_t *this = (line_object_t *)self;
     return PyUnicode_FromFormat("Line(GeoID(%u, %u), GeoID(%u, %u))", this->value.begin.index,
                                 this->value.begin.reverse, this->value.end.index, this->value.end.reverse);
@@ -19,6 +28,15 @@ static PyObject *line_object_repr(PyObject *self)
 
 static PyObject *line_object_str(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_line))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_line->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const line_object_t *this = (line_object_t *)self;
     return PyUnicode_FromFormat("(%c%u -> %c%u)", this->value.begin.reverse ? '-' : '+', this->value.begin.index,
                                 this->value.end.reverse ? '-' : '+', this->value.end.index);
@@ -43,7 +61,7 @@ static PyObject *line_object_new(PyTypeObject *type, PyObject *args, PyObject *k
         return NULL;
     }
     geo_id_t begin, end;
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(type);
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(type);
     if (!state)
         return NULL;
 
@@ -61,12 +79,22 @@ static PyObject *line_object_new(PyTypeObject *type, PyObject *args, PyObject *k
 
 static PyObject *line_object_rich_compare(PyObject *self, PyObject *other, const int op)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_line))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_line->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     if (op != Py_EQ && op != Py_NE)
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
     const line_object_t *const this = (line_object_t *)self;
-    if (!PyObject_TypeCheck(other, Py_TYPE(self)))
+    if (!PyObject_TypeCheck(other, state->type_line))
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
@@ -142,11 +170,18 @@ static PyGetSetDef line_object_getset[] = {
     {},
 };
 
-static PyObject *line_object_as_array(PyObject *self, PyObject *args, PyObject *kwds)
+static PyObject *line_object_as_array(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                      const Py_ssize_t nargs, const PyObject *kwnames)
 {
     PyArray_Descr *dtype = NULL;
     int b_copy = 1;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Op", (char *[3]){"dtype", "copy", NULL}, &dtype, &b_copy))
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_PYTHON, .optional = 1, .p_val = (void *)&dtype, .kwname = "dtype"},
+                {.type = ARG_TYPE_BOOL, .optional = 1, .kwname = "copy", .p_val = &b_copy},
+                {},
+            },
+            args, nargs, kwnames) < 0)
     {
         return NULL;
     }
@@ -154,6 +189,14 @@ static PyObject *line_object_as_array(PyObject *self, PyObject *args, PyObject *
     if (!b_copy)
     {
         PyErr_SetString(PyExc_ValueError, "A copy is always created when converting to NDArray.");
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+
+    if (!PyObject_TypeCheck(self, state->type_line))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_line->tp_name, Py_TYPE(self)->tp_name);
         return NULL;
     }
 
@@ -179,26 +222,14 @@ static PyObject *line_object_as_array(PyObject *self, PyObject *args, PyObject *
 }
 
 static PyMethodDef line_methods[] = {
-    {.ml_name = "__array__",
-     .ml_meth = (void *)line_object_as_array,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray"},
+    {
+        .ml_name = "__array__",
+        .ml_meth = (void *)line_object_as_array,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray",
+    },
     {},
 };
-
-// PyTypeObject line_type_object = {
-//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Line",
-//     .tp_basicsize = sizeof(line_object_t),
-//     .tp_itemsize = 0,
-//     .tp_repr = line_object_repr,
-//     .tp_str = line_object_str,
-//     .tp_doc = line_object_type_docstring,
-//     .tp_new = line_object_new,
-//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-//     .tp_richcompare = line_object_rich_compare,
-//     .tp_getset = line_object_getset,
-//     .tp_methods = line_methods,
-// };
 
 static PyType_Slot line_type_slots[] = {
     {.slot = Py_tp_repr, .pfunc = line_object_repr},

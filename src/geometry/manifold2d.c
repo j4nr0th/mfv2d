@@ -12,6 +12,16 @@
 
 static PyObject *manifold2d_str(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_man2d))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, but got a %s.", state->type_man2d->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     const manifold2d_object_t *this = (manifold2d_object_t *)self;
     return PyUnicode_FromFormat("Manifold2D(%u points, %u lines, %u surfaces)", this->n_points, this->n_lines,
                                 this->n_surfaces);
@@ -116,38 +126,65 @@ static PyObject *manifold2d_get_n_surfaces(PyObject *self, void *Py_UNUSED(closu
 }
 
 static PyGetSetDef manifold2d_getset[] = {
-    {.name = "dimension",
-     .get = manifold2d_get_dimension,
-     .set = NULL,
-     .doc = "int : Dimension of the manifold.",
-     .closure = NULL},
-    {.name = "n_points",
-     .get = manifold2d_get_n_points,
-     .set = NULL,
-     .doc = "Number of points in the mesh.",
-     .closure = NULL},
-    {.name = "n_lines",
-     .get = manifold2d_get_n_lines,
-     .set = NULL,
-     .doc = "Number of lines in the mesh.",
-     .closure = NULL},
-    {.name = "n_surfaces",
-     .get = manifold2d_get_n_surfaces,
-     .set = NULL,
-     .doc = "Number of surfaces in the mesh.",
-     .closure = NULL},
-    {0},
+    {
+        .name = "dimension",
+        .get = manifold2d_get_dimension,
+        .set = NULL,
+        .doc = "int : Dimension of the manifold.",
+        .closure = NULL,
+    },
+    {
+        .name = "n_points",
+        .get = manifold2d_get_n_points,
+        .set = NULL,
+        .doc = "Number of points in the mesh.",
+        .closure = NULL,
+    },
+    {
+        .name = "n_lines",
+        .get = manifold2d_get_n_lines,
+        .set = NULL,
+        .doc = "Number of lines in the mesh.",
+        .closure = NULL,
+    },
+    {
+        .name = "n_surfaces",
+        .get = manifold2d_get_n_surfaces,
+        .set = NULL,
+        .doc = "Number of surfaces in the mesh.",
+        .closure = NULL,
+    },
+    {},
 };
 
-static PyObject *manifold2d_get_line(PyObject *self, PyObject *arg)
+static PyObject *manifold2d_get_line(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                     const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
     if (!state)
         return NULL;
 
+    if (!PyObject_TypeCheck(self, state->type_man2d))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, but got a %s.", state->type_man2d->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const manifold2d_object_t *this = (manifold2d_object_t *)self;
+
+    if (nargs != 1)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected 1 argument, but got %u.", (unsigned)nargs);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "Keyword arguments are not supported.");
+        return NULL;
+    }
+
     geo_id_t id;
-    if (geo_id_from_object(state->type_geoid, arg, &id) < 0)
+    if (geo_id_from_object(state->type_geoid, args[0], &id) < 0)
         return NULL;
     if (id.index == GEO_ID_INVALID)
     {
@@ -176,16 +213,34 @@ static PyObject *manifold2d_get_line(PyObject *self, PyObject *arg)
     return (PyObject *)line;
 }
 
-static PyObject *manifold2d_get_surface(PyObject *self, PyObject *arg)
+static PyObject *manifold2d_get_surface(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                        const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
     if (!state)
         return NULL;
 
+    if (!PyObject_TypeCheck(self, state->type_man2d))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, but got a %s.", state->type_man2d->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const manifold2d_object_t *this = (manifold2d_object_t *)self;
+
+    if (nargs != 1)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected 1 argument, but got %u.", (unsigned)nargs);
+        return NULL;
+    }
+    if (kwnames != NULL)
+    {
+        PyErr_SetString(PyExc_TypeError, "Keyword arguments are not supported.");
+        return NULL;
+    }
     geo_id_t id;
 
-    if (geo_id_from_object(state->type_geoid, arg, &id) < 0)
+    if (geo_id_from_object(state->type_geoid, args[0], &id) < 0)
     {
         return NULL;
     }
@@ -333,18 +388,34 @@ static int mesh_dual_from_primal(const manifold2d_object_t *const primal, manifo
     return 0;
 }
 
-static PyObject *manifold2d_compute_dual(PyObject *self, PyObject *Py_UNUSED(arg))
+static PyObject *manifold2d_compute_dual(PyObject *self, PyTypeObject *defining_class, PyObject *const *Py_UNUSED(args),
+                                         const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (nargs != 0 || kwnames != NULL)
+    {
+        PyErr_Format(PyExc_TypeError, "Expected 0 arguments, but got %u.",
+                     (unsigned)nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0));
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
     if (!state)
         return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_man2d))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected a %s, but got a %s.", state->type_man2d->tp_name,
+                     Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+    const manifold2d_object_t *this = (manifold2d_object_t *)self;
 
     manifold2d_object_t *that = (manifold2d_object_t *)state->type_man2d->tp_alloc(state->type_man2d, 0);
     if (!that)
     {
         return NULL;
     }
-    const manifold2d_object_t *this = (manifold2d_object_t *)self;
+
     const int stat = mesh_dual_from_primal(this, that);
     if (stat != 0)
     {
@@ -354,17 +425,25 @@ static PyObject *manifold2d_compute_dual(PyObject *self, PyObject *Py_UNUSED(arg
     return (PyObject *)that;
 }
 
-static PyObject *maifold2d_from_irregular(PyObject *type, PyObject *args, PyObject *kwargs)
+static PyObject *maifold2d_from_irregular(PyTypeObject *type, PyTypeObject *defining_class, PyObject *const *args,
+                                          const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    unsigned npts;
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    if (!state)
+        return NULL;
+    Py_ssize_t npts;
     PyObject *arg_lines;
     PyObject *arg_surf;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "IOO",
-                                     (char *[4]){"n_points", "line_connectivity", "surface_connectivity", NULL}, &npts,
-                                     &arg_lines, &arg_surf))
-    {
+
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_INT, .p_val = &npts, .kwname = "n_points"},
+                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg_lines, .kwname = "line_connectivity"},
+                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg_surf, .kwname = "surface_connectivity"},
+                {},
+            },
+            args, nargs, kwnames) < 0)
         return NULL;
-    }
 
     PyArrayObject *const line_array = (PyArrayObject *)PyArray_FromAny(
         arg_lines, PyArray_DescrFromType(NPY_INT), 2, 2, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
@@ -379,8 +458,8 @@ static PyObject *maifold2d_from_irregular(PyObject *type, PyObject *args, PyObje
         Py_DECREF(line_array);
         return NULL;
     }
-    PyTypeObject *const obj_type = (PyTypeObject *)type;
-    manifold2d_object_t *const this = (manifold2d_object_t *)obj_type->tp_alloc(obj_type, 0);
+
+    manifold2d_object_t *const this = (manifold2d_object_t *)type->tp_alloc(type, 0);
     if (!this)
     {
         Py_DECREF(line_array);
@@ -554,17 +633,25 @@ static PyObject *maifold2d_from_irregular(PyObject *type, PyObject *args, PyObje
     return (PyObject *)this;
 }
 
-static PyObject *maifold2d_from_regular(PyObject *type, PyObject *args, PyObject *kwargs)
+static PyObject *maifold2d_from_regular(PyTypeObject *type, PyTypeObject *defining_class, PyObject *const *args,
+                                        const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    unsigned npts;
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(defining_class);
+    if (!state)
+        return NULL;
+    Py_ssize_t npts;
     PyObject *arg_lines;
     PyObject *arg_surf;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "IOO",
-                                     (char *[4]){"n_points", "line_connectivity", "surface_connectivity", NULL}, &npts,
-                                     &arg_lines, &arg_surf))
-    {
+
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_INT, .p_val = &npts, .kwname = "n_points"},
+                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg_lines, .kwname = "line_connectivity"},
+                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg_surf, .kwname = "surface_connectivity"},
+                {},
+            },
+            args, nargs, kwnames) < 0)
         return NULL;
-    }
 
     PyArrayObject *const line_array = (PyArrayObject *)PyArray_FromAny(
         arg_lines, PyArray_DescrFromType(NPY_INT), 2, 2, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, NULL);
@@ -719,130 +806,126 @@ static PyObject *maifold2d_from_regular(PyObject *type, PyObject *args, PyObject
 }
 
 static PyMethodDef manifold2d_object_methods[] = {
-    {.ml_name = "get_line",
-     .ml_meth = manifold2d_get_line,
-     .ml_flags = METH_O,
-     .ml_doc = "get_line(index: int | GeoID, /) -> Line\n"
-               "Get the line from the mesh.\n"
-               "\n"
-               "Parameters\n"
-               "----------\n"
-               "index : int or GeoID\n"
-               "   Id of the line to get in 1-based indexing or GeoID. If negative,\n"
-               "   the orientation will be reversed.\n"
-               "\n"
-               "Returns\n"
-               "-------\n"
-               "Line\n"
-               "   Line object corresponding to the ID.\n"},
-    {.ml_name = "get_surface",
-     .ml_meth = manifold2d_get_surface,
-     .ml_flags = METH_O,
-     .ml_doc = "get_surface(index: int | GeoID, /) -> Surface\n"
-               "Get the surface from the mesh.\n"
-               "\n"
-               "Parameters\n"
-               "----------\n"
-               "index : int or GeoID\n"
-               "   Id of the surface to get in 1-based indexing or GeoID. If negative,\n"
-               "   the orientation will be reversed.\n"
-               "\n"
-               "Returns\n"
-               "-------\n"
-               "Surface\n"
-               "   Surface object corresponding to the ID.\n"},
-    {.ml_name = "compute_dual",
-     .ml_meth = manifold2d_compute_dual,
-     .ml_flags = METH_NOARGS,
-     .ml_doc = "compute_dual() -> Manifold2D\n"
-               "Compute the dual to the manifold.\n"
-               "\n"
-               "A dual of each k-dimensional object in an n-dimensional space is a\n"
-               "(n-k)-dimensional object. This means that duals of surfaces are points,\n"
-               "duals of lines are also lines, and that the duals of points are surfaces.\n"
-               "\n"
-               "A dual line connects the dual points which correspond to surfaces which\n"
-               "the line was a part of. Since the change over a line is computed by\n"
-               "subtracting the value at the beginning from that at the end, the dual point\n"
-               "which corresponds to the primal surface where the primal line has a\n"
-               "positive orientation is the end point of the dual line and conversely the end\n"
-               "dual point is the one corresponding to the surface which contained the primal\n"
-               "line in the negative orientation. Since lines may only be contained in a\n"
-               "single primal surface, they may have an invalid ID as either their beginning or\n"
-               "their end. This can be used to determine if the line is actually a boundary of\n"
-               "the manifold.\n"
-               "\n"
-               "A dual surface corresponds to a point and contains dual lines which correspond\n"
-               "to primal lines, which contained the primal point of which the dual surface is\n"
-               "the result of. The orientation of dual lines in this dual surface is positive if\n"
-               "the primal line of which they are duals originated in the primal point in question\n"
-               "and negative if it was their end point.\n"
-               "\n"
-               "Returns\n"
-               "-------\n"
-               "Manifold2D\n"
-               "    Dual manifold.\n"},
-
-    {.ml_name = "from_irregular",
-     .ml_meth = (void *)maifold2d_from_irregular,
-     .ml_flags = METH_VARARGS | METH_CLASS | METH_KEYWORDS,
-     .ml_doc = "from_irregular(n_points: int, line_connectivity: array_like, surface_connectivity: "
-               "Sequence[array_like]) -> Self\n"
-               "Create Manifold2D from surfaces with non-constant number of lines.\n"
-               "\n"
-               "Parameters\n"
-               "----------\n"
-               "n_points : int\n"
-               "    Number of points in the mesh.\n"
-               "line_connectivity : (N, 2) array_like\n"
-               "    Connectivity of points which form lines in 0-based indexing.\n"
-               "surface_connectivity : Sequence of array_like\n"
-               "    Sequence of arrays specifying connectivity of mesh surfaces in 1-based\n"
-               "    indexing, where a negative value means that the line's orientation is\n"
-               "    reversed.\n"
-               "\n"
-               "\n"
-               "Returns\n"
-               "-------\n"
-               "Self\n"
-               "    Two dimensional manifold.\n"},
-    {.ml_name = "from_regular",
-     .ml_meth = (void *)maifold2d_from_regular,
-     .ml_flags = METH_CLASS | METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = "from_regular(n_points: int, line_connectivity: array_like, surface_connectivity: array_like) -> Self\n"
-               "Create Manifold2D from surfaces with constant number of lines.\n"
-               "\n"
-               "Parameters\n"
-               "----------\n"
-               "n_points : int\n"
-               "    Number of points in the mesh.\n"
-               "line_connectivity : (N, 2) array_like\n"
-               "    Connectivity of points which form lines in 0-based indexing.\n"
-               "surface_connectivity : array_like\n"
-               "    Two dimensional array-like object specifying connectivity of mesh\n"
-               "    surfaces in 1-based indexing, where a negative value means that\n"
-               "    the line's orientation is reversed.\n"
-               "\n"
-               "Returns\n"
-               "-------\n"
-               "Self\n"
-               "    Two dimensional manifold.\n"},
-    {0},
+    {
+        .ml_name = "get_line",
+        .ml_meth = (void *)manifold2d_get_line,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = "get_line(index: int | GeoID, /) -> Line\n"
+                  "Get the line from the mesh.\n"
+                  "\n"
+                  "Parameters\n"
+                  "----------\n"
+                  "index : int or GeoID\n"
+                  "   Id of the line to get in 1-based indexing or GeoID. If negative,\n"
+                  "   the orientation will be reversed.\n"
+                  "\n"
+                  "Returns\n"
+                  "-------\n"
+                  "Line\n"
+                  "   Line object corresponding to the ID.\n",
+    },
+    {
+        .ml_name = "get_surface",
+        .ml_meth = (void *)manifold2d_get_surface,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = "get_surface(index: int | GeoID, /) -> Surface\n"
+                  "Get the surface from the mesh.\n"
+                  "\n"
+                  "Parameters\n"
+                  "----------\n"
+                  "index : int or GeoID\n"
+                  "   Id of the surface to get in 1-based indexing or GeoID. If negative,\n"
+                  "   the orientation will be reversed.\n"
+                  "\n"
+                  "Returns\n"
+                  "-------\n"
+                  "Surface\n"
+                  "   Surface object corresponding to the ID.\n",
+    },
+    {
+        .ml_name = "compute_dual",
+        .ml_meth = (void *)manifold2d_compute_dual,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = "compute_dual() -> Manifold2D\n"
+                  "Compute the dual to the manifold.\n"
+                  "\n"
+                  "A dual of each k-dimensional object in an n-dimensional space is a\n"
+                  "(n-k)-dimensional object. This means that duals of surfaces are points,\n"
+                  "duals of lines are also lines, and that the duals of points are surfaces.\n"
+                  "\n"
+                  "A dual line connects the dual points which correspond to surfaces which\n"
+                  "the line was a part of. Since the change over a line is computed by\n"
+                  "subtracting the value at the beginning from that at the end, the dual point\n"
+                  "which corresponds to the primal surface where the primal line has a\n"
+                  "positive orientation is the end point of the dual line and conversely the end\n"
+                  "dual point is the one corresponding to the surface which contained the primal\n"
+                  "line in the negative orientation. Since lines may only be contained in a\n"
+                  "single primal surface, they may have an invalid ID as either their beginning or\n"
+                  "their end. This can be used to determine if the line is actually a boundary of\n"
+                  "the manifold.\n"
+                  "\n"
+                  "A dual surface corresponds to a point and contains dual lines which correspond\n"
+                  "to primal lines, which contained the primal point of which the dual surface is\n"
+                  "the result of. The orientation of dual lines in this dual surface is positive if\n"
+                  "the primal line of which they are duals originated in the primal point in question\n"
+                  "and negative if it was their end point.\n"
+                  "\n"
+                  "Returns\n"
+                  "-------\n"
+                  "Manifold2D\n"
+                  "    Dual manifold.\n",
+    },
+    {
+        .ml_name = "from_irregular",
+        .ml_meth = (void *)maifold2d_from_irregular,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD | METH_CLASS,
+        .ml_doc = "from_irregular(n_points: int, line_connectivity: array_like, surface_connectivity: "
+                  "Sequence[array_like]) -> Self\n"
+                  "Create Manifold2D from surfaces with non-constant number of lines.\n"
+                  "\n"
+                  "Parameters\n"
+                  "----------\n"
+                  "n_points : int\n"
+                  "    Number of points in the mesh.\n"
+                  "line_connectivity : (N, 2) array_like\n"
+                  "    Connectivity of points which form lines in 0-based indexing.\n"
+                  "surface_connectivity : Sequence of array_like\n"
+                  "    Sequence of arrays specifying connectivity of mesh surfaces in 1-based\n"
+                  "    indexing, where a negative value means that the line's orientation is\n"
+                  "    reversed.\n"
+                  "\n"
+                  "\n"
+                  "Returns\n"
+                  "-------\n"
+                  "Self\n"
+                  "    Two dimensional manifold.\n",
+    },
+    {
+        .ml_name = "from_regular",
+        .ml_meth = (void *)maifold2d_from_regular,
+        .ml_flags = METH_CLASS | METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc =
+            "from_regular(n_points: int, line_connectivity: array_like, surface_connectivity: array_like) -> Self\n"
+            "Create Manifold2D from surfaces with constant number of lines.\n"
+            "\n"
+            "Parameters\n"
+            "----------\n"
+            "n_points : int\n"
+            "    Number of points in the mesh.\n"
+            "line_connectivity : (N, 2) array_like\n"
+            "    Connectivity of points which form lines in 0-based indexing.\n"
+            "surface_connectivity : array_like\n"
+            "    Two dimensional array-like object specifying connectivity of mesh\n"
+            "    surfaces in 1-based indexing, where a negative value means that\n"
+            "    the line's orientation is reversed.\n"
+            "\n"
+            "Returns\n"
+            "-------\n"
+            "Self\n"
+            "    Two dimensional manifold.\n",
+    },
+    {},
 };
-
-// MFV2D_INTERNAL
-// PyTypeObject manifold2d_type_object = {
-//     .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Manifold2D",
-//     .tp_basicsize = sizeof(manifold2d_object_t),
-//     .tp_itemsize = 0,
-//     .tp_str = manifold2d_str,
-//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_BASETYPE,
-//     .tp_doc = manifold2d_type_docstring,
-//     .tp_methods = manifold2d_object_methods,
-//     .tp_getset = manifold2d_getset,
-//     .tp_dealloc = manifold2d_dealloc,
-//     .tp_base = NULL,
-// };
 
 static PyType_Slot manifold2d_slots[] = {
     {.slot = Py_tp_str, .pfunc = manifold2d_str},

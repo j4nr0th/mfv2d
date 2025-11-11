@@ -19,7 +19,7 @@ static PyObject *element_fem_space_2d_new(PyTypeObject *type, PyObject *args, Py
 {
     basis_2d_t *basis;
     PyArrayObject *corners;
-    const mfv2d_module_state_t *const state = PyType_GetModuleState(type);
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(type);
     if (!state)
         return NULL;
 

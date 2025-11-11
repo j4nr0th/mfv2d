@@ -6,12 +6,31 @@
 
 static PyObject *geoid_repr(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_geoid))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_geoid->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     const geo_id_object_t *this = (geo_id_object_t *)self;
     return PyUnicode_FromFormat("GeoID(%u, %u)", (unsigned)this->id.index, (unsigned)this->id.reverse);
 }
 
 static PyObject *geoid_str(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_geoid))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_geoid->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const geo_id_object_t *this = (geo_id_object_t *)self;
     return PyUnicode_FromFormat("%c%u", (unsigned)this->id.reverse ? '-' : '+', (unsigned)this->id.index);
 }
@@ -53,16 +72,20 @@ static int geoid_set_index(PyObject *self, PyObject *value, void *Py_UNUSED(clos
 }
 
 static PyGetSetDef geoid_getset[] = {
-    {.name = "reversed",
-     .get = geoid_get_orientation,
-     .set = geoid_set_orientation,
-     .doc = "bool : Is the orientation of the object reversed.",
-     .closure = NULL},
-    {.name = "index",
-     .get = geoid_get_index,
-     .set = geoid_set_index,
-     .doc = "int : Index of the object referenced by id.",
-     .closure = NULL},
+    {
+        .name = "reversed",
+        .get = geoid_get_orientation,
+        .set = geoid_set_orientation,
+        .doc = "bool : Is the orientation of the object reversed.",
+        .closure = NULL,
+    },
+    {
+        .name = "index",
+        .get = geoid_get_index,
+        .set = geoid_set_index,
+        .doc = "int : Index of the object referenced by id.",
+        .closure = NULL,
+    },
     {0}, // sentinel
 };
 
@@ -104,13 +127,23 @@ static PyObject *geoid_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 
 static PyObject *geoid_rich_compare(PyObject *self, PyObject *other, const int op)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_geoid))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_geoid->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     if (op != Py_EQ && op != Py_NE)
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
     const geo_id_object_t *const this = (geo_id_object_t *)self;
     geo_id_t that;
-    if (geo_id_from_object(Py_TYPE(self), other, &that) < 0)
+    if (geo_id_from_object(state->type_geoid, other, &that) < 0)
     {
         PyErr_Clear();
         Py_RETURN_NOTIMPLEMENTED;
@@ -134,6 +167,15 @@ static int geoid_bool(PyObject *self)
 
 static PyObject *geoid_negative(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_geoid))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_geoid->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const geo_id_object_t *const this = (geo_id_object_t *)self;
     return (PyObject *)geo_id_object_from_value(Py_TYPE(self),
                                                 (geo_id_t){.index = this->id.index, .reverse = !this->id.reverse});

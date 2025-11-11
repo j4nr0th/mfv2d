@@ -173,58 +173,70 @@ void raise_exception_from_current(PyObject *exception, const char *format, ...)
     }
 }
 
-static argument_status_t validate_arg_specs(const unsigned n, const argument_t specs[const static n])
+static argument_status_t validate_arg_specs(const unsigned n, const argument_t specs[const static n],
+                                            const int is_in_sequence)
 {
     // Validate input specs have all keyword args at the end
     for (unsigned i = 1; i < n; ++i)
     {
         if (specs[i - 1].kwname != NULL && specs[i].kwname == NULL)
         {
-            PyErr_Format(PyExc_RuntimeError,
-                         "Argument %u has a keyword argument, but argument %u does not (author is a retard).", i - 1,
-                         i);
+            fprintf(stderr, "Argument %u has a keyword argument, but argument %u does not (author is a retard).\n",
+                    i - 1, i);
             return ARG_STATUS_BAD_SPECS;
         }
     }
     for (unsigned i = 0; i < n; ++i)
     {
+        // If in a sequence, keywords are forbidden
+        if (is_in_sequence && specs[i].kwname != NULL)
+        {
+            fprintf(stderr, "Keywords may not be used within a sequence.\n");
+            return ARG_STATUS_KW_IN_SEQUENCE;
+        }
+
+        // Keyword-only needs a keyword
         if (specs[i].kwname == NULL && specs[i].kw_only)
         {
-            PyErr_Format(PyExc_RuntimeError,
-                         "Argument %u was marked as keyword-only, but does not specify a keyword (author is a retard).",
-                         i);
+            fprintf(stderr,
+                    "Argument %u was marked as keyword-only, but does not specify a keyword (author is a retard).\n",
+                    i);
             return ARG_STATUS_BAD_SPECS;
         }
+        // Typechecking is only for Python arguments
         if (specs[i].type_check != NULL && specs[i].type != ARG_TYPE_PYTHON)
         {
-            PyErr_Format(PyExc_RuntimeError,
-                         "Argument %u specifies a type to check, but does not specify the type as Python object "
-                         "(author is a retard).",
-                         i);
+            fprintf(stderr,
+                    "Argument %u specifies a type to check, but does not specify the type as Python object "
+                    "(author is a retard).\n",
+                    i);
             return ARG_STATUS_BAD_SPECS;
         }
+        // Keywords cannot be repeated or empty
         if (specs[i].kwname != NULL)
         {
             for (unsigned j = i + 1; j < n; ++j)
             {
                 if (specs[j].kwname != NULL && strcmp(specs[j].kwname, specs[i].kwname) == 0)
                 {
-                    PyErr_Format(PyExc_RuntimeError,
-                                 "Arguments %u and %u use the same keyword \"%s\" (author is a retard).", i, j);
+                    fprintf(stderr, "Arguments %u and %u use the same keyword \"%s\" (author is a retard).\n", i, j,
+                            specs[i].kwname);
                     return ARG_STATUS_BAD_SPECS;
                 }
             }
             if (specs[i].kwname[0] == '\0')
             {
-                PyErr_Format(PyExc_RuntimeError, "Argument %u specifies a keyword with no length %u.", i);
+                fprintf(stderr, "Argument %u specifies a keyword with no length.\n", i);
                 return ARG_STATUS_BAD_SPECS;
             }
         }
+        // Value pointer must be given.
         if (specs[i].p_val == NULL)
         {
-            PyErr_Format(PyExc_RuntimeError, "Argument %u has no value pointer.", i);
+            fprintf(stderr, "Argument %u has no value pointer.\n", i);
             return ARG_STATUS_BAD_SPECS;
         }
+        // Type must be valid
         switch (specs[i].type)
         {
         case ARG_TYPE_PYTHON:
@@ -232,11 +244,30 @@ static argument_status_t validate_arg_specs(const unsigned n, const argument_t s
         case ARG_TYPE_INT:
         case ARG_TYPE_DOUBLE:
         case ARG_TYPE_STRING:
-        case ARG_TYPE_NONE:
+        case ARG_TYPE_SEQUENCE:
             break;
+
+        case ARG_TYPE_NONE:
         default:
-            PyErr_Format(PyExc_RuntimeError, "Argument %u has invalid type %u.", i, specs[i].type);
+            fprintf(stderr, "Argument %u has invalid type %u.", i, specs[i].type);
             return ARG_STATUS_BAD_SPECS;
+        }
+        // Sequence is recursively parsed
+        if (specs[i].type == ARG_TYPE_SEQUENCE)
+        {
+            const argument_t *const seq_arg = specs[i].p_val;
+            unsigned m = 0;
+            while (seq_arg[m].type != ARG_TYPE_NONE)
+            {
+                m += 1;
+            }
+            const argument_status_t res = validate_arg_specs(m, seq_arg, 1);
+            if (res != ARG_STATUS_SUCCESS)
+            {
+                fprintf(stderr, "Could not parse sequence of length %u in argument %u (\"%s\")\n", m, i,
+                        specs[i].kwname ? specs[i].kwname : "");
+                return res;
+            }
         }
     }
 
@@ -281,6 +312,18 @@ argument_status_t extract_argument_value(const unsigned i, PyObject *const val, 
             return ARG_STATUS_INVALID;
         break;
 
+    case ARG_TYPE_SEQUENCE: {
+        PyObject *const fast_seq = PySequence_Fast(val, "Expected a sequence.");
+        if (!fast_seq)
+            return ARG_STATUS_INVALID;
+        const Py_ssize_t n = PySequence_Fast_GET_SIZE(fast_seq);
+        const argument_status_t status =
+            parse_arguments((argument_t *)arg->p_val, (PyObject *const *)PySequence_Fast_ITEMS(fast_seq), n, NULL);
+        if (status != ARG_STATUS_SUCCESS)
+            return status;
+    }
+    break;
+
     case ARG_TYPE_NONE:
         ASSERT(0, "Should not be reached.");
         return ARG_STATUS_BAD_SPECS;
@@ -296,7 +339,7 @@ argument_status_t parse_arguments(argument_t specs[const], PyObject *const args[
     ASSERT(args != NULL, "Pointer to positional args should not be null.");
     const unsigned nkwds = kwnames != NULL ? PyTuple_GET_SIZE(kwnames) : 0;
     ASSERT(specs != NULL, "Pointer to argument specs should not be null.");
-    ASSERT(nargs > 0, "Number of arguments must be a positive integer (it was %lld).", (long long int)nargs);
+    ASSERT(nargs >= 0, "Number of arguments must be non-negative (it was %lld).", (long long int)nargs);
 
     unsigned n = 0;
     while (specs[n].type != ARG_TYPE_NONE)
@@ -311,7 +354,7 @@ argument_status_t parse_arguments(argument_t specs[const], PyObject *const args[
     }
 
     // Validate the arguments are properly specified.
-    ASSERT(validate_arg_specs(n, specs) == ARG_STATUS_SUCCESS, "Invalid argument specs.");
+    ASSERT(validate_arg_specs(n, specs, 0) == ARG_STATUS_SUCCESS, "Invalid argument specs.");
     ASSERT(nargs + nkwds <= n, "Number of specified arguments is less than the number of received arguments.");
 
     for (unsigned i = 0; i < nargs; ++i)
@@ -393,6 +436,7 @@ const char *arg_status_strings[] = {
     [ARG_STATUS_KW_AS_POS] = "Keyword argument was specified as a positional argument",
     [ARG_STATUS_NO_KW] = "No argument has this keyword",
     [ARG_STATUS_UNKNOWN] = "Unknown error",
+    [ARG_STATUS_KW_IN_SEQUENCE] = "Keyword argument was found in a sequence",
 };
 
 const char *argument_status_str(const argument_status_t e)

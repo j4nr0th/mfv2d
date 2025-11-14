@@ -15,12 +15,11 @@ typedef struct
 } surface_object_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject surface_type_object;
+// extern PyTypeObject surface_type_object;
+extern PyType_Spec surface_type_spec;
 
 MFV2D_INTERNAL
-surface_object_t *surface_object_empty(size_t count);
-
-MFV2D_INTERNAL
-surface_object_t *surface_object_from_value(size_t count, geo_id_t ids[static count]);
+surface_object_t *surface_object_from_value(PyTypeObject *surface_type_object, size_t count,
+                                            geo_id_t ids[static count]);
 
 #endif // SURFACEOBJECT_H

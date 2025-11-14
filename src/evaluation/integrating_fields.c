@@ -352,8 +352,12 @@ void reconstruct_field_2_form(const fem_space_2d_t *space, const double degrees_
 }
 
 MFV2D_INTERNAL
-PyObject *compute_integrating_fields(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds)
+PyObject *compute_integrating_fields(PyObject *mod, PyObject *args, PyObject *kwds)
 {
+    const mfv2d_module_state_t *const state = PyModule_GetState(mod);
+    if (!state)
+        return NULL;
+
     element_fem_space_2d_t *element_space;
     element_form_spec_t *form_specs;
     PyObject *py_field_orders;
@@ -362,8 +366,8 @@ PyObject *compute_integrating_fields(PyObject *Py_UNUSED(self), PyObject *args, 
     if (!PyArg_ParseTupleAndKeywords(
             args, kwds, "O!O!O!O!O!",
             (char *[6]){"fem_space", "form_specs", "field_orders", "field_information", "degrees_of_freedom", NULL},
-            &element_fem_space_2d_type, &element_space, &element_form_spec_type, &form_specs, &PyTuple_Type,
-            &py_field_orders, &PyTuple_Type, &field_information, &PyArray_Type, &degrees_of_freedom))
+            state->type_fem_space, &element_space, state->type_form_spec, &form_specs, &PyTuple_Type, &py_field_orders,
+            &PyTuple_Type, &field_information, &PyArray_Type, &degrees_of_freedom))
     {
         return NULL;
     }

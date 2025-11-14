@@ -11,7 +11,7 @@ static const char *form_order_str_table[] = {
     [FORM_ORDER_2] = "FORM_ORDER_2",
 };
 
-const char *form_order_str(form_order_t order)
+const char *form_order_str(const form_order_t order)
 {
     // ALWAYS RANGE CHECK!
     if (order < FORM_ORDER_UNKNOWN || order > FORM_ORDER_2)
@@ -80,12 +80,24 @@ typedef struct
 
 static void element_form_spec_iter_dealloc(element_form_spec_iter_t *it)
 {
+    PyObject_GC_UnTrack(it);
     Py_XDECREF(it->efs);
     Py_TYPE(it)->tp_free((PyObject *)it);
 }
 
 static PyObject *element_form_spec_iter_next(element_form_spec_iter_t *it)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(it));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(it, state->type_form_spec_iter))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec_iter->tp_name,
+                     Py_TYPE(it)->tp_name);
+        return NULL;
+    }
+
     if (it->index >= Py_SIZE(it->efs))
     {
         PyErr_SetNone(PyExc_StopIteration);
@@ -96,19 +108,35 @@ static PyObject *element_form_spec_iter_next(element_form_spec_iter_t *it)
     return Py_BuildValue("si", it->efs->forms[i].name, it->efs->forms[i].order);
 }
 
-MFV2D_INTERNAL
-PyTypeObject element_form_spec_iter_type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormSpecificationIter",
-    .tp_basicsize = sizeof(element_form_spec_iter_t),
-    .tp_dealloc = (destructor)element_form_spec_iter_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_iter = PyObject_SelfIter, // the iterator's __iter__ returns self
-    .tp_iternext = (iternextfunc)element_form_spec_iter_next,
+static PyType_Slot element_form_spec_iter_type_slots[] = {
+    {.slot = Py_tp_dealloc, .pfunc = element_form_spec_iter_dealloc},
+    {.slot = Py_tp_iter, .pfunc = PyObject_SelfIter},
+    {.slot = Py_tp_iternext, .pfunc = element_form_spec_iter_next},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
+    {}, // sentinel
+};
+
+PyType_Spec element_form_spec_iter_type_spec = {
+    .name = "mfv2d._mfv2d._ElementFormSpecificationIter",
+    .basicsize = sizeof(element_form_spec_iter_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HAVE_GC,
+    .slots = element_form_spec_iter_type_slots,
 };
 
 static PyObject *element_form_spec_iter(element_form_spec_t *self)
 {
-    element_form_spec_iter_t *const it = PyObject_New(element_form_spec_iter_t, &element_form_spec_iter_type);
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
+    element_form_spec_iter_t *const it =
+        (element_form_spec_iter_t *)state->type_form_spec_iter->tp_alloc(state->type_form_spec_iter, 0);
     if (!it)
     {
         return NULL;
@@ -119,7 +147,7 @@ static PyObject *element_form_spec_iter(element_form_spec_t *self)
     return (PyObject *)it;
 }
 
-static PyObject *element_form_spec_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject *element_form_spec_new(PyTypeObject *type, PyObject *args, const PyObject *kwds)
 {
     const Py_ssize_t num_specs = PyTuple_GET_SIZE(args);
     if (num_specs == 0)
@@ -205,6 +233,7 @@ static PyObject *element_form_spec_new(PyTypeObject *type, PyObject *args, PyObj
 
 static void element_form_spec_dealloc(element_form_spec_t *this)
 {
+    PyObject_GC_UnTrack(this);
     Py_TYPE(this)->tp_free((PyObject *)this);
 }
 
@@ -248,6 +277,16 @@ static PyObject *element_form_spec_get_names(const element_form_spec_t *self, vo
 
 static PyObject *element_form_spec_getitem(const element_form_spec_t *self, const Py_ssize_t index)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     if (index < 0 || index >= Py_SIZE(self))
     {
         PyErr_SetString(PyExc_IndexError, "Index out of range");
@@ -258,11 +297,31 @@ static PyObject *element_form_spec_getitem(const element_form_spec_t *self, cons
 
 static Py_ssize_t element_form_spec_len(const element_form_spec_t *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return -1;
+
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
+        return -1;
+    }
+
     return Py_SIZE(self);
 }
 
 static int element_form_spec_contains(const element_form_spec_t *self, PyObject *item)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return -1;
+
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
+        return -1;
+    }
+
     if (!PyTuple_Check(item) || PyTuple_GET_SIZE(item) != 2)
     {
         PyErr_SetString(PyExc_TypeError, "Each spec must be a (name, order) tuple");
@@ -307,12 +366,6 @@ static int element_form_spec_contains(const element_form_spec_t *self, PyObject 
     return 0;
 }
 
-static PySequenceMethods element_form_spec_sequence_methods = {
-    .sq_item = (ssizeargfunc)element_form_spec_getitem,
-    .sq_length = (lenfunc)element_form_spec_len,
-    .sq_contains = (objobjproc)element_form_spec_contains,
-};
-
 static PyGetSetDef element_form_spec_getset[] = {
     {
         .name = "orders",
@@ -330,13 +383,24 @@ static PyGetSetDef element_form_spec_getset[] = {
 
 static PyObject *element_form_spec_repr(const element_form_spec_t *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     const Py_ssize_t size = Py_SIZE(self);
     PyObject *res = PyUnicode_FromString("_ElementFormSpecification(");
     if (!res)
         return NULL;
     for (Py_ssize_t i = 0; i < size; ++i)
     {
-        PyObject *val = PyUnicode_FromFormat("%s(%u)", self->forms[i].name, self->forms[i].order);
+        const char *const ending = i == size - 1 ? ")" : ", ";
+        PyObject *val = PyUnicode_FromFormat("%s(%u)%s", self->forms[i].name, self->forms[i].order, ending);
         if (!val)
         {
             Py_DECREF(res);
@@ -358,6 +422,16 @@ static PyObject *element_form_spec_repr(const element_form_spec_t *self)
 
 static PyObject *element_form_spec_str(const element_form_spec_t *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     const Py_ssize_t size = Py_SIZE(self);
     PyObject *res = PyUnicode_FromString("(");
     if (!res)
@@ -380,12 +454,28 @@ static PyObject *element_form_spec_str(const element_form_spec_t *self)
     return new;
 }
 
-static PyObject *element_form_spec_form_offset(const element_form_spec_t *self, PyObject *args, PyObject *kwds)
+static PyObject *element_form_spec_form_offset(PyObject *self, PyTypeObject *defining_type, PyObject *const *args,
+                                               const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long index, order_1, order_2;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "lll", (char *[4]){"", "order_1", "order_2", NULL}, &index, &order_1,
-                                     &order_2))
+    Py_ssize_t index, order_1, order_2;
+
+    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &index},
+                                             {.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
+                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
+                                             {}},
+                              args, nargs, kwnames) < 0)
         return NULL;
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_type);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     if (index < 0 || index >= Py_SIZE(self))
     {
         PyErr_SetString(PyExc_IndexError, "Index out of range");
@@ -397,7 +487,7 @@ static PyObject *element_form_spec_form_offset(const element_form_spec_t *self, 
         return NULL;
     }
 
-    return PyLong_FromLong(element_form_offset(self, index, order_1, order_2));
+    return PyLong_FromLong(element_form_offset((const element_form_spec_t *)self, index, order_1, order_2));
 }
 
 PyDoc_STRVAR(element_form_spec_form_order_docstr,
@@ -420,12 +510,28 @@ PyDoc_STRVAR(element_form_spec_form_order_docstr,
              "int\n"
              "    Offset of degrees of freedom of the differential form.\n");
 
-static PyObject *element_form_spec_form_size(const element_form_spec_t *const self, PyObject *args, PyObject *kwds)
+static PyObject *element_form_spec_form_size(element_form_spec_t *self, PyTypeObject *defining_type,
+                                             PyObject *const *args, const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long index, order_1, order_2;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "lll", (char *[4]){"", "order_1", "order_2", NULL}, &index, &order_1,
-                                     &order_2))
+    Py_ssize_t index, order_1, order_2;
+
+    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &index},
+                                             {.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
+                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
+                                             {}},
+                              args, nargs, kwnames) < 0)
         return NULL;
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_type);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     if (index < 0 || index >= Py_SIZE(self))
     {
         PyErr_SetString(PyExc_IndexError, "Index out of range");
@@ -458,22 +564,32 @@ PyDoc_STRVAR(element_form_spec_form_size_docstr,
              "int\n"
              "    Number of degrees of freedom of the differential form.\n");
 
-static PyObject *element_form_spec_form_total_size(const element_form_spec_t *const self, PyObject *args,
-                                                   PyObject *kwds)
+static PyObject *element_form_spec_form_total_size(const element_form_spec_t *self, PyTypeObject *defining_type,
+                                                   PyObject *const *args, const Py_ssize_t nargs,
+                                                   const PyObject *kwnames)
 {
-    long order_1, order_2;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ll", (char *[3]){"order_1", "order_2", NULL}, &order_1, &order_2))
+    Py_ssize_t order_1, order_2;
+    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
+                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
+                                             {}},
+                              args, nargs, kwnames) < 0)
         return NULL;
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_type);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     if (order_1 <= 0 || order_2 <= 0)
     {
         PyErr_Format(PyExc_ValueError, "Orders must be positive, but (%ld, %ld) were given", order_1, order_2);
         return NULL;
     }
-    // unsigned size = 0;
-    // for (unsigned i = 0; i < Py_SIZE(self); ++i)
-    // {
-    //     size += form_degrees_of_freedom_count(self->forms[i].order, order_1, order_2);
-    // }
 
     return PyLong_FromLong(element_form_specs_total_count(self, order_1, order_2));
 }
@@ -498,16 +614,27 @@ PyDoc_STRVAR(element_form_spec_size_total_docstr,
              "int\n"
              "    Total number of degrees of freedom of all differential forms.\n");
 
-static PyObject *element_form_spec_form_orders(const element_form_spec_t *self, PyObject *args, PyObject *kwds)
+static PyObject *element_form_spec_form_orders(const element_form_spec_t *self, PyTypeObject *defining_type,
+                                               PyObject *const *args, const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long order_1, order_2;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ll", (char *[3]){"order_1", "order_2", NULL}, &order_1, &order_2))
+    Py_ssize_t order_1, order_2;
+
+    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
+                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
+                                             {}},
+                              args, nargs, kwnames) < 0)
         return NULL;
-    if (order_1 <= 0 || order_2 <= 0)
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_type);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_form_spec))
     {
-        PyErr_Format(PyExc_ValueError, "Orders must be positive, but (%ld, %ld) were given", order_1, order_2);
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(self)->tp_name);
         return NULL;
     }
+
     PyObject *res = PyTuple_New(Py_SIZE(self) + 1);
     if (!res)
         return NULL;
@@ -552,11 +679,27 @@ PyDoc_STRVAR(element_form_spec_form_orders_docstr,
              "    Offsets of degrees of freedom for all differential forms, with an extra\n"
              "    entry at the end, which is the count of all degrees of freedom.\n");
 
-static PyObject *element_form_spec_form_sizes(const element_form_spec_t *this, PyObject *args, PyObject *kwds)
+static PyObject *element_form_spec_form_sizes(const element_form_spec_t *this, PyTypeObject *defining_type,
+                                              PyObject *const *args, const Py_ssize_t nargs, const PyObject *kwnames)
 {
-    long order_1, order_2;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "ll", (char *[3]){"order_1", "order_2", NULL}, &order_1, &order_2))
+    Py_ssize_t order_1, order_2;
+
+    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
+                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
+                                             {}},
+                              args, nargs, kwnames) < 0)
         return NULL;
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_type);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(this, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(this)->tp_name);
+        return NULL;
+    }
+
     if (order_1 <= 0 || order_2 <= 0)
     {
         PyErr_Format(PyExc_ValueError, "Orders must be positive, but (%ld, %ld) were given", order_1, order_2);
@@ -595,8 +738,25 @@ PyDoc_STRVAR(element_form_spec_form_sizes_docstr, "form_sizes(order_1: int, orde
                                                   "tuple of int\n"
                                                   "    Number of degrees of freedom for each differential form.\n");
 
-static PyObject *element_form_spec_get_index(const element_form_spec_t *this, PyObject *arg)
+static PyObject *element_form_spec_get_index(const element_form_spec_t *this, PyTypeObject *defining_type,
+                                             PyObject *const *args, const Py_ssize_t nargs, const PyObject *kwnames)
 {
+    PyTupleObject *arg;
+    if (parse_arguments_check(
+            (argument_t[]){{.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg, .type_check = &PyTuple_Type}, {}}, args,
+            nargs, kwnames) < 0)
+        return NULL;
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_type);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(this, state->type_form_spec))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_form_spec->tp_name, Py_TYPE(this)->tp_name);
+        return NULL;
+    }
+
     if (!PyTuple_Check(arg) || PyTuple_GET_SIZE(arg) != 2)
     {
         PyErr_Format(PyExc_TypeError, "Expected a tuple of (name, order) but got %R", arg);
@@ -651,37 +811,37 @@ static PyMethodDef element_form_spec_methods[] = {
     {
         .ml_name = "form_offset",
         .ml_meth = (void *)element_form_spec_form_offset,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = element_form_spec_form_order_docstr,
     },
     {
         .ml_name = "form_size",
         .ml_meth = (void *)element_form_spec_form_size,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = element_form_spec_form_size_docstr,
     },
     {
         .ml_name = "total_size",
         .ml_meth = (void *)element_form_spec_form_total_size,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = element_form_spec_size_total_docstr,
     },
     {
         .ml_name = "form_offsets",
         .ml_meth = (void *)element_form_spec_form_orders,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = element_form_spec_form_orders_docstr,
     },
     {
         .ml_name = "form_sizes",
         .ml_meth = (void *)element_form_spec_form_sizes,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = element_form_spec_form_sizes_docstr,
     },
     {
         .ml_name = "index",
         .ml_meth = (void *)element_form_spec_get_index,
-        .ml_flags = METH_O,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = element_form_spec_get_index_docstr,
     },
     {},
@@ -697,18 +857,26 @@ PyDoc_STRVAR(element_form_spec_docstr, "_ElementFormSpecification(*specs: tuple[
                                        "    unique and order have a valid value which is in\n"
                                        "    :class:`mfv2d.kform.UnknownFormOrder`.\n");
 
-PyTypeObject element_form_spec_type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d._ElementFormSpecification",
-    .tp_basicsize = sizeof(element_form_spec_t),
-    .tp_itemsize = sizeof(form_spec_t),
-    .tp_dealloc = (destructor)element_form_spec_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = element_form_spec_docstr,
-    .tp_new = element_form_spec_new,
-    .tp_getset = element_form_spec_getset,
-    .tp_as_sequence = &element_form_spec_sequence_methods,
-    .tp_repr = (reprfunc)element_form_spec_repr,
-    .tp_str = (reprfunc)element_form_spec_str,
-    .tp_methods = element_form_spec_methods,
-    .tp_iter = (getiterfunc)element_form_spec_iter,
+static PyType_Slot element_form_spec_slots[] = {
+    {.slot = Py_tp_dealloc, .pfunc = element_form_spec_dealloc},
+    {.slot = Py_tp_doc, .pfunc = (void *)element_form_spec_docstr},
+    {.slot = Py_tp_new, .pfunc = element_form_spec_new},
+    {.slot = Py_tp_getset, .pfunc = element_form_spec_getset},
+    {.slot = Py_tp_repr, .pfunc = element_form_spec_repr},
+    {.slot = Py_tp_str, .pfunc = element_form_spec_str},
+    {.slot = Py_tp_methods, .pfunc = element_form_spec_methods},
+    {.slot = Py_sq_item, .pfunc = element_form_spec_getitem},
+    {.slot = Py_sq_length, .pfunc = element_form_spec_len},
+    {.slot = Py_sq_contains, .pfunc = element_form_spec_contains},
+    {.slot = Py_tp_iter, .pfunc = element_form_spec_iter},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
+    {}, // sentinel
+};
+
+PyType_Spec element_form_spec_type_spec = {
+    .name = "mfv2d._mfv2d._ElementFormSpecification",
+    .basicsize = sizeof(element_form_spec_t),
+    .itemsize = sizeof(form_spec_t),
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
+    .slots = element_form_spec_slots,
 };

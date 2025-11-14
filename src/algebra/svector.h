@@ -29,7 +29,8 @@ typedef struct
 } svec_object_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject svec_type_object;
+// extern PyTypeObject svec_type_object;
+extern PyType_Spec svec_type_spec;
 
 /**
  * Create a new sparse vector with no entries and desired capacity.
@@ -77,11 +78,12 @@ mfv2d_result_t sparse_vector_append(svector_t *this, entry_t e, const allocator_
 /**
  * Create a Python sparse vector object based on the given sparse vector.
  *
+ * @param svec_type_object Type object to use to create the Python type.
  * @param this Vector that is to be converted.
  * @return Pointer to the object or NULL on allocation failure.
  */
 MFV2D_INTERNAL
-svec_object_t *sparse_vector_to_python(const svector_t *this);
+svec_object_t *sparse_vector_to_python(PyTypeObject *svec_type_object, const svector_t *this);
 
 /**
  * Performs a deep copy of a vector to another memory location.

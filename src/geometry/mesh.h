@@ -72,7 +72,8 @@ typedef struct
 } mesh_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject mesh_type_object;
+// extern PyTypeObject mesh_type_object;
+extern PyType_Spec mesh_type_spec;
 
 typedef enum
 {

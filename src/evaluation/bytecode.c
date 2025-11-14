@@ -302,12 +302,16 @@ const char check_bytecode_docstr[] = "check_bytecode(form_specs: _ElemenetFormsS
                                      "\n"
                                      "This function is meant for testing.\n";
 
-PyObject *check_bytecode(PyObject *Py_UNUSED(module), PyObject *args, PyObject *kwds)
+PyObject *check_bytecode(PyObject *mod, PyObject *args, PyObject *kwds)
 {
+    const mfv2d_module_state_t *const state = PyModule_GetState(mod);
+    if (!state)
+        return NULL;
+
     element_form_spec_t *form_specs;
     PyObject *expression;
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O!", (char *const[3]){"form_specs", "expression", NULL},
-                                     &element_form_spec_type, &form_specs, &PyTuple_Type, &expression))
+                                     state->type_form_spec, &form_specs, &PyTuple_Type, &expression))
     {
         return NULL;
     }

@@ -34,8 +34,9 @@ class ElementFormSpecification(_ElementFormSpecification):
 
     def __iter__(self) -> Iterator[tuple[str, UnknownFormOrder]]:
         """Iterate over labels and orders of forms specified."""
-        iterator = super().__iter__()
-        for label, order in iterator:
+        # NOTE: workaround needed until PyType_GetModuleByDef is in the stable API :(
+        for i in range(len(self)):
+            label, order = self[i]
             yield (label, UnknownFormOrder(order))
 
     def iter_forms(self) -> Iterator[KFormUnknown]:

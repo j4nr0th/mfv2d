@@ -115,4 +115,98 @@ typedef struct
     double x3, y3;
 } quad_info_t;
 
+typedef struct
+{
+    PyTypeObject *type_geoid;
+    PyTypeObject *type_line;
+    PyTypeObject *type_surface;
+    PyTypeObject *type_man2d;
+    PyTypeObject *type_mesh;
+    PyTypeObject *type_int_rule;
+    PyTypeObject *type_basis1d;
+    PyTypeObject *type_basis2d;
+    PyTypeObject *type_fem_space;
+    PyTypeObject *type_form_spec;
+    PyTypeObject *type_form_spec_iter;
+    PyTypeObject *type_svec;
+    PyTypeObject *type_crs_matrix;
+    PyTypeObject *type_system;
+    PyTypeObject *type_trace_vector;
+    PyTypeObject *type_dense_vector;
+} mfv2d_module_state_t;
+
+/**
+ * @brief Retrieves the module state associated with a given Python type.
+ *
+ * This function extracts the module state associated with a Python type object.
+ * It first retrieves the module corresponding to the provided type and then
+ * accesses the module state. If the module cannot be resolved or the state is
+ * unavailable, the function returns `NULL` and raises a Python TypeError.
+ *
+ *
+ * @param type Pointer to the Python type object for which the module state is to be retrieved.
+ * @return A pointer to the module state structure (`mfv2d_module_state_t`) if successful,
+ *         or `NULL` if the module or its state could not be accessed.
+ */
+MFV2D_INTERNAL
+const mfv2d_module_state_t *mfv2d_state_from_type(PyTypeObject *type);
+
+typedef enum
+{
+    ARG_TYPE_NONE,
+    ARG_TYPE_INT,
+    ARG_TYPE_BOOL,
+    ARG_TYPE_DOUBLE,
+    ARG_TYPE_STRING,
+    ARG_TYPE_PYTHON,
+    ARG_TYPE_SEQUENCE,
+} argument_type_t;
+
+typedef struct
+{
+    argument_type_t type;
+    int optional;
+    int found;
+    int kw_only;
+    const char *kwname;
+    void *p_val;
+    PyTypeObject *type_check;
+} argument_t;
+
+typedef enum
+{
+    ARG_STATUS_SUCCESS,        // Parsed correctly
+    ARG_STATUS_MISSING,        // Argument was missing
+    ARG_STATUS_INVALID,        // Argument had invalid value
+    ARG_STATUS_DUPLICATE,      // Argument was found twice
+    ARG_STATUS_BAD_SPECS,      // Specifications were incorrect
+    ARG_STATUS_KW_AS_POS,      // Keyword argument was specified as a positional argument
+    ARG_STATUS_NO_KW,          // No argument has this keyword
+    ARG_STATUS_UNKNOWN,        // Unknown error
+    ARG_STATUS_KW_IN_SEQUENCE, // Keyword argument was found in a sequence
+} argument_status_t;
+
+MFV2D_INTERNAL
+const char *argument_status_str(argument_status_t e);
+
+MFV2D_INTERNAL
+argument_status_t parse_arguments(argument_t specs[], PyObject *const args[], Py_ssize_t nargs,
+                                  const PyObject *kwnames);
+
+static inline int parse_arguments_check(argument_t specs[], PyObject *const args[], const Py_ssize_t nargs,
+                                        const PyObject *kwnames)
+{
+    const argument_status_t res = parse_arguments(specs, args, nargs, kwnames);
+    if (res != ARG_STATUS_SUCCESS)
+    {
+        // raise_exception_from_current(PyExc_TypeError, "Invalid arguments to function (%s).",
+        // argument_status_str(res));
+        return -1;
+    }
+    return 0;
+}
+
+MFV2D_INTERNAL
+int traverse_heap_type(PyObject *op, visitproc visit, void *arg);
+
 #endif // COMMON_H

@@ -12,6 +12,15 @@
 
 static PyObject *line_object_repr(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_line))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_line->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const line_object_t *this = (line_object_t *)self;
     return PyUnicode_FromFormat("Line(GeoID(%u, %u), GeoID(%u, %u))", this->value.begin.index,
                                 this->value.begin.reverse, this->value.end.index, this->value.end.reverse);
@@ -19,14 +28,23 @@ static PyObject *line_object_repr(PyObject *self)
 
 static PyObject *line_object_str(PyObject *self)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_line))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_line->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
     const line_object_t *this = (line_object_t *)self;
     return PyUnicode_FromFormat("(%c%u -> %c%u)", this->value.begin.reverse ? '-' : '+', this->value.begin.index,
                                 this->value.end.reverse ? '-' : '+', this->value.end.index);
 }
 
-line_object_t *line_from_indices(geo_id_t begin, geo_id_t end)
+line_object_t *line_from_indices(PyTypeObject *line_type_object, const geo_id_t begin, const geo_id_t end)
 {
-    line_object_t *const this = (line_object_t *)line_type_object.tp_alloc(&line_type_object, 0);
+    line_object_t *const this = (line_object_t *)line_type_object->tp_alloc(line_type_object, 0);
     if (!this)
         return NULL;
     this->value.begin = begin;
@@ -43,7 +61,11 @@ static PyObject *line_object_new(PyTypeObject *type, PyObject *args, PyObject *k
         return NULL;
     }
     geo_id_t begin, end;
-    if (geo_id_from_object(a1, &begin) < 0 || geo_id_from_object(a2, &end) < 0)
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(type);
+    if (!state)
+        return NULL;
+
+    if (geo_id_from_object(state->type_geoid, a1, &begin) < 0 || geo_id_from_object(state->type_geoid, a2, &end) < 0)
         return NULL;
 
     line_object_t *const this = (line_object_t *)type->tp_alloc(type, 0);
@@ -57,12 +79,22 @@ static PyObject *line_object_new(PyTypeObject *type, PyObject *args, PyObject *k
 
 static PyObject *line_object_rich_compare(PyObject *self, PyObject *other, const int op)
 {
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_line))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_line->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
     if (op != Py_EQ && op != Py_NE)
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
     const line_object_t *const this = (line_object_t *)self;
-    if (!PyObject_TypeCheck(other, &line_type_object))
+    if (!PyObject_TypeCheck(other, state->type_line))
     {
         Py_RETURN_NOTIMPLEMENTED;
     }
@@ -109,13 +141,19 @@ PyDoc_STRVAR(line_object_type_docstring, "Line(begin: GeoID | int, end: GeoID | 
 static PyObject *line_object_get_begin(PyObject *self, void *Py_UNUSED(closure))
 {
     const line_object_t *this = (line_object_t *)self;
-    return (PyObject *)geo_id_object_from_value(this->value.begin);
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    return (PyObject *)geo_id_object_from_value(state->type_geoid, this->value.begin);
 }
 
 static PyObject *line_object_get_end(PyObject *self, void *Py_UNUSED(closure))
 {
     const line_object_t *this = (line_object_t *)self;
-    return (PyObject *)geo_id_object_from_value(this->value.end);
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    return (PyObject *)geo_id_object_from_value(state->type_geoid, this->value.end);
 }
 
 static PyGetSetDef line_object_getset[] = {
@@ -132,11 +170,18 @@ static PyGetSetDef line_object_getset[] = {
     {},
 };
 
-static PyObject *line_object_as_array(PyObject *self, PyObject *args, PyObject *kwds)
+static PyObject *line_object_as_array(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                      const Py_ssize_t nargs, const PyObject *kwnames)
 {
     PyArray_Descr *dtype = NULL;
     int b_copy = 1;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Op", (char *[3]){"dtype", "copy", NULL}, &dtype, &b_copy))
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_PYTHON, .optional = 1, .p_val = (void *)&dtype, .kwname = "dtype"},
+                {.type = ARG_TYPE_BOOL, .optional = 1, .kwname = "copy", .p_val = &b_copy},
+                {},
+            },
+            args, nargs, kwnames) < 0)
     {
         return NULL;
     }
@@ -144,6 +189,14 @@ static PyObject *line_object_as_array(PyObject *self, PyObject *args, PyObject *
     if (!b_copy)
     {
         PyErr_SetString(PyExc_ValueError, "A copy is always created when converting to NDArray.");
+        return NULL;
+    }
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+
+    if (!PyObject_TypeCheck(self, state->type_line))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_line->tp_name, Py_TYPE(self)->tp_name);
         return NULL;
     }
 
@@ -169,23 +222,31 @@ static PyObject *line_object_as_array(PyObject *self, PyObject *args, PyObject *
 }
 
 static PyMethodDef line_methods[] = {
-    {.ml_name = "__array__",
-     .ml_meth = (void *)line_object_as_array,
-     .ml_flags = METH_VARARGS | METH_KEYWORDS,
-     .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray"},
+    {
+        .ml_name = "__array__",
+        .ml_meth = (void *)line_object_as_array,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = "__array__(self, dtype=None, copy=None) -> numpy.ndarray",
+    },
     {},
 };
 
-PyTypeObject line_type_object = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.Line",
-    .tp_basicsize = sizeof(line_object_t),
-    .tp_itemsize = 0,
-    .tp_repr = line_object_repr,
-    .tp_str = line_object_str,
-    .tp_doc = line_object_type_docstring,
-    .tp_new = line_object_new,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .tp_richcompare = line_object_rich_compare,
-    .tp_getset = line_object_getset,
-    .tp_methods = line_methods,
+static PyType_Slot line_type_slots[] = {
+    {.slot = Py_tp_repr, .pfunc = line_object_repr},
+    {.slot = Py_tp_str, .pfunc = line_object_str},
+    {.slot = Py_tp_doc, .pfunc = (void *)line_object_type_docstring},
+    {.slot = Py_tp_new, .pfunc = line_object_new},
+    {.slot = Py_tp_richcompare, .pfunc = line_object_rich_compare},
+    {.slot = Py_tp_getset, .pfunc = line_object_getset},
+    {.slot = Py_tp_methods, .pfunc = line_methods},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
+    {}, // sentinel
+};
+
+PyType_Spec line_type_spec = {
+    .name = "mfv2d._mfv2d.Line",
+    .basicsize = sizeof(line_object_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
+    .slots = line_type_slots,
 };

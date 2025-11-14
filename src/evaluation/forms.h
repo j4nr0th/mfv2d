@@ -39,15 +39,17 @@ typedef struct
 } element_form_spec_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject element_form_spec_type;
+// extern PyTypeObject element_form_spec_type;
+extern PyType_Spec element_form_spec_type_spec;
 
 MFV2D_INTERNAL
-extern PyTypeObject element_form_spec_iter_type;
+// extern PyTypeObject element_form_spec_iter_type;
+extern PyType_Spec element_form_spec_iter_type_spec;
 
 MFV2D_INTERNAL
-unsigned element_form_offset(const element_form_spec_t *const spec, unsigned index, unsigned order_1, unsigned order_2);
+unsigned element_form_offset(const element_form_spec_t *spec, unsigned index, unsigned order_1, unsigned order_2);
 
 MFV2D_INTERNAL
-unsigned element_form_specs_total_count(const element_form_spec_t *const spec, unsigned order_1, unsigned order_2);
+unsigned element_form_specs_total_count(const element_form_spec_t *spec, unsigned order_1, unsigned order_2);
 
 #endif // FORMS_H

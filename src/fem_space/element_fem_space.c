@@ -3,6 +3,7 @@
 
 static void element_fem_space_2d_dealloc(element_fem_space_2d_t *this)
 {
+    PyObject_GC_UnTrack(this);
     Py_DECREF(this->basis_xi);
     Py_DECREF(this->basis_eta);
     deallocate(&SYSTEM_ALLOCATOR, this->fem_space);
@@ -19,8 +20,11 @@ static PyObject *element_fem_space_2d_new(PyTypeObject *type, PyObject *args, Py
 {
     basis_2d_t *basis;
     PyArrayObject *corners;
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(type);
+    if (!state)
+        return NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!O!", (char *[3]){"basis", "corners", NULL}, &basis_2d_type,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!O!", (char *[3]){"basis", "corners", NULL}, state->type_basis2d,
                                      &basis, &PyArray_Type, &corners))
         return NULL;
 
@@ -91,7 +95,10 @@ static PyObject *element_fem_space_2d_get_mass_surf(element_fem_space_2d_t *self
 
 static PyObject *element_fem_space_2d_get_basis_2d(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
 {
-    return (PyObject *)create_basis_2d_object(&basis_2d_type, self->basis_xi, self->basis_eta);
+    const mfv2d_module_state_t *const state = mfv2d_state_from_type(Py_TYPE(self));
+    if (!state)
+        return NULL;
+    return (PyObject *)create_basis_2d_object(state->type_basis2d, self->basis_xi, self->basis_eta);
 }
 
 static PyObject *element_fem_space_2d_get_basis_xi(element_fem_space_2d_t *self, void *Py_UNUSED(closure))
@@ -324,12 +331,32 @@ static PyGetSetDef element_fem_space_2d_getsets[] = {
     {0}, // Sentilel
 };
 
-static PyObject *element_fem_space_2d_mass_from_order(element_fem_space_2d_t *this, PyObject *args, PyObject *kwargs)
+static PyObject *element_fem_space_2d_mass_from_order(PyObject *self, PyTypeObject *defining_class,
+                                                      PyObject *const *args, const Py_ssize_t nargs,
+                                                      const PyObject *kwnames)
 {
-    int i_order;
+    Py_ssize_t i_order;
     int inverse = 0;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|p", (char *[3]){"order", "inverse", NULL}, &i_order, &inverse))
+    if (parse_arguments_check(
+            (argument_t[]){
+                {.type = ARG_TYPE_INT, .p_val = &i_order, .kwname = "order"},
+                {.type = ARG_TYPE_BOOL, .p_val = &inverse, .kwname = "inverse", .optional = 1},
+                {},
+            },
+            args, nargs, kwnames) < 0)
         return NULL;
+
+    const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_class);
+    if (!state)
+        return NULL;
+
+    if (!PyObject_TypeCheck(self, state->type_fem_space))
+    {
+        PyErr_Format(PyExc_TypeError, "Expected %s, got %s.", state->type_fem_space->tp_name, Py_TYPE(self)->tp_name);
+        return NULL;
+    }
+
+    element_fem_space_2d_t *const this = (element_fem_space_2d_t *)self;
 
     if (i_order <= 0 || i_order > 3)
     {
@@ -379,23 +406,40 @@ static PyMethodDef element_fem_space_2d_methods[] = {
     {
         "mass_from_order",
         (void *)element_fem_space_2d_mass_from_order,
-        METH_VARARGS | METH_KEYWORDS,
+        METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         mass_from_order_docstr,
     },
     {0}, // Sentinel
 };
 
-MFV2D_INTERNAL
-PyTypeObject element_fem_space_2d_type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.ElementFemSpace2D",
-    .tp_basicsize = sizeof(element_fem_space_2d_t),
-    .tp_itemsize = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
-    .tp_doc = "Caches element mass matrices",
-    .tp_new = element_fem_space_2d_new,
-    .tp_dealloc = (destructor)element_fem_space_2d_dealloc,
-    .tp_getset = element_fem_space_2d_getsets,
-    .tp_methods = element_fem_space_2d_methods,
+// MFV2D_INTERNAL
+// PyTypeObject element_fem_space_2d_type = {
+//     PyVarObject_HEAD_INIT(NULL, 0).tp_name = "mfv2d._mfv2d.ElementFemSpace2D",
+//     .tp_basicsize = sizeof(element_fem_space_2d_t),
+//     .tp_itemsize = 0,
+//     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+//     .tp_doc = "Caches element mass matrices",
+//     .tp_new = element_fem_space_2d_new,
+//     .tp_dealloc = (destructor)element_fem_space_2d_dealloc,
+//     .tp_getset = element_fem_space_2d_getsets,
+//     .tp_methods = element_fem_space_2d_methods,
+// };
+
+static PyType_Slot element_fem_space_2d_slots[] = {
+    {.slot = Py_tp_new, .pfunc = (void *)element_fem_space_2d_new},
+    {.slot = Py_tp_dealloc, .pfunc = (void *)element_fem_space_2d_dealloc},
+    {.slot = Py_tp_getset, .pfunc = (void *)element_fem_space_2d_getsets},
+    {.slot = Py_tp_methods, .pfunc = (void *)element_fem_space_2d_methods},
+    {.slot = Py_tp_traverse, .pfunc = traverse_heap_type},
+    {}, // sentinel
+};
+
+PyType_Spec element_fem_space_2d_type_spec = {
+    .name = "mfv2d._mfv2d.ElementFemSpace2D",
+    .basicsize = sizeof(element_fem_space_2d_t),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_HAVE_GC,
+    .slots = element_fem_space_2d_slots,
 };
 
 const matrix_full_t *element_mass_cache_get_node(element_fem_space_2d_t *cache)

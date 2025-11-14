@@ -22,7 +22,8 @@ typedef struct
 } element_fem_space_2d_t;
 
 MFV2D_INTERNAL
-extern PyTypeObject element_fem_space_2d_type;
+// extern PyTypeObject element_fem_space_2d_type;
+extern PyType_Spec element_fem_space_2d_type_spec;
 
 MFV2D_INTERNAL
 const matrix_full_t *element_mass_cache_get_node(element_fem_space_2d_t *cache);

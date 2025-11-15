@@ -71,7 +71,7 @@ static PyMethodDef module_methods[] = {
     {
         .ml_name = "compute_gll",
         .ml_meth = (void *)compute_gauss_lobatto_nodes,
-        .ml_flags = METH_VARARGS | METH_KEYWORDS,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS,
         .ml_doc = compute_gll_docstring,
     },
     {
@@ -164,7 +164,7 @@ static PyTypeObject *add_type_to_the_module(PyObject *mod, PyType_Spec *specs, P
     return (PyTypeObject *)type;
 }
 
-static int exec_mfv2d_module(PyObject *mod)
+static int add_module_type_and_macros(PyObject *mod)
 {
     if (PyArray_ImportNumPyAPI() < 0)
     {
@@ -189,6 +189,7 @@ static int exec_mfv2d_module(PyObject *mod)
         (state->type_system = add_type_to_the_module(mod, &system_object_spec, NULL)) == NULL ||
         (state->type_dense_vector = add_type_to_the_module(mod, &dense_vector_object_type_spec, NULL)) == NULL ||
         (state->type_trace_vector = add_type_to_the_module(mod, &trace_vector_type_spec, NULL)) == NULL ||
+        (state->type_gll_cache = add_type_to_the_module(mod, &gll_cache_type_spec, NULL)) == NULL ||
         PyModule_AddIntMacro(mod, ELEMENT_SIDE_BOTTOM) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_RIGHT) < 0 ||
         PyModule_AddIntMacro(mod, ELEMENT_SIDE_TOP) < 0 || PyModule_AddIntMacro(mod, ELEMENT_SIDE_LEFT) < 0 ||
         PyModule_AddIntMacro(mod, MATOP_INVALID) < 0 || PyModule_AddIntMacro(mod, MATOP_IDENTITY) < 0 ||
@@ -202,6 +203,31 @@ static int exec_mfv2d_module(PyObject *mod)
     return 0;
 }
 
+static int add_module_caches(PyObject *mod)
+{
+    mfv2d_module_state_t *const state = PyModule_GetState(mod);
+    if (!state)
+        return -1;
+
+    gll_cache_t *gll_cache = (gll_cache_t *)state->type_gll_cache->tp_alloc(state->type_gll_cache, 0);
+    if (!gll_cache)
+        return -1;
+    gll_cache->count = 0;
+    gll_cache->capacity = 0;
+    gll_cache->entries = NULL;
+
+    if (PyModule_AddObjectRef(mod, "DEFAULT_GLL_CACHE", (PyObject *)gll_cache) < 0)
+    {
+        return -1;
+    }
+    Py_DECREF(gll_cache);
+
+    // Also store it in the module state
+    state->cache_gll = (PyObject *)gll_cache;
+
+    return 0;
+}
+
 static PyModuleDef mfv2d_module_def = {
     .m_base = PyModuleDef_HEAD_INIT,
     .m_name = "mfv2d._mfv2d",
@@ -211,7 +237,8 @@ static PyModuleDef mfv2d_module_def = {
     .m_slots =
         (PyModuleDef_Slot[]){
             {.slot = Py_mod_multiple_interpreters, .value = Py_MOD_MULTIPLE_INTERPRETERS_SUPPORTED},
-            {.slot = Py_mod_exec, .value = exec_mfv2d_module},
+            {.slot = Py_mod_exec, .value = add_module_type_and_macros},
+            {.slot = Py_mod_exec, .value = add_module_caches},
             {},
         },
 };

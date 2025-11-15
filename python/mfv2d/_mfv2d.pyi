@@ -245,12 +245,37 @@ def dlagrange1d(
     """
     ...
 
+class GLLCache:
+    """Cache for Gauss-Legendre-Lobatto integration nodes and weights."""
+
+    def __new__(cls) -> Self: ...
+    def clear(self) -> None:
+        """Remove all entries from the cache."""
+        ...
+
+    def usage(self) -> tuple[tuple[int, float], ...]:
+        """Return info about the current usage of the cache.
+
+        Returns
+        -------
+        tuple of (int, float)
+            Entries in the cache, characterized by the number of nodes and the tolerance
+            they were computed at.
+        """
+        ...
+
+DEFAULT_GLL_CACHE: GLLCache
+
 def compute_gll(
-    order: int, max_iter: int = 10, tol: float = 1e-15
+    order: int,
+    /,
+    max_iter: int = 10,
+    tol: float = 1e-15,
+    cache: GLLCache | None = DEFAULT_GLL_CACHE,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     r"""Compute Gauss-Legendre-Lobatto integration nodes and weights.
 
-    If you are often re-using these, consider caching them.
+    If calculations are successful, then the resulting value is added to the cache.
 
     Parameters
     ----------
@@ -260,6 +285,9 @@ def compute_gll(
        Maximum number of iterations used to further refine the values.
     tol : float, default: 1e-15
        Tolerance for stopping the refinement of the nodes.
+    cache : GLLCache or None, default: DEFAULT_GLL_CACHE
+        The cache to use for computing the GLLNodes. If none is given, then the results
+        are not cached.
 
     Returns
     -------

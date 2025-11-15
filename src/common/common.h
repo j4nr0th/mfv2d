@@ -117,6 +117,7 @@ typedef struct
 
 typedef struct
 {
+    // Types
     PyTypeObject *type_geoid;
     PyTypeObject *type_line;
     PyTypeObject *type_surface;
@@ -133,6 +134,10 @@ typedef struct
     PyTypeObject *type_system;
     PyTypeObject *type_trace_vector;
     PyTypeObject *type_dense_vector;
+    PyTypeObject *type_gll_cache;
+
+    // Caches
+    PyObject *cache_gll;
 } mfv2d_module_state_t;
 
 /**

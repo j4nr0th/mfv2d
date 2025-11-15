@@ -355,7 +355,10 @@ argument_status_t parse_arguments(argument_t specs[const], PyObject *const args[
 
     // Validate the arguments are properly specified.
     ASSERT(validate_arg_specs(n, specs, 0) == ARG_STATUS_SUCCESS, "Invalid argument specs.");
-    ASSERT(nargs + nkwds <= n, "Number of specified arguments is less than the number of received arguments.");
+    ASSERT(
+        nargs + nkwds <= n,
+        "Number of specified arguments is less than the number of received arguments (n = %u, nargs = %u, nkwds = %u).",
+        n, (unsigned)nargs, (unsigned)nkwds);
 
     for (unsigned i = 0; i < nargs; ++i)
     {

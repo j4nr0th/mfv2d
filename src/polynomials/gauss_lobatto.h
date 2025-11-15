@@ -1,6 +1,7 @@
 #ifndef GAUSS_LOBATTO_H
 #define GAUSS_LOBATTO_H
 #include "../common/common.h"
+#include "../common/error.h"
 
 /**
  * Evaluates the Legendre polynomial of degree n and its derivative using Bonnet's recursion formula.
@@ -13,7 +14,7 @@
  *            out[1] receives the value of the Legendre polynomial of degree n.
  */
 MFV2D_INTERNAL
-void legendre_eval_bonnet_two(const unsigned n, const double x, double MFV2D_ARRAY_ARG(out, 2));
+void legendre_eval_bonnet_two(unsigned n, double x, double MFV2D_ARRAY_ARG(out, 2));
 
 /**
  * Computes the nodes and weights for Gauss-Lobatto quadrature using an iterative method.
@@ -36,9 +37,35 @@ int gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsign
                                 double MFV2D_ARRAY_ARG(x, restrict n), double MFV2D_ARRAY_ARG(w, restrict n));
 
 MFV2D_INTERNAL
-PyObject *compute_gauss_lobatto_nodes(PyObject *Py_UNUSED(self), PyObject *args, PyObject *kwds);
+PyObject *compute_gauss_lobatto_nodes(PyObject *mod, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames);
 
 MFV2D_INTERNAL
 extern const char compute_gll_docstring[];
+
+typedef struct
+{
+    unsigned degree;
+    double accuracy;
+    double nodes_and_weights[];
+} gll_entry_t;
+
+typedef struct
+{
+    PyObject_HEAD;
+    unsigned count;
+    unsigned capacity;
+    gll_entry_t **entries;
+} gll_cache_t;
+
+MFV2D_INTERNAL
+extern PyType_Spec gll_cache_type_spec;
+
+MFV2D_INTERNAL
+const gll_entry_t *gll_cache_get_entry(const gll_cache_t *self, unsigned degree, double min_accuracy);
+
+MFV2D_INTERNAL
+mfv2d_result_t gll_cache_write_entry(gll_cache_t *self, unsigned degree, double accuracy,
+                                     const double MFV2D_ARRAY_ARG(nodes, degree + 1),
+                                     const double MFV2D_ARRAY_ARG(weights, degree + 1));
 
 #endif // GAUSS_LOBATTO_H

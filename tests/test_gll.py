@@ -6,6 +6,7 @@ from mfv2d._mfv2d import (
     Basis1D,
     Basis2D,
     ElementFemSpace2D,
+    GLLCache,
     IntegrationRule1D,
     compute_gll,
 )
@@ -67,6 +68,33 @@ def test_mesh_2d_integrals(nh: int, nv: int, m: int) -> None:
     assert pytest.approx(integrals.sum()) == dblquad(test_function, -1, +1, -1, +1)[0]
 
 
+@pytest.mark.parametrize(("m",), ((10,), (15,), (20,)))
+def test_gll_cache(m: int) -> None:
+    """Check that GLL caching works as expeced."""
+    cache_1 = GLLCache()
+    cache_2 = GLLCache()
+
+    E_1 = 1e-15
+    E_2 = 1e-6
+
+    rng = np.random.default_rng(0)
+    orders = list(range(10, m + 10))
+
+    for order in rng.permutation(orders):
+        res_1 = compute_gll(order, tol=E_1, cache=cache_1)
+        res_2 = compute_gll(order, tol=E_2, cache=cache_2)
+        assert np.any(res_1[0] != res_2[0]) or np.any(res_1[1] != res_2[1])
+
+    for order in rng.permutation(orders):
+        compute_gll(order, tol=E_2, cache=cache_1)
+
+    for order in rng.permutation(orders):
+        res_1 = compute_gll(order, tol=E_1, cache=cache_1)
+        res_2 = compute_gll(order, tol=E_2, cache=cache_2)
+        assert np.all(res_1[0] == res_2[0])
+        assert np.all(res_1[1] == res_2[1])
+
+
 @pytest.mark.parametrize("m", range(1, 5))
 def test_error_measure(m: int) -> None:
     """Check that the error measurement function works correctly."""
@@ -123,3 +151,7 @@ def test_error_measure(m: int) -> None:
         reconstructed,
     )
     assert pytest.approx(l2_norm) == real_integral_2[0]
+
+
+if __name__ == "__main__":
+    test_gll_cache(10)

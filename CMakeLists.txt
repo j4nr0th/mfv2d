@@ -5,6 +5,7 @@ if (NOT DEFINED SKBUILD_PROJECT_NAME)
 endif ()
 
 add_subdirectory(jmtx)
+add_subdirectory(cpyutl)
 
 project(${SKBUILD_PROJECT_NAME} LANGUAGES C)
 find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
@@ -98,7 +99,7 @@ Python_add_library(_mfv2d
 install(TARGETS _mfv2d DESTINATION ${SKBUILD_PROJECT_NAME})
 set_property(TARGET _mfv2d PROPERTY C_STANDARD 17)
 
-target_link_libraries(_mfv2d PRIVATE jmtx)
+target_link_libraries(_mfv2d PRIVATE jmtx cpyutl)
 target_compile_definitions(_mfv2d PRIVATE MFV2D_ASSERTS)
 if ("${NumPy_INCLUDE_DIRS}" STREQUAL "")
     message(FATAL_ERROR "NumPy_INCLUDE_DIRS was empty.")

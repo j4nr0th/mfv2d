@@ -80,13 +80,13 @@ static PyObject *crs_matrix_build_row(PyObject *self, PyTypeObject *defining_cla
     }
 
     crs_matrix_t *const this = (crs_matrix_t *)self;
-    unsigned row;
+    Py_ssize_t row;
     const svec_object_t *entries = NULL;
 
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_INT, .kwname = "row", .p_val = &row},
-                {.type = ARG_TYPE_PYTHON,
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .kwname = "row", .p_val = &row},
+                {.type = CPYARG_TYPE_PYTHON,
                  .optional = 1,
                  .kwname = "entries",
                  .type_check = state->type_svec,
@@ -96,16 +96,16 @@ static PyObject *crs_matrix_build_row(PyObject *self, PyTypeObject *defining_cla
             args, nargs, kwnames) < 0)
         return NULL;
 
-    if (row >= this->matrix->base.rows)
+    if (row < 0 || row >= this->matrix->base.rows)
     {
-        PyErr_Format(PyExc_ValueError, "Row index %u out of bounds for matrix of dimensions (%u, %u)", row,
+        PyErr_Format(PyExc_ValueError, "Row index %zd out of bounds for matrix of dimensions (%u, %u)", row,
                      this->matrix->base.rows, this->matrix->base.cols);
         return NULL;
     }
 
     if (row > this->built_rows)
     {
-        PyErr_Format(PyExc_ValueError, "Row index %u is greater than the number of rows built (%u)", row,
+        PyErr_Format(PyExc_ValueError, "Row index %zd is greater than the number of rows built (%u)", row,
                      this->built_rows);
         return NULL;
     }
@@ -703,10 +703,10 @@ static PyObject *crs_matrix_from_data(PyObject *self, PyTypeObject *defining_cla
     PyObject *py_column_indices;
     PyObject *py_row_lengths;
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_PYTHON, .kwname = "values", .p_val = (void *)&py_values},
-                {.type = ARG_TYPE_PYTHON, .kwname = "column_indices", .p_val = (void *)&py_column_indices},
-                {.type = ARG_TYPE_PYTHON, .kwname = "row_lengths", .p_val = (void *)&py_row_lengths},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_PYTHON, .kwname = "values", .p_val = (void *)&py_values},
+                {.type = CPYARG_TYPE_PYTHON, .kwname = "column_indices", .p_val = (void *)&py_column_indices},
+                {.type = CPYARG_TYPE_PYTHON, .kwname = "row_lengths", .p_val = (void *)&py_row_lengths},
                 {}, // sentinel
             },
             args, nargs, kwnames) < 0)
@@ -857,9 +857,9 @@ static PyObject *crs_matrix_array_ufunc(PyObject *self, PyTypeObject *defining_c
 
     // Extract operands from inputs tuple
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&left},
-                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&right},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_PYTHON, .p_val = (void *)&left},
+                {.type = CPYARG_TYPE_PYTHON, .p_val = (void *)&right},
                 {},
             },
             args + 2, nargs - 2, kwnames) < 0)
@@ -960,8 +960,8 @@ static PyObject *crs_matrix_remove_entries_bellow(PyObject *self, PyTypeObject *
     }
     double v;
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_DOUBLE, .p_val = &v},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_DOUBLE, .p_val = &v},
                 {},
             },
             args, nargs, kwnames) < 0)
@@ -999,8 +999,9 @@ static PyObject *crs_matrix_add_to_dense(PyObject *self, PyTypeObject *defining_
 
     const PyArrayObject *array;
     if (parse_arguments_check(
-            (argument_t[]){{.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type, .p_val = (void *)&array}, {}}, args,
-            nargs, kwnames) < 0)
+            (cpyutl_argument_t[]){{.type = CPYARG_TYPE_PYTHON, .type_check = &PyArray_Type, .p_val = (void *)&array},
+                                  {}},
+            args, nargs, kwnames) < 0)
         return NULL;
 
     const crs_matrix_t *const this = (crs_matrix_t *)self;
@@ -1031,8 +1032,8 @@ static PyObject *crs_matrix_from_dense(PyTypeObject *type, PyTypeObject *Py_UNUS
 {
     PyArrayObject *arr;
     if (parse_arguments_check(
-            (argument_t[]){{.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type, .p_val = (void *)&arr}, {}}, args,
-            nargs, kwnames) < 0)
+            (cpyutl_argument_t[]){{.type = CPYARG_TYPE_PYTHON, .type_check = &PyArray_Type, .p_val = (void *)&arr}, {}},
+            args, nargs, kwnames) < 0)
         return NULL;
 
     PyArrayObject *const array =
@@ -1099,8 +1100,8 @@ static PyObject *crs_matrix_multiply_to_sparse(PyObject *self, PyTypeObject *def
 
     PyArrayObject *arr;
     if (parse_arguments_check(
-            (argument_t[]){{.type = ARG_TYPE_PYTHON, .type_check = &PyArray_Type, .p_val = (void *)&arr}, {}}, args,
-            nargs, kwnames) < 0)
+            (cpyutl_argument_t[]){{.type = CPYARG_TYPE_PYTHON, .type_check = &PyArray_Type, .p_val = (void *)&arr}, {}},
+            args, nargs, kwnames) < 0)
         return NULL;
 
     const crs_matrix_t *const this = (crs_matrix_t *)self;

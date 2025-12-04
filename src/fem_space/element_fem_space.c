@@ -338,9 +338,9 @@ static PyObject *element_fem_space_2d_mass_from_order(PyObject *self, PyTypeObje
     Py_ssize_t i_order;
     int inverse = 0;
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_INT, .p_val = &i_order, .kwname = "order"},
-                {.type = ARG_TYPE_BOOL, .p_val = &inverse, .kwname = "inverse", .optional = 1},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &i_order, .kwname = "order"},
+                {.type = CPYARG_TYPE_BOOL, .p_val = &inverse, .kwname = "inverse", .optional = 1},
                 {},
             },
             args, nargs, kwnames) < 0)

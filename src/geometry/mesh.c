@@ -425,8 +425,8 @@ static int mesh_function_with_index(PyObject *self, PyTypeObject *defining_class
                                     const mfv2d_module_state_t **p_state, Py_ssize_t *p_index)
 {
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_INT, .p_val = p_index},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = p_index},
                 {},
             },
             args, nargs, kwnames) < 0)
@@ -481,45 +481,45 @@ static PyObject *mesh_split_element(PyObject *self, PyTypeObject *defining_class
     Py_ssize_t orders_top_left[2];
 
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_INT, .p_val = &index_long},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &index_long},
                 {
-                    .type = ARG_TYPE_SEQUENCE,
+                    .type = CPYARG_TYPE_SEQUENCE,
                     .kwname = "orders_bottom_left",
                     .p_val =
-                        (argument_t[]){
-                            {.type = ARG_TYPE_INT, .p_val = orders_bottom_left + 0},
-                            {.type = ARG_TYPE_INT, .p_val = orders_bottom_left + 1},
+                        (cpyutl_argument_t[]){
+                            {.type = CPYARG_TYPE_SSIZE, .p_val = orders_bottom_left + 0},
+                            {.type = CPYARG_TYPE_SSIZE, .p_val = orders_bottom_left + 1},
                             {},
                         },
                 },
                 {
-                    .type = ARG_TYPE_SEQUENCE,
+                    .type = CPYARG_TYPE_SEQUENCE,
                     .kwname = "orders_bottom_right",
                     .p_val =
-                        (argument_t[]){
-                            {.type = ARG_TYPE_INT, .p_val = orders_bottom_right + 0},
-                            {.type = ARG_TYPE_INT, .p_val = orders_bottom_right + 1},
+                        (cpyutl_argument_t[]){
+                            {.type = CPYARG_TYPE_SSIZE, .p_val = orders_bottom_right + 0},
+                            {.type = CPYARG_TYPE_SSIZE, .p_val = orders_bottom_right + 1},
                             {},
                         },
                 },
                 {
-                    .type = ARG_TYPE_SEQUENCE,
+                    .type = CPYARG_TYPE_SEQUENCE,
                     .kwname = "orders_top_right",
                     .p_val =
-                        (argument_t[]){
-                            {.type = ARG_TYPE_INT, .p_val = orders_top_right + 0},
-                            {.type = ARG_TYPE_INT, .p_val = orders_top_right + 1},
+                        (cpyutl_argument_t[]){
+                            {.type = CPYARG_TYPE_SSIZE, .p_val = orders_top_right + 0},
+                            {.type = CPYARG_TYPE_SSIZE, .p_val = orders_top_right + 1},
                             {},
                         },
                 },
                 {
-                    .type = ARG_TYPE_SEQUENCE,
+                    .type = CPYARG_TYPE_SEQUENCE,
                     .kwname = "orders_top_left",
                     .p_val =
-                        (argument_t[]){
-                            {.type = ARG_TYPE_INT, .p_val = orders_top_left + 0},
-                            {.type = ARG_TYPE_INT, .p_val = orders_top_left + 1},
+                        (cpyutl_argument_t[]){
+                            {.type = CPYARG_TYPE_SSIZE, .p_val = orders_top_left + 0},
+                            {.type = CPYARG_TYPE_SSIZE, .p_val = orders_top_left + 1},
                             {},
                         },
                 },
@@ -756,10 +756,10 @@ static PyObject *mesh_set_leaf_orders(PyObject *self, PyTypeObject *defining_cla
     Py_ssize_t orders_i;
     Py_ssize_t orders_j;
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_INT, .p_val = &index_long},
-                {.type = ARG_TYPE_INT, .p_val = &orders_i, .kwname = "order_1"},
-                {.type = ARG_TYPE_INT, .p_val = &orders_j, .kwname = "order_2"},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &index_long},
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &orders_i, .kwname = "order_1"},
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &orders_j, .kwname = "order_2"},
                 {},
             },
             args, nargs, kwnames) < 0)
@@ -1068,9 +1068,9 @@ static PyObject *mesh_uniform_p_change(PyObject *self, PyTypeObject *defining_cl
     Py_ssize_t dp1;
     Py_ssize_t dp2;
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_INT, .p_val = &dp1},
-                {.type = ARG_TYPE_INT, .p_val = &dp2},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &dp1},
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &dp2},
                 {},
             },
             args, nargs, kwnames) < 0)

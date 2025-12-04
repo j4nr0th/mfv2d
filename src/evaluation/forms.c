@@ -459,10 +459,10 @@ static PyObject *element_form_spec_form_offset(PyObject *self, PyTypeObject *def
 {
     Py_ssize_t index, order_1, order_2;
 
-    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &index},
-                                             {.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
-                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
-                                             {}},
+    if (parse_arguments_check((cpyutl_argument_t[]){{.type = CPYARG_TYPE_SSIZE, .p_val = &index},
+                                                    {.type = CPYARG_TYPE_SSIZE, .p_val = &order_1, .kwname = "order_1"},
+                                                    {.type = CPYARG_TYPE_SSIZE, .p_val = &order_2, .kwname = "order_2"},
+                                                    {}},
                               args, nargs, kwnames) < 0)
         return NULL;
 
@@ -515,10 +515,10 @@ static PyObject *element_form_spec_form_size(element_form_spec_t *self, PyTypeOb
 {
     Py_ssize_t index, order_1, order_2;
 
-    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &index},
-                                             {.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
-                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
-                                             {}},
+    if (parse_arguments_check((cpyutl_argument_t[]){{.type = CPYARG_TYPE_SSIZE, .p_val = &index},
+                                                    {.type = CPYARG_TYPE_SSIZE, .p_val = &order_1, .kwname = "order_1"},
+                                                    {.type = CPYARG_TYPE_SSIZE, .p_val = &order_2, .kwname = "order_2"},
+                                                    {}},
                               args, nargs, kwnames) < 0)
         return NULL;
 
@@ -569,9 +569,9 @@ static PyObject *element_form_spec_form_total_size(const element_form_spec_t *se
                                                    const PyObject *kwnames)
 {
     Py_ssize_t order_1, order_2;
-    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
-                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
-                                             {}},
+    if (parse_arguments_check((cpyutl_argument_t[]){{.type = CPYARG_TYPE_SSIZE, .p_val = &order_1, .kwname = "order_1"},
+                                                    {.type = CPYARG_TYPE_SSIZE, .p_val = &order_2, .kwname = "order_2"},
+                                                    {}},
                               args, nargs, kwnames) < 0)
         return NULL;
 
@@ -619,9 +619,9 @@ static PyObject *element_form_spec_form_orders(const element_form_spec_t *self, 
 {
     Py_ssize_t order_1, order_2;
 
-    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
-                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
-                                             {}},
+    if (parse_arguments_check((cpyutl_argument_t[]){{.type = CPYARG_TYPE_SSIZE, .p_val = &order_1, .kwname = "order_1"},
+                                                    {.type = CPYARG_TYPE_SSIZE, .p_val = &order_2, .kwname = "order_2"},
+                                                    {}},
                               args, nargs, kwnames) < 0)
         return NULL;
 
@@ -684,9 +684,9 @@ static PyObject *element_form_spec_form_sizes(const element_form_spec_t *this, P
 {
     Py_ssize_t order_1, order_2;
 
-    if (parse_arguments_check((argument_t[]){{.type = ARG_TYPE_INT, .p_val = &order_1, .kwname = "order_1"},
-                                             {.type = ARG_TYPE_INT, .p_val = &order_2, .kwname = "order_2"},
-                                             {}},
+    if (parse_arguments_check((cpyutl_argument_t[]){{.type = CPYARG_TYPE_SSIZE, .p_val = &order_1, .kwname = "order_1"},
+                                                    {.type = CPYARG_TYPE_SSIZE, .p_val = &order_2, .kwname = "order_2"},
+                                                    {}},
                               args, nargs, kwnames) < 0)
         return NULL;
 
@@ -743,8 +743,8 @@ static PyObject *element_form_spec_get_index(const element_form_spec_t *this, Py
 {
     PyTupleObject *arg;
     if (parse_arguments_check(
-            (argument_t[]){{.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg, .type_check = &PyTuple_Type}, {}}, args,
-            nargs, kwnames) < 0)
+            (cpyutl_argument_t[]){{.type = CPYARG_TYPE_SSIZE, .p_val = (void *)&arg, .type_check = &PyTuple_Type}, {}},
+            args, nargs, kwnames) < 0)
         return NULL;
 
     const mfv2d_module_state_t *const state = PyType_GetModuleState(defining_type);

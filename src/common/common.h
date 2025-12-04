@@ -3,6 +3,10 @@
 #include "common_defines.h"
 #include <numpy/ndarrayobject.h>
 #include <numpy/npy_no_deprecated_api.h>
+
+// This must follow the numpy includes, otherwise it will shit itself
+#include "../../cpyutl/src/cpyutl.h"
+
 typedef struct
 {
     void *(*alloc)(void *state, size_t size);
@@ -54,50 +58,8 @@ static inline void *deallocate_track(const allocator_callbacks *allocator, void 
 // #define allocate(allocator, sz) allocate_track((allocator), (sz), __FILE__, __LINE__, __func__)
 // #define deallocate(allocator, sz) deallocate_track((allocator), (sz), __FILE__, __LINE__, __func__)
 
-/**
- * @brief Validates a NumPy array based on the specified dimensions, data type, and flags.
- *
- * This function checks several conditions for the given array, including
- * - Whether the array has the required flags.
- * - Whether the number of dimensions matches the expected value.
- * - Whether the data type matches the expected type (if specified).
- * - Whether each dimension size matches the expected size (if specified).
- *
- * If any of the conditions fail, a Python exception is raised with a descriptive error message,
- * and the function returns -1. Otherwise, the function returns 0 on success.
- *
- * @param arr Pointer to the NumPy array object to be validated.
- * @param n_dim The expected number of dimensions for the array.
- * @param dims Array of expected sizes for each dimension. Use 0 for dimensions that do not require strict matching.
- * @param dtype The expected data type of the array (e.g., NPY_DOUBLE). Use a negative value to skip this check.
- * @param flags The required flags that must be present in the array (e.g., NPY_ARRAY_C_CONTIGUOUS).
- * @param name The name of the array (for error messages).
- * @return Returns 0 if the array passes all validation checks, or -1 if any check fails.
- *         In the event of failure, a Python exception is set with an appropriate error message.
- */
-
-MFV2D_INTERNAL int check_input_array(const PyArrayObject *arr, unsigned n_dim, const npy_intp dims[static n_dim],
-                                     int dtype, int flags, const char *name);
-
 MFV2D_INTERNAL void check_memory_bounds(size_t allocated_size, size_t element_count, size_t element_size,
                                         const char *file, int line, const char *func);
-
-/**
- * @brief Raises a new Python exception, preserving the current exception context.
- *
- * This function raises a new Python exception with the specified type while
- * preserving the context of the current exception if one exists. It formats
- * the error message using the provided format string and additional arguments.
- * If an exception is already set, it will be attached as the cause of the new
- * exception. If no exception is set, a new exception is generated with the
- * specified type and formatted message.
- *
- * @param exception The Python exception type to raise (e.g., PyExc_RuntimeError).
- * @param format The printf-style format string to create the exception message.
- * @param ... Additional arguments to populate the format string.
- */
-[[gnu::format(printf, 2, 3)]]
-MFV2D_INTERNAL void raise_exception_from_current(PyObject *exception, const char *format, ...);
 
 #define CHECK_MEMORY_BOUNDS(allocated_size, offset, size)                                                              \
     check_memory_bounds((allocated_size), (offset), (size), __FILE__, __LINE__, __func__)
@@ -155,61 +117,6 @@ typedef struct
  */
 MFV2D_INTERNAL
 const mfv2d_module_state_t *mfv2d_state_from_type(PyTypeObject *type);
-
-typedef enum
-{
-    ARG_TYPE_NONE,
-    ARG_TYPE_INT,
-    ARG_TYPE_BOOL,
-    ARG_TYPE_DOUBLE,
-    ARG_TYPE_STRING,
-    ARG_TYPE_PYTHON,
-    ARG_TYPE_SEQUENCE,
-} argument_type_t;
-
-typedef struct
-{
-    argument_type_t type;
-    int optional;
-    int found;
-    int kw_only;
-    const char *kwname;
-    void *p_val;
-    PyTypeObject *type_check;
-} argument_t;
-
-typedef enum
-{
-    ARG_STATUS_SUCCESS,        // Parsed correctly
-    ARG_STATUS_MISSING,        // Argument was missing
-    ARG_STATUS_INVALID,        // Argument had invalid value
-    ARG_STATUS_DUPLICATE,      // Argument was found twice
-    ARG_STATUS_BAD_SPECS,      // Specifications were incorrect
-    ARG_STATUS_KW_AS_POS,      // Keyword argument was specified as a positional argument
-    ARG_STATUS_NO_KW,          // No argument has this keyword
-    ARG_STATUS_UNKNOWN,        // Unknown error
-    ARG_STATUS_KW_IN_SEQUENCE, // Keyword argument was found in a sequence
-} argument_status_t;
-
-MFV2D_INTERNAL
-const char *argument_status_str(argument_status_t e);
-
-MFV2D_INTERNAL
-argument_status_t parse_arguments(argument_t specs[], PyObject *const args[], Py_ssize_t nargs,
-                                  const PyObject *kwnames);
-
-static inline int parse_arguments_check(argument_t specs[], PyObject *const args[], const Py_ssize_t nargs,
-                                        const PyObject *kwnames)
-{
-    const argument_status_t res = parse_arguments(specs, args, nargs, kwnames);
-    if (res != ARG_STATUS_SUCCESS)
-    {
-        // raise_exception_from_current(PyExc_TypeError, "Invalid arguments to function (%s).",
-        // argument_status_str(res));
-        return -1;
-    }
-    return 0;
-}
 
 MFV2D_INTERNAL
 int traverse_heap_type(PyObject *op, visitproc visit, void *arg);

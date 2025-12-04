@@ -437,10 +437,10 @@ static PyObject *maifold2d_from_irregular(PyTypeObject *type, PyTypeObject *defi
     PyObject *arg_surf;
 
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_INT, .p_val = &npts, .kwname = "n_points"},
-                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg_lines, .kwname = "line_connectivity"},
-                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg_surf, .kwname = "surface_connectivity"},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &npts, .kwname = "n_points"},
+                {.type = CPYARG_TYPE_PYTHON, .p_val = (void *)&arg_lines, .kwname = "line_connectivity"},
+                {.type = CPYARG_TYPE_PYTHON, .p_val = (void *)&arg_surf, .kwname = "surface_connectivity"},
                 {},
             },
             args, nargs, kwnames) < 0)
@@ -645,10 +645,10 @@ static PyObject *maifold2d_from_regular(PyTypeObject *type, PyTypeObject *defini
     PyObject *arg_surf;
 
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_INT, .p_val = &npts, .kwname = "n_points"},
-                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg_lines, .kwname = "line_connectivity"},
-                {.type = ARG_TYPE_PYTHON, .p_val = (void *)&arg_surf, .kwname = "surface_connectivity"},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &npts, .kwname = "n_points"},
+                {.type = CPYARG_TYPE_PYTHON, .p_val = (void *)&arg_lines, .kwname = "line_connectivity"},
+                {.type = CPYARG_TYPE_PYTHON, .p_val = (void *)&arg_surf, .kwname = "surface_connectivity"},
                 {},
             },
             args, nargs, kwnames) < 0)

@@ -83,6 +83,44 @@ int gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsign
     }
     return non_converged;
 }
+int gauss_lobatto_nodes_only(const unsigned n, const double tol, const unsigned max_iter,
+                             double MFV2D_ARRAY_ARG(x, restrict n))
+{
+    if (n == 0)
+        return 0;
+    if (n == 1)
+    {
+        x[0] = 0.0;
+        return 0;
+    }
+    int non_converged = 0;
+    // n >= 2
+    x[0] = -1.0;
+    x[n - 1] = +1.0;
+    const double kx_1 = 1.0 - 3.0 * (n - 2) / (8.0 * (n - 1) * (n - 1) * (n - 1));
+    const double kx_2 = M_PI / (4.0 * (n - 1) + 1);
+    for (unsigned i = 2; i < n; ++i)
+    {
+        double new_x = kx_1 * cos(kx_2 * (4 * i - 3));
+        double error = 1.0;
+        double leg_poly[2];
+        for (unsigned iter = 0; iter < max_iter && error > tol; ++iter)
+        {
+            legendre_eval_bonnet_two(n - 1, new_x, leg_poly);
+            const double denominator = 1 - new_x * new_x;
+            const double dy = (n - 1) * (leg_poly[0] - new_x * leg_poly[1]) / denominator;
+            const double d2y = (2 * new_x * dy - (n - 1) * n * leg_poly[1]) / denominator;
+            const double d3y = (4 * new_x * d2y - ((n - 1) * n - 2) * dy) / denominator;
+            const double dx = 2 * dy * d2y / (2 * d2y * d2y - dy * d3y);
+            new_x -= dx;
+            error = fabs(dx);
+        }
+        // this is done like this to catch any NaNs
+        non_converged += 1 - (error <= tol);
+        x[n - i] = new_x;
+    }
+    return non_converged;
+}
 
 static int ensure_gll_cache_and_state(PyObject *self, PyTypeObject *defining_class, gll_cache_t **p_cache,
                                       const mfv2d_module_state_t **p_state)
@@ -172,11 +210,11 @@ PyObject *compute_gauss_lobatto_nodes(PyObject *mod, PyObject *const *args, cons
     gll_cache_t *cache = (gll_cache_t *)state->cache_gll;
 
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_INT, .p_val = &order},
-                {.type = ARG_TYPE_INT, .kwname = "max_iter", .p_val = &max_iter, .optional = 1},
-                {.type = ARG_TYPE_DOUBLE, .kwname = "tol", .p_val = &tol, .optional = 1},
-                {.type = ARG_TYPE_PYTHON, .kwname = "cache", .p_val = &cache, .optional = 1},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &order},
+                {.type = CPYARG_TYPE_SSIZE, .kwname = "max_iter", .p_val = &max_iter, .optional = 1},
+                {.type = CPYARG_TYPE_DOUBLE, .kwname = "tol", .p_val = &tol, .optional = 1},
+                {.type = CPYARG_TYPE_PYTHON, .kwname = "cache", .p_val = &cache, .optional = 1},
                 {},
             },
             args, nargs, kwnames) < 0)

@@ -33,8 +33,24 @@ void legendre_eval_bonnet_two(unsigned n, double x, double MFV2D_ARRAY_ARG(out, 
  *         Returns 0 if all nodes converge successfully.
  */
 MFV2D_INTERNAL
-int gauss_lobatto_nodes_weights(const unsigned n, const double tol, const unsigned max_iter,
-                                double MFV2D_ARRAY_ARG(x, restrict n), double MFV2D_ARRAY_ARG(w, restrict n));
+int gauss_lobatto_nodes_weights(unsigned n, double tol, unsigned max_iter, double MFV2D_ARRAY_ARG(x, restrict n),
+                                double MFV2D_ARRAY_ARG(w, restrict n));
+
+/**
+ * Computes only the nodes for Gauss-Lobatto quadrature using an iterative method.
+ *
+ * @param n The number of nodes to compute.
+ * @param tol The tolerance for convergence. Determines the acceptable level of numerical error.
+ * @param max_iter The maximum number of iterations allowed for the iterative convergence process.
+ * @param x An output array of size `n` where the computed Gauss-Lobatto nodes are stored.
+ *          The first and last elements of the array are predefined as -1 and +1, respectively.
+ * @param w An output array of size `n` where the computed Gauss-Lobatto weights are stored.
+ *          The first and last elements of the array are predefined and set to specific values.
+ * @return The number of nodes that failed to converge within the specified tolerance and maximum iterations.
+ *         Returns 0 if all nodes converge successfully.
+ */
+MFV2D_INTERNAL
+int gauss_lobatto_nodes_only(unsigned n, double tol, unsigned max_iter, double MFV2D_ARRAY_ARG(x, restrict n));
 
 MFV2D_INTERNAL
 PyObject *compute_gauss_lobatto_nodes(PyObject *mod, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames);

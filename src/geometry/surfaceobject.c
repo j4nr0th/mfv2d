@@ -246,9 +246,9 @@ static PyObject *surface_object_as_array(PyObject *self, PyTypeObject *defining_
     PyArray_Descr *dtype = NULL;
     int b_copy = 1;
     if (parse_arguments_check(
-            (argument_t[]){
-                {.type = ARG_TYPE_PYTHON, .optional = 1, .p_val = (void *)&dtype, .kwname = "dtype"},
-                {.type = ARG_TYPE_BOOL, .optional = 1, .kwname = "copy", .p_val = &b_copy},
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_PYTHON, .optional = 1, .p_val = (void *)&dtype, .kwname = "dtype"},
+                {.type = CPYARG_TYPE_BOOL, .optional = 1, .kwname = "copy", .p_val = &b_copy},
                 {},
             },
             args, nargs, kwnames) < 0)

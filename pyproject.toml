@@ -3,8 +3,13 @@ name = "mfv2d"
 version = "0.0.1a"
 authors = [{ name = "Jan Roth", email = "r0th.j4n@gmail.com" }]
 description = "Mimetic Finite Element Solver for 2D."
-requires-python = ">=3.10"
-dependencies = ["numpy>=2.0.0", "scipy", "pyvista"]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0.0",
+    "scipy",
+    "pyvista",
+    "hybsol",
+]
 
 
 [build-system]
@@ -105,3 +110,6 @@ fail-under = 100
 exclude = ["sandbox", "doc", "build", ".*/", "cmake-*/"]
 style = "sphinx"
 verbose = 1
+
+[tool.uv.sources]
+hybsol = { git = "https://github.com/j4nr0th/hybridized-solver.git" }

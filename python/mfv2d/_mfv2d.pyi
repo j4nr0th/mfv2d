@@ -1488,6 +1488,27 @@ class Mesh:
         """
         ...
 
+    def get_boundary_leaves(
+        self, element: SupportsIndex, side: SupportsIndex
+    ) -> npt.NDArray[np.uint32]:
+        """Return the leaf elements on the side of the element.
+
+        Parameters
+        ----------
+        element : int
+            Index of the element.
+
+        side : int
+            Index of the side. Must be one of the values ``ELEMENT_SIDE_BOTTOM``,
+            ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or ``ELEMENT_SIDE_LEFT``.
+
+        Returns
+        -------
+        array
+            Array with indices of leaf elements on the specified side of the element.
+        """
+        ...
+
 # Element side enum values
 
 ELEMENT_SIDE_BOTTOM: int

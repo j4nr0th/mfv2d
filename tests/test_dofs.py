@@ -269,8 +269,8 @@ def test_evaluation() -> None:
 
 
 @pytest.mark.parametrize(("max_order", "pdiv"), ((3, 0.7), (5, 0.9), (4, 0.8)))
-def test_mesh_merged_order(max_order: int, pdiv: float) -> None:
-    """Check that a mesh with subdivided elements correctly evaluates merged orders."""
+def test_mesh_merged_boundary(max_order: int, pdiv: float) -> None:
+    """Check that mesh methods correctly return information about merged boundaries."""
     rng = np.random.default_rng(35)
     mesh = mesh_create(
         rng.integers(1, max_order),
@@ -301,9 +301,14 @@ def test_mesh_merged_order(max_order: int, pdiv: float) -> None:
             )
             expected_nodes = np.concatenate([ec.coeffs for ec in element_constraints])
             computed_nodes = mesh.get_element_side_merged_nodes(ie, side)
+            boundary_elements = mesh.get_boundary_leaves(ie, side)
             assert len(computed_nodes) == mesh.get_element_side_merged_order(ie, side) + 1
             assert pytest.approx(computed_nodes) == expected_nodes
+            assert np.all(
+                tuple(mesh.get_leaf_index(ie) for ie in boundary_elements)
+                == tuple(ec.i_e for ec in element_constraints)
+            )
 
 
 if __name__ == "__main__":
-    test_mesh_merged_order(3, 0.7)
+    test_mesh_merged_boundary(3, 0.7)

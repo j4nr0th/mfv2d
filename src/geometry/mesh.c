@@ -1784,6 +1784,107 @@ PyDoc_STRVAR(mesh_get_element_side_merged_nodes_docstring,
              "array\n"
              "    Combined array of nodes on the boundary of the node or leaf element.\n");
 
+static unsigned mesh_count_boundary_leaves(const element_mesh_t *const this, const unsigned ie,
+                                           const element_side_t side)
+{
+    const element_t *const element = this->elements + ie;
+    switch (element->base.type)
+    {
+    case ELEMENT_TYPE_LEAF:
+        return 1;
+    case ELEMENT_TYPE_NODE: {
+        const element_node_t *const node = &element->node;
+        const unsigned c1 = node->children[side - 1];
+        const unsigned c2 = node->children[side & 3];
+        return mesh_count_boundary_leaves(this, c1, side) + mesh_count_boundary_leaves(this, c2, side);
+    }
+    }
+    ASSERT(0, "Invalid element type.");
+    return 0;
+}
+
+static unsigned mesh_boundary_leaves(const element_mesh_t *const this, const unsigned ie, const element_side_t side,
+                                     const unsigned ne, unsigned out[ne])
+{
+    const element_t *const element = this->elements + ie;
+    switch (element->base.type)
+    {
+    case ELEMENT_TYPE_LEAF: {
+        ASSERT(ne >= 1, "Buffer size too small.");
+        out[0] = ie;
+        return 1;
+    }
+    case ELEMENT_TYPE_NODE: {
+        const element_node_t *const node = &element->node;
+        const unsigned c1 = node->children[side - 1];
+        const unsigned c2 = node->children[side & 3];
+        const unsigned cnt_1 = mesh_boundary_leaves(this, c1, side, ne, out);
+        ASSERT(cnt_1 < ne, "Buffer was already consumed before the second child of element %u was processed", ie);
+        const unsigned cnt_2 = mesh_boundary_leaves(this, c2, side, ne - cnt_1, out + cnt_1);
+        ASSERT(cnt_1 + cnt_2 <= ne, "Buffer too small for both children.");
+        return cnt_1 + cnt_2;
+    }
+    }
+    ASSERT(0, "Invalid element type.");
+    return 0;
+}
+
+static PyObject *mesh_get_boundary_leaves(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                          const Py_ssize_t nargs, const PyObject *kwnames)
+{
+    const mfv2d_module_state_t *state;
+    mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, &this, &state) < 0)
+        return NULL;
+    Py_ssize_t element_idx;
+    element_side_t side;
+    if (parse_arguments_check(
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &element_idx, .kwname = "element"},
+                {.type = CPYARG_TYPE_CUSTOM,
+                 .p_val = &side,
+                 .kwname = "side",
+                 .custom_convert = convert_python_object_to_mesh_side},
+                {},
+            },
+            args, nargs, kwnames) < 0)
+        return NULL;
+
+    if (element_idx < 0 || element_idx >= this->element_mesh.count)
+    {
+        PyErr_Format(PyExc_ValueError, "Element index %zd is out of bounds for a mesh with %zu elements.", element_idx,
+                     this->element_mesh.count);
+        return NULL;
+    }
+
+    const npy_intp count = (npy_intp)mesh_count_boundary_leaves(&this->element_mesh, (unsigned)element_idx, side);
+    PyArrayObject *const arr = (PyArrayObject *)PyArray_SimpleNew(1, &count, NPY_UINT32);
+    if (!arr)
+        return NULL;
+    static_assert(sizeof(npy_uint32) == sizeof(unsigned), "The size of these must match");
+    mesh_boundary_leaves(&this->element_mesh, (unsigned)element_idx, side, count, (unsigned *)PyArray_DATA(arr));
+    return (PyObject *)arr;
+}
+
+PyDoc_STRVAR(mesh_get_boundary_leaves_docstring,
+             "get_boundary_leaves(element: typing.SupportsIndex, side: "
+             "typing.SupportsIndex) -> numpy.typing.NDArray[numpy.uint32]\n"
+             "Return the leaf elements on the side of the element.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "element : int\n"
+             "    Index of the element.\n"
+             "\n"
+             "side : int\n"
+             "    Index of the side. Must be one of the values ``ELEMENT_SIDE_BOTTOM``,\n"
+             "    ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or ``ELEMENT_SIDE_LEFT``.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "array\n"
+             "    Array with indices of leaf elements on the specified side of the element.\n");
+
 static PyMethodDef mesh_methods[] = {
     {
         .ml_name = "get_element_parent",
@@ -1886,6 +1987,12 @@ static PyMethodDef mesh_methods[] = {
         .ml_meth = (void *)mesh_get_element_side_merged_nodes,
         .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_get_element_side_merged_nodes_docstring,
+    },
+    {
+        .ml_name = "get_boundary_leaves",
+        .ml_meth = (void *)mesh_get_boundary_leaves,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = mesh_get_boundary_leaves_docstring,
     },
     {},
 };

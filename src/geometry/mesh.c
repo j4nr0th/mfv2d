@@ -1811,7 +1811,8 @@ static unsigned mesh_boundary_leaves(const element_mesh_t *const this, const uns
     {
     case ELEMENT_TYPE_LEAF: {
         ASSERT(ne >= 1, "Buffer size too small.");
-        out[0] = ie;
+        const element_leaf_t *const leaf = &element->leaf;
+        out[0] = leaf->leaf_index;
         return 1;
     }
     case ELEMENT_TYPE_NODE: {
@@ -1856,6 +1857,7 @@ static PyObject *mesh_get_boundary_leaves(PyObject *self, PyTypeObject *defining
                      this->element_mesh.count);
         return NULL;
     }
+    element_mesh_ensure_leaves_indexed(&this->element_mesh);
 
     const npy_intp count = (npy_intp)mesh_count_boundary_leaves(&this->element_mesh, (unsigned)element_idx, side);
     PyArrayObject *const arr = (PyArrayObject *)PyArray_SimpleNew(1, &count, NPY_UINT32);

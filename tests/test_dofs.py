@@ -305,8 +305,7 @@ def test_mesh_merged_boundary(max_order: int, pdiv: float) -> None:
             assert len(computed_nodes) == mesh.get_element_side_merged_order(ie, side) + 1
             assert pytest.approx(computed_nodes) == expected_nodes
             assert np.all(
-                tuple(mesh.get_leaf_index(ie) for ie in boundary_elements)
-                == tuple(ec.i_e for ec in element_constraints)
+                boundary_elements == tuple(ec.i_e for ec in element_constraints)
             )
 
 

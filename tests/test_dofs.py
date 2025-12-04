@@ -5,8 +5,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 import pytest
-from mfv2d._mfv2d import compute_gll
-from mfv2d.continuity import _get_side_dofs
+from mfv2d._mfv2d import Mesh, compute_gll
+from mfv2d.continuity import _get_side_dof_nodes, _get_side_dofs
 from mfv2d.kform import UnknownFormOrder
 from mfv2d.mimetic2d import ElementSide, get_side_order, mesh_create
 
@@ -266,3 +266,44 @@ def test_evaluation() -> None:
                 )
             # print(f"Error for order {order=} is {np.abs(res - val_real[ic]):.3e}")
             assert np.isclose(res, val_real[ic])
+
+
+@pytest.mark.parametrize(("max_order", "pdiv"), ((3, 0.7), (5, 0.9), (4, 0.8)))
+def test_mesh_merged_order(max_order: int, pdiv: float) -> None:
+    """Check that a mesh with subdivided elements correctly evaluates merged orders."""
+    rng = np.random.default_rng(35)
+    mesh = mesh_create(
+        rng.integers(1, max_order),
+        ((-1, -1), (+1, -1), (+1, +1), (-1, +1)),
+        ((1, 2), (2, 3), (3, 4), (4, 1)),
+        ((1, 2, 3, 4),),
+    )
+
+    def division_function(_m: Mesh, ie: int):
+        """Division function."""
+        if ie > 0 and pdiv > rng.random():
+            return None
+
+        o1 = int(rng.integers(1, max_order))
+        o2 = int(rng.integers(1, max_order))
+        o3 = int(rng.integers(1, max_order))
+        o4 = int(rng.integers(1, max_order))
+        return ((o1, o1), (o2, o2), (o3, o3), (o4, o4))
+
+    mesh = mesh.split_depth_first(5, division_function)
+    print("Divided mesh had", mesh.leaf_count, "leaves.")
+
+    for ie in range(mesh.element_count):
+        for side in ElementSide:
+            # For checking the nodes only, the form order is irrelevant.
+            element_constraints = _get_side_dof_nodes(
+                mesh, ie, side, UnknownFormOrder.FORM_ORDER_0
+            )
+            expected_nodes = np.concatenate([ec.coeffs for ec in element_constraints])
+            computed_nodes = mesh.get_element_side_merged_nodes(ie, side)
+            assert len(computed_nodes) == mesh.get_element_side_merged_order(ie, side) + 1
+            assert pytest.approx(computed_nodes) == expected_nodes
+
+
+if __name__ == "__main__":
+    test_mesh_merged_order(3, 0.7)

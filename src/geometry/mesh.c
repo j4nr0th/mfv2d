@@ -1,5 +1,5 @@
 #include "mesh.h"
-
+#include "../polynomials/gauss_lobatto.h"
 enum
 {
     PARENT_IDX_INVALID = ~0
@@ -793,7 +793,7 @@ static PyObject *mesh_set_leaf_orders(PyObject *self, PyTypeObject *defining_cla
 }
 
 static mfv2d_result_t refine_element_depth_first(element_mesh_t *mesh, const unsigned index, const unsigned depth,
-                                                 unsigned max_depth, PyObject *predicate, PyObject **args,
+                                                 const unsigned max_depth, PyObject *predicate, PyObject **args,
                                                  const Py_ssize_t nargs, PyObject *kwnames)
 {
     if (depth >= max_depth)
@@ -1469,6 +1469,321 @@ PyDoc_STRVAR(mesh_find_leaf_by_index_docstr, "find_leaf_by_index(idx: SupportsIn
                                              "int\n"
                                              "    Index of the leaf element relative to all element\n");
 
+static PyObject *mesh_surface_boundary_id_by_node(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                                  const Py_ssize_t nargs, const PyObject *kwnames)
+{
+    const mfv2d_module_state_t *state;
+    mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, &this, &state) < 0)
+        return NULL;
+
+    Py_ssize_t surface_id, node_id;
+    if (parse_arguments_check(
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &surface_id, .kwname = "surface"},
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &node_id, .kwname = "node"},
+                {},
+            },
+            args, nargs, kwnames) < 0)
+        return NULL;
+
+    const int reverse = surface_id < 0;
+    if (reverse)
+    {
+        surface_id = -surface_id;
+    }
+
+    if ((size_t)surface_id >= this->primal->n_surfaces)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Surface ID %zd is out of bounds for a mesh with a primal mesh that contains %zu surfaces.",
+                     surface_id, this->primal->n_surfaces);
+        return NULL;
+    }
+    if (node_id < 0 || (size_t)node_id >= this->primal->n_points)
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "Node ID %zd is out of bounds for a mesh with a primal mesh that contains %zu nodes.", node_id,
+                     this->primal->n_points);
+        return NULL;
+    }
+
+    const size_t offset_surf = this->primal->surf_counts[surface_id];
+    const geo_id_t *const lines = this->primal->surf_lines + offset_surf;
+    enum
+    {
+        ELEMENT_SIDE_COUNT = 4
+    };
+    const element_side_t sides[ELEMENT_SIDE_COUNT] = {
+        [0] = ELEMENT_SIDE_BOTTOM,
+        [1] = ELEMENT_SIDE_RIGHT,
+        [2] = ELEMENT_SIDE_TOP,
+        [3] = ELEMENT_SIDE_LEFT,
+    };
+
+    unsigned i_side;
+    for (i_side = 0; i_side < ELEMENT_SIDE_COUNT; ++i_side)
+    {
+        const geo_id_t line_id = lines[i_side];
+        const line_t line = this->primal->lines[line_id.index];
+        // Two reverses cancel out
+        const index_t side_begin = (reverse ^ line_id.reverse) ? line.end.index : line.begin.index;
+        if (side_begin == node_id)
+            break;
+    }
+
+    if (i_side == ELEMENT_SIDE_COUNT)
+    {
+        PyErr_Format(PyExc_ValueError, "Node %zu is not on any boundary of surface %zu.", node_id, surface_id);
+        return NULL;
+    }
+
+    return PyLong_FromLong(sides[i_side]);
+}
+
+PyDoc_STRVAR(mesh_surface_boundary_id_by_node_docstring,
+             "surface_boundary_id_by_node(surface: SupportsIndex, node: SupportsIndex) -> int\n"
+             "Return the side of the ``surface`` that starts with ``node``.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "surface : typing.SupportsIndex\n"
+             "    Index of the surface.\n"
+             "\n"
+             "node : typing.SupportsIndex\n"
+             "    Index of the node.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "int\n"
+             "    Value returned will be one of ``ELEMENT_SIDE_BOTTOM``,\n"
+             "    ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or\n"
+             "    ``ELEMENT_SIDE_LEFT``. These indicate what side the\n"
+             "    node is on.\n");
+
+static int convert_python_object_to_mesh_side(PyObject *obj, void *p_val, const char *name)
+{
+    (void)name;
+    if (!PyNumber_Check(obj))
+    {
+        PyErr_SetString(PyExc_TypeError, "Expected an integer.");
+        return -1;
+    }
+    const Py_ssize_t side = PyNumber_AsSsize_t(obj, PyExc_OverflowError);
+    if (PyErr_Occurred())
+        return -1;
+
+    element_side_t *const side_ptr = (element_side_t *)p_val;
+    switch (side)
+    {
+    case ELEMENT_SIDE_BOTTOM:
+    case ELEMENT_SIDE_RIGHT:
+    case ELEMENT_SIDE_TOP:
+    case ELEMENT_SIDE_LEFT:
+        *side_ptr = (element_side_t)side;
+        return 0;
+    default:
+        PyErr_Format(PyExc_ValueError, "Invalid side value %zd.", side);
+        return -1;
+    }
+}
+
+static unsigned mesh_get_element_side(const mesh_t *const this, const unsigned ie, const element_side_t side)
+{
+    const element_t *const element = this->element_mesh.elements + ie;
+    switch (element->base.type)
+    {
+    case ELEMENT_TYPE_LEAF: {
+        const element_leaf_t *const leaf = &element->leaf;
+        switch (side)
+        {
+        case ELEMENT_SIDE_BOTTOM:
+        case ELEMENT_SIDE_TOP:
+            return leaf->data.orders.i;
+        case ELEMENT_SIDE_LEFT:
+        case ELEMENT_SIDE_RIGHT:
+            return leaf->data.orders.j;
+        default:
+            ASSERT(0, "Invalid side specified: %u", side);
+            return 0;
+        }
+    }
+    case ELEMENT_TYPE_NODE: {
+        const element_node_t *const node = &element->node;
+        const unsigned c1 = node->children[side - 1];
+        const unsigned c2 = node->children[side & 3];
+        return mesh_get_element_side(this, c1, side) + mesh_get_element_side(this, c2, side);
+    }
+    }
+}
+
+static PyObject *mesh_get_element_side_merged_order(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                                    const Py_ssize_t nargs, const PyObject *kwnames)
+{
+    const mfv2d_module_state_t *state;
+    mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, &this, &state) < 0)
+        return NULL;
+    Py_ssize_t idx;
+    element_side_t side;
+    if (parse_arguments_check(
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &idx, .kwname = "element"},
+                {.type = CPYARG_TYPE_CUSTOM,
+                 .p_val = &side,
+                 .kwname = "side",
+                 .custom_convert = convert_python_object_to_mesh_side},
+                {},
+            },
+            args, nargs, kwnames) < 0)
+        return NULL;
+
+    if (idx < 0 || idx >= this->element_mesh.count)
+    {
+        PyErr_Format(PyExc_ValueError, "Element index %zd is out of bounds for a mesh with %zu elements.", idx,
+                     this->element_mesh.count);
+        return NULL;
+    }
+
+    return PyLong_FromLong(mesh_get_element_side(this, (unsigned)idx, side));
+}
+
+PyDoc_STRVAR(mesh_get_element_side_merged_order_docstring,
+             "get_element_side_merged_order(element: typing.SupportsIndex, side: typing.SupportsIndex) -> int\n"
+             "Return the combined order of the element's boundary.\n"
+             "\n"
+             "For non-leaf elements, this will return the combined order of all the leaves\n"
+             "on the specified boundary.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "element : int\n"
+             "    Index of the element.\n"
+             "\n"
+             "side : int\n"
+             "    Index of the side. Must be one of the values ``ELEMENT_SIDE_BOTTOM``,\n"
+             "    ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or ``ELEMENT_SIDE_LEFT``.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "int\n"
+             "    Combined order of the side.\n");
+
+static unsigned mesh_get_element_nodes(const element_mesh_t *const this, const unsigned ie, const element_side_t side,
+                                       const unsigned n_pts, double out[const n_pts])
+{
+    const element_t *const element = this->elements + ie;
+    switch (element->base.type)
+    {
+    case ELEMENT_TYPE_LEAF: {
+        unsigned side_count = 0;
+        switch (side)
+        {
+        case ELEMENT_SIDE_BOTTOM:
+        case ELEMENT_SIDE_TOP:
+            side_count = element->leaf.data.orders.i + 1;
+            break;
+        case ELEMENT_SIDE_LEFT:
+        case ELEMENT_SIDE_RIGHT:
+            side_count = element->leaf.data.orders.j + 1;
+            break;
+        }
+        ASSERT(side_count <= n_pts, "Side count exceeded buffer size, with count %u and size %u", side_count, n_pts);
+        const int non_converged = gauss_lobatto_nodes_only(side_count, 1e-12, 10, out);
+        ASSERT(non_converged == 0, "Failed to compute %u Gauss-Lobatto nodes.", non_converged);
+        return side_count;
+    }
+    case ELEMENT_TYPE_NODE: {
+        const element_node_t *const node = &element->node;
+        const unsigned c1 = node->children[side - 1];
+        const unsigned c2 = node->children[side & 3];
+        unsigned cnt_1 = mesh_get_element_nodes(this, c1, side, n_pts, out);
+        if (cnt_1 == 0)
+            return 0;
+        cnt_1 -= 1;
+        // Transform the nodes at the beginning
+        for (unsigned i = 0; i < cnt_1; ++i)
+        {
+            out[i] = (out[i] - 1) / 2;
+        }
+        const unsigned cnt_2 = mesh_get_element_nodes(this, c2, side, n_pts - cnt_1, out + cnt_1);
+        // Transform the nodes at the end
+        for (unsigned i = cnt_1; i < cnt_1 + cnt_2; ++i)
+        {
+            out[i] = (out[i] + 1) / 2;
+        }
+        return cnt_1 + cnt_2;
+    }
+    }
+    ASSERT(0, "Invalid element type.");
+    return 0;
+}
+
+static PyObject *mesh_get_element_side_merged_nodes(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                                    const Py_ssize_t nargs, const PyObject *kwnames)
+{
+    const mfv2d_module_state_t *state;
+    mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, &this, &state) < 0)
+        return NULL;
+    Py_ssize_t idx;
+    element_side_t side;
+    if (parse_arguments_check(
+            (cpyutl_argument_t[]){
+                {.type = CPYARG_TYPE_SSIZE, .p_val = &idx, .kwname = "element"},
+                {.type = CPYARG_TYPE_CUSTOM,
+                 .p_val = &side,
+                 .kwname = "side",
+                 .custom_convert = convert_python_object_to_mesh_side},
+                {},
+            },
+            args, nargs, kwnames) < 0)
+        return NULL;
+
+    if (idx < 0 || idx >= this->element_mesh.count)
+    {
+        PyErr_Format(PyExc_ValueError, "Element index %zd is out of bounds for a mesh with %zu elements.", idx,
+                     this->element_mesh.count);
+        return NULL;
+    }
+
+    const npy_intp merged_count = (npy_intp)mesh_get_element_side(this, (unsigned)idx, side) + 1;
+    PyArrayObject *const arr = (PyArrayObject *)PyArray_SimpleNew(1, &merged_count, NPY_FLOAT64);
+    static_assert(sizeof(npy_float64) == sizeof(double), "The size of these must match");
+
+    const unsigned count =
+        mesh_get_element_nodes(&this->element_mesh, (unsigned)idx, side, merged_count, (double *)PyArray_DATA(arr));
+    if (count == 0)
+    {
+        PyErr_Format(PyExc_RuntimeError, "Failed to compute nodes for element %u.", idx);
+        Py_DECREF(arr);
+        return NULL;
+    }
+
+    return (PyObject *)arr;
+}
+
+PyDoc_STRVAR(mesh_get_element_side_merged_nodes_docstring,
+             "get_element_side_merged_nodes(element: typing.SupportsIndex, side: typing.SupportsIndex) -> "
+             "numpy.typing.NDArray[numpy.float64]\n"
+             "Return the nodes on the side of the element.\n"
+             "\n"
+             "For a node element, these are all the unique nodes of the child elements on the side.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "element : int\n"
+             "    Index of the element.\n"
+             "\n"
+             "side : int\n"
+             "    Index of the side. Must be one of the values ``ELEMENT_SIDE_BOTTOM``,\n"
+             "    ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or ``ELEMENT_SIDE_LEFT``.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "array\n"
+             "    Combined array of nodes on the boundary of the node or leaf element.\n");
+
 static PyMethodDef mesh_methods[] = {
     {
         .ml_name = "get_element_parent",
@@ -1553,6 +1868,24 @@ static PyMethodDef mesh_methods[] = {
         .ml_meth = (void *)mesh_find_leaf_by_index,
         .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_find_leaf_by_index_docstr,
+    },
+    {
+        .ml_name = "surface_boundary_id_by_node",
+        .ml_meth = (void *)mesh_surface_boundary_id_by_node,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = mesh_surface_boundary_id_by_node_docstring,
+    },
+    {
+        .ml_name = "get_element_side_merged_order",
+        .ml_meth = (void *)mesh_get_element_side_merged_order,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = mesh_get_element_side_merged_order_docstring,
+    },
+    {
+        .ml_name = "get_element_side_merged_nodes",
+        .ml_meth = (void *)mesh_get_element_side_merged_nodes,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = mesh_get_element_side_merged_nodes_docstring,
     },
     {},
 };

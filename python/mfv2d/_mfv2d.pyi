@@ -1295,6 +1295,7 @@ class Mesh:
             None
             | tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]],
         ],
+        /,
         *args: _ParameterType.args,
         **kwargs: _ParameterType.kwargs,
     ) -> Mesh:
@@ -1333,6 +1334,7 @@ class Mesh:
             None
             | tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]],
         ],
+        /,
         *args: _ParameterType.args,
         **kwargs: _ParameterType.kwargs,
     ) -> Mesh:
@@ -1397,7 +1399,7 @@ class Mesh:
         """
         ...
 
-    def find_leaf_by_index(self, idx: SupportsIndex, /) -> int:  # TODO: TEST!!!
+    def find_leaf_by_index(self, idx: SupportsIndex, /) -> int:
         """Find the leaf with the specified index relative to all leaves.
 
         Assuming that ``i`` is a valid leaf element index, then
@@ -1412,6 +1414,77 @@ class Mesh:
         -------
         int
             Index of the leaf element relative to all element
+        """
+        ...
+
+    def surface_boundary_id_by_node(
+        self, surface: SupportsIndex, node: SupportsIndex
+    ) -> int:
+        """Return the side of the ``surface`` that starts with ``node``.
+
+        Parameters
+        ----------
+        surface : typing.SupportsIndex
+            Index of the surface.
+
+        node : typing.SupportsIndex
+            Index of the node.
+
+        Returns
+        -------
+        int
+            Value returned will be one of ``ELEMENT_SIDE_BOTTOM``,
+            ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or
+            ``ELEMENT_SIDE_LEFT``. These indicate what side the
+            node is on.
+        """
+        ...
+
+    def get_element_side_merged_order(
+        self, element: SupportsIndex, side: SupportsIndex
+    ) -> int:
+        """Return the combined order of the element's boundary.
+
+        For non-leaf elements, this will return the combined order of all the leaves
+        on the specified boundary.
+
+        Parameters
+        ----------
+        element : int
+            Index of the element.
+
+        side : int
+            Index of the side. Must be one of the values ``ELEMENT_SIDE_BOTTOM``,
+            ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or ``ELEMENT_SIDE_LEFT``.
+
+        Returns
+        -------
+        int
+            Combined order of the side.
+        """
+        ...
+
+    def get_element_side_merged_nodes(
+        self, element: SupportsIndex, side: SupportsIndex
+    ) -> npt.NDArray[np.float64]:
+        """Return the nodes on the side of the element.
+
+        For a node element, these are all the unique nodes of the child elements on the
+        side.
+
+        Parameters
+        ----------
+        element : int
+            Index of the element.
+
+        side : int
+            Index of the side. Must be one of the values ``ELEMENT_SIDE_BOTTOM``,
+            ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or ``ELEMENT_SIDE_LEFT``.
+
+        Returns
+        -------
+        array
+            Combined array of nodes on the boundary of the node or leaf element.
         """
         ...
 

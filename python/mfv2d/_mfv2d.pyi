@@ -1509,6 +1509,29 @@ class Mesh:
         """
         ...
 
+    def get_corner_leaf_dof(self, element: SupportsIndex, side: int) -> tuple[int, int]:
+        """Return the (leaf element, dof index) pair for the corner of the element.
+
+        Parameters
+        ----------
+        element : int
+            Index of the element.
+
+        side : int
+            Index of the side. Must be one of the values ``ELEMENT_SIDE_BOTTOM``,
+            ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or ``ELEMENT_SIDE_LEFT``.
+
+        Returns
+        -------
+        int
+            Leaf index of the element to which the degree of freedom belongs to.
+
+        int
+            Index of the 0-form degree of freedom on the corner of the leaf element, which
+            corresponds to the start of the boundary specified by ``side``.
+        """
+        ...
+
 # Element side enum values
 
 ELEMENT_SIDE_BOTTOM: int

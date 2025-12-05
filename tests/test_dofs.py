@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 from mfv2d._mfv2d import Mesh, compute_gll
-from mfv2d.continuity import _get_side_dof_nodes, _get_side_dofs
+from mfv2d.continuity import _get_corner_dof, _get_side_dof_nodes, _get_side_dofs
 from mfv2d.kform import UnknownFormOrder
 from mfv2d.mimetic2d import ElementSide, get_side_order, mesh_create
 
@@ -307,6 +307,10 @@ def test_mesh_merged_boundary(max_order: int, pdiv: float) -> None:
             assert np.all(
                 boundary_elements == tuple(ec.i_e for ec in element_constraints)
             )
+
+            expected_corner_dof = _get_corner_dof(mesh, ie, side)
+            computed_corner_dof = mesh.get_corner_leaf_dof(ie, side)
+            assert expected_corner_dof == computed_corner_dof
 
 
 if __name__ == "__main__":

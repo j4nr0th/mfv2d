@@ -1887,6 +1887,101 @@ PyDoc_STRVAR(mesh_get_boundary_leaves_docstring,
              "array\n"
              "    Array with indices of leaf elements on the specified side of the element.\n");
 
+static index_2d_t corner_leaf_dof(const element_mesh_t *const this, unsigned ie, const element_side_t side)
+{
+top_of_the_function:;
+    const element_t *const element = this->elements + ie;
+    switch (element->base.type)
+    {
+    case ELEMENT_TYPE_LEAF: {
+        const element_leaf_t *const leaf = &element->leaf;
+        index_t idx;
+        switch (side)
+        {
+        case ELEMENT_SIDE_BOTTOM:
+            idx = 0;
+            break;
+        case ELEMENT_SIDE_RIGHT:
+            idx = leaf->data.orders.i;
+            break;
+        case ELEMENT_SIDE_TOP:
+            idx = (leaf->data.orders.i + 1) * (leaf->data.orders.j + 1) - 1;
+            break;
+        case ELEMENT_SIDE_LEFT:
+            idx = (leaf->data.orders.i + 1) * leaf->data.orders.j;
+            break;
+        default:
+            ASSERT(0, "Invalid side specified: %u", side);
+            return (index_2d_t){.i = -1, .j = -1};
+        }
+        return (index_2d_t){.i = idx, .j = ie};
+    }
+
+    case ELEMENT_TYPE_NODE: {
+        const element_node_t *const node = &element->node;
+        ie = node->children[side - 1];
+        goto top_of_the_function;
+    }
+    }
+    ASSERT(0, "Invalid element type.");
+    return (index_2d_t){.i = -1, .j = -1};
+}
+
+PyObject *mesh_get_corner_leaf_dof(PyObject *self, PyTypeObject *defining_class, PyObject *const *args,
+                                   const Py_ssize_t nargs, const PyObject *kwnames)
+{
+    const mfv2d_module_state_t *state;
+    mesh_t *this;
+    if (mesh_ensure_with_state(self, defining_class, &this, &state) < 0)
+        return NULL;
+    Py_ssize_t idx;
+    element_side_t side;
+    if (parse_arguments_check((cpyutl_argument_t[]){{.type = CPYARG_TYPE_SSIZE, .p_val = &idx, .kwname = "element"},
+                                                    {.type = CPYARG_TYPE_CUSTOM,
+                                                     .p_val = &side,
+                                                     .kwname = "side",
+                                                     .custom_convert = convert_python_object_to_mesh_side},
+                                                    {}},
+                              args, nargs, kwnames) < 0)
+        return NULL;
+
+    if (idx < 0 || idx >= this->element_mesh.count)
+    {
+        PyErr_Format(PyExc_ValueError, "Element index %zd is out of bounds for a mesh with %zu elements.", idx,
+                     this->element_mesh.count);
+        return NULL;
+    }
+
+    const index_2d_t idx_2d = corner_leaf_dof(&this->element_mesh, (unsigned)idx, side);
+    return cpyutl_output_create_check(CPYOUT_TYPE_TUPLE, (const cpyutl_output_t[]){
+                                                             {.type = CPYOUT_TYPE_PYINT, .value_int = idx_2d.j},
+                                                             {.type = CPYOUT_TYPE_PYINT, .value_int = idx_2d.i},
+                                                             {},
+                                                         });
+}
+
+PyDoc_STRVAR(mesh_get_corner_leaf_dof_docstring,
+             "get_corner_leaf_dof(element: typing.SupportsIndex, side: int) -> tuple[int, int]\n"
+             "Return the (leaf element, dof index) pair for the corner of the element.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "element : int\n"
+             "    Index of the element.\n"
+             "\n"
+             "side : int\n"
+             "    Index of the side. Must be one of the values ``ELEMENT_SIDE_BOTTOM``,\n"
+             "    ``ELEMENT_SIDE_RIGHT``, ``ELEMENT_SIDE_TOP``, or ``ELEMENT_SIDE_LEFT``.\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "int\n"
+             "    Leaf index of the element to which the degree of freedom belongs to.\n"
+             "\n"
+             "int\n"
+             "    Index of the 0-form degree of freedom on the corner of the leaf element, which\n"
+             "    corresponds to the start of the boundary specified by ``side``.\n");
+
 static PyMethodDef mesh_methods[] = {
     {
         .ml_name = "get_element_parent",
@@ -1995,6 +2090,12 @@ static PyMethodDef mesh_methods[] = {
         .ml_meth = (void *)mesh_get_boundary_leaves,
         .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
         .ml_doc = mesh_get_boundary_leaves_docstring,
+    },
+    {
+        .ml_name = "get_corner_leaf_dof",
+        .ml_meth = (void *)mesh_get_corner_leaf_dof,
+        .ml_flags = METH_FASTCALL | METH_KEYWORDS | METH_METHOD,
+        .ml_doc = mesh_get_corner_leaf_dof_docstring,
     },
     {},
 };
